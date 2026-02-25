@@ -54,6 +54,7 @@ import {
   Video,
   Clapperboard,
   Camera,
+  MoreHorizontal,
 } from 'lucide-react';
 
 // Import from content-types.ts
@@ -570,7 +571,23 @@ export default function ContentStudioPage() {
     return true;
   });
 
+  // Progressive disclosure collapse toggles (Phase 2)
+  const [showStrategyCard, setShowStrategyCard] = useState(false);
+  const [showBRoll, setShowBRoll] = useState(false);
+  const [showAiScore, setShowAiScore] = useState(false);
+  const [showPainpointCoverage, setShowPainpointCoverage] = useState(false);
+  const [showRepurpose, setShowRepurpose] = useState(false);
+
+  // Overflow / export dropdown toggles (Phase 3)
+  const [actionMenuOpen, setActionMenuOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
+
+  // Mobile detection via matchMedia (Phase 6)
+  const [isMobileState, setIsMobileState] = useState(false);
+
   const containerRef = useRef<HTMLDivElement>(null);
+  const actionMenuRef = useRef<HTMLDivElement>(null);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
 
   // --- Computed Values ---
 
@@ -618,11 +635,27 @@ export default function ContentStudioPage() {
 
   // --- Effects ---
 
+  // Mobile detection via matchMedia (Phase 6)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const mql = window.matchMedia('(max-width: 1023px)');
+    setIsMobileState(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobileState(e.matches);
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
   // Close persona dropdown on outside click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (personaDropdownRef.current && !personaDropdownRef.current.contains(e.target as Node)) {
         setPersonaDropdownOpen(false);
+      }
+      if (actionMenuRef.current && !actionMenuRef.current.contains(e.target as Node)) {
+        setActionMenuOpen(false);
+      }
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -1255,6 +1288,12 @@ export default function ContentStudioPage() {
       } else {
         setResult(response.data);
         setApprovedToPipeline(false);
+        // Auto-scroll to results on mobile
+        if (isMobileState) {
+          setTimeout(() => {
+            resultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }, 100);
+        }
       }
     } catch {
       setError({
@@ -1638,7 +1677,7 @@ export default function ContentStudioPage() {
   };
 
   // Share variation handler
-  const isMobile = typeof navigator !== 'undefined' && /Mobi|Android/i.test(navigator.userAgent);
+  const isMobile = isMobileState;
 
   const handleShareVariation = async (variationIndex: number) => {
     if (!result) return;
@@ -1709,7 +1748,7 @@ export default function ContentStudioPage() {
   // --- Styles ---
 
   const sectionStyle: React.CSSProperties = {
-    marginBottom: '28px',
+    marginBottom: '36px',
   };
 
   const sectionTitleStyle: React.CSSProperties = {
@@ -1854,20 +1893,24 @@ export default function ContentStudioPage() {
           </div>
           {/* Action buttons - wrap on mobile */}
           <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => setTalkThroughItOpen(true)}
-              className="flex-shrink-0 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl text-white text-sm flex items-center gap-2 hover:from-violet-500 hover:to-indigo-500 transition-colors whitespace-nowrap font-medium"
-            >
-              <Mic size={16} />
-              Talk Through It
-            </button>
-            <Link
-              href="/admin/script-of-the-day"
-              className="flex-shrink-0 px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl text-white text-sm flex items-center gap-2 hover:from-amber-500 hover:to-orange-500 transition-colors whitespace-nowrap font-medium"
-            >
-              <Sparkles size={16} />
-              What should I film today?
-            </Link>
+            {!simpleMode && (
+              <button
+                onClick={() => setTalkThroughItOpen(true)}
+                className="flex-shrink-0 px-4 py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 rounded-xl text-white text-sm flex items-center gap-2 hover:from-violet-500 hover:to-indigo-500 transition-colors whitespace-nowrap font-medium"
+              >
+                <Mic size={16} />
+                Talk Through It
+              </button>
+            )}
+            {!simpleMode && (
+              <Link
+                href="/admin/script-of-the-day"
+                className="flex-shrink-0 px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl text-white text-sm flex items-center gap-2 hover:from-amber-500 hover:to-orange-500 transition-colors whitespace-nowrap font-medium"
+              >
+                <Sparkles size={16} />
+                What should I film today?
+              </Link>
+            )}
             <Link
               href="/admin/script-library"
               className="flex-shrink-0 px-4 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-white text-sm flex items-center gap-2 hover:bg-zinc-700 transition-colors whitespace-nowrap"
@@ -1879,8 +1922,8 @@ export default function ContentStudioPage() {
         </div>
       </div>
 
-      {/* First-visit Welcome Banner — shown when user has no products */}
-      {!loadingData && products.length === 0 && !firstVisitDismissed && (
+      {/* First-visit Welcome Banner — shown when user has no products (hidden in simple mode) */}
+      {!simpleMode && !loadingData && products.length === 0 && !firstVisitDismissed && (
         <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-teal-500/10 via-blue-500/10 to-violet-500/10 border border-teal-500/20 relative">
           <button
             type="button"
@@ -1909,8 +1952,8 @@ export default function ContentStudioPage() {
         </div>
       )}
 
-      {/* Clawbot Recommendation Banner */}
-      {recommendation && (
+      {/* Clawbot Recommendation Banner (hidden in simple mode) */}
+      {!simpleMode && recommendation && (
         <div className="mb-6 p-4 rounded-xl" style={{
           background: 'linear-gradient(to right, rgba(168, 85, 247, 0.1), rgba(59, 130, 246, 0.1))',
           border: '1px solid rgba(168, 85, 247, 0.3)',
@@ -2038,9 +2081,9 @@ export default function ContentStudioPage() {
       </div>}
 
       {/* Main Grid - stacks on mobile */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8">
         {/* Left Column: Configuration */}
-        <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-4 lg:p-6">
+        <div className={`${isMobile ? '' : 'bg-zinc-900/50 border border-white/10 rounded-2xl'} p-3 lg:p-6`}>
           {/* AI Generate / Write Manually Toggle */}
           <div className="flex items-center gap-2 mb-4 pb-4 border-b border-zinc-800">
             <div className="flex rounded-lg overflow-hidden border border-white/10">
@@ -2069,31 +2112,50 @@ export default function ContentStudioPage() {
                 Write Manually
               </button>
             </div>
-            {/* Simple/Advanced toggle — only visible in AI mode */}
-            {!manualWriteMode && (
-              <div className="flex items-center gap-2 ml-auto">
-                <span className="text-sm text-zinc-400">
-                  {simpleMode ? 'Simple' : 'Advanced'}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const next = !simpleMode;
-                    setSimpleMode(next);
-                    localStorage.setItem('ff-simple-mode', String(next));
-                  }}
-                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                    simpleMode ? 'bg-teal-600' : 'bg-zinc-600'
-                  }`}
-                  title={simpleMode ? 'Switch to Advanced Mode for more options' : 'Switch to Simple Mode — just pick a product and generate'}
-                >
-                  <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                    simpleMode ? 'translate-x-6' : 'translate-x-1'
-                  }`} />
-                </button>
-              </div>
-            )}
           </div>
+          {/* Simple/Advanced toggle — own row below mode bar, only in AI mode */}
+          {!manualWriteMode && (
+            <div className="mb-4" style={{
+              padding: '10px 14px',
+              borderRadius: '10px',
+              border: `1px solid ${simpleMode ? 'rgba(20, 184, 166, 0.25)' : 'rgba(99, 102, 241, 0.25)'}`,
+              backgroundColor: simpleMode ? 'rgba(20, 184, 166, 0.05)' : 'rgba(99, 102, 241, 0.05)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px',
+              transition: 'all 0.2s ease',
+            }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: '13px', fontWeight: 600, color: simpleMode ? '#2dd4bf' : '#a5b4fc' }}>
+                  {simpleMode ? 'Simple Mode' : 'Advanced Mode'}
+                </div>
+                <div style={{ fontSize: '12px', color: '#71717a', marginTop: '1px' }}>
+                  {simpleMode ? (
+                    <>Pick a product, choose a style, and generate. <button type="button" onClick={() => { setSimpleMode(false); localStorage.setItem('ff-simple-mode', 'false'); }} style={{ color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: 0, textDecoration: 'underline' }}>Switch to Advanced</button></>
+                  ) : (
+                    'Full control over every parameter'
+                  )}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = !simpleMode;
+                  setSimpleMode(next);
+                  localStorage.setItem('ff-simple-mode', String(next));
+                }}
+                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
+                  simpleMode ? 'bg-teal-600' : 'bg-indigo-600'
+                }`}
+                title={simpleMode ? 'Switch to Advanced Mode for more options' : 'Switch to Simple Mode'}
+              >
+                <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-sm ${
+                  simpleMode ? 'translate-x-6' : 'translate-x-1'
+                }`} />
+              </button>
+            </div>
+          )}
           {/* === Manual Write Mode === */}
           {manualWriteMode && (
             <div>
@@ -2251,7 +2313,7 @@ export default function ContentStudioPage() {
 
           {/* === AI Generate Mode === */}
           {!manualWriteMode && loadingData ? (
-            <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
+            <div className="p-8 lg:p-10" style={{ textAlign: 'center', color: colors.textSecondary }}>
               <Loader2 className="animate-spin" style={{ margin: '0 auto 12px' }} size={24} />
               Loading options...
             </div>
@@ -2260,7 +2322,7 @@ export default function ContentStudioPage() {
               {/* STEP 1: Content Type - Compact pills */}
               <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
-                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>{simpleMode ? '2' : '1'}</span>
+                  {!simpleMode && <span className="text-xs text-zinc-600 font-mono">1.</span>}
                   Content Type
                 </div>
                 {simpleMode && <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '10px', marginTop: '-8px' }}>What style of TikTok video do you want? (Skit = comedy, Testimonial = review style, etc.)</p>}
@@ -2323,7 +2385,7 @@ export default function ContentStudioPage() {
               {!simpleMode && selectedContentType && (
                 <div style={sectionStyle}>
                   <div style={sectionTitleStyle}>
-                    <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>2</span>
+                    <span className="text-xs text-zinc-600 font-mono">2.</span>
                     Urgency Style
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
@@ -2367,7 +2429,7 @@ export default function ContentStudioPage() {
               {/* STEP 3: Product */}
               <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
-                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>{simpleMode ? '1' : '3'}</span>
+                  {!simpleMode && <span className="text-xs text-zinc-600 font-mono">3.</span>}
                   Product
                 </div>
                 {simpleMode && <p style={{ fontSize: '12px', color: '#71717a', marginBottom: '10px', marginTop: '-8px' }}>Pick the product you want to create a TikTok script for</p>}
@@ -2422,8 +2484,8 @@ export default function ContentStudioPage() {
                     </Link>
                   </div>
                 )}
-                {/* Demographic badge when product has data */}
-                {(() => {
+                {/* Demographic badge when product has data (hidden in simple mode) */}
+                {!simpleMode && (() => {
                   const sp = products.find(p => p.id === selectedProductId);
                   if (sp?.primary_age_range || sp?.primary_gender) {
                     return (
@@ -2446,29 +2508,34 @@ export default function ContentStudioPage() {
                   }
                   return null;
                 })()}
-                <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '8px' }}>
-                  Or enter manually:
-                </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <input
-                    value={manualProductName}
-                    onChange={(e) => {
-                      setManualProductName(e.target.value);
-                      if (e.target.value) setSelectedProductId('');
-                    }}
-                    placeholder="Product name"
-                    style={{ ...inputStyle, flex: 2 }}
-                  />
-                  <input
-                    value={manualBrandName}
-                    onChange={(e) => setManualBrandName(e.target.value)}
-                    placeholder="Brand"
-                    style={{ ...inputStyle, flex: 1 }}
-                  />
-                </div>
+                {/* Manual product entry (hidden in simple mode when products exist) */}
+                {(!simpleMode || products.length === 0) && (
+                  <>
+                    <div style={{ fontSize: '11px', color: colors.textSecondary, marginBottom: '8px' }}>
+                      Or enter manually:
+                    </div>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                      <input
+                        value={manualProductName}
+                        onChange={(e) => {
+                          setManualProductName(e.target.value);
+                          if (e.target.value) setSelectedProductId('');
+                        }}
+                        placeholder="Product name"
+                        style={{ ...inputStyle, flex: 2 }}
+                      />
+                      <input
+                        value={manualBrandName}
+                        onChange={(e) => setManualBrandName(e.target.value)}
+                        placeholder="Brand"
+                        style={{ ...inputStyle, flex: 1 }}
+                      />
+                    </div>
+                  </>
+                )}
 
-                {/* Pain Points - show when product is selected */}
-                {selectedProductId && (
+                {/* Pain Points - show when product is selected (hidden in simple mode) */}
+                {!simpleMode && selectedProductId && (
                   <div style={{ marginTop: '12px' }}>
                     {generatingPainPoints ? (
                       <div style={{
@@ -2651,7 +2718,7 @@ export default function ContentStudioPage() {
               {/* STEP 4a: Creator Voice (hidden in Simple Mode) */}
               {!simpleMode && <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
-                  <span style={{ backgroundColor: '#14b8a6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>4a</span>
+                  <span className="text-xs text-zinc-600 font-mono">4a.</span>
                   Creator Voice
                   <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary }}>(optional - your speaking style)</span>
                 </div>
@@ -2686,7 +2753,7 @@ export default function ContentStudioPage() {
                         backgroundColor: '#18181b',
                         border: '1px solid #3f3f46',
                         borderRadius: '8px',
-                        maxHeight: '300px',
+                        maxHeight: isMobile ? '50vh' : '300px',
                         overflowY: 'auto',
                         boxShadow: '0 10px 25px rgba(0,0,0,0.3)',
                       }}>
@@ -2750,7 +2817,7 @@ export default function ContentStudioPage() {
               {/* STEP 4b: Target Audience (hidden in Simple Mode) */}
               {!simpleMode && <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
-                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>4b</span>
+                  <span className="text-xs text-zinc-600 font-mono">4b.</span>
                   Target Audience
                   <span style={{ fontSize: '11px', fontWeight: 400, color: colors.textSecondary }}>(optional - who you&apos;re talking to)</span>
                 </div>
@@ -2786,7 +2853,7 @@ export default function ContentStudioPage() {
                         border: '1px solid rgba(255,255,255,0.15)',
                         borderRadius: '12px',
                         boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
-                        maxHeight: '288px',
+                        maxHeight: isMobile ? '50vh' : '288px',
                         overflow: 'hidden',
                       }}>
                         {/* Search input */}
@@ -2811,7 +2878,7 @@ export default function ContentStudioPage() {
                         </div>
 
                         {/* Options list */}
-                        <div style={{ overflowY: 'auto', maxHeight: '208px' }}>
+                        <div style={{ overflowY: 'auto', maxHeight: isMobile ? 'calc(50vh - 60px)' : '208px' }}>
                           {/* "None" option */}
                           <button
                             type="button"
@@ -2935,7 +3002,7 @@ export default function ContentStudioPage() {
               {/* STEP 5: Presentation Style (hidden in Simple Mode) */}
               {!simpleMode && <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
-                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>5</span>
+                  <span className="text-xs text-zinc-600 font-mono">5.</span>
                   Presentation Style
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '10px' }}>
@@ -3002,7 +3069,7 @@ export default function ContentStudioPage() {
               {/* STEP 6: Length & Tone (hidden in Simple Mode) */}
               {!simpleMode && <div style={sectionStyle}>
                 <div style={sectionTitleStyle}>
-                  <span style={{ backgroundColor: '#3b82f6', color: 'white', width: '20px', height: '20px', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '11px', fontWeight: 700 }}>6</span>
+                  <span className="text-xs text-zinc-600 font-mono">6.</span>
                   Length & Tone
                 </div>
 
@@ -3273,8 +3340,8 @@ export default function ContentStudioPage() {
                 </div>
               </label>}
 
-              {/* Generate Button - Sticky on mobile */}
-              <div className="sticky bottom-4 lg:static lg:bottom-auto mt-6">
+              {/* Generate Button — desktop only (mobile version is fixed at bottom) */}
+              <div className="hidden lg:block mt-6">
                 <button type="button"
                   onClick={handleGenerate}
                   disabled={generating || (!selectedProductId && !manualProductName.trim())}
@@ -3299,12 +3366,14 @@ export default function ContentStudioPage() {
                   )}
                 </button>
               </div>
+              {/* Spacer for fixed bottom bar on mobile */}
+              {isMobile && <div className="h-20 lg:hidden" />}
             </>
           ) : null}
         </div>
 
         {/* Right Column: Results */}
-        <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-4 lg:p-6 min-h-[300px] lg:min-h-[600px]">
+        <div className="bg-zinc-900/50 border border-white/10 rounded-2xl p-3 lg:p-6 lg:min-h-[600px]">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
             <h2 style={{ margin: 0, fontSize: '16px', color: colors.text, fontWeight: 600 }}>
               {manualWriteMode ? 'Your Script' : 'Generated Scripts'}
@@ -3333,47 +3402,7 @@ export default function ContentStudioPage() {
                     {savingAbTest ? 'Saving...' : 'Save as A/B Test'}
                   </button>
                 )}
-                <button type="button"
-                  onClick={openSaveModal}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: '#8b5cf6',
-                    border: 'none',
-                    borderRadius: '8px',
-                    color: 'white',
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                  }}
-                >
-                  <BookOpen size={14} />
-                  Save to Library
-                </button>
-                <button type="button"
-                  onClick={() => handleMakeVariation(selectedVariationIndex)}
-                  disabled={variatingIndex !== null}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: variatingIndex !== null ? 'rgba(168, 85, 247, 0.2)' : 'rgba(168, 85, 247, 0.15)',
-                    border: '1px solid rgba(168, 85, 247, 0.4)',
-                    borderRadius: '8px',
-                    color: '#c084fc',
-                    fontSize: '13px',
-                    cursor: variatingIndex !== null ? 'not-allowed' : 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    opacity: variatingIndex !== null ? 0.7 : 1,
-                  }}
-                >
-                  {variatingIndex !== null ? (
-                    <><Loader2 size={14} className="animate-spin" /> Generating variation...</>
-                  ) : (
-                    <><RefreshCw size={14} /> Make a Variation</>
-                  )}
-                </button>
+                {/* Save to Library and Make a Variation moved to per-variation overflow menu */}
               </div>
             )}
           </div>
@@ -3396,12 +3425,11 @@ export default function ContentStudioPage() {
           )}
 
           {!result && !generating && !error && (
-            <div style={{
+            <div className="min-h-[200px] lg:min-h-[400px]" style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              height: '450px',
               color: colors.textSecondary,
               textAlign: 'center',
             }}>
@@ -3420,12 +3448,11 @@ export default function ContentStudioPage() {
           )}
 
           {generating && (
-            <div style={{
+            <div className="min-h-[200px] lg:min-h-[400px]" style={{
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              height: '450px',
               color: colors.textSecondary,
             }}>
               <Loader2 className="animate-spin" size={48} style={{ marginBottom: '16px', color: '#3b82f6' }} />
@@ -3463,11 +3490,12 @@ export default function ContentStudioPage() {
               {/* Variation Tabs with Per-Variation Actions */}
               {result.variations && result.variations.length > 1 && (
                 <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                  <div className={`flex gap-2 mb-2 ${isMobile ? 'overflow-x-auto snap-x snap-mandatory -mx-3 px-3 scrollbar-hide' : 'flex-wrap'}`}>
                     {result.variations.map((v, idx) => (
                       <button type="button"
                         key={idx}
                         onClick={() => setSelectedVariationIndex(idx)}
+                        className="snap-start flex-shrink-0"
                         style={{
                           padding: '8px 16px',
                           backgroundColor: selectedVariationIndex === idx ? '#3b82f6' : colors.bg,
@@ -3510,42 +3538,27 @@ export default function ContentStudioPage() {
                       </span>
                     )}
                   </div>
-                  {/* Per-variation action buttons */}
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    <button type="button"
-                      onClick={() => handleSaveVariation(selectedVariationIndex)}
-                      disabled={savingVariation === selectedVariationIndex || savedVariations.has(selectedVariationIndex)}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: savedVariations.has(selectedVariationIndex) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(245, 158, 11, 0.1)',
-                        border: `1px solid ${savedVariations.has(selectedVariationIndex) ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}`,
-                        borderRadius: '8px',
-                        color: savedVariations.has(selectedVariationIndex) ? '#10b981' : '#f59e0b',
-                        fontSize: '12px', fontWeight: 500, cursor: savedVariations.has(selectedVariationIndex) ? 'default' : 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                      }}
-                    >
-                      {savedVariations.has(selectedVariationIndex) ? <><Check size={12} /> Saved</> :
-                       savingVariation === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Saving...</> :
-                       <><Star size={12} /> Save</>}
-                    </button>
+                  {/* Per-variation action buttons — consolidated */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }} className={isMobile ? 'hidden' : ''}>
+                    {/* Primary: Approve & Send */}
                     <button type="button"
                       onClick={() => handleApproveVariation(selectedVariationIndex)}
                       disabled={approvingVariation === selectedVariationIndex || approvedVariations.has(selectedVariationIndex)}
                       style={{
                         padding: '6px 12px',
-                        backgroundColor: approvedVariations.has(selectedVariationIndex) ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)',
-                        border: `1px solid rgba(16, 185, 129, 0.3)`,
+                        backgroundColor: approvedVariations.has(selectedVariationIndex) ? '#22c55e' : '#10b981',
+                        border: 'none',
                         borderRadius: '8px',
-                        color: '#10b981',
-                        fontSize: '12px', fontWeight: 500, cursor: approvedVariations.has(selectedVariationIndex) ? 'default' : 'pointer',
+                        color: 'white',
+                        fontSize: '12px', fontWeight: 600, cursor: approvedVariations.has(selectedVariationIndex) ? 'default' : 'pointer',
                         display: 'flex', alignItems: 'center', gap: '4px',
                       }}
                     >
                       {approvedVariations.has(selectedVariationIndex) ? <><Check size={12} /> In Pipeline</> :
                        approvingVariation === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Sending...</> :
-                       <><Zap size={12} /> Approve</>}
+                       <><Zap size={12} /> Approve &amp; Send</>}
                     </button>
+                    {/* Secondary: Copy */}
                     <button type="button"
                       onClick={() => handleCopyVariation(selectedVariationIndex)}
                       style={{
@@ -3560,45 +3573,56 @@ export default function ContentStudioPage() {
                     >
                       {copiedField === `var-${selectedVariationIndex}` ? <><Check size={12} /> Copied</> : <><Copy size={12} /> Copy</>}
                     </button>
-                    {canShare() && (
+                    {/* Overflow menu: Save, Share, Vary */}
+                    <div ref={actionMenuRef} style={{ position: 'relative' }}>
                       <button type="button"
-                        onClick={() => handleShareVariation(selectedVariationIndex)}
-                        disabled={sharingVariation === selectedVariationIndex}
+                        onClick={() => setActionMenuOpen(!actionMenuOpen)}
                         style={{
-                          padding: '6px 12px',
-                          backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                          padding: '6px 8px',
+                          backgroundColor: 'rgba(255,255,255,0.05)',
+                          border: `1px solid ${colors.border}`,
                           borderRadius: '8px',
-                          color: '#a5b4fc',
-                          fontSize: '12px', fontWeight: 500, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', gap: '4px',
+                          color: colors.textSecondary,
+                          cursor: 'pointer',
+                          display: 'flex', alignItems: 'center',
                         }}
                       >
-                        {sharingVariation === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Sharing...</> :
-                         <><Send size={12} /> Share</>}
+                        <MoreHorizontal size={14} />
                       </button>
-                    )}
-                    <button type="button"
-                      onClick={() => handleMakeVariation(selectedVariationIndex)}
-                      disabled={variatingIndex === selectedVariationIndex}
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: variatingIndex === selectedVariationIndex ? 'rgba(168, 85, 247, 0.2)' : 'rgba(168, 85, 247, 0.1)',
-                        border: '1px solid rgba(168, 85, 247, 0.3)',
-                        borderRadius: '8px',
-                        color: '#c084fc',
-                        fontSize: '12px', fontWeight: 500, cursor: variatingIndex === selectedVariationIndex ? 'not-allowed' : 'pointer',
-                        display: 'flex', alignItems: 'center', gap: '4px',
-                      }}
-                    >
-                      {variatingIndex === selectedVariationIndex ? <><Loader2 size={12} className="animate-spin" /> Varying...</> :
-                       <><RefreshCw size={12} /> Vary</>}
-                    </button>
+                      {actionMenuOpen && (
+                        <div style={{
+                          position: 'absolute', top: '100%', right: 0, marginTop: '4px', zIndex: 50,
+                          backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px',
+                          minWidth: '160px', boxShadow: '0 10px 25px rgba(0,0,0,0.3)', overflow: 'hidden',
+                        }}>
+                          <button type="button" onClick={() => { handleSaveVariation(selectedVariationIndex); setActionMenuOpen(false); }}
+                            disabled={savingVariation === selectedVariationIndex || savedVariations.has(selectedVariationIndex)}
+                            style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', color: savedVariations.has(selectedVariationIndex) ? '#10b981' : '#f59e0b', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}
+                          >
+                            {savedVariations.has(selectedVariationIndex) ? <><Check size={14} /> Saved</> : <><Star size={14} /> Save to Library</>}
+                          </button>
+                          {canShare() && (
+                            <button type="button" onClick={() => { handleShareVariation(selectedVariationIndex); setActionMenuOpen(false); }}
+                              disabled={sharingVariation === selectedVariationIndex}
+                              style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', color: '#a5b4fc', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}
+                            >
+                              <Send size={14} /> Share
+                            </button>
+                          )}
+                          <button type="button" onClick={() => { handleMakeVariation(selectedVariationIndex); setActionMenuOpen(false); }}
+                            disabled={variatingIndex === selectedVariationIndex}
+                            style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', color: '#c084fc', fontSize: '13px', cursor: variatingIndex === selectedVariationIndex ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}
+                          >
+                            <RefreshCw size={14} /> Make a Variation
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Clawbot Strategy Card */}
+              {/* Clawbot Strategy Card — collapsible */}
               {result.strategy_metadata && (
                 <div style={{
                   padding: '14px 16px',
@@ -3607,12 +3631,23 @@ export default function ContentStudioPage() {
                   borderRadius: '10px',
                   marginBottom: '16px',
                 }}>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#a855f7', marginBottom: '10px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <Sparkles size={12} /> Clawbot Strategy
-                  </div>
+                  <button type="button" onClick={() => setShowStrategyCard(!showStrategyCard)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#a855f7', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <Sparkles size={12} /> Clawbot Strategy
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {!showStrategyCard && (
+                        <span style={{ fontSize: '11px', color: '#c084fc', fontWeight: 500 }}>
+                          {result.strategy_metadata.recommended_angle} · {result.strategy_metadata.tone_direction}
+                        </span>
+                      )}
+                      {showStrategyCard ? <ChevronUp size={14} style={{ color: '#a855f7' }} /> : <ChevronDown size={14} style={{ color: '#a855f7' }} />}
+                    </div>
+                  </button>
 
+                  {showStrategyCard && (<>
                   {/* Badges row */}
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '10px', marginTop: '10px' }}>
                     {/* Angle badge */}
                     <span style={{
                       padding: '4px 10px',
@@ -3748,6 +3783,7 @@ export default function ContentStudioPage() {
                       {result.strategy_metadata.reasoning}
                     </div>
                   )}
+                  </>)}
                 </div>
               )}
 
@@ -4106,7 +4142,7 @@ export default function ContentStudioPage() {
                 <div style={{ fontSize: '11px', fontWeight: 600, color: colors.textSecondary, marginBottom: '12px', textTransform: 'uppercase' }}>
                   📽️ Scenes ({currentSkit.beats.length})
                 </div>
-                <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
+                <div style={{ maxHeight: isMobile ? 'none' : '400px', overflowY: isMobile ? 'visible' : 'auto' }}>
                   {currentSkit.beats.map((beat, idx) => (
                     <div
                       key={idx}
@@ -4314,7 +4350,7 @@ export default function ContentStudioPage() {
                 )}
               </div>
 
-              {/* B-Roll Suggestions */}
+              {/* B-Roll Suggestions — collapsible */}
               {currentSkit.b_roll && currentSkit.b_roll.length > 0 && (
                 <div style={{
                   padding: '12px 16px',
@@ -4323,19 +4359,27 @@ export default function ContentStudioPage() {
                   borderRadius: '10px',
                   marginBottom: '16px',
                 }}>
-                  <div style={{ fontSize: '11px', fontWeight: 600, color: '#8b5cf6', marginBottom: '8px', textTransform: 'uppercase' }}>
-                    <ImageIcon size={12} style={{ display: 'inline', marginRight: '4px' }} />
-                    B-Roll Suggestions
-                  </div>
-                  <ul style={{ margin: 0, paddingLeft: '16px', color: colors.textSecondary, fontSize: '13px' }}>
-                    {currentSkit.b_roll.slice(0, 5).map((br, idx) => (
-                      <li key={idx} style={{ marginBottom: '4px' }}>{br}</li>
-                    ))}
-                  </ul>
+                  <button type="button" onClick={() => setShowBRoll(!showBRoll)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#8b5cf6', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                      <ImageIcon size={12} />
+                      B-Roll Suggestions
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {!showBRoll && <span style={{ fontSize: '11px', color: '#a78bfa' }}>({currentSkit.b_roll.length} suggestions)</span>}
+                      {showBRoll ? <ChevronUp size={14} style={{ color: '#8b5cf6' }} /> : <ChevronDown size={14} style={{ color: '#8b5cf6' }} />}
+                    </div>
+                  </button>
+                  {showBRoll && (
+                    <ul style={{ margin: '8px 0 0 0', paddingLeft: '16px', color: colors.textSecondary, fontSize: '13px' }}>
+                      {currentSkit.b_roll.slice(0, 5).map((br, idx) => (
+                        <li key={idx} style={{ marginBottom: '4px' }}>{br}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               )}
 
-              {/* AI Score */}
+              {/* AI Score — collapsible */}
               {currentAiScore && (() => {
                 const s = currentAiScore.overall_score;
                 const scoreColor = s >= 8 ? '#22c55e' : s >= 6 ? '#eab308' : s >= 4 ? '#f97316' : '#ef4444';
@@ -4355,15 +4399,17 @@ export default function ContentStudioPage() {
                         <span style={{ fontSize: '12px', color: '#9CA3AF' }}>Rescoring...</span>
                       </div>
                     )}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <button type="button" onClick={() => setShowAiScore(!showAiScore)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <div style={{ fontSize: '11px', fontWeight: 600, color: '#9CA3AF', textTransform: 'uppercase' }}>
                         AI Score
                       </div>
-                      <div style={{ fontSize: '20px', fontWeight: 700, color: scoreColor }}>
-                        {s}/10
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '16px', fontWeight: 700, color: scoreColor }}>{s}/10</span>
+                        {showAiScore ? <ChevronUp size={14} style={{ color: '#9CA3AF' }} /> : <ChevronDown size={14} style={{ color: '#9CA3AF' }} />}
                       </div>
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px' }}>
+                    </button>
+                    {showAiScore && (<>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', fontSize: '12px', marginTop: '8px' }}>
                       <div><span style={{ color: '#9CA3AF' }}>Hook </span><span style={{ color: '#E5E7EB', fontWeight: 600 }}>{currentAiScore.hook_strength}/10</span></div>
                       <div><span style={{ color: '#9CA3AF' }}>Humor </span><span style={{ color: '#E5E7EB', fontWeight: 600 }}>{currentAiScore.humor_level}/10</span></div>
                       <div><span style={{ color: '#9CA3AF' }}>Viral </span><span style={{ color: '#E5E7EB', fontWeight: 600 }}>{currentAiScore.virality_potential}/10</span></div>
@@ -4384,11 +4430,12 @@ export default function ContentStudioPage() {
                         ))}
                       </div>
                     )}
+                    </>)}
                   </div>
                 );
               })()}
 
-              {/* Painpoint Coverage */}
+              {/* Painpoint Coverage — collapsible */}
               {(() => {
                 const currentVariation = result.variations?.[selectedVariationIndex];
                 const painPointsCovered = currentVariation?.pain_points_covered;
@@ -4402,28 +4449,35 @@ export default function ContentStudioPage() {
                     borderRadius: '10px',
                     marginBottom: '16px',
                   }}>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', marginBottom: '8px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                      <Target size={12} /> Painpoint Coverage
-                    </div>
-                    {painPointsCovered?.map((pp, i) => (
-                      <div key={i} style={{ fontSize: '13px', color: '#D1D5DB', marginBottom: '4px', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                        <Check size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
-                        <span>{pp}</span>
+                    <button type="button" onClick={() => setShowPainpointCoverage(!showPainpointCoverage)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <Target size={12} /> Painpoint Coverage
                       </div>
-                    ))}
-                    {!painPointsCovered?.length && audiencePainPoints?.map((pp, i) => (
-                      <div key={i} style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '4px', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                        <Target size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
-                        <span>Targeted: {pp}</span>
+                      {showPainpointCoverage ? <ChevronUp size={14} style={{ color: '#10b981' }} /> : <ChevronDown size={14} style={{ color: '#10b981' }} />}
+                    </button>
+                    {showPainpointCoverage && (
+                      <div style={{ marginTop: '8px' }}>
+                        {painPointsCovered?.map((pp, i) => (
+                          <div key={i} style={{ fontSize: '13px', color: '#D1D5DB', marginBottom: '4px', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                            <Check size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
+                            <span>{pp}</span>
+                          </div>
+                        ))}
+                        {!painPointsCovered?.length && audiencePainPoints?.map((pp, i) => (
+                          <div key={i} style={{ fontSize: '13px', color: '#9CA3AF', marginBottom: '4px', display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
+                            <Target size={14} style={{ color: '#10b981', flexShrink: 0, marginTop: '2px' }} />
+                            <span>Targeted: {pp}</span>
+                          </div>
+                        ))}
                       </div>
-                    ))}
+                    )}
                   </div>
                 );
               })()}
 
               {/* Export & Action Buttons */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {/* Repurpose for Other Platforms */}
+                {/* Repurpose for Other Platforms — collapsible */}
                 {!generating && (
                   <div style={{
                     padding: '12px',
@@ -4431,47 +4485,52 @@ export default function ContentStudioPage() {
                     border: '1px solid rgba(16, 185, 129, 0.25)',
                     borderRadius: '10px',
                   }}>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981', marginBottom: '8px' }}>
-                      Repurpose for...
-                    </div>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px' }}>
-                      {[
-                        { id: 'tiktok', label: 'TikTok' },
-                        { id: 'youtube_shorts', label: 'YT Shorts' },
-                        { id: 'youtube_long', label: 'YT Long' },
-                        { id: 'instagram', label: 'IG Reels' },
-                      ].filter(p => p.id !== selectedPlatform).map((platform) => (
-                        <button
-                          key={platform.id}
-                          type="button"
-                          onClick={() => {
-                            setSelectedPlatform(platform.id);
-                            handleGenerate();
-                          }}
-                          style={{
-                            padding: '8px',
-                            backgroundColor: '#1f2937',
-                            border: '1px solid #374151',
-                            borderRadius: '6px',
-                            color: '#d1d5db',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: 500,
-                            transition: 'all 0.2s',
-                          }}
-                          onMouseOver={(e) => {
-                            e.currentTarget.style.backgroundColor = '#374151';
-                            e.currentTarget.style.borderColor = '#10b981';
-                          }}
-                          onMouseOut={(e) => {
-                            e.currentTarget.style.backgroundColor = '#1f2937';
-                            e.currentTarget.style.borderColor = '#374151';
-                          }}
-                        >
-                          {platform.label}
-                        </button>
-                      ))}
-                    </div>
+                    <button type="button" onClick={() => setShowRepurpose(!showRepurpose)} style={{ width: '100%', background: 'none', border: 'none', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <div style={{ fontSize: '11px', fontWeight: 600, color: '#10b981' }}>
+                        Repurpose for...
+                      </div>
+                      {showRepurpose ? <ChevronUp size={14} style={{ color: '#10b981' }} /> : <ChevronDown size={14} style={{ color: '#10b981' }} />}
+                    </button>
+                    {showRepurpose && (
+                      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '6px', marginTop: '8px' }}>
+                        {[
+                          { id: 'tiktok', label: 'TikTok' },
+                          { id: 'youtube_shorts', label: 'YT Shorts' },
+                          { id: 'youtube_long', label: 'YT Long' },
+                          { id: 'instagram', label: 'IG Reels' },
+                        ].filter(p => p.id !== selectedPlatform).map((platform) => (
+                          <button
+                            key={platform.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedPlatform(platform.id);
+                              handleGenerate();
+                            }}
+                            style={{
+                              padding: '8px',
+                              backgroundColor: '#1f2937',
+                              border: '1px solid #374151',
+                              borderRadius: '6px',
+                              color: '#d1d5db',
+                              cursor: 'pointer',
+                              fontSize: '12px',
+                              fontWeight: 500,
+                              transition: 'all 0.2s',
+                            }}
+                            onMouseOver={(e) => {
+                              e.currentTarget.style.backgroundColor = '#374151';
+                              e.currentTarget.style.borderColor = '#10b981';
+                            }}
+                            onMouseOut={(e) => {
+                              e.currentTarget.style.backgroundColor = '#1f2937';
+                              e.currentTarget.style.borderColor = '#374151';
+                            }}
+                          >
+                            {platform.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -4503,202 +4562,139 @@ export default function ContentStudioPage() {
                   )}
                 </button>
 
-                {/* Approve & Send to Pipeline */}
-                <button type="button"
-                  onClick={handleApproveAndSend}
-                  disabled={approvingToPipeline}
-                  style={{
-                    width: '100%',
-                    padding: '14px',
-                    backgroundColor: approvedToPipeline ? '#22c55e' : '#10b981',
-                    border: 'none',
-                    borderRadius: '10px',
-                    color: 'white',
-                    cursor: approvingToPipeline || approvedToPipeline ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    opacity: approvingToPipeline ? 0.7 : 1,
-                  }}
-                >
-                  {approvedToPipeline ? (
-                    <><Check size={16} /> Approved &amp; In Pipeline</>
-                  ) : approvingToPipeline ? (
-                    <><Loader2 size={16} className="animate-spin" /> Sending to Pipeline...</>
-                  ) : (
-                    <><Zap size={16} /> Approve &amp; Send to Pipeline</>
+                {/* Approve & Send moved to per-variation primary action */}
+
+                {/* Export Script — consolidated dropdown */}
+                <div ref={exportMenuRef} style={{ position: 'relative' }}>
+                  <button type="button"
+                    onClick={() => setExportOpen(!exportOpen)}
+                    style={{
+                      width: '100%',
+                      padding: '10px',
+                      backgroundColor: '#374151',
+                      border: '1px solid #4B5563',
+                      borderRadius: '10px',
+                      color: '#E5E7EB',
+                      cursor: 'pointer',
+                      fontSize: '13px',
+                      fontWeight: 500,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                    }}
+                  >
+                    <Download size={14} /> Export Script {exportOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
+                  </button>
+                  {exportOpen && (
+                    <div style={{
+                      position: 'absolute', bottom: '100%', left: 0, right: 0, marginBottom: '4px', zIndex: 50,
+                      backgroundColor: '#18181b', border: '1px solid #3f3f46', borderRadius: '8px',
+                      boxShadow: '0 -10px 25px rgba(0,0,0,0.3)', overflow: 'hidden',
+                    }}>
+                      <button type="button" onClick={() => {
+                        const fullScript = [
+                          `HOOK: ${currentSkit.hook_line}`,
+                          '',
+                          ...currentSkit.beats.map((b) => {
+                            let beatText = `[${b.t}] ${b.action}`;
+                            if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
+                            if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
+                            return beatText;
+                          }),
+                          '',
+                          `CTA: ${currentSkit.cta_line}`,
+                          currentSkit.cta_overlay ? `OVERLAY: ${currentSkit.cta_overlay}` : '',
+                        ].filter(Boolean).join('\n');
+                        copyToClipboard(fullScript, 'full');
+                        setExportOpen(false);
+                      }} style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', color: copiedField === 'full' ? '#10b981' : '#E5E7EB', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}>
+                        <Copy size={14} /> {copiedField === 'full' ? 'Copied!' : 'Copy Script'}
+                      </button>
+                      <button type="button" onClick={() => {
+                        const withBroll = [
+                          `HOOK: ${currentSkit.hook_line}`,
+                          '',
+                          ...currentSkit.beats.map((b) => {
+                            let beatText = `[${b.t}] ${b.action}`;
+                            if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
+                            if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
+                            return beatText;
+                          }),
+                          '',
+                          `CTA: ${currentSkit.cta_line}`,
+                          currentSkit.cta_overlay ? `OVERLAY: ${currentSkit.cta_overlay}` : '',
+                          '',
+                          currentSkit.b_roll?.length ? `B-ROLL:\n${currentSkit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}` : '',
+                          currentSkit.overlays?.length ? `OVERLAYS:\n${currentSkit.overlays.map((o, i) => `${i + 1}. ${o}`).join('\n')}` : '',
+                        ].filter(Boolean).join('\n');
+                        copyToClipboard(withBroll, 'broll');
+                        setExportOpen(false);
+                      }} style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', color: copiedField === 'broll' ? '#10b981' : '#E5E7EB', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}>
+                        <Copy size={14} /> {copiedField === 'broll' ? 'Copied!' : 'Copy + B-Roll'}
+                      </button>
+                      <button type="button" onClick={() => {
+                        const content = [
+                          `HOOK: ${currentSkit.hook_line}`,
+                          '',
+                          ...currentSkit.beats.map((b) => {
+                            let beatText = `[${b.t}] ${b.action}`;
+                            if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
+                            if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
+                            return beatText;
+                          }),
+                          '',
+                          `CTA: ${currentSkit.cta_line}`,
+                          currentSkit.cta_overlay ? `OVERLAY: ${currentSkit.cta_overlay}` : '',
+                          '',
+                          currentSkit.b_roll?.length ? `B-ROLL:\n${currentSkit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}` : '',
+                          '',
+                          currentAiScore ? `AI SCORE: ${currentAiScore.overall_score}/10` : '',
+                        ].filter(Boolean).join('\n');
+                        const blob = new Blob([content], { type: 'text/plain' });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        const hookForFilename = currentSkit.hook_line || currentSkit.visual_hook || currentSkit.text_on_screen_hook || currentSkit.verbal_hook || 'script';
+                        a.download = `script-${hookForFilename.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-')}.txt`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        setExportOpen(false);
+                      }} style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', color: '#E5E7EB', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}>
+                        <Download size={14} /> Download .txt
+                      </button>
+                      <button type="button" onClick={async () => {
+                        const { generateDocx } = await import('@/lib/docx-export');
+                        const productName = selectedProductId
+                          ? products.find(p => p.id === selectedProductId)?.name
+                          : manualProductName;
+                        const brandName = selectedProductId
+                          ? products.find(p => p.id === selectedProductId)?.brand
+                          : manualBrandName;
+                        const blob = await generateDocx({
+                          skit: currentSkit,
+                          aiScore: currentAiScore,
+                          title: `${productName || 'Script'} - ${selectedContentType?.name || 'Content'}`,
+                          productName: productName || undefined,
+                          brandName: brandName || undefined,
+                        });
+                        const url = URL.createObjectURL(blob);
+                        const a = document.createElement('a');
+                        a.href = url;
+                        const hookForDocxFilename = currentSkit.hook_line || currentSkit.visual_hook || currentSkit.text_on_screen_hook || currentSkit.verbal_hook || 'script';
+                        a.download = `script-${hookForDocxFilename.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-')}.docx`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+                        URL.revokeObjectURL(url);
+                        setExportOpen(false);
+                      }} style={{ width: '100%', padding: '10px 14px', background: 'none', border: 'none', color: '#E5E7EB', fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', textAlign: 'left' }}>
+                        <Download size={14} /> Download .docx
+                      </button>
+                    </div>
                   )}
-                </button>
-
-                {/* Copy Buttons Row */}
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <button type="button"
-                    onClick={() => {
-                      const fullScript = [
-                        `HOOK: ${currentSkit.hook_line}`,
-                        '',
-                        ...currentSkit.beats.map((b) => {
-                          let beatText = `[${b.t}] ${b.action}`;
-                          if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
-                          if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
-                          return beatText;
-                        }),
-                        '',
-                        `CTA: ${currentSkit.cta_line}`,
-                        currentSkit.cta_overlay ? `OVERLAY: ${currentSkit.cta_overlay}` : '',
-                      ].filter(Boolean).join('\n');
-                      copyToClipboard(fullScript, 'full');
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      backgroundColor: copiedField === 'full' ? '#10b981' : '#374151',
-                      border: `1px solid ${copiedField === 'full' ? '#10b981' : '#4B5563'}`,
-                      borderRadius: '10px',
-                      color: '#E5E7EB',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    {copiedField === 'full' ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> Copy Script</>}
-                  </button>
-
-                  <button type="button"
-                    onClick={() => {
-                      const withBroll = [
-                        `HOOK: ${currentSkit.hook_line}`,
-                        '',
-                        ...currentSkit.beats.map((b) => {
-                          let beatText = `[${b.t}] ${b.action}`;
-                          if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
-                          if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
-                          return beatText;
-                        }),
-                        '',
-                        `CTA: ${currentSkit.cta_line}`,
-                        currentSkit.cta_overlay ? `OVERLAY: ${currentSkit.cta_overlay}` : '',
-                        '',
-                        currentSkit.b_roll?.length ? `B-ROLL:\n${currentSkit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}` : '',
-                        currentSkit.overlays?.length ? `OVERLAYS:\n${currentSkit.overlays.map((o, i) => `${i + 1}. ${o}`).join('\n')}` : '',
-                      ].filter(Boolean).join('\n');
-                      copyToClipboard(withBroll, 'broll');
-                    }}
-                    style={{
-                      flex: 1,
-                      padding: '10px',
-                      backgroundColor: copiedField === 'broll' ? '#10b981' : '#374151',
-                      border: `1px solid ${copiedField === 'broll' ? '#10b981' : '#4B5563'}`,
-                      borderRadius: '10px',
-                      color: '#E5E7EB',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    {copiedField === 'broll' ? <><Check size={14} /> Copied!</> : <><Copy size={14} /> + B-Roll</>}
-                  </button>
-
-                  <button type="button"
-                    onClick={() => {
-                      const content = [
-                        `HOOK: ${currentSkit.hook_line}`,
-                        '',
-                        ...currentSkit.beats.map((b) => {
-                          let beatText = `[${b.t}] ${b.action}`;
-                          if (b.dialogue) beatText += `\n   "${b.dialogue}"`;
-                          if (b.on_screen_text) beatText += `\n   [TEXT: ${b.on_screen_text}]`;
-                          return beatText;
-                        }),
-                        '',
-                        `CTA: ${currentSkit.cta_line}`,
-                        currentSkit.cta_overlay ? `OVERLAY: ${currentSkit.cta_overlay}` : '',
-                        '',
-                        currentSkit.b_roll?.length ? `B-ROLL:\n${currentSkit.b_roll.map((b, i) => `${i + 1}. ${b}`).join('\n')}` : '',
-                        '',
-                        currentAiScore ? `AI SCORE: ${currentAiScore.overall_score}/10` : '',
-                      ].filter(Boolean).join('\n');
-                      const blob = new Blob([content], { type: 'text/plain' });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      const hookForFilename = currentSkit.hook_line || currentSkit.visual_hook || currentSkit.text_on_screen_hook || currentSkit.verbal_hook || 'script';
-                      a.download = `script-${hookForFilename.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-')}.txt`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }}
-                    style={{
-                      padding: '10px 14px',
-                      backgroundColor: '#374151',
-                      border: '1px solid #4B5563',
-                      borderRadius: '10px',
-                      color: '#E5E7EB',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    <Download size={14} /> .txt
-                  </button>
-
-                  <button type="button"
-                    onClick={async () => {
-                      const { generateDocx } = await import('@/lib/docx-export');
-                      const productName = selectedProductId
-                        ? products.find(p => p.id === selectedProductId)?.name
-                        : manualProductName;
-                      const brandName = selectedProductId
-                        ? products.find(p => p.id === selectedProductId)?.brand
-                        : manualBrandName;
-                      const blob = await generateDocx({
-                        skit: currentSkit,
-                        aiScore: currentAiScore,
-                        title: `${productName || 'Script'} - ${selectedContentType?.name || 'Content'}`,
-                        productName: productName || undefined,
-                        brandName: brandName || undefined,
-                      });
-                      const url = URL.createObjectURL(blob);
-                      const a = document.createElement('a');
-                      a.href = url;
-                      const hookForDocxFilename = currentSkit.hook_line || currentSkit.visual_hook || currentSkit.text_on_screen_hook || currentSkit.verbal_hook || 'script';
-                      a.download = `script-${hookForDocxFilename.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '-')}.docx`;
-                      document.body.appendChild(a);
-                      a.click();
-                      document.body.removeChild(a);
-                      URL.revokeObjectURL(url);
-                    }}
-                    style={{
-                      padding: '10px 14px',
-                      backgroundColor: '#374151',
-                      border: '1px solid #4B5563',
-                      borderRadius: '10px',
-                      color: '#E5E7EB',
-                      cursor: 'pointer',
-                      fontSize: '13px',
-                      fontWeight: 500,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '6px',
-                    }}
-                  >
-                    <Download size={14} /> .docx
-                  </button>
                 </div>
 
                 {/* Auto-added to Winners Bank feedback */}
@@ -4903,54 +4899,112 @@ export default function ContentStudioPage() {
                 )}
               </div>
 
-              {/* Generate More Button */}
-              <div style={{
-                marginTop: '24px',
-                padding: '20px',
-                backgroundColor: 'rgba(59, 130, 246, 0.05)',
-                border: '1px solid rgba(59, 130, 246, 0.2)',
-                borderRadius: '12px',
-                textAlign: 'center',
-              }}>
-                <p style={{ margin: '0 0 12px 0', fontSize: '14px', color: colors.textSecondary }}>
-                  Want more variations with the same settings?
-                </p>
-                <button
-                  type="button"
-                  onClick={handleGenerateMore}
-                  disabled={generating}
-                  style={{
-                    padding: '12px 24px',
-                    backgroundColor: generating ? colors.bg : '#3b82f6',
-                    border: 'none',
-                    borderRadius: '10px',
-                    color: 'white',
-                    cursor: generating ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 600,
-                    opacity: generating ? 0.5 : 1,
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                  }}
-                >
-                  {generating ? (
-                    <>
-                      <Loader2 size={16} className="animate-spin" />
-                      Generating...
-                    </>
-                  ) : (
-                    <>
-                      <Sparkles size={16} />
-                      Generate More ({variationCount} more variations)
-                    </>
-                  )}
-                </button>
-              </div>
+              {/* Generate More merged into Regenerate button above */}
             </div>
           )}
         </div>
       </div>
+
+      {/* Mobile Fixed Bottom Generate Bar */}
+      {isMobile && !result && !manualWriteMode && (
+        <div className="fixed inset-x-0 bottom-0 z-40 lg:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+          <div className="px-4 pt-3">
+            <button type="button"
+              onClick={handleGenerate}
+              disabled={generating || (!selectedProductId && !manualProductName.trim())}
+              className={`w-full h-14 rounded-xl text-white font-semibold text-base flex items-center justify-center gap-2 transition-all shadow-lg ${
+                generating
+                  ? 'bg-zinc-700 cursor-wait'
+                  : generating || (!selectedProductId && !manualProductName.trim())
+                  ? 'bg-zinc-700 opacity-50'
+                  : 'bg-gradient-to-r from-teal-500 to-violet-500 shadow-blue-500/20'
+              }`}
+            >
+              {generating ? (
+                <><Loader2 className="animate-spin" size={20} /> Generating...</>
+              ) : (
+                <><Zap size={20} /> Generate ({creditCost} credit{creditCost !== 1 ? 's' : ''})</>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile Fixed Bottom Action Bar (when results are showing) */}
+      {isMobile && result && currentSkit && (
+        <div className="fixed inset-x-0 bottom-0 z-40 lg:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
+          <div className="flex items-center gap-2 px-4 pt-3">
+            {/* Approve — primary, takes flex space */}
+            <button type="button"
+              onClick={() => handleApproveVariation(selectedVariationIndex)}
+              disabled={approvingVariation === selectedVariationIndex || approvedVariations.has(selectedVariationIndex)}
+              className="flex-1 h-12 rounded-xl text-white font-semibold text-sm flex items-center justify-center gap-2"
+              style={{ backgroundColor: approvedVariations.has(selectedVariationIndex) ? '#22c55e' : '#10b981' }}
+            >
+              {approvedVariations.has(selectedVariationIndex) ? <><Check size={16} /> Sent</> :
+               approvingVariation === selectedVariationIndex ? <><Loader2 size={16} className="animate-spin" /></> :
+               <><Zap size={16} /> Approve &amp; Send</>}
+            </button>
+            {/* Regenerate icon */}
+            <button type="button"
+              onClick={() => handleGenerate()}
+              disabled={generating}
+              className="h-12 w-12 rounded-xl flex items-center justify-center"
+              style={{ backgroundColor: '#6366f1' }}
+            >
+              {generating ? <Loader2 size={18} className="animate-spin text-white" /> : <RefreshCw size={18} className="text-white" />}
+            </button>
+            {/* Overflow */}
+            <button type="button"
+              onClick={() => setActionMenuOpen(true)}
+              className="h-12 w-12 rounded-xl flex items-center justify-center bg-zinc-800 border border-white/10"
+            >
+              <MoreHorizontal size={18} className="text-zinc-400" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Mobile BottomSheet for overflow actions */}
+      <BottomSheet
+        isOpen={isMobile && actionMenuOpen}
+        onClose={() => setActionMenuOpen(false)}
+        title="Actions"
+        size="small"
+      >
+        <div className="flex flex-col gap-1">
+          <button type="button" onClick={() => { handleCopyVariation(selectedVariationIndex); setActionMenuOpen(false); }}
+            className="w-full p-4 rounded-xl text-left text-white text-sm font-medium flex items-center gap-3 active:bg-zinc-800"
+          >
+            <Copy size={18} className="text-zinc-400" /> Copy Script
+          </button>
+          <button type="button" onClick={() => { handleSaveVariation(selectedVariationIndex); setActionMenuOpen(false); }}
+            disabled={savedVariations.has(selectedVariationIndex)}
+            className="w-full p-4 rounded-xl text-left text-sm font-medium flex items-center gap-3 active:bg-zinc-800"
+            style={{ color: savedVariations.has(selectedVariationIndex) ? '#10b981' : '#f59e0b' }}
+          >
+            {savedVariations.has(selectedVariationIndex) ? <><Check size={18} /> Saved to Library</> : <><Star size={18} /> Save to Library</>}
+          </button>
+          {canShare() && (
+            <button type="button" onClick={() => { handleShareVariation(selectedVariationIndex); setActionMenuOpen(false); }}
+              className="w-full p-4 rounded-xl text-left text-sm font-medium flex items-center gap-3 active:bg-zinc-800 text-indigo-400"
+            >
+              <Send size={18} /> Share
+            </button>
+          )}
+          <button type="button" onClick={() => { handleMakeVariation(selectedVariationIndex); setActionMenuOpen(false); }}
+            disabled={variatingIndex === selectedVariationIndex}
+            className="w-full p-4 rounded-xl text-left text-sm font-medium flex items-center gap-3 active:bg-zinc-800 text-purple-400"
+          >
+            <RefreshCw size={18} /> Make a Variation
+          </button>
+          <button type="button" onClick={() => { openSaveModal(); setActionMenuOpen(false); }}
+            className="w-full p-4 rounded-xl text-left text-sm font-medium flex items-center gap-3 active:bg-zinc-800 text-violet-400"
+          >
+            <BookOpen size={18} /> Save to Library (with title)
+          </button>
+        </div>
+      </BottomSheet>
 
       {/* Save Modal */}
       {saveModalOpen && (
@@ -5032,7 +5086,7 @@ export default function ContentStudioPage() {
       {savedToLibrary && (
         <div style={{
           position: 'fixed',
-          bottom: '24px',
+          bottom: 'max(24px, env(safe-area-inset-bottom))',
           right: '24px',
           backgroundColor: '#10b981',
           color: 'white',

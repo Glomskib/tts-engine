@@ -13,6 +13,11 @@
  * Exit code 0 = launch-ready, 1 = issues detected.
  */
 
+import { config } from 'dotenv';
+import { resolve } from 'path';
+
+config({ path: resolve(__dirname, '../.env.local') });
+
 export {};  // Make this file a module to avoid TS global scope collisions
 
 // ── Helpers ──────────────────────────────────────────────────────────────────

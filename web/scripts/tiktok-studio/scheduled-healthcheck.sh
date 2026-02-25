@@ -32,6 +32,25 @@ fi
 
 mkdir -p "$LOG_DIR"
 
+# ── Feature flag: REMINDERS_ENABLED (default: false) ────────────────────────
+reminders_enabled() {
+  local flag="${REMINDERS_ENABLED:-false}"
+  [[ "$flag" == "true" || "$flag" == "1" ]]
+}
+
+# ── Output sanitizer ────────────────────────────────────────────────────────
+sanitize_message() {
+  local raw="$1"
+  # Block code/tool leak patterns
+  if echo "$raw" | grep -qiE '```|\\x1b\[|\x1b\[|\\u001b|\u001b|import |def |await |\btool\b|\bfunction\b|\{"'; then
+    echo "$TAG Sanitizer: blocked message (code leak detected)" >&2
+    return 1
+  fi
+  # Strip non-printable chars, enforce max 5 lines
+  echo "$raw" | tr -d '\000-\010\013\014\016-\037\177' | head -5
+  return 0
+}
+
 echo ""
 echo "$(date '+%Y-%m-%d %H:%M:%S') $TAG Starting scheduled healthcheck..."
 
@@ -167,20 +186,30 @@ alert_message="${alert_message}
 
 <i>Cooldown: suppressed until ${cooldown_clears_at}</i>"
 
-if [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
-  echo "$TAG Sending Telegram alert..."
-  http_code=$(curl -s -o /dev/null -w "%{http_code}" \
-    -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
-    -H "Content-Type: application/json" \
-    -d "$(jq -n \
-      --arg chat_id "$TELEGRAM_CHAT_ID" \
-      --arg text "$alert_message" \
-      '{chat_id: $chat_id, text: $text, parse_mode: "HTML"}')" \
-  )
-  if [ "$http_code" = "200" ]; then
-    echo "$TAG Telegram alert sent (HTTP $http_code)"
+# Gate on feature flag
+if ! reminders_enabled; then
+  echo "$TAG Telegram skipped (REMINDERS_ENABLED=${REMINDERS_ENABLED:-false})"
+elif [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_LOG_CHAT_ID:-${TELEGRAM_CHAT_ID:-}}" ]; then
+  # Sanitize the alert message
+  safe_message=$(sanitize_message "$alert_message" 2>/dev/null) || safe_message=""
+  if [ -z "$safe_message" ]; then
+    echo "$TAG Telegram skipped (sanitizer blocked message)"
   else
-    echo "$TAG Telegram alert failed (HTTP $http_code)"
+    target_chat="${TELEGRAM_LOG_CHAT_ID:-${TELEGRAM_CHAT_ID}}"
+    echo "$TAG Sending Telegram alert to $target_chat..."
+    http_code=$(curl -s -o /dev/null -w "%{http_code}" \
+      -X POST "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage" \
+      -H "Content-Type: application/json" \
+      -d "$(jq -n \
+        --arg chat_id "$target_chat" \
+        --arg text "$safe_message" \
+        '{chat_id: $chat_id, text: $text, parse_mode: "HTML"}')" \
+    )
+    if [ "$http_code" = "200" ]; then
+      echo "$TAG Telegram alert sent (HTTP $http_code)"
+    else
+      echo "$TAG Telegram alert failed (HTTP $http_code)"
+    fi
   fi
 else
   echo "$TAG WARN: TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set — skipping Telegram alert"

@@ -11,6 +11,12 @@ Delta detection:
   - If fingerprint matches last notified state → silent (no Telegram)
   - If fingerprint differs → sends concise delta summary
 
+Feature flag: REMINDERS_ENABLED (default: false)
+  Set REMINDERS_ENABLED=true to enable Telegram sends.
+
+Channel routing: TELEGRAM_LOG_CHAT_ID
+  If set, messages go to this channel instead of TELEGRAM_CHAT_ID.
+
 Flags:
   --force    Always send, even if no delta (for manual checks)
   --dry-run  Compute deltas, print to stdout, don't send Telegram
@@ -19,6 +25,7 @@ Flags:
 import hashlib
 import json
 import os
+import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
@@ -29,12 +36,61 @@ import requests
 
 FLASHFLOW_KEY = os.getenv("SERVICE_API_KEY") or os.getenv("FLASHFLOW_API_KEY")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("BRANDON_CHAT_ID", "8287880388")
+# Route to log channel if configured, otherwise fall back to main chat
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_LOG_CHAT_ID") or os.getenv("BRANDON_CHAT_ID", "8287880388")
 
 FLASHFLOW_API = "https://web-pied-delta-30.vercel.app/api"
 TELEGRAM_API = "https://api.telegram.org/bot"
 
 STATE_PATH = Path(__file__).parent / ".health-check-state.json"
+
+MAX_LINES = 5
+
+# ── Feature flag ─────────────────────────────────────────────────────────────
+
+def reminders_enabled() -> bool:
+    """REMINDERS_ENABLED defaults to false — must be explicitly set to 'true' or '1'."""
+    flag = os.getenv("REMINDERS_ENABLED", "false").lower()
+    return flag in ("true", "1")
+
+
+# ── Output sanitizer ────────────────────────────────────────────────────────
+
+CODE_LEAK_PATTERNS = [
+    r"```",
+    r"\x1b\[",
+    r"\\x1b\[",
+    r"\u001b",
+    r"\\u001b",
+    r"\bimport\s",
+    r"\bdef\s+\w+\s*\(",
+    r"\bawait\s",
+    r"\btool\b",
+    r"\bfunction\b",
+    r'\{\s*"[^"]+"\s*:',
+    r"^\s*\}\s*$",
+]
+
+def sanitize_message(raw: str) -> str | None:
+    """Return cleaned message or None if it should be dropped."""
+    if not raw or not raw.strip():
+        return None
+
+    for pattern in CODE_LEAK_PATTERNS:
+        if re.search(pattern, raw, re.MULTILINE | re.IGNORECASE):
+            log_message(f"Sanitizer: blocked (matched {pattern})")
+            return None
+
+    # Strip non-printable chars (keep newlines + tabs)
+    cleaned = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", raw)
+
+    # Enforce max lines
+    lines = cleaned.split("\n")
+    if len(lines) > MAX_LINES:
+        cleaned = "\n".join(lines[:MAX_LINES]) + "\n…"
+
+    return cleaned if cleaned.strip() else None
+
 
 # ── Structured Logging ───────────────────────────────────────────────────────
 
@@ -217,7 +273,6 @@ def build_delta_message(analysis: dict, deltas: dict) -> str:
     """Build a concise, human-readable delta summary. No code fences, no headings."""
     lines = []
     lines.append(f"Pipeline update ({analysis['total_videos']} videos)")
-    lines.append("")
 
     if deltas["status_changes"]:
         for status, change in deltas["status_changes"].items():
@@ -227,28 +282,28 @@ def build_delta_message(analysis: dict, deltas: dict) -> str:
             lines.append(f"  {label}: {change['was']} -> {change['now']} ({arrow}{diff})")
 
     if deltas["new_stuck"]:
-        lines.append("")
-        lines.append(f"Newly stuck ({len(deltas['new_stuck'])}):")
-        for v in deltas["new_stuck"][:5]:
-            lines.append(f"  {v['title'][:35]} — {v['status']} ({v['age_hours']:.0f}h)")
+        lines.append(f"Newly stuck: {len(deltas['new_stuck'])}")
 
     if deltas["resolved_stuck"]:
-        lines.append("")
-        lines.append(f"Resolved: {len(deltas['resolved_stuck'])} video(s) unstuck")
+        lines.append(f"Resolved: {len(deltas['resolved_stuck'])} unstuck")
 
     if deltas["new_alerts"]:
-        lines.append("")
         for a in deltas["new_alerts"]:
             lines.append(f"  Alert: {a}")
-
-    if deltas["resolved_alerts"]:
-        for a in deltas["resolved_alerts"]:
-            lines.append(f"  Resolved: {a}")
 
     return "\n".join(lines)
 
 
 def send_telegram(message: str):
+    if not reminders_enabled():
+        log_message(f"Telegram skipped (REMINDERS_ENABLED={os.getenv('REMINDERS_ENABLED', 'false')})")
+        return
+
+    safe = sanitize_message(message)
+    if not safe:
+        log_message("Telegram skipped (sanitizer blocked)")
+        return
+
     if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
         log_message("Telegram not configured, skipping send")
         return
@@ -257,7 +312,7 @@ def send_telegram(message: str):
         url,
         json={
             "chat_id": TELEGRAM_CHAT_ID,
-            "text": message,
+            "text": safe,
             "parse_mode": "Markdown"
         }
     )
@@ -301,7 +356,10 @@ def main():
             dry_run=dry_run,
         )
 
-        if has_deltas or force:
+        # No deltas and not forced → send nothing
+        if not has_deltas and not force:
+            log_message("No deltas — skipping Telegram notification")
+        elif has_deltas or force:
             message = build_delta_message(analysis, deltas)
 
             if dry_run:
@@ -322,8 +380,6 @@ def main():
                 "total_videos": analysis["total_videos"],
             }
             save_state(new_state)
-        else:
-            log_message("No deltas — skipping Telegram notification")
 
         # Always output analysis for log collection
         print(json.dumps({
@@ -335,7 +391,7 @@ def main():
     except Exception as e:
         log_message(f"Error: {str(e)}")
         log_structured(event="health_check_error", error=str(e))
-        # Only send error alerts to Telegram (these are always meaningful)
+        # Error alerts also gated by REMINDERS_ENABLED
         try:
             send_telegram(f"Health check failed: {str(e)}")
         except Exception:

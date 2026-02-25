@@ -82,9 +82,9 @@ export function sanitizeTelegramMessage(raw: string): string | null {
 
 function remindersEnabled(): boolean {
   const flag = process.env.REMINDERS_ENABLED;
-  // Default to true if not set; only disable on explicit "false" / "0"
-  if (!flag) return true;
-  return flag !== 'false' && flag !== '0';
+  // Default to false if not set; only enable on explicit "true" / "1"
+  if (!flag) return false;
+  return flag === 'true' || flag === '1';
 }
 
 // ── Sender ─────────────────────────────────────────────────

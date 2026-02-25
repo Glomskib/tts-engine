@@ -118,8 +118,9 @@ export async function getMpProfile(userId: string) {
 }
 
 export async function getUserClientIds(userId: string): Promise<string[]> {
-  const sb = await createServerSupabaseClient();
-  const { data } = await sb.from('client_memberships').select('client_id').eq('user_id', userId);
+  // Use admin client so this works from both cookie-based and Bearer-token API routes.
+  // Safe because the caller has already verified the user's identity.
+  const { data } = await supabaseAdmin.from('client_memberships').select('client_id').eq('user_id', userId);
   return (data || []).map(r => r.client_id);
 }
 

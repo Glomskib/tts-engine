@@ -91,16 +91,35 @@ const ENV_GROUPS: EnvGroup[] = [
     ],
   },
   {
-    name: 'Stripe',
+    name: 'Stripe (core)',
     vars: [
       { key: 'STRIPE_SECRET_KEY', required: true },
       { key: 'STRIPE_WEBHOOK_SECRET', required: true },
-      { key: 'STRIPE_PRICE_STARTER_MONTHLY', required: true },
-      { key: 'STRIPE_PRICE_STARTER_YEARLY', required: true },
-      { key: 'STRIPE_PRICE_PRO_MONTHLY', required: true },
-      { key: 'STRIPE_PRICE_PRO_YEARLY', required: true },
-      { key: 'STRIPE_PRICE_TEAM_MONTHLY', required: true },
-      { key: 'STRIPE_PRICE_TEAM_YEARLY', required: true },
+    ],
+  },
+  {
+    name: 'Stripe (SaaS plan prices)',
+    vars: [
+      { key: 'STRIPE_PRICE_CREATOR_LITE', required: true },
+      { key: 'STRIPE_PRICE_CREATOR_PRO', required: true },
+      { key: 'STRIPE_PRICE_BUSINESS', required: true },
+    ],
+  },
+  {
+    name: 'Stripe (video plan prices)',
+    vars: [
+      { key: 'STRIPE_PRICE_VIDEO_STARTER', required: true },
+      { key: 'STRIPE_PRICE_VIDEO_GROWTH', required: true },
+      { key: 'STRIPE_PRICE_VIDEO_SCALE', required: true },
+      { key: 'STRIPE_PRICE_VIDEO_AGENCY', required: true },
+    ],
+  },
+  {
+    name: 'Stripe (editing add-ons)',
+    vars: [
+      { key: 'STRIPE_PRICE_EDITING_ONLY', required: false },
+      { key: 'STRIPE_PRICE_EDITING_ADDON', required: false },
+      { key: 'STRIPE_PRICE_PER_VIDEO', required: false },
     ],
   },
   {

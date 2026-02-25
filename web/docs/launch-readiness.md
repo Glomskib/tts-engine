@@ -33,18 +33,37 @@ Values must be set in the **Vercel project dashboard** (or `.env.local` for dev)
 | `ELEVENLABS_API_KEY` | No | TTS (optional) |
 | `HEYGEN_API_KEY` | **Yes** | Avatar video generation |
 
-### Stripe (payments)
+### Stripe (core)
 
 | Variable | Required | Notes |
 |---|---|---|
 | `STRIPE_SECRET_KEY` | **Yes** | `sk_live_...` for production |
 | `STRIPE_WEBHOOK_SECRET` | **Yes** | `whsec_...` from webhook endpoint config |
-| `STRIPE_PRICE_STARTER_MONTHLY` | **Yes** | Price ID for Starter monthly ($29) |
-| `STRIPE_PRICE_STARTER_YEARLY` | **Yes** | Price ID for Starter yearly ($278) |
-| `STRIPE_PRICE_PRO_MONTHLY` | **Yes** | Price ID for Pro monthly ($79) |
-| `STRIPE_PRICE_PRO_YEARLY` | **Yes** | Price ID for Pro yearly ($758) |
-| `STRIPE_PRICE_TEAM_MONTHLY` | **Yes** | Price ID for Team monthly ($199) |
-| `STRIPE_PRICE_TEAM_YEARLY` | **Yes** | Price ID for Team yearly ($1,910) |
+
+### Stripe (SaaS plan prices)
+
+| Variable | Required | Plan | Price |
+|---|---|---|---|
+| `STRIPE_PRICE_CREATOR_LITE` | **Yes** | Creator Lite | $9/mo |
+| `STRIPE_PRICE_CREATOR_PRO` | **Yes** | Creator Pro | $29/mo |
+| `STRIPE_PRICE_BUSINESS` | **Yes** | Business | $59/mo |
+
+### Stripe (video plan prices)
+
+| Variable | Required | Plan | Price |
+|---|---|---|---|
+| `STRIPE_PRICE_VIDEO_STARTER` | **Yes** | Video Starter | $89/mo |
+| `STRIPE_PRICE_VIDEO_GROWTH` | **Yes** | Video Growth | $199/mo |
+| `STRIPE_PRICE_VIDEO_SCALE` | **Yes** | Video Scale | $499/mo |
+| `STRIPE_PRICE_VIDEO_AGENCY` | **Yes** | Video Agency | $1,150/mo |
+
+### Stripe (editing add-ons)
+
+| Variable | Required | Add-on | Price |
+|---|---|---|---|
+| `STRIPE_PRICE_EDITING_ONLY` | No | Editing Only | $19/mo |
+| `STRIPE_PRICE_EDITING_ADDON` | No | Extra Edits Pack | $10/mo |
+| `STRIPE_PRICE_PER_VIDEO` | No | Single Video Edit | $3 one-time |
 
 ### Telegram (alerts)
 
@@ -143,13 +162,24 @@ Values must be set in the **Vercel project dashboard** (or `.env.local` for dev)
 
 Full guide: [`docs/STRIPE_SETUP.md`](./STRIPE_SETUP.md)
 
-**Quick summary:**
+**Quick summary — SaaS tiers:**
 
-| Plan | Monthly | Annual (20% off) | Credits/mo |
-|---|---|---|---|
-| Starter | $29 | $278 | 100 |
-| Pro | $79 | $758 | 500 |
-| Team | $199 | $1,910 | 2,000 |
+| Plan | Monthly | Credits/mo |
+|---|---|---|
+| Free | $0 | 5 |
+| Creator Lite | $9 | 50 |
+| Creator Pro | $29 | Unlimited |
+| Business | $59 | Unlimited |
+| Brand / Agency | Contact us | Unlimited |
+
+**Video editing tiers:**
+
+| Plan | Monthly | Videos/mo |
+|---|---|---|
+| Video Starter | $89 | 45 |
+| Video Growth | $199 | 120 |
+| Video Scale | $499 | 350 |
+| Video Agency | $1,150 | 1,000 |
 
 **Webhook endpoint:** `https://app.flashflow.ai/api/webhooks/stripe`
 

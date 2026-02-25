@@ -22,7 +22,7 @@ import { textToSpeech, formatForTTS } from "@/lib/elevenlabs";
 import { submitCompose, SfxClip } from "@/lib/compose";
 import { buildDefaultSfxPlan } from "@/lib/ambient-audio";
 import { runQualityCheck } from "@/app/api/render/quality-check/route";
-import { sendTelegramNotification } from "@/lib/telegram";
+import { sendTelegramLog } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -128,7 +128,7 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
             })
             .eq("id", video.id);
 
-          sendTelegramNotification(
+          sendTelegramLog(
             `🎬 Quality Gate: ${productLabel} scored ${qualityScore.avg}/10 — REJECTED\n  Visible: ${qualityScore.product_visible}, Legible: ${qualityScore.label_legible}, Look: ${qualityScore.natural_look}, Light: ${qualityScore.lighting_quality}`
           );
 
@@ -149,7 +149,7 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
             })
             .eq("id", video.id);
 
-          sendTelegramNotification(
+          sendTelegramLog(
             qualityScore
               ? `🎬 Quality Gate: ${productLabel} scored ${qualityScore.avg}/10 — PASS\n  Visible: ${qualityScore.product_visible}, Legible: ${qualityScore.label_legible}, Look: ${qualityScore.natural_look}, Light: ${qualityScore.lighting_quality}`
               : `🎬 Video ready: ${productLabel} (quality check unavailable)`
@@ -174,7 +174,7 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
           .eq("id", video.id);
 
         const productLabel = await getVideoProductLabel(video.id);
-        sendTelegramNotification(`❌ Render failed: ${productLabel} — ${composeError}`);
+        sendTelegramLog(`❌ Render failed: ${productLabel} — ${composeError}`);
 
         results.push({ id: video.id, phase: "compose", status: "failed" });
       } else {
@@ -284,7 +284,7 @@ async function checkRunwayRenders(results: Record<string, unknown>[]) {
           .eq("id", video.id);
 
         const productLabel = await getVideoProductLabel(video.id);
-        sendTelegramNotification(`❌ Render failed: ${productLabel} — ${reason}`);
+        sendTelegramLog(`❌ Render failed: ${productLabel} — ${reason}`);
 
         results.push({ id: video.id, phase: "runway", status: "failed", reason });
       } else {
@@ -376,7 +376,7 @@ async function checkHeyGenRenders(results: Record<string, unknown>[]) {
             .eq("id", video.id);
 
           const productLabel = await getVideoProductLabel(video.id);
-          sendTelegramNotification(
+          sendTelegramLog(
             `🎬 <b>HeyGen video ready for review</b>\nProduct: ${productLabel}\nVideo: <code>${video.id}</code>`
           );
 
@@ -399,7 +399,7 @@ async function checkHeyGenRenders(results: Record<string, unknown>[]) {
           .eq("id", video.id);
 
         const productLabel = await getVideoProductLabel(video.id);
-        sendTelegramNotification(`❌ HeyGen render failed: ${productLabel}`);
+        sendTelegramLog(`❌ HeyGen render failed: ${productLabel}`);
 
         results.push({ id: video.id, phase: "heygen", status: "failed" });
       } else {

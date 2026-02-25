@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getTikTokContentClient } from '@/lib/tiktok-content';
-import { sendTelegramNotification } from '@/lib/telegram';
+import { sendTelegramLog } from '@/lib/telegram';
 import { logSessionValidity } from '@/lib/session-logger';
 import { logUploadStep } from '@/lib/uploader-status';
 
@@ -94,7 +94,7 @@ async function checkProcessingVideos(
           .eq('id', video.id);
 
         const productLabel = await getVideoProductLabel(video.id);
-        sendTelegramNotification(
+        sendTelegramLog(
           `📱 <b>Auto-posted to TikTok!</b>\nProduct: ${productLabel}\nVideo: <code>${video.id.slice(0, 8)}</code>${postId ? `\nPost: ${postId}` : ''}`
         );
 
@@ -117,7 +117,7 @@ async function checkProcessingVideos(
           .eq('id', video.id);
 
         const productLabel = await getVideoProductLabel(video.id);
-        sendTelegramNotification(`❌ TikTok auto-post failed: ${productLabel} — ${reason}`);
+        sendTelegramLog(`❌ TikTok auto-post failed: ${productLabel} — ${reason}`);
 
         await logUploadStep(supabaseAdmin, {
           video_id: video.id, from: 'uploading', to: 'failed', step: 'publish_failed',
@@ -258,7 +258,7 @@ async function submitNewPosts(
         .eq('id', video.id);
 
       const productLabel = await getVideoProductLabel(video.id);
-      sendTelegramNotification(`❌ TikTok auto-post submit failed: ${productLabel} — ${errorMsg}`);
+      sendTelegramLog(`❌ TikTok auto-post submit failed: ${productLabel} — ${errorMsg}`);
 
       await logUploadStep(supabaseAdmin, {
         video_id: video.id, from: 'queued', to: 'failed', step: 'submit_error',
@@ -370,7 +370,7 @@ async function ensureFreshToken(
       accountId: connection.account_id,
     });
 
-    sendTelegramNotification(
+    sendTelegramLog(
       `⚠️ TikTok token refresh failed for account ${connection.account_id}. Re-connect in Settings.`
     );
 

@@ -9,7 +9,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { callAnthropicJSON } from '@/lib/ai/anthropic';
 import { postMCDoc } from '@/lib/flashflow/mission-control';
 import { logIssueAction, updateIssue, type IssueRow } from '@/lib/flashflow/issues';
-import { sendTelegramNotification } from '@/lib/telegram';
+import { sendTelegramLog } from '@/lib/telegram';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -109,7 +109,7 @@ Respond with JSON only:
 
       // Notify on Telegram for high/critical
       if (parsed.severity === 'high' || parsed.severity === 'critical') {
-        sendTelegramNotification(
+        sendTelegramLog(
           `\u{1F6A8} <b>[${parsed.severity.toUpperCase()}] ${parsed.subsystem}</b>\n` +
           `${parsed.summary}\n` +
           `<b>Source:</b> ${issue.source} | <b>Reporter:</b> ${issue.reporter || 'unknown'}`

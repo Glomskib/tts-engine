@@ -42,7 +42,8 @@ const CODE_LEAK_PATTERNS: RegExp[] = [
   /\bconsole\.(log|error|warn)/, // console calls
 ];
 
-const MAX_LINES = 5;
+/** Hard cap on output line count. Generous enough for digests, tight enough to catch dumps. */
+const MAX_LINES = 25;
 
 /**
  * Sanitize a Telegram message before sending.

@@ -115,6 +115,13 @@ export async function GET(request: Request) {
     const failed = failedCount ?? 0;
     const pipeline = pipelineTotal ?? 0;
 
+    // Skip sending if nothing happened and nothing is pending
+    const hasActivity = rendered + approved + rejected + posted + failed > 0;
+    const hasPending = awaiting + rendering + readyToPost > 0;
+    if (!hasActivity && !hasPending && pipeline === 0) {
+      return NextResponse.json({ ok: true, skipped: true, reason: "no_activity" });
+    }
+
     const healthEmoji = failed === 0 ? "🟢" : failed <= 2 ? "🟡" : "🔴";
     const awaitingEmoji = awaiting > 5 ? "⚠️" : awaiting > 0 ? "👀" : "✅";
 

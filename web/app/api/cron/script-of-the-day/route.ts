@@ -11,7 +11,7 @@
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateUnifiedScript } from "@/lib/unified-script-generator";
-import { sendTelegramNotification } from "@/lib/telegram";
+import { sendTelegramLog } from "@/lib/telegram";
 import { sendEmail } from "@/lib/email/resend";
 import { isWithinLimit, migrateOldPlanId } from "@/lib/plans";
 
@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     }
 
     const generated = results.filter((r) => r.status === "generated").length;
-    await sendTelegramNotification(
+    await sendTelegramLog(
       `📝 <b>Script of the Day</b>\nGenerated for <b>${generated}</b> user${generated !== 1 ? "s" : ""} (${results.length} total checked)`
     );
 

@@ -12,7 +12,7 @@
  */
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendTelegramNotification } from "@/lib/telegram";
+import { sendTelegramLog } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -242,7 +242,7 @@ export async function GET(request: Request) {
         const message = lines.join("\n");
 
         // Send via Telegram
-        await sendTelegramNotification(message);
+        await sendTelegramLog(message);
         sentCount++;
 
         // Store weekly snapshot

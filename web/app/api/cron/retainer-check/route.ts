@@ -14,7 +14,7 @@
  */
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { sendTelegramNotification } from '@/lib/telegram';
+import { sendTelegramLog } from '@/lib/telegram';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -131,7 +131,7 @@ export async function GET(request: Request) {
           const msg = `⏰ ${brand.name}: Only ${daysRemaining} day${daysRemaining === 1 ? '' : 's'} left! ${videosRemaining} videos to go. Need ${paceNeeded.toFixed(1)}/day.`;
           alerts.push(msg);
           await createAdminNotifications(adminIds, 'brand_quota', `${brand.name} — Deadline Alert`, msg, `/admin/brands`, { retainer_check_key: key, brand_id: brand.id });
-          await sendTelegramNotification(msg);
+          await sendTelegramLog(msg);
         }
       }
 
@@ -142,7 +142,7 @@ export async function GET(request: Request) {
           const msg = `⚠️ ${brand.name}: Falling behind! ${videosPosted}/${brand.retainer_video_goal} posted (expected ${expectedByNow} by now). Need ${paceNeeded.toFixed(1)} videos/day to hit goal.`;
           alerts.push(msg);
           await createAdminNotifications(adminIds, 'brand_quota', `${brand.name} — Behind Pace`, msg, `/admin/brands`, { retainer_check_key: key, brand_id: brand.id });
-          await sendTelegramNotification(msg);
+          await sendTelegramLog(msg);
         }
       }
 
@@ -165,7 +165,7 @@ export async function GET(request: Request) {
           const msg = `🎉 ${brand.name}: ${videosPosted} videos complete!${payoutStr}`;
           alerts.push(msg);
           await createAdminNotifications(adminIds, 'info', `${brand.name} — Goal Reached!`, msg, `/admin/brands`, { retainer_check_key: key, brand_id: brand.id });
-          await sendTelegramNotification(msg);
+          await sendTelegramLog(msg);
         }
       }
 

@@ -70,13 +70,13 @@ export default function ClientSupportPage() {
                 <div>
                   <h3 className="text-sm font-medium text-slate-700">What do the status labels mean?</h3>
                   <p className="mt-1 text-sm text-slate-600">
-                    Videos progress through stages: Not Recorded, Recorded, Edited, Ready to Post, and Posted.
+                    Editing requests progress through stages: Queued, Editor Assigned, Editing, Ready for Review, and Approved.
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-sm font-medium text-slate-700">Where can I find my posted video?</h3>
+                  <h3 className="text-sm font-medium text-slate-700">Where can I find my edited video?</h3>
                   <p className="mt-1 text-sm text-slate-600">
-                    Once a video is posted, a link will appear on the video detail page.
+                    Once your video is ready, you&apos;ll see it in the &quot;Ready for Review&quot; section of My Videos. After you approve it, download links will appear on the detail page.
                   </p>
                 </div>
               </div>

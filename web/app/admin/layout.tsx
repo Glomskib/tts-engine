@@ -104,9 +104,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/command-center/finance': 'Finance',
       '/admin/command-center/agents': 'Agent Scoreboard',
       '/admin/command-center/finops': 'FinOps',
+      '/admin/video-editing': 'Editing Pipeline',
     };
-    const title = PAGE_TITLES[pathname] || 'Admin';
-    document.title = `${title} | FlashFlow AI`;
+    let title = PAGE_TITLES[pathname];
+    if (!title && pathname.startsWith('/admin/video-editing/')) title = 'Editing Request';
+    document.title = `${title || 'Admin'} | FlashFlow AI`;
   }, [pathname]);
 
   // Detect screen size with JavaScript

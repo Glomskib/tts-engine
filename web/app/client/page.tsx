@@ -159,11 +159,11 @@ export default function ClientPortalPage() {
                 <div className="text-sm text-slate-500">Get help and contact us</div>
               </Link>
               <Link
-                href="/admin/status"
+                href="/client/my-videos"
                 className="p-5 bg-white rounded-lg border border-slate-200 shadow-sm hover:shadow-md transition-shadow"
               >
-                <div className="text-lg font-medium text-slate-800 mb-1">Status</div>
-                <div className="text-sm text-slate-500">Check system status</div>
+                <div className="text-lg font-medium text-slate-800 mb-1">Editing Requests</div>
+                <div className="text-sm text-slate-500">Track your video editing jobs</div>
               </Link>
             </div>
 

@@ -16,9 +16,9 @@ const NAV_ITEMS = [
   { href: '/client/videos', label: 'Videos' },
   { href: '/client/projects', label: 'Projects' },
   { href: '/client/billing', label: 'Billing' },
+  { href: '/client/my-videos', label: 'My Videos' },
   { href: '/client/support', label: 'Support' },
   { href: '/client/account', label: 'Account' },
-  { href: '/admin/status', label: 'Status' },
 ];
 
 export default function ClientNav({ userName, branding }: ClientNavProps) {

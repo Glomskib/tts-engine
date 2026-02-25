@@ -8,6 +8,15 @@ import { sendTelegramNotification } from "@/lib/telegram";
 import { syncRoleFromPlan } from "@/lib/sync-role";
 import { syncDiscordRolesIfLinked } from "@/lib/discord/roles";
 import { upsertEntitlement, PLAN_ID_TO_ENTITLEMENT } from "@/lib/entitlements";
+import {
+  isEventProcessed,
+  markEventProcessed,
+  syncMpPlanFromStripe,
+  cancelMpPlan,
+  extractMpClientId,
+  extractPriceId,
+} from "@/lib/marketplace/plan-sync";
+import { isMpStripePriceId } from "@/lib/marketplace/plan-config";
 import { NextResponse } from "next/server";
 import Stripe from "stripe";
 
@@ -61,7 +70,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  console.info(`[${correlationId}] Stripe webhook event: ${event.type}`);
+  console.info(`[${correlationId}] Stripe webhook event: ${event.type} (${event.id})`);
+
+  // Idempotency guard — skip already-processed events
+  if (await isEventProcessed(event.id)) {
+    console.info(`[${correlationId}] Skipping duplicate event ${event.id}`);
+    return NextResponse.json({ received: true, duplicate: true });
+  }
 
   try {
     switch (event.type) {
@@ -131,6 +146,9 @@ export async function POST(request: Request) {
         console.info(`[${correlationId}] Unhandled event type: ${event.type}`);
     }
 
+    // Mark event as processed for idempotency
+    await markEventProcessed(event.id, event.type);
+
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error(`[${correlationId}] Error handling webhook:`, error);
@@ -139,6 +157,19 @@ export async function POST(request: Request) {
 }
 
 async function handleCheckoutCompleted(correlationId: string, session: Stripe.Checkout.Session) {
+  // ── Marketplace checkout ───────────────────────────────
+  // If this session has mp_client_id metadata, it's a marketplace subscription.
+  // The actual plan sync happens in subscription.created/updated, so we just log here.
+  const mpClientId = session.metadata?.mp_client_id;
+  if (mpClientId) {
+    console.info(`[${correlationId}] Marketplace checkout completed for client ${mpClientId}`);
+    sendTelegramNotification(
+      `💰 MP signup: client <b>${mpClientId}</b> checkout completed`
+    ).catch(() => {});
+    return;
+  }
+
+  // ── SaaS / credit checkout (existing) ──────────────────
   const userId = session.metadata?.user_id;
   const sessionType = session.metadata?.type;
 
@@ -288,6 +319,21 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
 }
 
 async function handleSubscriptionChange(correlationId: string, subscription: Stripe.Subscription) {
+  // ── Marketplace plan sync ──────────────────────────────
+  const mpClientId = extractMpClientId(subscription.metadata as Record<string, string>);
+  const mpPriceId = extractPriceId(subscription.items);
+  if (mpClientId && mpPriceId && isMpStripePriceId(mpPriceId)) {
+    await syncMpPlanFromStripe(correlationId, {
+      subscriptionId: subscription.id,
+      priceId: mpPriceId,
+      status: subscription.status,
+      currentPeriodEnd: (subscription as unknown as { current_period_end?: number }).current_period_end ?? null,
+      clientId: mpClientId,
+    });
+    return; // marketplace subs don't touch user_subscriptions
+  }
+
+  // ── SaaS subscription handling (existing) ──────────────
   let userId = subscription.metadata?.user_id;
 
   if (!userId) {
@@ -363,6 +409,14 @@ async function handleSubscriptionChange(correlationId: string, subscription: Str
 async function handleSubscriptionCancelled(correlationId: string, subscription: Stripe.Subscription) {
   console.info(`[${correlationId}] Subscription cancelled: ${subscription.id}`);
 
+  // ── Marketplace plan cancellation ──────────────────────
+  const mpClientId = extractMpClientId(subscription.metadata as Record<string, string>);
+  if (mpClientId) {
+    await cancelMpPlan(correlationId, subscription.id);
+    return; // marketplace subs don't touch user_subscriptions
+  }
+
+  // ── SaaS cancellation (existing) ───────────────────────
   // Downgrade to free plan
   const { data: cancelledSub, error } = await supabaseAdmin
     .from("user_subscriptions")

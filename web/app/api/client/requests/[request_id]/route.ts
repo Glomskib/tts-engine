@@ -3,7 +3,10 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getPrimaryClientOrgForUser } from "@/lib/client-org";
-import { getClientRequestById } from "@/lib/client-requests";
+import {
+  getClientRequestById, getRequestPriority,
+  computeClientRequestSlaFields,
+} from "@/lib/client-requests";
 
 export const runtime = "nodejs";
 
@@ -48,7 +51,13 @@ export async function GET(
       return createApiErrorResponse("NOT_FOUND", "Request not found", 404, correlationId);
     }
 
-    // Return client-safe data
+    // Resolve priority and compute SLA fields
+    const priority = await getRequestPriority(supabaseAdmin, requestId);
+    const sla = computeClientRequestSlaFields(
+      clientRequest.created_at, priority, clientRequest.status,
+    );
+
+    // Return client-safe data with SLA fields
     return NextResponse.json({
       ok: true,
       data: {
@@ -63,6 +72,10 @@ export async function GET(
         status: clientRequest.status,
         status_reason: clientRequest.status_reason,
         video_id: clientRequest.video_id,
+        priority,
+        sla_breach_at: sla.sla_breach_at,
+        is_sla_breached: sla.is_sla_breached,
+        sla_hours: sla.sla_hours,
         created_at: clientRequest.created_at,
         updated_at: clientRequest.updated_at,
       },

@@ -1,16 +1,19 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft, ExternalLink, Film, Send, Download, Clock,
   AlertTriangle, MessageSquare, Copy, Check, FolderOpen, Video,
-  ChevronDown, ChevronUp, Link2,
+  ChevronDown, ChevronUp, Link2, Timer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import type { JobFeedback, JobEvent, JobStatus, DeliverableType } from '@/lib/marketplace/types';
 import { JOB_STATUS_LABELS, JOB_STATUS_COLORS } from '@/lib/marketplace/types';
+
+const ACTIONABLE_STATUSES: JobStatus[] = ['claimed', 'in_progress', 'changes_requested'];
 
 function slaBadge(dueAt: string | null): { text: string; color: string } | null {
   if (!dueAt) return null;
@@ -18,6 +21,19 @@ function slaBadge(dueAt: string | null): { text: string; color: string } | null 
   const hours = Math.abs(Math.round(diff / 3_600_000));
   if (diff > 0) return { text: `Due in ${hours}h`, color: hours < 6 ? 'text-amber-400' : 'text-zinc-400' };
   return { text: `Overdue by ${hours}h`, color: 'text-red-400' };
+}
+
+function formatElapsed(minutes: number): string {
+  if (minutes < 60) return `${minutes}m`;
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+function elapsedColor(minutes: number): string {
+  if (minutes > 40) return 'text-red-400';
+  if (minutes >= 20) return 'text-amber-400';
+  return 'text-zinc-400';
 }
 
 function isValidUrl(url: string): boolean {
@@ -57,6 +73,10 @@ export default function VaJobDetailPage() {
   const [urlError, setUrlError] = useState('');
   const [error, setError] = useState('');
   const [eventsOpen, setEventsOpen] = useState(false);
+  const [elapsedMinutes, setElapsedMinutes] = useState<number | null>(null);
+  const [idleDialogOpen, setIdleDialogOpen] = useState(false);
+  const lastActivityRef = useRef(Date.now());
+  const submitSectionRef = useRef<HTMLDivElement>(null);
 
   const fetchJob = useCallback(async () => {
     setLoading(true);
@@ -70,6 +90,40 @@ export default function VaJobDetailPage() {
   }, [id]);
 
   useEffect(() => { fetchJob(); }, [fetchJob]);
+
+  // Step 2: Time-in-Job timer
+  useEffect(() => {
+    if (!job) return;
+    const anchor = job.started_at || job.claimed_at;
+    if (!anchor || !ACTIONABLE_STATUSES.includes(job.job_status)) {
+      setElapsedMinutes(null);
+      return;
+    }
+    const calcElapsed = () => Math.max(0, Math.floor((Date.now() - new Date(anchor).getTime()) / 60_000));
+    setElapsedMinutes(calcElapsed());
+    const interval = setInterval(() => setElapsedMinutes(calcElapsed()), 60_000);
+    return () => clearInterval(interval);
+  }, [job]);
+
+  // Step 3: Idle protection
+  useEffect(() => {
+    if (!job || !ACTIONABLE_STATUSES.includes(job.job_status)) return;
+
+    const resetActivity = () => { lastActivityRef.current = Date.now(); };
+    const events = ['mousemove', 'keydown', 'click', 'scroll'] as const;
+    events.forEach(evt => window.addEventListener(evt, resetActivity));
+
+    const interval = setInterval(() => {
+      if (Date.now() - lastActivityRef.current > 15 * 60_000) {
+        setIdleDialogOpen(true);
+      }
+    }, 30_000);
+
+    return () => {
+      events.forEach(evt => window.removeEventListener(evt, resetActivity));
+      clearInterval(interval);
+    };
+  }, [job]);
 
   async function handleAction(action: string, extra?: Record<string, string>) {
     setActing(true);
@@ -131,13 +185,20 @@ export default function VaJobDetailPage() {
   const canStart = job.job_status === 'claimed' || job.job_status === 'changes_requested';
   const canSubmit = job.job_status === 'in_progress' || job.job_status === 'changes_requested';
   const isChangesRequested = job.job_status === 'changes_requested';
+  const isActionable = ACTIONABLE_STATUSES.includes(job.job_status);
   const rawAssets = (job.assets || []).filter((a: any) => a.asset_type === 'raw_folder' || a.asset_type === 'raw_video');
   const refAssets = (job.assets || []).filter((a: any) => a.asset_type === 'reference');
   const sla = slaBadge(job.due_at);
   const events: JobEvent[] = (job.events || []).slice(-10).reverse();
 
+  // Step 4: Sort deliverables by version descending
+  const sortedDeliverables = [...(job.deliverables || [])].sort(
+    (a: any, b: any) => (b.version ?? 0) - (a.version ?? 0)
+  );
+  const latestVersion = sortedDeliverables.length > 0 ? sortedDeliverables[0].version : null;
+
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className={`max-w-4xl mx-auto ${isActionable ? 'pb-20' : ''}`}>
       <button onClick={() => router.push('/va/jobs')} className="flex items-center gap-2 text-zinc-400 hover:text-white text-sm mb-6">
         <ArrowLeft className="w-4 h-4" /> Back to Job Board
       </button>
@@ -154,6 +215,12 @@ export default function VaJobDetailPage() {
               <span className={`flex items-center gap-1 text-xs ${sla.color}`}>
                 {sla.text.startsWith('Overdue') ? <AlertTriangle className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
                 {sla.text}
+              </span>
+            )}
+            {elapsedMinutes !== null && (
+              <span className={`flex items-center gap-1 text-xs ${elapsedColor(elapsedMinutes)}`}>
+                <Timer className="w-3 h-3" />
+                {formatElapsed(elapsedMinutes)}
               </span>
             )}
           </div>
@@ -316,7 +383,7 @@ export default function VaJobDetailPage() {
 
         {/* Submit Deliverable */}
         {canSubmit && (
-          <Card>
+          <Card ref={submitSectionRef}>
             <CardHeader><CardTitle>{isChangesRequested ? 'Submit Revised Deliverable' : 'Submit Deliverable'}</CardTitle></CardHeader>
             <CardContent>
               <p className="text-xs text-zinc-500 mb-3">Paste the Google Drive link to your finished edit. Each submission creates a new deliverable record.</p>
@@ -354,25 +421,43 @@ export default function VaJobDetailPage() {
           </Card>
         )}
 
-        {/* Submitted Deliverables */}
-        {(job.deliverables?.length > 0) && (
+        {/* Submitted Deliverables — version-aware */}
+        {sortedDeliverables.length > 0 && (
           <Card>
             <CardHeader><CardTitle>Submitted Deliverables</CardTitle></CardHeader>
             <CardContent>
               <ul className="space-y-2">
-                {job.deliverables.map((d: any) => (
-                  <li key={d.id} className="flex items-center gap-3 text-sm">
-                    <Download className="w-4 h-4 text-green-400" />
-                    <span className={`text-xs px-1.5 py-0.5 rounded ${d.deliverable_type === 'variant' ? 'bg-indigo-900/30 text-indigo-300' : 'bg-green-900/30 text-green-300'}`}>
-                      {d.deliverable_type}
-                    </span>
-                    <span className="text-zinc-300">{d.label || d.deliverable_type}</span>
-                    <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 flex items-center gap-1">
-                      Open <ExternalLink className="w-3 h-3" />
-                    </a>
-                    <span className="text-xs text-zinc-600">{new Date(d.created_at).toLocaleDateString()}</span>
-                  </li>
-                ))}
+                {sortedDeliverables.map((d: any) => {
+                  const isLatest = d.version === latestVersion;
+                  return (
+                    <li
+                      key={d.id}
+                      className={`flex items-center gap-3 text-sm rounded-lg p-2 ${
+                        isLatest
+                          ? 'border border-green-800/40 bg-green-900/10'
+                          : 'opacity-60'
+                      }`}
+                    >
+                      <Download className={`w-4 h-4 ${isLatest ? 'text-green-400' : 'text-zinc-500'}`} />
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-mono">
+                        v{d.version ?? '?'}
+                      </span>
+                      <span className={`text-xs px-1.5 py-0.5 rounded ${d.deliverable_type === 'variant' ? 'bg-indigo-900/30 text-indigo-300' : 'bg-green-900/30 text-green-300'}`}>
+                        {d.deliverable_type}
+                      </span>
+                      <span className="text-zinc-300">{d.label || d.deliverable_type}</span>
+                      {isLatest && (
+                        <span className="text-[10px] font-semibold uppercase px-1.5 py-0.5 rounded bg-green-900/40 text-green-300">
+                          Latest
+                        </span>
+                      )}
+                      <a href={d.url} target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:text-teal-300 flex items-center gap-1 ml-auto">
+                        Open <ExternalLink className="w-3 h-3" />
+                      </a>
+                      <span className="text-xs text-zinc-600">{new Date(d.created_at).toLocaleDateString()}</span>
+                    </li>
+                  );
+                })}
               </ul>
             </CardContent>
           </Card>
@@ -443,6 +528,68 @@ export default function VaJobDetailPage() {
           </Card>
         )}
       </div>
+
+      {/* Fast Actions Bar */}
+      {isActionable && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 bg-zinc-900/95 border-t border-white/10 backdrop-blur">
+          <div className="max-w-4xl mx-auto flex items-center justify-between px-6 py-3">
+            <div className="flex items-center gap-2">
+              {job.job_status === 'claimed' && (
+                <>
+                  <Button size="sm" onClick={() => handleAction('start')} loading={acting}>Start Editing</Button>
+                  {job.script?.script_text && (
+                    <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(job.script.script_text)}>
+                      <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy Script
+                    </Button>
+                  )}
+                </>
+              )}
+              {job.job_status === 'in_progress' && (
+                <>
+                  <Button size="sm" onClick={() => submitSectionRef.current?.scrollIntoView({ behavior: 'smooth' })}>Submit</Button>
+                  {job.script?.script_text && (
+                    <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(job.script.script_text)}>
+                      <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy Script
+                    </Button>
+                  )}
+                </>
+              )}
+              {job.job_status === 'changes_requested' && (
+                <>
+                  <Button size="sm" onClick={() => handleAction('start')} loading={acting}>Start Editing</Button>
+                  {job.script?.script_text && (
+                    <Button size="sm" variant="ghost" onClick={() => navigator.clipboard.writeText(job.script.script_text)}>
+                      <Copy className="w-3.5 h-3.5 mr-1.5" /> Copy Script
+                    </Button>
+                  )}
+                </>
+              )}
+            </div>
+            {elapsedMinutes !== null && (
+              <span className={`flex items-center gap-1 text-xs ${elapsedColor(elapsedMinutes)}`}>
+                <Timer className="w-3 h-3" />
+                {formatElapsed(elapsedMinutes)}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Idle Protection Dialog */}
+      <ConfirmDialog
+        isOpen={idleDialogOpen}
+        onClose={() => router.push('/va/jobs')}
+        onConfirm={() => {
+          setIdleDialogOpen(false);
+          lastActivityRef.current = Date.now();
+          fetchJob();
+        }}
+        title="Still working?"
+        message="You've been idle for 15 minutes. Click below to stay on this job."
+        confirmText="Keep Working"
+        cancelText="Back to Board"
+        variant="warning"
+      />
     </div>
   );
 }

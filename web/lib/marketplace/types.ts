@@ -64,12 +64,19 @@ export function getClientToday(timezone: string | null): string {
 }
 
 /** Compute SLA metadata for API responses */
-export function computeSlaFields(dueAt: string | null): { is_overdue: boolean; due_in_hours: number | null } {
-  if (!dueAt) return { is_overdue: false, due_in_hours: null };
+export function computeSlaFields(dueAt: string | null): {
+  is_overdue: boolean;
+  due_in_hours: number | null;
+  sla_breach_at: string | null;
+  is_sla_breached: boolean;
+} {
+  if (!dueAt) return { is_overdue: false, due_in_hours: null, sla_breach_at: null, is_sla_breached: false };
   const diff = new Date(dueAt).getTime() - Date.now();
   return {
     is_overdue: diff < 0,
     due_in_hours: Math.round(diff / 3_600_000),
+    sla_breach_at: dueAt,
+    is_sla_breached: diff < 0,
   };
 }
 
@@ -265,6 +272,8 @@ export interface JobWithScript extends EditJob {
   sla_hours: number;
   is_overdue: boolean;
   due_in_hours: number | null;
+  sla_breach_at: string | null;
+  is_sla_breached: boolean;
   assets: (ScriptAsset & { signed_url: string | null })[];
   deliverables: JobDeliverable[];
   feedback: JobFeedback[];

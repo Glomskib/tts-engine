@@ -14,6 +14,7 @@ import {
   PLAN_TIER_DEFAULTS, planTierLabel,
 } from './types';
 import { checkDailyCap, checkPlanActive, isPlanBillable } from './usage';
+import { computePriorityWeight } from '@/lib/ops/priorityEngine';
 
 // ============================================================
 // Structured error class
@@ -318,35 +319,72 @@ export async function queueForEditing(scriptId: string, clientId: string, userId
 
   // Check daily cap via shared helper
   const { allowed, usage: capUsage } = await checkDailyCap(clientId);
-  if (!allowed) {
-    throw new MarketplaceError(
-      `Daily limit reached (${capUsage.used_today}/${capUsage.daily_cap}). Resets at ${capUsage.resets_at}. Upgrade to increase daily capacity.`,
-      'DAILY_CAP_EXCEEDED',
-      429,
-    );
-  }
 
   // Derive plan fields from cap check result
   const tier = capUsage.plan_tier;
   const tierConfig = PLAN_TIER_DEFAULTS[tier] || PLAN_TIER_DEFAULTS.pool_15;
   const slaHours = capUsage.sla_hours;
-  const dailyCap = capUsage.daily_cap;
   const priorityWeight = tierConfig.priority_weight;
   const today = capUsage.date;
   const currentCount = capUsage.used_today;
 
-  // Upsert usage
+  // Upsert usage (count the attempt regardless of throttle)
   await svc.from('plan_usage_daily').upsert({
     client_id: clientId,
     date: today,
     submitted_count: currentCount + 1,
   }, { onConflict: 'client_id,date' });
 
-  // Update script status
+  const dueAt = computeDueAt(slaHours);
+
+  // If daily cap exceeded: still create the job but mark as blocked.
+  // Blocked jobs are excluded from the VA queue automatically.
+  if (!allowed) {
+    await svc.from('mp_scripts').update({ status: 'blocked' }).eq('id', scriptId);
+
+    const { data: existingJob } = await svc.from('edit_jobs')
+      .select('id, job_status')
+      .eq('script_id', scriptId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    let jobId: string;
+    if (existingJob) {
+      await svc.from('edit_jobs').update({
+        job_status: 'blocked',
+        priority: priorityWeight,
+        due_at: dueAt,
+        blocked_reason: 'DAILY_CAP_EXCEEDED',
+        claimed_by: null, claimed_at: null, started_at: null, submitted_at: null,
+      }).eq('id', existingJob.id);
+      jobId = existingJob.id;
+    } else {
+      const { data: newJob, error } = await svc.from('edit_jobs').insert({
+        script_id: scriptId,
+        client_id: clientId,
+        job_status: 'blocked',
+        priority: priorityWeight,
+        due_at: dueAt,
+        blocked_reason: 'DAILY_CAP_EXCEEDED',
+      }).select().single();
+      if (error) throw new Error(error.message);
+      jobId = newJob.id;
+    }
+
+    await svc.from('job_events').insert({
+      job_id: jobId,
+      event_type: 'blocked',
+      actor_user_id: userId,
+      payload: { reason: 'DAILY_CAP_EXCEEDED', usage: `${capUsage.used_today}/${capUsage.daily_cap}` },
+    });
+
+    return { jobId, status: 'blocked' as JobStatus, existing: false, queue_block_reason: 'DAILY_CAP_EXCEEDED' as const };
+  }
+
+  // Normal path: create a queued job
   await svc.from('mp_scripts').update({ status: 'queued' }).eq('id', scriptId);
 
-  // Create edit job or re-queue a terminal one
-  const dueAt = computeDueAt(slaHours);
   const { data: existingJob } = await svc.from('edit_jobs')
     .select('id, job_status')
     .eq('script_id', scriptId)
@@ -356,11 +394,12 @@ export async function queueForEditing(scriptId: string, clientId: string, userId
 
   let jobId: string;
   if (existingJob) {
-    // Re-queue an existing terminal job
+    // Re-queue an existing terminal/blocked job
     await svc.from('edit_jobs').update({
       job_status: 'queued',
       priority: priorityWeight,
       due_at: dueAt,
+      blocked_reason: null,
       claimed_by: null,
       claimed_at: null,
       started_at: null,
@@ -471,7 +510,7 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
     return isPlanBillable((planData?.status as string) || null);
   });
 
-  return rows.map((j: Record<string, unknown>) => {
+  const mapped = rows.map((j: Record<string, unknown>) => {
     const scriptData = j.mp_scripts as Record<string, unknown> | null;
     const assets = (scriptData && Array.isArray(scriptData.script_assets))
       ? scriptData.script_assets as { asset_type: string }[]
@@ -485,12 +524,27 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
     const slaHours = (planData?.sla_hours as number) || PLAN_TIER_DEFAULTS[tier].sla_hours;
     const sla = computeSlaFields(j.due_at as string | null);
 
+    // Compute effective priority with decay for queued jobs
+    const jobStatus = j.job_status as string;
+    const storedPriority = j.priority as number;
+    let effectivePriority = storedPriority;
+    if (jobStatus === 'queued') {
+      const decayResult = computePriorityWeight({
+        plan_tier: tier as PlanTier,
+        job_status: jobStatus,
+        created_at: j.created_at as string,
+        current_priority: storedPriority,
+      });
+      effectivePriority = decayResult.priority_weight;
+    }
+
     return {
       id: j.id as string,
       script_id: j.script_id as string,
       client_id: j.client_id as string,
-      job_status: j.job_status as JobStatus,
-      priority: j.priority as number,
+      job_status: jobStatus as JobStatus,
+      priority: storedPriority,
+      effective_priority: effectivePriority,
       claimed_by: j.claimed_by as string | null,
       due_at: j.due_at as string | null,
       created_at: j.created_at as string,
@@ -500,6 +554,8 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
       sla_hours: slaHours,
       is_overdue: sla.is_overdue,
       due_in_hours: sla.due_in_hours,
+      sla_breach_at: sla.sla_breach_at,
+      is_sla_breached: sla.is_sla_breached,
       script_title: (scriptData?.title as string) || 'Untitled',
       script_notes: (scriptData?.notes as string) || '',
       broll_suggestions: (scriptData?.broll_suggestions as string) || '',
@@ -508,6 +564,26 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
       revision_count: deliverables.length,
     };
   });
+
+  // Re-sort in-memory by effective_priority when using priority sort mode,
+  // so that 48h priority decay is reflected in queue ordering.
+  const sort = filters?.sort || 'priority';
+  if (sort === 'priority' && statusFilter !== 'mine') {
+    mapped.sort((a, b) => {
+      // effective_priority DESC
+      if (b.effective_priority !== a.effective_priority) return b.effective_priority - a.effective_priority;
+      // due_at ASC (nulls last)
+      if (a.due_at && b.due_at) {
+        const diff = new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
+        if (diff !== 0) return diff;
+      } else if (a.due_at && !b.due_at) return -1;
+      else if (!a.due_at && b.due_at) return 1;
+      // created_at ASC (FIFO tiebreak)
+      return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    });
+  }
+
+  return mapped;
 }
 
 export async function getJobDetail(jobId: string): Promise<JobWithScript | null> {
@@ -590,6 +666,8 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
     sla_hours: slaHours,
     is_overdue: sla.is_overdue,
     due_in_hours: sla.due_in_hours,
+    sla_breach_at: sla.sla_breach_at,
+    is_sla_breached: sla.is_sla_breached,
     assets: assets as (ScriptAsset & { signed_url: string | null })[],
     deliverables: (delivRes.data || []) as JobDeliverable[],
     feedback: (feedbackRes.data || []) as JobFeedback[],
@@ -606,8 +684,15 @@ export async function claimJob(jobId: string, userId: string) {
   const sb = supabaseAdmin;
 
   // Validate transition before atomic claim
-  const { data: current } = await sb.from('edit_jobs').select('job_status').eq('id', jobId).single();
+  const { data: current } = await sb.from('edit_jobs').select('job_status, due_at').eq('id', jobId).single();
   if (!current) throw new MarketplaceError('Job not found', 'NOT_FOUND', 404);
+
+  // Check for terminal/inactive states with specific error code
+  const terminalStatuses: JobStatus[] = ['posted', 'canceled', 'approved'];
+  if (terminalStatuses.includes(current.job_status as JobStatus)) {
+    throw new MarketplaceError('Job is no longer active', 'JOB_NOT_ACTIVE', 410);
+  }
+
   validateTransition(current.job_status as JobStatus, 'claimed');
 
   // Atomic claim: only if still queued and unclaimed

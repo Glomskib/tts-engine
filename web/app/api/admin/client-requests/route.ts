@@ -2,7 +2,10 @@ import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { listAllClientRequests, RequestStatus, RequestType } from "@/lib/client-requests";
+import {
+  listAllClientRequests, RequestStatus, RequestType,
+  getRequestPriorities, computeClientRequestSlaFields,
+} from "@/lib/client-requests";
 import { getClientOrgById } from "@/lib/client-org";
 
 export const runtime = "nodejs";
@@ -52,7 +55,12 @@ export async function GET(request: Request) {
       request_type: requestType,
     });
 
-    // Enrich with org names
+    // Resolve priorities for SLA computation
+    const requestIds = requests.map((r) => r.request_id);
+    const priorities = await getRequestPriorities(supabaseAdmin, requestIds);
+    const now = Date.now();
+
+    // Enrich with org names and SLA fields
     const orgNameCache = new Map<string, string>();
     const enrichedRequests = await Promise.all(
       requests.map(async (r) => {
@@ -62,6 +70,9 @@ export async function GET(request: Request) {
           orgName = org?.org_name || r.org_id;
           orgNameCache.set(r.org_id, orgName);
         }
+
+        const priority = priorities.get(r.request_id) || "NORMAL";
+        const sla = computeClientRequestSlaFields(r.created_at, priority, r.status, now);
 
         return {
           request_id: r.request_id,
@@ -79,6 +90,10 @@ export async function GET(request: Request) {
           status: r.status,
           status_reason: r.status_reason,
           video_id: r.video_id,
+          priority,
+          sla_breach_at: sla.sla_breach_at,
+          is_sla_breached: sla.is_sla_breached,
+          sla_hours: sla.sla_hours,
           created_at: r.created_at,
           updated_at: r.updated_at,
         };

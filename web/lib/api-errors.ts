@@ -57,7 +57,10 @@ export type ApiErrorCode =
   | 'STORAGE_LIMIT'
   | 'STORAGE_ERROR'
   | 'PLAN_LIMIT'
-  | 'MISSING_PRODUCT_ID';
+  | 'MISSING_PRODUCT_ID'
+  | 'JOB_NOT_ACTIVE'
+  | 'DAILY_CAP_EXCEEDED'
+  | 'SLA_EXPIRED';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

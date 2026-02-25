@@ -3,7 +3,10 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { getPrimaryClientOrgForUser } from "@/lib/client-org";
-import { listClientRequestsForOrg, RequestStatus } from "@/lib/client-requests";
+import {
+  listClientRequestsForOrg, RequestStatus, getRequestPriorities,
+  computeClientRequestSlaFields,
+} from "@/lib/client-requests";
 
 export const runtime = "nodejs";
 
@@ -50,22 +53,35 @@ export async function GET(request: Request) {
       status,
     });
 
-    // Return client-safe data (exclude internal fields if any)
-    const clientRequests = requests.map((r) => ({
-      request_id: r.request_id,
-      project_id: r.project_id,
-      request_type: r.request_type,
-      title: r.title,
-      brief: r.brief,
-      product_url: r.product_url,
-      ugc_links: r.ugc_links,
-      notes: r.notes,
-      status: r.status,
-      status_reason: r.status_reason,
-      video_id: r.video_id,
-      created_at: r.created_at,
-      updated_at: r.updated_at,
-    }));
+    // Resolve priorities for SLA computation
+    const requestIds = requests.map((r) => r.request_id);
+    const priorities = await getRequestPriorities(supabaseAdmin, requestIds);
+
+    // Return client-safe data with SLA fields
+    const now = Date.now();
+    const clientRequests = requests.map((r) => {
+      const priority = priorities.get(r.request_id) || "NORMAL";
+      const sla = computeClientRequestSlaFields(r.created_at, priority, r.status, now);
+      return {
+        request_id: r.request_id,
+        project_id: r.project_id,
+        request_type: r.request_type,
+        title: r.title,
+        brief: r.brief,
+        product_url: r.product_url,
+        ugc_links: r.ugc_links,
+        notes: r.notes,
+        status: r.status,
+        status_reason: r.status_reason,
+        video_id: r.video_id,
+        priority,
+        sla_breach_at: sla.sla_breach_at,
+        is_sla_breached: sla.is_sla_breached,
+        sla_hours: sla.sla_hours,
+        created_at: r.created_at,
+        updated_at: r.updated_at,
+      };
+    });
 
     return NextResponse.json({
       ok: true,

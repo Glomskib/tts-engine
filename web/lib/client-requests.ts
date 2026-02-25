@@ -199,6 +199,34 @@ export function getTimeUntilSLABreach(
 }
 
 // ============================================================================
+// SLA Breach Computation (for API responses)
+// ============================================================================
+
+/**
+ * Compute sla_breach_at and is_sla_breached for a client request.
+ * Pure computation — no persistence.
+ */
+export function computeClientRequestSlaFields(
+  createdAt: string,
+  priority: RequestPriority,
+  status: string,
+  now: number = Date.now()
+): { sla_breach_at: string; is_sla_breached: boolean; sla_hours: number } {
+  const submittedMs = new Date(createdAt).getTime();
+  const thresholdMs = SLA_THRESHOLDS_MS[priority] || SLA_THRESHOLDS_MS.NORMAL;
+  const slaBreachAt = new Date(submittedMs + thresholdMs).toISOString();
+
+  const isTerminal = status === "CONVERTED" || status === "REJECTED";
+  const isBreached = !isTerminal && now > submittedMs + thresholdMs;
+
+  return {
+    sla_breach_at: slaBreachAt,
+    is_sla_breached: isBreached,
+    sla_hours: thresholdMs / 3_600_000,
+  };
+}
+
+// ============================================================================
 // Resolvers
 // ============================================================================
 

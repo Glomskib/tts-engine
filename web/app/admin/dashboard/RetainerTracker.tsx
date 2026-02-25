@@ -160,20 +160,20 @@ function RetainerCard({ brand }: { brand: RetainerBrand }) {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-3 gap-3 mb-4 text-xs">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 text-xs">
         <div className="flex items-center gap-1.5 text-zinc-400">
           <Calendar className="w-3.5 h-3.5 shrink-0" />
-          <span>{daysRemaining}d remaining (ends {endDate})</span>
+          <span className="truncate">{daysRemaining}d remaining (ends {endDate})</span>
         </div>
         <div className="flex items-center gap-1.5 text-zinc-400">
           <DollarSign className="w-3.5 h-3.5 shrink-0" />
-          <span>Base: ${brand.retainer_payout_amount} at {brand.retainer_video_goal} videos</span>
+          <span className="truncate">${brand.retainer_payout_amount} at {brand.retainer_video_goal} videos</span>
         </div>
         <div className={`flex items-center gap-1.5 ${paceColors[paceStatus]}`}>
           <Target className="w-3.5 h-3.5 shrink-0" />
-          <span>
+          <span className="truncate">
             {neededPace > 0
-              ? `${neededPace.toFixed(1)}/day needed (at ${currentPace.toFixed(1)}/day)`
+              ? `${neededPace.toFixed(1)}/day needed (${currentPace.toFixed(1)}/day)`
               : `Pace: ${currentPace.toFixed(1)}/day`
             }
           </span>

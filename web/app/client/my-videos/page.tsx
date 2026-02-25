@@ -177,11 +177,11 @@ export default function ClientMyVideosPage() {
         {/* Daily Usage Bar */}
         {quota && (
           <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium text-slate-700">
+            <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 mb-2">
+              <span className="text-sm font-medium text-slate-700 tabular-nums">
                 {quota.submitted_today} / {quota.daily_limit} videos today
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-slate-500 tabular-nums">
                 {quota.videos_remaining} of {quota.videos_per_month} monthly remaining
               </span>
             </div>

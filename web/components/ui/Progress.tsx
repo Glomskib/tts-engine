@@ -101,9 +101,9 @@ export function Progress({
   return (
     <div className={`w-full${className ? ` ${className}` : ''}`}>
       {doShowLabels && (label || rightLabel) && (
-        <div className="flex items-center justify-between text-xs text-zinc-500 mb-1.5">
-          {label     && <span>{label}</span>}
-          {rightLabel && <span>{rightLabel}</span>}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 text-xs text-zinc-500 mb-1.5">
+          {label     && <span className="min-w-0 truncate">{label}</span>}
+          {rightLabel && <span className="shrink-0 tabular-nums">{rightLabel}</span>}
         </div>
       )}
       <div

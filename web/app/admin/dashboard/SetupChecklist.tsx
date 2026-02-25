@@ -149,7 +149,7 @@ export default function SetupChecklist({ scriptsCount, totalVideos }: SetupCheck
               value={progress / 100}
               size="xs"
               showLabels={false}
-              className="w-32 mt-1.5"
+              className="w-24 sm:w-32 mt-1.5"
             />
           </div>
         </div>

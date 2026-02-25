@@ -115,15 +115,15 @@ function HorizontalBar({ items, colorFn }: { items: { name: string; value: numbe
   return (
     <div className="space-y-2">
       {items.map((item, i) => (
-        <div key={item.name} className="flex items-center gap-3">
-          <span className="text-xs text-zinc-400 w-28 truncate">{item.name}</span>
-          <div className="flex-1 h-5 bg-zinc-800 rounded-full overflow-hidden">
+        <div key={item.name} className="flex items-center gap-2 sm:gap-3">
+          <span className="text-xs text-zinc-400 w-20 sm:w-28 truncate shrink-0">{item.name}</span>
+          <div className="flex-1 min-w-0 h-5 bg-zinc-800 rounded-full overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${colorFn(i)}`}
               style={{ width: `${(item.value / max) * 100}%` }}
             />
           </div>
-          <span className="text-xs text-zinc-300 w-16 text-right font-medium">{formatMoney(item.value)}</span>
+          <span className="text-xs text-zinc-300 w-14 sm:w-16 text-right font-medium tabular-nums shrink-0">{formatMoney(item.value)}</span>
         </div>
       ))}
     </div>
@@ -395,16 +395,14 @@ export default function RevenuePage() {
                       return (
                         <div key={entry.week} className="flex items-center gap-3">
                           <span className="text-xs text-zinc-500 w-16 shrink-0">{label}</span>
-                          <div className="flex-1 h-5 bg-zinc-800 rounded-full overflow-hidden relative">
+                          <div className="flex-1 min-w-0 h-5 bg-zinc-800 rounded-full overflow-hidden">
                             <div
                               className="h-full bg-emerald-500/30 rounded-full transition-all"
                               style={{ width: `${Math.max(pct, 2)}%` }}
                             />
-                            <span className="absolute inset-y-0 right-2 flex items-center text-[10px] text-zinc-300 font-medium">
-                              {formatMoney(entry.gmv)}
-                            </span>
                           </div>
-                          <span className="text-[10px] text-zinc-600 w-8 text-right shrink-0">{entry.orders}</span>
+                          <span className="text-[10px] text-zinc-300 font-medium tabular-nums shrink-0">{formatMoney(entry.gmv)}</span>
+                          <span className="text-[10px] text-zinc-600 w-6 text-right shrink-0">{entry.orders}</span>
                         </div>
                       );
                     })}

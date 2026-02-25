@@ -355,9 +355,9 @@ export default function DashboardPage() {
         <div className="grid md:grid-cols-2 gap-6">
           {/* Income Goal */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 mb-2">
               <span className="text-sm text-zinc-400">Income Goal</span>
-              <span className="text-sm font-semibold text-white">
+              <span className="text-sm font-semibold text-white tabular-nums">
                 ${currentIncome.toLocaleString()} / ${incomeGoal.toLocaleString()}
               </span>
             </div>
@@ -374,9 +374,9 @@ export default function DashboardPage() {
 
           {/* Videos Goal */}
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 mb-2">
               <span className="text-sm text-zinc-400">Videos Goal</span>
-              <span className="text-sm font-semibold text-white">
+              <span className="text-sm font-semibold text-white tabular-nums">
                 {currentVideos} / {videosGoal}
               </span>
             </div>

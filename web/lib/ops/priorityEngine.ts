@@ -30,6 +30,14 @@ const ESCALATION_RULES: Partial<Record<MpPlanTier, EscalationRule>> = {
   dedicated_30: { threshold_hours: 6, boost: 1 },
 };
 
+/**
+ * Universal priority decay: any queued job older than this threshold
+ * gets an automatic priority boost, regardless of plan tier.
+ * This is additive with tier-specific escalation rules.
+ */
+const PRIORITY_DECAY_THRESHOLD_HOURS = 48;
+const PRIORITY_DECAY_BOOST = 2;
+
 // ── Types ──────────────────────────────────────────────────
 
 export interface PriorityInput {
@@ -54,6 +62,9 @@ export interface PriorityResult {
  * This is **deterministic** — same inputs always produce the same output.
  * It reads no external state; callers supply the job data.
  *
+ * Priority is computed as:
+ *   base (from plan tier) + tier escalation (if applicable) + 48h decay (if applicable)
+ *
  * The returned `priority_weight` can be written back to the job row
  * by a cron or background sweep. This function never mutates the DB.
  */
@@ -70,31 +81,40 @@ export function computePriorityWeight(input: PriorityInput): PriorityResult {
     };
   }
 
-  const rule = ESCALATION_RULES[input.plan_tier];
-  if (!rule) {
-    return {
-      priority_weight: basePriority,
-      escalated: false,
-      reason: `No escalation rule for ${input.plan_tier}`,
-    };
-  }
-
   const ageHours =
     (Date.now() - new Date(input.created_at).getTime()) / 3_600_000;
 
-  if (ageHours > rule.threshold_hours) {
-    const boosted = basePriority + rule.boost;
+  let weight = basePriority;
+  let escalated = false;
+  const reasons: string[] = [];
+
+  // Tier-specific escalation
+  const rule = ESCALATION_RULES[input.plan_tier];
+  if (rule && ageHours > rule.threshold_hours) {
+    weight += rule.boost;
+    escalated = true;
+    reasons.push(`${input.plan_tier} +${rule.boost}`);
+  }
+
+  // Universal 48h priority decay (additive with tier escalation)
+  if (ageHours > PRIORITY_DECAY_THRESHOLD_HOURS) {
+    weight += PRIORITY_DECAY_BOOST;
+    escalated = true;
+    reasons.push(`48h decay +${PRIORITY_DECAY_BOOST}`);
+  }
+
+  if (!escalated) {
     return {
-      priority_weight: boosted,
-      escalated: true,
-      reason: `${input.plan_tier} queued ${Math.round(ageHours)}h (>${rule.threshold_hours}h) — boosted ${basePriority}→${boosted}`,
+      priority_weight: basePriority,
+      escalated: false,
+      reason: `Queued ${Math.round(ageHours)}h — no escalation triggered`,
     };
   }
 
   return {
-    priority_weight: basePriority,
-    escalated: false,
-    reason: `Queued ${Math.round(ageHours)}h — below ${rule.threshold_hours}h threshold`,
+    priority_weight: weight,
+    escalated: true,
+    reason: `Queued ${Math.round(ageHours)}h: ${reasons.join(", ")} → ${weight}`,
   };
 }
 

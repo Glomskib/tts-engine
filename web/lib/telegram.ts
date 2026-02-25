@@ -10,6 +10,9 @@
  *   - Optional TELEGRAM_LOG_CHAT_ID routes cron messages to a separate channel
  */
 
+import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { logEventSafe } from "@/lib/events-log";
+
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
@@ -42,8 +45,11 @@ const CODE_LEAK_PATTERNS: RegExp[] = [
   /\bconsole\.(log|error|warn)/, // console calls
 ];
 
-/** Hard cap on output line count. Generous enough for digests, tight enough to catch dumps. */
-const MAX_LINES = 25;
+/** Hard cap on output line count. Tight enough to catch dumps; digests should be concise. */
+export const MAX_LINES = 5;
+
+/** Number of code-leak patterns in the sanitizer. */
+export const SANITIZER_PATTERN_COUNT = CODE_LEAK_PATTERNS.length;
 
 /**
  * Sanitize a Telegram message before sending.
@@ -80,7 +86,7 @@ export function sanitizeTelegramMessage(raw: string): string | null {
 
 // ── Feature flag ───────────────────────────────────────────
 
-function remindersEnabled(): boolean {
+export function remindersEnabled(): boolean {
   const flag = process.env.REMINDERS_ENABLED;
   // Default to false if not set; only enable on explicit "true" / "1"
   if (!flag) return false;
@@ -119,6 +125,9 @@ export async function sendTelegramLog(message: string): Promise<void> {
 
 /** Low-level send (no sanitization — callers must sanitize first). */
 async function _send(chatId: string, text: string): Promise<void> {
+  let success = false;
+  let errorMsg: string | undefined;
+
   try {
     const res = await fetch(
       `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`,
@@ -135,8 +144,25 @@ async function _send(chatId: string, text: string): Promise<void> {
     if (!res.ok) {
       const body = await res.text();
       console.error("[telegram] Failed to send:", res.status, body);
+      errorMsg = `${res.status}: ${body.slice(0, 200)}`;
+    } else {
+      success = true;
     }
   } catch (err) {
     console.error("[telegram] Error sending notification:", err);
+    errorMsg = err instanceof Error ? err.message : String(err);
   }
+
+  // Best-effort send tracking — fire-and-forget
+  logEventSafe(supabaseAdmin, {
+    entity_type: "system",
+    entity_id: "telegram",
+    event_type: "telegram_send",
+    payload: {
+      timestamp: new Date().toISOString(),
+      fingerprint: text.slice(0, 80),
+      success,
+      error: errorMsg ?? null,
+    },
+  }).catch(() => {});
 }

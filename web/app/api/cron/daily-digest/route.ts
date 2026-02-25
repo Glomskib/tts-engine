@@ -10,7 +10,7 @@
  */
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendTelegramLog } from "@/lib/telegram";
+import { sendTelegramLog, remindersEnabled, sanitizeTelegramMessage } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -21,6 +21,14 @@ export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const url = new URL(request.url);
+  const dryRun = url.searchParams.get("dry_run") === "true";
+
+  // Early exit: skip all DB work if reminders disabled (unless dry_run)
+  if (!remindersEnabled() && !dryRun) {
+    return NextResponse.json({ ok: true, skipped: true, reason: "REMINDERS_ENABLED=false" });
   }
 
   try {
@@ -155,6 +163,19 @@ export async function GET(request: Request) {
     }
 
     const message = lines.join("\n");
+
+    if (dryRun) {
+      const sanitized = sanitizeTelegramMessage(message);
+      return NextResponse.json({
+        ok: true,
+        dry_run: true,
+        message_raw: message,
+        message_sanitized: sanitized,
+        would_send: sanitized !== null,
+        timestamp: now.toISOString(),
+      });
+    }
+
     await sendTelegramLog(message);
 
     return NextResponse.json({

@@ -58,7 +58,10 @@ export async function syncMpPlanFromStripe(
   sub: StripeMpSubscription
 ): Promise<boolean> {
   const tier = mpTierFromStripePriceId(sub.priceId);
-  if (!tier) return false;
+  if (!tier) {
+    console.warn(`[${correlationId}] Unknown MP price ID in syncMpPlanFromStripe: price=${sub.priceId} client=${sub.clientId}`);
+    return false;
+  }
 
   const cfg = getMpPlanConfig(tier);
   const status = mapStripeStatus(sub.status);

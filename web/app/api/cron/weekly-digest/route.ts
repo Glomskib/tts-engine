@@ -12,7 +12,7 @@
  */
 import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { sendTelegramLog } from "@/lib/telegram";
+import { sendTelegramLog, remindersEnabled } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -48,6 +48,11 @@ export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
   if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  // Early exit: skip all DB work if reminders disabled
+  if (!remindersEnabled()) {
+    return NextResponse.json({ ok: true, skipped: true, reason: "REMINDERS_ENABLED=false" });
   }
 
   try {

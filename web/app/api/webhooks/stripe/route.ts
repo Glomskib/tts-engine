@@ -22,6 +22,31 @@ import Stripe from "stripe";
 
 export const runtime = "nodejs";
 
+/**
+ * Strip Stripe secrets from error messages to prevent leaking
+ * sk_live_*, sk_test_*, whsec_* values in logs.
+ */
+export function sanitizeWebhookError(err: unknown): { message: string; type?: string } {
+  const secretPattern = /\b(sk_live_|sk_test_|whsec_)\S+/g;
+  let message = "Unknown error";
+  let type: string | undefined;
+
+  if (err instanceof Error) {
+    message = err.message;
+  } else if (typeof err === "string") {
+    message = err;
+  }
+
+  message = message.replace(secretPattern, "[REDACTED]");
+
+  // Stripe errors have a `type` property
+  if (err && typeof err === "object" && "type" in err) {
+    type = String((err as { type: unknown }).type);
+  }
+
+  return type ? { message, type } : { message };
+}
+
 // Lazy initialization to avoid build-time errors
 let stripe: Stripe | null = null;
 function getStripe(): Stripe {
@@ -66,7 +91,7 @@ export async function POST(request: Request) {
     const body = await request.text();
     event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
   } catch (err) {
-    console.error(`[${correlationId}] Webhook signature verification failed:`, err);
+    console.error(`[${correlationId}] Webhook signature verification failed:`, sanitizeWebhookError(err));
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
@@ -151,7 +176,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ received: true });
   } catch (error) {
-    console.error(`[${correlationId}] Error handling webhook:`, error);
+    console.error(`[${correlationId}] Error handling webhook:`, sanitizeWebhookError(error));
     return NextResponse.json({ error: "Webhook handler failed" }, { status: 500 });
   }
 }
@@ -322,6 +347,14 @@ async function handleSubscriptionChange(correlationId: string, subscription: Str
   // ── Marketplace plan sync ──────────────────────────────
   const mpClientId = extractMpClientId(subscription.metadata as Record<string, string>);
   const mpPriceId = extractPriceId(subscription.items);
+
+  // Guard: if this is a marketplace sub but the price doesn't map to a tier,
+  // log a warning and bail — don't fall through to the SaaS path.
+  if (mpClientId && (!mpPriceId || !isMpStripePriceId(mpPriceId))) {
+    console.warn(`[${correlationId}] MP sub with unknown price: client=${mpClientId} price=${mpPriceId}`);
+    return;
+  }
+
   if (mpClientId && mpPriceId && isMpStripePriceId(mpPriceId)) {
     await syncMpPlanFromStripe(correlationId, {
       subscriptionId: subscription.id,

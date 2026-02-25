@@ -5,7 +5,7 @@ import {
   generateCorrelationId,
   createApiErrorResponse,
 } from "@/lib/api-errors";
-import { sanitizeTelegramMessage } from "@/lib/telegram";
+import { sanitizeTelegramMessage, remindersEnabled } from "@/lib/telegram";
 
 export const runtime = "nodejs";
 
@@ -102,20 +102,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Get Telegram config from environment
+    // 4. Gate: respect REMINDERS_ENABLED flag
+    if (!remindersEnabled()) {
+      return NextResponse.json({
+        ok: true,
+        data: { dispatched: false, event, reason: "reminders_disabled" },
+        correlation_id: correlationId,
+      });
+    }
+
+    // 5. Get Telegram config — route to log channel, not main chat
     const botToken = process.env.TELEGRAM_BOT_TOKEN;
-    const chatId = process.env.TELEGRAM_CHAT_ID;
+    const chatId = process.env.TELEGRAM_LOG_CHAT_ID || process.env.TELEGRAM_CHAT_ID;
 
     if (!botToken || !chatId) {
       return createApiErrorResponse(
         "CONFIG_ERROR",
-        "Telegram configuration is incomplete. Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID environment variables.",
+        "Telegram configuration is incomplete. Set TELEGRAM_BOT_TOKEN and TELEGRAM_LOG_CHAT_ID (or TELEGRAM_CHAT_ID) environment variables.",
         503,
         correlationId
       );
     }
 
-    // 5. Format the message, sanitize, and send to Telegram
+    // 6. Format the message, sanitize, and send to Telegram
     const rawMessage = formatter(data);
     const message = sanitizeTelegramMessage(rawMessage);
 
@@ -153,7 +162,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 6. Log the dispatch (best-effort insert into webhook_deliveries)
+    // 7. Log the dispatch (best-effort insert into webhook_deliveries)
     await supabaseAdmin
       .from("webhook_deliveries")
       .insert({
@@ -175,7 +184,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
-    // 7. Return success
+    // 8. Return success
     return NextResponse.json({
       ok: true,
       data: {

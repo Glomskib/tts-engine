@@ -16,16 +16,16 @@ export default function PipelineProgressBar({ stages, conversionRates }: Props) 
   }
 
   return (
-    <div className="flex items-center gap-0.5">
+    <div className="flex items-center gap-0.5 overflow-hidden">
       {stages.map((stage, i) => {
         const pct = Math.max((stage.deal_count / totalDeals) * 100, 8);
         const convRate = conversionRates.find((c) => c.from === stage.key);
 
         return (
-          <div key={stage.key} className="flex items-center" style={{ flex: pct }}>
+          <div key={stage.key} className="flex items-center min-w-0" style={{ flex: pct }}>
             {/* Stage segment */}
             <div
-              className="relative h-8 rounded-sm flex items-center justify-center px-2 min-w-[60px] w-full"
+              className="relative h-8 rounded-sm flex items-center justify-center px-1 sm:px-2 min-w-0 w-full overflow-hidden"
               style={{ backgroundColor: `${stage.color}30` }}
               title={`${stage.label}: ${stage.deal_count} deals`}
             >
@@ -33,7 +33,7 @@ export default function PipelineProgressBar({ stages, conversionRates }: Props) 
                 {stage.label}
               </span>
               <span
-                className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] font-bold"
+                className="absolute -top-4 left-1/2 -translate-x-1/2 text-[10px] font-bold whitespace-nowrap"
                 style={{ color: stage.color }}
               >
                 {stage.deal_count}

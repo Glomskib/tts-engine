@@ -178,11 +178,11 @@ export default function ClientMyVideosPage() {
         {quota && (
           <div className="bg-white rounded-xl border border-slate-200 p-4 mb-6">
             <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-0.5 mb-2">
-              <span className="text-sm font-medium text-slate-700 tabular-nums">
+              <span className="min-w-0 truncate text-sm font-medium text-slate-700 tabular-nums">
                 {quota.submitted_today} / {quota.daily_limit} videos today
               </span>
-              <span className="text-xs text-slate-500 tabular-nums">
-                {quota.videos_remaining} of {quota.videos_per_month} monthly remaining
+              <span className="shrink-0 text-xs text-slate-500 tabular-nums">
+                {quota.videos_remaining} of {quota.videos_per_month} monthly
               </span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-2">
@@ -221,7 +221,7 @@ export default function ClientMyVideosPage() {
 
         {/* Stats */}
         {stats && (
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-6">
             <div className="bg-white rounded-xl border border-slate-200 p-4 text-center">
               <p className="text-2xl font-bold text-slate-900">{stats.total}</p>
               <p className="text-sm text-slate-500">Total</p>
@@ -297,7 +297,7 @@ export default function ClientMyVideosPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <h3 className="font-medium text-slate-900 truncate">{request.title}</h3>
-                      <div className="flex items-center gap-3 mt-1.5 text-sm">
+                      <div className="flex flex-wrap items-center gap-2 sm:gap-3 mt-1.5 text-sm">
                         <span className={`inline-flex px-2 py-0.5 rounded-full text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>
                           {statusConfig.label}
                         </span>

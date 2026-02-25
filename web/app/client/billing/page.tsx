@@ -261,12 +261,12 @@ export default function ClientBillingPage() {
                 {/* Usage Bar Card */}
                 <div className="bg-white rounded-lg border border-slate-200 shadow-sm p-6">
                   <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-3">
-                    <div className="text-sm font-medium text-slate-700">Video Usage</div>
-                    <div className="text-sm text-slate-500 tabular-nums">
-                      {summary.posted_videos} / {summary.effective_included_videos} videos
+                    <div className="min-w-0 truncate text-sm font-medium text-slate-700">Video Usage</div>
+                    <div className="shrink-0 text-sm text-slate-500 tabular-nums">
+                      {summary.posted_videos}/{summary.effective_included_videos}
                       {summary.rollover_in_videos > 0 && (
                         <span className="text-slate-400 ml-1">
-                          (+{summary.rollover_in_videos} rollover)
+                          (+{summary.rollover_in_videos})
                         </span>
                       )}
                     </div>

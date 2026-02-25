@@ -161,20 +161,20 @@ function RetainerCard({ brand }: { brand: RetainerBrand }) {
 
       {/* Stats row */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 sm:gap-3 mb-4 text-xs">
-        <div className="flex items-center gap-1.5 text-zinc-400">
+        <div className="flex items-center gap-1.5 min-w-0 text-zinc-400">
           <Calendar className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">{daysRemaining}d remaining (ends {endDate})</span>
+          <span className="truncate">{daysRemaining}d left ({endDate})</span>
         </div>
-        <div className="flex items-center gap-1.5 text-zinc-400">
+        <div className="flex items-center gap-1.5 min-w-0 text-zinc-400">
           <DollarSign className="w-3.5 h-3.5 shrink-0" />
-          <span className="truncate">${brand.retainer_payout_amount} at {brand.retainer_video_goal} videos</span>
+          <span className="truncate">${brand.retainer_payout_amount} @ {brand.retainer_video_goal} vids</span>
         </div>
-        <div className={`flex items-center gap-1.5 ${paceColors[paceStatus]}`}>
+        <div className={`flex items-center gap-1.5 min-w-0 ${paceColors[paceStatus]}`}>
           <Target className="w-3.5 h-3.5 shrink-0" />
           <span className="truncate">
             {neededPace > 0
-              ? `${neededPace.toFixed(1)}/day needed (${currentPace.toFixed(1)}/day)`
-              : `Pace: ${currentPace.toFixed(1)}/day`
+              ? `${neededPace.toFixed(1)}/d needed (${currentPace.toFixed(1)}/d)`
+              : `Pace: ${currentPace.toFixed(1)}/d`
             }
           </span>
         </div>

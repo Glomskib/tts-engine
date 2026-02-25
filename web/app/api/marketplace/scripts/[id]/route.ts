@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthUser } from '@/lib/supabase/server';
-import { getFirstClientId, getScriptWithAssets, updateScript, updateScriptStatus, queueForEditing, addScriptAsset, markPosted } from '@/lib/marketplace/queries';
+import { getFirstClientId, getScriptWithAssets, updateScript, updateScriptStatus, queueForEditing, addScriptAsset, markPosted, MarketplaceError } from '@/lib/marketplace/queries';
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const user = await getAuthUser();
@@ -53,6 +53,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const script = await updateScript(id, body);
     return NextResponse.json({ script });
   } catch (e: unknown) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    if (e instanceof MarketplaceError) {
+      return NextResponse.json(
+        { error: e.message, error_code: e.code },
+        { status: e.httpStatus },
+      );
+    }
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

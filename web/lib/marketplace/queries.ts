@@ -16,6 +16,21 @@ import {
 import { checkDailyCap } from './usage';
 
 // ============================================================
+// Structured error class
+// ============================================================
+
+export class MarketplaceError extends Error {
+  constructor(
+    message: string,
+    public code: string,
+    public httpStatus: number = 400,
+  ) {
+    super(message);
+    this.name = 'MarketplaceError';
+  }
+}
+
+// ============================================================
 // Valid state transitions
 // ============================================================
 
@@ -35,7 +50,11 @@ export const VALID_TRANSITIONS: Record<JobStatus, JobStatus[]> = {
 export function validateTransition(current: JobStatus, next: JobStatus): void {
   const allowed = VALID_TRANSITIONS[current];
   if (!allowed || !allowed.includes(next)) {
-    throw new Error(`Invalid transition: ${current} → ${next}`);
+    throw new MarketplaceError(
+      `Invalid transition: ${current} → ${next}`,
+      'INVALID_TRANSITION',
+      409,
+    );
   }
 }
 
@@ -250,8 +269,10 @@ export async function queueForEditing(scriptId: string, clientId: string, userId
   // Check daily cap via shared helper
   const { allowed, usage: capUsage } = await checkDailyCap(clientId);
   if (!allowed) {
-    throw new Error(
-      `Daily limit reached (${capUsage.used_today}/${capUsage.daily_cap}). Resets at ${capUsage.resets_at}. Upgrade to increase daily capacity.`
+    throw new MarketplaceError(
+      `Daily limit reached (${capUsage.used_today}/${capUsage.daily_cap}). Resets at ${capUsage.resets_at}. Upgrade to increase daily capacity.`,
+      'DAILY_CAP_EXCEEDED',
+      429,
     );
   }
 
@@ -330,7 +351,7 @@ export interface VaBoardFilters {
 }
 
 export async function getQueuedJobs(filters?: VaBoardFilters) {
-  const sb = await createServerSupabaseClient();
+  const sb = supabaseAdmin;
 
   // Select client_code and plan_tier only — never client name or email
   let query = sb
@@ -433,7 +454,7 @@ export async function getQueuedJobs(filters?: VaBoardFilters) {
 }
 
 export async function getJobDetail(jobId: string): Promise<JobWithScript | null> {
-  const sb = await createServerSupabaseClient();
+  const sb = supabaseAdmin;
 
   const [jobRes, feedbackRes, delivRes, eventsRes] = await Promise.all([
     sb.from('edit_jobs').select(`
@@ -456,8 +477,19 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
   const slaHours = (planData?.sla_hours as number) || PLAN_TIER_DEFAULTS[tier].sla_hours;
   const sla = computeSlaFields(job.due_at);
 
-  // Get script assets
-  const { data: assets } = await sb.from('script_assets').select('*').eq('script_id', script.id);
+  // Get script assets + generate signed URLs for raw footage
+  const { data: rawAssets } = await sb.from('script_assets').select('*').eq('script_id', script.id);
+  const assets = await Promise.all(
+    (rawAssets || []).map(async (a: Record<string, unknown>) => {
+      if (['raw_folder', 'raw_video'].includes(a.asset_type as string) && a.url && !(a.url as string).startsWith('http')) {
+        const { data: urlData } = await sb.storage
+          .from('raw-footage')
+          .createSignedUrl(a.url as string, 3600);
+        return { ...a, signed_url: urlData?.signedUrl || null };
+      }
+      return { ...a, signed_url: (a.url as string) || null };
+    })
+  );
 
   // Get broll links with signed URLs
   const { data: brollLinks } = await sb
@@ -495,7 +527,7 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
     sla_hours: slaHours,
     is_overdue: sla.is_overdue,
     due_in_hours: sla.due_in_hours,
-    assets: (assets || []) as ScriptAsset[],
+    assets: assets as (ScriptAsset & { signed_url: string | null })[],
     deliverables: (delivRes.data || []) as JobDeliverable[],
     feedback: (feedbackRes.data || []) as JobFeedback[],
     events: (eventsRes.data || []) as JobEvent[],
@@ -508,11 +540,11 @@ export async function getJobDetail(jobId: string): Promise<JobWithScript | null>
 // ============================================================
 
 export async function claimJob(jobId: string, userId: string) {
-  const sb = await createServerSupabaseClient();
+  const sb = supabaseAdmin;
 
   // Validate transition before atomic claim
   const { data: current } = await sb.from('edit_jobs').select('job_status').eq('id', jobId).single();
-  if (!current) throw new Error('Job not found');
+  if (!current) throw new MarketplaceError('Job not found', 'NOT_FOUND', 404);
   validateTransition(current.job_status as JobStatus, 'claimed');
 
   // Atomic claim: only if still queued and unclaimed
@@ -525,7 +557,7 @@ export async function claimJob(jobId: string, userId: string) {
     .select()
     .single();
 
-  if (error || !data) throw new Error('Job already claimed or not available');
+  if (error || !data) throw new MarketplaceError('Job already claimed or not available', 'CLAIM_FAILED', 409);
 
   // Update script status
   await sb.from('mp_scripts').update({ status: 'editing' }).eq('id', data.script_id);
@@ -540,8 +572,8 @@ export async function startJob(jobId: string, userId: string) {
 
   // Fetch current state for validation
   const { data: current } = await sb.from('edit_jobs').select('job_status, claimed_by').eq('id', jobId).single();
-  if (!current) throw new Error('Job not found');
-  if (current.claimed_by !== userId) throw new Error('Not your job');
+  if (!current) throw new MarketplaceError('Job not found', 'NOT_FOUND', 404);
+  if (current.claimed_by !== userId) throw new MarketplaceError('Not your job', 'NOT_OWNER', 403);
   validateTransition(current.job_status as JobStatus, 'in_progress');
 
   const { data, error } = await sb
@@ -552,7 +584,7 @@ export async function startJob(jobId: string, userId: string) {
     .in('job_status', ['claimed', 'changes_requested'])
     .select()
     .single();
-  if (error || !data) throw new Error('Cannot start job');
+  if (error || !data) throw new MarketplaceError('Cannot start job', 'TRANSITION_FAILED', 409);
 
   // Update script status
   await sb.from('mp_scripts').update({ status: 'editing' }).eq('id', data.script_id);
@@ -572,8 +604,8 @@ export async function submitJob(
 
   // Validate current state
   const { data: current } = await sb.from('edit_jobs').select('job_status, claimed_by').eq('id', jobId).single();
-  if (!current) throw new Error('Job not found');
-  if (current.claimed_by !== userId) throw new Error('Not your job');
+  if (!current) throw new MarketplaceError('Job not found', 'NOT_FOUND', 404);
+  if (current.claimed_by !== userId) throw new MarketplaceError('Not your job', 'NOT_OWNER', 403);
   validateTransition(current.job_status as JobStatus, 'submitted');
 
   // Add deliverable
@@ -594,7 +626,7 @@ export async function submitJob(
     .in('job_status', ['in_progress', 'changes_requested'])
     .select()
     .single();
-  if (error || !data) throw new Error('Cannot submit job');
+  if (error || !data) throw new MarketplaceError('Cannot submit job', 'TRANSITION_FAILED', 409);
 
   // Update script
   await sb.from('mp_scripts').update({ status: 'in_review' }).eq('id', data.script_id);
@@ -611,7 +643,7 @@ export async function approveJob(jobId: string, userId: string) {
   const sb = await createServerSupabaseClient();
 
   const { data: current } = await sb.from('edit_jobs').select('job_status').eq('id', jobId).single();
-  if (!current) throw new Error('Job not found');
+  if (!current) throw new MarketplaceError('Job not found', 'NOT_FOUND', 404);
   validateTransition(current.job_status as JobStatus, 'approved');
 
   const { data, error } = await sb
@@ -621,7 +653,7 @@ export async function approveJob(jobId: string, userId: string) {
     .eq('job_status', 'submitted')
     .select()
     .single();
-  if (error || !data) throw new Error('Cannot approve job');
+  if (error || !data) throw new MarketplaceError('Cannot approve job', 'TRANSITION_FAILED', 409);
   await sb.from('mp_scripts').update({ status: 'approved' }).eq('id', data.script_id);
   await sb.from('job_events').insert({ job_id: jobId, event_type: 'approved', actor_user_id: userId });
   return data as EditJob;
@@ -631,7 +663,7 @@ export async function requestChanges(jobId: string, userId: string, message: str
   const sb = await createServerSupabaseClient();
 
   const { data: current } = await sb.from('edit_jobs').select('job_status').eq('id', jobId).single();
-  if (!current) throw new Error('Job not found');
+  if (!current) throw new MarketplaceError('Job not found', 'NOT_FOUND', 404);
   validateTransition(current.job_status as JobStatus, 'changes_requested');
 
   const { data, error } = await sb
@@ -641,7 +673,7 @@ export async function requestChanges(jobId: string, userId: string, message: str
     .eq('job_status', 'submitted')
     .select()
     .single();
-  if (error || !data) throw new Error('Cannot request changes');
+  if (error || !data) throw new MarketplaceError('Cannot request changes', 'TRANSITION_FAILED', 409);
   await sb.from('mp_scripts').update({ status: 'changes_requested' }).eq('id', data.script_id);
   await sb.from('job_feedback').insert({
     job_id: jobId,

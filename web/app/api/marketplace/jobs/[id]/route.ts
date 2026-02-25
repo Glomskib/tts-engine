@@ -3,6 +3,7 @@ import { getAuthUser } from '@/lib/supabase/server';
 import {
   getJobDetail, claimJob, startJob, submitJob,
   approveJob, requestChanges, addFeedback, getMpProfile, getUserClientIds,
+  MarketplaceError,
 } from '@/lib/marketplace/queries';
 import type { MpRole } from '@/lib/marketplace/types';
 
@@ -105,6 +106,12 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
     const job = await getJobDetail(id);
     return NextResponse.json({ job: sanitizeForVa(job as unknown as Record<string, unknown>, profile.role as MpRole) });
   } catch (e: unknown) {
-    return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    if (e instanceof MarketplaceError) {
+      return NextResponse.json(
+        { error: e.message, error_code: e.code },
+        { status: e.httpStatus },
+      );
+    }
+    return NextResponse.json({ error: (e as Error).message }, { status: 500 });
   }
 }

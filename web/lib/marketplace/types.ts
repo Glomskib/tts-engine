@@ -262,7 +262,7 @@ export interface JobWithScript extends EditJob {
   sla_hours: number;
   is_overdue: boolean;
   due_in_hours: number | null;
-  assets: ScriptAsset[];
+  assets: (ScriptAsset & { signed_url: string | null })[];
   deliverables: JobDeliverable[];
   feedback: JobFeedback[];
   events: JobEvent[];

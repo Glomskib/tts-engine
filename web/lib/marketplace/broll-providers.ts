@@ -21,14 +21,12 @@ export interface BrollResult {
 export async function generateAiBroll(_req: BrollRequest): Promise<BrollResult | null> {
   // TODO: Implement when AI video provider is configured
   // Example: call Runway/Veo API with req.description, get mp4 bytes
-  console.log('[broll-provider] AI generator stub — not configured');
   return null;
 }
 
 // ---- Stock provider stub (future) ----
 export async function fetchStockBroll(_req: BrollRequest): Promise<BrollResult | null> {
   // TODO: Implement when stock provider (Pexels, Storyblocks, etc.) is configured
-  console.log('[broll-provider] Stock provider stub — not configured');
   return null;
 }
 

@@ -29,7 +29,7 @@ const CODE_LEAK_PATTERNS: RegExp[] = [
   /^def\s+\w+\s*\(/m,           // Python function def
   /^await\s+/m,                  // bare await at line start
   /session_[a-zA-Z0-9]{8,}/,    // session tokens
-  /\btool_use\b/i,              // tool-use markers
+  /tool/i,                       // tool references
   /\bfunction\s+\w+\s*\(/,     // JS function declaration
   /Here['']s the code/i,        // LLM preamble
   /^command:\s/m,               // command: prefix

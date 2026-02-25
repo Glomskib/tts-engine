@@ -65,7 +65,7 @@ CODE_LEAK_PATTERNS = [
     r"\bimport\s",
     r"\bdef\s+\w+\s*\(",
     r"\bawait\s",
-    r"\btool\b",
+    r"tool",
     r"\bfunction\b",
     r'\{\s*"[^"]+"\s*:',
     r"^\s*\}\s*$",

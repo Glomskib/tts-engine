@@ -42,7 +42,7 @@ reminders_enabled() {
 sanitize_message() {
   local raw="$1"
   # Block code/tool leak patterns
-  if echo "$raw" | grep -qiE '```|\\x1b\[|\x1b\[|\\u001b|\u001b|import |def |await |\btool\b|\bfunction\b|\{"'; then
+  if echo "$raw" | grep -qiE '```|\\x1b\[|\x1b\[|\\u001b|\u001b|import |def |await |tool|\bfunction\b|\{"'; then
     echo "$TAG Sanitizer: blocked message (code leak detected)" >&2
     return 1
   fi

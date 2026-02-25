@@ -7,7 +7,7 @@
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
-export type UsageType = 'transcription' | 'recommendation' | 'rewrite';
+export type UsageType = 'transcription' | 'recommendation' | 'rewrite' | 'translation';
 
 const TIER_LIMITS: Record<string, number> = {
   anon: 10,

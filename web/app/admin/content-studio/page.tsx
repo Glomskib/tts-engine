@@ -595,12 +595,16 @@ export default function ContentStudioPage() {
     return MAIN_TABS.find(t => t.id === selectedMainTabId);
   }, [selectedMainTabId]);
 
+  const SIMPLE_MODE_TYPES = ['tof', 'mof', 'bof', 'skit'];
   const filteredContentTypes = useMemo(() => {
+    if (simpleMode) {
+      return CONTENT_TYPES.filter(ct => SIMPLE_MODE_TYPES.includes(ct.id));
+    }
     if (selectedMainTabId === 'all' || !selectedMainTab?.contentTypes.length) {
       return CONTENT_TYPES;
     }
     return CONTENT_TYPES.filter(ct => selectedMainTab.contentTypes.includes(ct.id));
-  }, [selectedMainTabId, selectedMainTab]);
+  }, [selectedMainTabId, selectedMainTab, simpleMode]);
 
   const selectedContentType = useMemo(() => {
     return CONTENT_TYPES.find(ct => ct.id === selectedContentTypeId);

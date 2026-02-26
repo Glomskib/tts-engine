@@ -26,6 +26,22 @@ export const metadata: Metadata = {
 export default function ToolsPage() {
   const tools = [
     {
+      name: 'TikTok Comment Reply',
+      description: 'Generate a transparent PNG overlay of a TikTok on-screen comment reply bubble. Drop it straight into your video editor — no watermark, no background.',
+      features: [
+        'No signup required',
+        'Transparent PNG export',
+        '2× pixel ratio (crisp at 1080p)',
+        'Instant live preview',
+        'Works in any video editor',
+        'No watermark',
+      ],
+      cta: 'Try Free Now',
+      href: '/tools/tok-comment',
+      free: true,
+      icon: '💬',
+    },
+    {
       name: 'Free TikTok Video Transcriber',
       description: 'Paste any public TikTok URL. Get the full transcript, hook analysis, emotional triggers, content breakdown, and recommendations.',
       features: [

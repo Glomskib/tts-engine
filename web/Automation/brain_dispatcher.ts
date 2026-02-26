@@ -308,5 +308,23 @@ export async function runBrainDispatch(): Promise<BrainDispatchReport> {
     });
   }
 
+  // Heartbeat: record run in ff_cron_runs (non-blocking)
+  try {
+    await supabaseAdmin.from('ff_cron_runs').insert({
+      job: 'brain-dispatch-local',
+      status: errors.length === 0 ? 'ok' : 'error',
+      finished_at: new Date().toISOString(),
+      error: errors.length > 0 ? errors.join('; ') : null,
+      meta: {
+        scanned_count: files.length,
+        dispatched_count: dispatched.length,
+        skipped_count: skipped.length,
+      },
+    });
+    console.log('[brain-dispatcher] Heartbeat recorded (local)');
+  } catch (e) {
+    console.warn('[brain-dispatcher] Heartbeat insert failed:', e);
+  }
+
   return { dispatched, skipped, errors };
 }

@@ -100,7 +100,7 @@ export async function listDecisionFiles(
 ): Promise<GitHubFileEntry[]> {
   const res = await ghFetch(
     cfg,
-    `/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(cfg.decisionsPath)}?ref=${cfg.branch}`,
+    `/repos/${cfg.owner}/${cfg.repo}/contents/${cfg.decisionsPath.split('/').map(encodeURIComponent).join('/')}?ref=${cfg.branch}`,
   );
 
   if (!res.ok) {
@@ -134,7 +134,7 @@ export async function fetchFile(
 ): Promise<GitHubFileContent> {
   const res = await ghFetch(
     cfg,
-    `/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(path)}?ref=${cfg.branch}`,
+    `/repos/${cfg.owner}/${cfg.repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}?ref=${cfg.branch}`,
   );
 
   if (!res.ok) {
@@ -173,7 +173,7 @@ export async function updateFile(
 
   const res = await ghFetch(
     cfg,
-    `/repos/${cfg.owner}/${cfg.repo}/contents/${encodeURIComponent(path)}`,
+    `/repos/${cfg.owner}/${cfg.repo}/contents/${path.split('/').map(encodeURIComponent).join('/')}`,
     { method: 'PUT', body },
   );
 

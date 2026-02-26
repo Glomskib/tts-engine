@@ -1,0 +1,27 @@
+# OpenClaw Worker — lightweight Node.js container
+FROM node:20-slim
+
+WORKDIR /app
+
+# Install pnpm for dependency install (matching project)
+RUN corepack enable && corepack prepare pnpm@latest --activate
+
+# Copy dependency manifests first for layer caching
+COPY package.json pnpm-lock.yaml* ./
+
+# Install production deps only + tsx for running TS
+RUN pnpm install --frozen-lockfile --prod || pnpm install --prod && \
+    pnpm add tsx
+
+# Copy worker source
+COPY scripts/workers/ ./scripts/workers/
+COPY lib/ ./lib/
+COPY tsconfig.json ./
+
+# Default env
+ENV WORKER_NAME=vps-openclaw
+ENV WORKER_POLL_MS=10000
+ENV WORKER_MAX_RUNTIME_MS=600000
+ENV NODE_ENV=production
+
+CMD ["npx", "tsx", "scripts/workers/openclaw_worker.ts"]

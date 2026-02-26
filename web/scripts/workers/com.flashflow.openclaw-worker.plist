@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.flashflow.openclaw-worker</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <!-- Use npx to resolve tsx; adjust path if node is elsewhere -->
+        <string>/opt/homebrew/bin/npx</string>
+        <string>tsx</string>
+        <string>scripts/workers/openclaw_worker.ts</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/brandonglomski/tts-engine/web</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>WORKER_NAME</key>
+        <string>mac-mini-openclaw</string>
+    </dict>
+
+    <!-- Restart on crash, but not more than once every 10s -->
+    <key>KeepAlive</key>
+    <true/>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+
+    <!-- Logging -->
+    <key>StandardOutPath</key>
+    <string>/Users/brandonglomski/Library/Logs/flashflow-worker.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/brandonglomski/Library/Logs/flashflow-worker.log</string>
+
+    <!-- Don't start at load — wait for manual start or reboot -->
+    <key>RunAtLoad</key>
+    <true/>
+</dict>
+</plist>

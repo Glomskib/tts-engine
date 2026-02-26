@@ -1,0 +1,25 @@
+# OpenClaw Worker — docker compose for VPS deployment
+#
+# Usage:
+#   cd tts-engine/web
+#   docker compose -f docker/docker-compose.worker.yml up -d
+#   docker compose -f docker/docker-compose.worker.yml logs -f
+
+services:
+  openclaw-worker:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.worker
+    container_name: openclaw-worker
+    restart: unless-stopped
+    env_file:
+      - ../.env.local
+    environment:
+      - WORKER_NAME=vps-openclaw
+      - WORKER_POLL_MS=10000
+      - WORKER_MAX_RUNTIME_MS=600000
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

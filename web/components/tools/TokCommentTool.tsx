@@ -167,105 +167,123 @@ interface BubbleProps {
   comment: string;
 }
 
+// Bubble background — off-white, matches TikTok's overlay card
+const BG = '#F4F4F4';
+
 const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
   ({ replyTo, username, comment }, ref) => {
     const displayReplyTo = replyTo.trim() || 'someone';
     const displayUsername = username.trim() || 'creator';
     const displayComment = comment.trim() || 'Your comment text will appear here…';
-
-    // Avatar initials
     const initials = displayUsername.charAt(0).toUpperCase();
 
     return (
+      /*
+       * Outer wrapper — transparent, gives the tail room to live in.
+       * paddingLeft: 10px reserves space so the tail isn't clipped on export.
+       * This wrapper is what gets passed to toPng.
+       */
       <div
         ref={ref}
         style={{
-          // Explicit inline styles so html-to-image captures everything correctly
-          // (Tailwind classes work but inline guarantees no purge surprises)
           position: 'relative',
           display: 'inline-block',
-          maxWidth: 480,
-          width: 'fit-content',
-          background: '#ffffff',
-          borderRadius: 16,
-          padding: '10px 14px 10px 16px',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.10)',
+          paddingLeft: 10,
+          maxWidth: 390,
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
-        }}
+        } as React.CSSProperties}
       >
-        {/* Tail (left side) */}
+        {/*
+         * Tail — clean clip-path triangle pointing left.
+         * Positioned so its horizontal center aligns with the header row.
+         * Overlaps the bubble's left edge by 2px to hide the border joint.
+         */}
         <div
           style={{
             position: 'absolute',
-            left: -10,
-            top: 24,
-            width: 0,
-            height: 0,
-            borderTop: '8px solid transparent',
-            borderBottom: '8px solid transparent',
-            borderRight: '10px solid #ffffff',
-            filter: 'drop-shadow(-2px 1px 2px rgba(0,0,0,0.10))',
+            left: 0,
+            top: 10,           // aligns with header text vertical center
+            width: 12,
+            height: 16,
+            background: BG,
+            clipPath: 'polygon(100% 0%, 100% 100%, 0% 50%)',
+            zIndex: 1,
           }}
         />
 
-        {/* "Reply to X's comment" header */}
+        {/* Bubble */}
         <div
           style={{
-            fontSize: 11,
-            color: '#8a8a8a',
-            marginBottom: 8,
-            letterSpacing: 0.1,
+            position: 'relative',
+            background: BG,
+            borderRadius: 14,
+            border: '1px solid rgba(0,0,0,0.07)',
+            boxShadow:
+              '0 2px 10px rgba(0,0,0,0.13), 0 0 1px rgba(0,0,0,0.06)',
+            padding: '10px 14px 12px 14px',
+            zIndex: 2,
           }}
         >
-          Reply to{' '}
-          <span style={{ fontWeight: 600, color: '#555' }}>@{displayReplyTo}</span>
-          &apos;s comment
-        </div>
-
-        {/* Avatar + username + comment row */}
-        <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
-          {/* Avatar */}
+          {/* "Reply to @X's comment" header */}
           <div
             style={{
-              width: 36,
-              height: 36,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #fe2c55 0%, #ff8c00 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flexShrink: 0,
-              color: '#fff',
-              fontSize: 14,
-              fontWeight: 700,
+              fontSize: 11.5,
+              fontWeight: 400,
+              color: '#8c8c8c',
+              lineHeight: 1,
+              marginBottom: 7,
+              letterSpacing: 0.05,
             }}
           >
-            {initials}
+            Reply to{' '}
+            <span style={{ fontWeight: 500, color: '#5c5c5c' }}>
+              @{displayReplyTo}
+            </span>
+            &apos;s comment
           </div>
 
-          {/* Text */}
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <span
+          {/* Avatar + text row */}
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
+            {/* Avatar — 30px, soft gray circle with initials */}
+            <div
               style={{
-                fontSize: 13,
+                width: 30,
+                height: 30,
+                borderRadius: '50%',
+                background: 'linear-gradient(135deg, #fe2c55 0%, #ee1d52 60%, #ff6550 100%)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0,
+                color: '#fff',
+                fontSize: 12,
                 fontWeight: 700,
-                color: '#111',
-                marginRight: 6,
+                marginTop: 1,   // optical alignment with text cap height
               }}
             >
-              @{displayUsername}
-            </span>
-            <span
+              {initials}
+            </div>
+
+            {/* Username + comment inline, wraps naturally */}
+            <div
               style={{
-                fontSize: 13,
-                color: '#222',
-                lineHeight: 1.45,
+                fontSize: 14,
+                lineHeight: 1.42,
+                color: '#111111',
                 wordBreak: 'break-word',
+                overflowWrap: 'break-word',
               }}
             >
-              {displayComment}
-            </span>
+              <span style={{ fontWeight: 700, marginRight: 4 }}>
+                @{displayUsername}
+              </span>
+              <span style={{ fontWeight: 400, color: '#1a1a1a' }}>
+                {displayComment}
+              </span>
+            </div>
           </div>
         </div>
       </div>

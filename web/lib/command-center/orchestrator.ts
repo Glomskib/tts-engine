@@ -67,8 +67,11 @@ async function pass1_brainDispatch(): Promise<PassReport> {
     ok: report.errors.length === 0,
     detail: {
       source: report.source,
-      dispatched: report.dispatched.length,
-      skipped: report.skipped.length,
+      decisions_found: report.decisions_found,
+      decisions_ignored: report.decisions_ignored,
+      decisions_skipped: report.decisions_skipped,
+      decisions_dispatched: report.decisions_dispatched,
+      decisions_already_dispatched: report.decisions_already_dispatched,
       errors: report.errors,
     },
   };

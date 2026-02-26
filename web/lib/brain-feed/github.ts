@@ -116,7 +116,7 @@ export async function listDecisionFiles(
   }>;
 
   return items
-    .filter((i) => i.type === 'file' && i.name.endsWith('.md'))
+    .filter((i) => i.type === 'file')
     .map((i) => ({
       name: i.name,
       path: i.path,

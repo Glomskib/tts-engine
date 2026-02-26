@@ -5,11 +5,13 @@
  *   - Local:  reads Obsidian vault on filesystem (dev / local Mac)
  *   - GitHub: reads repo via Contents API   (Vercel production)
  *
- * Scans Vault/Decisions/ for notes with `status: approved` and
- * no `mc_status`. Creates project_tasks in Supabase, writes back
- * mc_task_id + mc_status to the note (local fs or GitHub commit).
+ * Scans Vault/Decisions/ for notes with `status: approved` that have
+ * not yet been dispatched. Creates project_tasks in Supabase, writes
+ * back dispatched status + task ID to the note (local fs or GitHub commit).
  *
- * Idempotent: notes with mc_status set are always skipped.
+ * Idempotency:
+ *   1. Frontmatter gate: files with dispatched_task_id are skipped.
+ *   2. DB dedupe: meta->>decision_file is checked before insert.
  */
 import { readdir, readFile, writeFile, access } from 'fs/promises';
 import { join } from 'path';
@@ -150,9 +152,25 @@ export interface DispatchResult {
 
 export interface BrainDispatchReport {
   source: 'local' | 'github';
+  decisions_found: number;
+  decisions_ignored: number;
+  decisions_skipped: number;
+  decisions_dispatched: number;
+  decisions_already_dispatched: number;
   dispatched: DispatchResult[];
+  ignored: string[];
   skipped: string[];
   errors: string[];
+}
+
+/** Check if a filename should be ignored (not a real decision file). */
+function isIgnoredFile(name: string): boolean {
+  const lower = name.toLowerCase();
+  return (
+    lower === 'readme.md' ||
+    name.startsWith('_') ||
+    !name.endsWith('.md')
+  );
 }
 
 export async function vaultAccessible(): Promise<boolean> {
@@ -219,11 +237,36 @@ async function dispatchDecisions(
   vaultPath?: string,
 ): Promise<BrainDispatchReport> {
   const dispatched: DispatchResult[] = [];
+  const ignored: string[] = [];
   const skipped: string[] = [];
   const errors: string[] = [];
+  let alreadyDispatched = 0;
 
-  if (files.length === 0) {
-    return { source, dispatched, skipped: ['No decision files found'], errors };
+  // A) Filter out non-decision files
+  const decisionFiles: DecisionFile[] = [];
+  for (const file of files) {
+    if (isIgnoredFile(file.name)) {
+      ignored.push(file.name);
+    } else {
+      decisionFiles.push(file);
+    }
+  }
+
+  const totalFound = files.length;
+
+  if (decisionFiles.length === 0) {
+    return {
+      source,
+      decisions_found: totalFound,
+      decisions_ignored: ignored.length,
+      decisions_skipped: 0,
+      decisions_dispatched: 0,
+      decisions_already_dispatched: 0,
+      dispatched,
+      ignored,
+      skipped: decisionFiles.length === 0 && totalFound > 0 ? ['All files ignored'] : ['No decision files found'],
+      errors,
+    };
   }
 
   // Build project ID lookup (name-based, case-insensitive)
@@ -235,11 +278,10 @@ async function dispatchDecisions(
   const projectLookup = new Map<string, string>();
   for (const p of projects || []) {
     projectLookup.set(p.name.toLowerCase(), p.id);
-    // Legacy type key as fallback
     projectLookup.set(p.type, p.id);
   }
 
-  for (const file of files) {
+  for (const file of decisionFiles) {
     const parsed = parseFrontmatter(file.content);
     if (!parsed) {
       skipped.push(`${file.name}: no frontmatter`);
@@ -253,14 +295,19 @@ async function dispatchDecisions(
       skipped.push(`${file.name}: type=${data.type}`);
       continue;
     }
-    if (data.status !== 'approved') {
+    if (data.status !== 'approved' && data.status !== 'dispatched') {
       skipped.push(`${file.name}: status=${data.status || 'missing'}`);
       continue;
     }
 
-    // Gate: idempotency — skip if already dispatched
+    // C) Frontmatter idempotency — skip if already dispatched
+    if (data.dispatched_task_id) {
+      alreadyDispatched++;
+      continue;
+    }
+    // Legacy gate: also skip if old mc_status field is set
     if (data.mc_status && data.mc_status !== '') {
-      skipped.push(`${file.name}: already dispatched (mc_status=${data.mc_status})`);
+      alreadyDispatched++;
       continue;
     }
 
@@ -276,17 +323,31 @@ async function dispatchDecisions(
       continue;
     }
 
+    // B) DB-level dedupe — check if a task already exists for this decision file
+    const { data: existing } = await supabaseAdmin
+      .from('project_tasks')
+      .select('id')
+      .eq('meta->>decision_file', file.name)
+      .eq('meta->>source', 'brain-dispatcher')
+      .limit(1);
+
+    if (existing && existing.length > 0) {
+      alreadyDispatched++;
+      continue;
+    }
+
     // Build task fields
     const title =
       data.summary ||
       file.name
         .replace(/\.md$/, '')
-        .replace(/^\d{4}-\d{2}-\d{2}-/, '')
-        .replace(/-/g, ' ');
+        .replace(/^\d{4}-\d{2}-\d{2}[-_]/, '')
+        .replace(/[-_]/g, ' ');
     const priority = data.priority
       ? Math.min(5, Math.max(1, parseInt(data.priority, 10) || 3))
       : 3;
     const owner = data.owner || 'unassigned';
+    const now = new Date().toISOString();
 
     // Insert into project_tasks
     const { data: task, error: dbErr } = await supabaseAdmin
@@ -301,9 +362,10 @@ async function dispatchDecisions(
         meta: {
           source: 'brain-dispatcher',
           source_type: source,
-          vault_file: file.name,
+          decision_file: file.name,
           vault_project: vaultProject,
           github_path: source === 'github' ? file.path : undefined,
+          dispatched_at: now,
         },
       })
       .select('id')
@@ -319,15 +381,14 @@ async function dispatchDecisions(
       task_id: task.id,
       agent_id: 'brain-dispatcher',
       event_type: 'created',
-      payload: { source: `${source}-decision`, vault_file: file.name },
+      payload: { source: `${source}-decision`, decision_file: file.name },
     });
 
-    // Write mc_task_id and mc_status back to the note
-    const today = new Date().toISOString().slice(0, 10);
+    // C) Writeback — update frontmatter with dispatch metadata
     const updated = injectFrontmatterFields(file.content, {
-      mc_task_id: task.id,
-      mc_status: 'created',
-      updated: today,
+      status: 'dispatched',
+      dispatched_at: now,
+      dispatched_task_id: task.id,
     });
 
     try {
@@ -343,7 +404,7 @@ async function dispatchDecisions(
         try {
           await appendWorklogEntry(
             join(vaultPath, worklogRel),
-            today,
+            now.slice(0, 10),
             `Decision dispatched → MC: ${title}`,
             `mc-task: ${task.id.slice(0, 8)}`,
           );
@@ -361,7 +422,18 @@ async function dispatchDecisions(
     });
   }
 
-  return { source, dispatched, skipped, errors };
+  return {
+    source,
+    decisions_found: totalFound,
+    decisions_ignored: ignored.length,
+    decisions_skipped: skipped.length,
+    decisions_dispatched: dispatched.length,
+    decisions_already_dispatched: alreadyDispatched,
+    dispatched,
+    ignored,
+    skipped,
+    errors,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -372,23 +444,30 @@ async function runLocalDispatch(): Promise<BrainDispatchReport> {
   const vaultPath = getVaultPath();
   const decisionsDir = join(vaultPath, 'Vault', 'Decisions');
 
-  let fileNames: string[];
+  let allEntries: string[];
   try {
-    const entries = await readdir(decisionsDir);
-    fileNames = entries.filter((f) => f.endsWith('.md'));
+    allEntries = await readdir(decisionsDir);
   } catch {
     return {
       source: 'local',
+      decisions_found: 0,
+      decisions_ignored: 0,
+      decisions_skipped: 0,
+      decisions_dispatched: 0,
+      decisions_already_dispatched: 0,
       dispatched: [],
+      ignored: [],
       skipped: [],
       errors: [`Cannot read ${decisionsDir}`],
     };
   }
 
-  // Load file contents
+  // Load all entries (filtering happens inside dispatchDecisions)
   const files: DecisionFile[] = [];
   const readErrors: string[] = [];
-  for (const name of fileNames) {
+  for (const name of allEntries) {
+    // Skip directories
+    if (!name.includes('.')) continue;
     const filePath = join(decisionsDir, name);
     try {
       const content = await readFile(filePath, 'utf-8');
@@ -416,20 +495,32 @@ async function runGitHubDispatch(): Promise<BrainDispatchReport> {
   if (!cfg) {
     return {
       source: 'github',
+      decisions_found: 0,
+      decisions_ignored: 0,
+      decisions_skipped: 0,
+      decisions_dispatched: 0,
+      decisions_already_dispatched: 0,
       dispatched: [],
+      ignored: [],
       skipped: [],
       errors: ['GitHub feed not configured (GITHUB_TOKEN missing)'],
     };
   }
 
-  // List decision files from repo
+  // List all files from repo (including non-.md — filtering is in dispatchDecisions)
   let entries: Awaited<ReturnType<typeof listDecisionFiles>>;
   try {
     entries = await listDecisionFiles(cfg);
   } catch (e) {
     return {
       source: 'github',
+      decisions_found: 0,
+      decisions_ignored: 0,
+      decisions_skipped: 0,
+      decisions_dispatched: 0,
+      decisions_already_dispatched: 0,
       dispatched: [],
+      ignored: [],
       skipped: [],
       errors: [`GitHub list failed: ${e}`],
     };
@@ -462,7 +553,7 @@ async function runGitHubDispatch(): Promise<BrainDispatchReport> {
       file.path,
       updatedContent,
       file.sha,
-      `[brain-dispatch] mc_task_id=${taskId.slice(0, 8)}`,
+      `[brain-dispatch] dispatched_task_id=${taskId.slice(0, 8)}`,
     );
   };
 
@@ -485,7 +576,13 @@ export async function runBrainDispatch(): Promise<BrainDispatchReport> {
   if (!source) {
     return {
       source: 'local',
+      decisions_found: 0,
+      decisions_ignored: 0,
+      decisions_skipped: 0,
+      decisions_dispatched: 0,
+      decisions_already_dispatched: 0,
       dispatched: [],
+      ignored: [],
       skipped: ['No source available (no vault, no GitHub token)'],
       errors: [],
     };
@@ -495,9 +592,7 @@ export async function runBrainDispatch(): Promise<BrainDispatchReport> {
     ? await runLocalDispatch()
     : await runGitHubDispatch();
 
-  // Heartbeat: record run in ff_cron_runs (non-blocking)
-  const decisionsLoaded =
-    report.dispatched.length + report.skipped.length + report.errors.length;
+  // D) Heartbeat: record run in ff_cron_runs with full observability meta
   try {
     await supabaseAdmin.from('ff_cron_runs').insert({
       job: `brain-dispatch-${source}`,
@@ -506,12 +601,12 @@ export async function runBrainDispatch(): Promise<BrainDispatchReport> {
       error: report.errors.length > 0 ? report.errors.join('; ') : null,
       meta: {
         source,
-        decisions_loaded: decisionsLoaded,
-        decisions_processed: report.dispatched.length + report.skipped.length,
-        tasks_created: report.dispatched.length,
-        scanned_count: decisionsLoaded,
-        dispatched_count: report.dispatched.length,
-        skipped_count: report.skipped.length,
+        decisions_found: report.decisions_found,
+        decisions_ignored: report.decisions_ignored,
+        decisions_skipped: report.decisions_skipped,
+        decisions_dispatched: report.decisions_dispatched,
+        decisions_already_dispatched: report.decisions_already_dispatched,
+        errors: report.errors,
       },
     });
     console.log(`[brain-dispatcher] Heartbeat recorded (${source})`);

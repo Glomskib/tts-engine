@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useLayoutEffect, useCallback } from 'react';
 import { toCanvas } from 'html-to-image';
 
 // ============================================================================
@@ -25,20 +25,14 @@ export default function TokCommentTool() {
       // One rAF to let the browser settle layout
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-      // toCanvas gives us direct control over the canvas alpha channel.
-      // We deliberately do NOT pass backgroundColor so html-to-image never
-      // calls fillRect — the canvas is created with alpha:true by default,
-      // giving us transparent pixels outside the bubble.
+      // toCanvas — no backgroundColor arg so html-to-image never calls fillRect;
+      // canvas is created with alpha:true giving transparent pixels outside the bubble.
       const canvas = await toCanvas(stickerRef.current, {
         pixelRatio: 2,
         cacheBust: true,
       });
 
-      // Confirm the canvas has an alpha channel by checking a corner pixel.
-      // If it's already transparent we're good; if not, we manually clear
-      // the corners by exploting the native PNG alpha path via toDataURL.
       const dataUrl = canvas.toDataURL('image/png');
-
       const safe = (username || 'comment').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
       const a = document.createElement('a');
       a.href = dataUrl;
@@ -115,7 +109,7 @@ export default function TokCommentTool() {
           </div>
         </div>
 
-        {/* Preview */}
+        {/* Preview — checkerboard behind sticker so transparency is visible */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Preview</p>
@@ -139,12 +133,9 @@ export default function TokCommentTool() {
               Checkerboard = transparent
             </span>
           </div>
-          {/*
-           * Checkerboard is on THIS container — NOT on the sticker node.
-           * Only stickerRef (the inner bubble) is captured on export.
-           */}
+          {/* Checkerboard is on THIS container only — NOT inside the sticker node */}
           <div
-            className="flex justify-center py-10 px-4 rounded-xl border border-white/5"
+            className="flex justify-center pt-10 pb-4 px-4 rounded-xl border border-white/5"
             style={{
               backgroundColor: '#888',
               backgroundImage:
@@ -201,10 +192,8 @@ export default function TokCommentTool() {
 }
 
 // ============================================================================
-// Sticker bubble — the actual node that gets captured
+// Sticker bubble — the actual node captured by html-to-image
 // ============================================================================
-
-import React from 'react';
 
 interface BubbleProps {
   replyTo: string;
@@ -212,64 +201,170 @@ interface BubbleProps {
   comment: string;
 }
 
-// Bubble background — off-white, matches TikTok's overlay card
-const BG = '#F4F4F4';
+const BUBBLE_BG = '#F4F4F4';
+const TAIL_H    = 22;  // px the tail extends below the bubble bottom
+const R         = 14;  // bubble corner radius
+
+/**
+ * Single SVG path: rounded rectangle + TikTok-style downward speech tail.
+ *
+ * The tail sits at the bottom-left of the bubble and points straight down
+ * with a slight leftward lean — matching TikTok's native reply sticker.
+ * Both sides of the tail use cubic bezier curves so the wedge is soft and
+ * organic (no sharp triangle, no flat sides).
+ *
+ * Geometry (bubble = W × H, tail adds TAIL_H below):
+ *
+ *   tl──────────tr          ← tail base on bubble bottom  (x: 28 – 58)
+ *      ╲      ╱
+ *       ╲    ╱   ← inward-scooping cubic curves
+ *        ╲  ╱
+ *         ╲╱  ← rounded tip at (tx, ty)              (x: 16, y: H + TAIL_H)
+ */
+function buildPath(W: number, H: number): string {
+  const r  = R;
+  const tl = 28;          // tail base left x
+  const tr = 58;          // tail base right x
+  const tx = 16;          // tail tip x
+  const ty = H + TAIL_H; // tail tip y
+
+  // Right wall of tail: start at (tr, H), arc inward + down to near tip.
+  // cp1 pulls rightward-then-down; cp2 converges toward tip from the right.
+  const rcp1x = tr - 3, rcp1y = H + 9;
+  const rcp2x = tx + 11, rcp2y = ty - 5;
+
+  // Rounded tip: quadratic arc through the apex so the point is soft.
+  const tipX = tx,     tipY = ty + 1;   // apex of rounded tip
+  const tEndX = tx - 3, tEndY = ty - 1; // rejoin point for left wall
+
+  // Left wall of tail: mirror of right — scoops from near-tip back up to (tl, H).
+  const lcp1x = tx - 9,  lcp1y = ty - 5;
+  const lcp2x = tl + 1,  lcp2y = H + 9;
+
+  return [
+    `M${r} 0`,
+    `L${W - r} 0`,
+    `Q${W} 0 ${W} ${r}`,         // top-right corner
+    `L${W} ${H - r}`,
+    `Q${W} ${H} ${W - r} ${H}`,  // bottom-right corner
+    `L${tr} ${H}`,                // bottom edge → tail right base
+    // Right side of tail
+    `C${rcp1x} ${rcp1y} ${rcp2x} ${rcp2y} ${tx + 4} ${ty - 1}`,
+    // Rounded tip
+    `Q${tipX} ${tipY} ${tEndX} ${tEndY}`,
+    // Left side of tail
+    `C${lcp1x} ${lcp1y} ${lcp2x} ${lcp2y} ${tl} ${H}`,
+    `L${r} ${H}`,
+    `Q0 ${H} 0 ${H - r}`,        // bottom-left corner
+    `L0 ${r}`,
+    `Q0 0 ${r} 0`,               // top-left corner
+    'Z',
+  ].join(' ');
+}
 
 const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
   ({ replyTo, username, comment }, ref) => {
-    const displayReplyTo = replyTo.trim() || 'someone';
+    const displayReplyTo  = replyTo.trim()  || 'someone';
     const displayUsername = username.trim() || 'creator';
-    const displayComment = comment.trim() || 'Your comment text will appear here…';
+    const displayComment  = comment.trim()  || 'Your comment text will appear here…';
     const initials = displayUsername.charAt(0).toUpperCase();
 
+    // Measure the content div after each paint so the SVG fits exactly.
+    const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+    const contentRef = useRef<HTMLDivElement>(null);
+
+    useLayoutEffect(() => {
+      const el = contentRef.current;
+      if (!el) return;
+      const measure = () => setDims({ w: el.offsetWidth, h: el.offsetHeight });
+      measure();
+      const ro = new ResizeObserver(measure);
+      ro.observe(el);
+      return () => ro.disconnect();
+    }, []);
+
+    const svgH = (dims?.h ?? 0) + TAIL_H;
+
     return (
-      /*
-       * Outer wrapper — transparent, gives the tail room to live in.
-       * paddingLeft: 10px reserves space so the tail isn't clipped on export.
-       * This wrapper is what gets passed to toPng.
+      /**
+       * Outer wrapper — this is the node captured for export.
+       * No background here; transparency comes from the SVG shape.
+       * paddingBottom = TAIL_H so the tail is inside the captured bounds.
        */
       <div
         ref={ref}
         style={{
           position: 'relative',
           display: 'inline-block',
-          paddingLeft: 10,
-          maxWidth: 390,
-          WebkitFontSmoothing: 'antialiased',
-          MozOsxFontSmoothing: 'grayscale',
+          maxWidth: 380,
+          paddingBottom: TAIL_H,
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
+          WebkitFontSmoothing: 'antialiased',
+          MozOsxFontSmoothing: 'grayscale',
         } as React.CSSProperties}
       >
-        {/*
-         * Tail — clean clip-path triangle pointing left.
-         * Positioned so its horizontal center aligns with the header row.
-         * Overlaps the bubble's left edge by 2px to hide the border joint.
-         */}
-        <div
-          style={{
-            position: 'absolute',
-            left: 0,
-            top: 10,           // aligns with header text vertical center
-            width: 12,
-            height: 16,
-            background: BG,
-            clipPath: 'polygon(100% 0%, 100% 100%, 0% 50%)',
-            zIndex: 1,
-          }}
-        />
+        {/* SVG bubble shape — sits behind content via z-index 0 */}
+        {dims && dims.w > 0 && (
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width={dims.w}
+            height={svgH}
+            viewBox={`0 0 ${dims.w} ${svgH}`}
+            aria-hidden="true"
+            style={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              overflow: 'visible',
+              pointerEvents: 'none',
+              zIndex: 0,
+            }}
+          >
+            <defs>
+              {/*
+               * SVG drop-shadow filter — follows exact path contour so the
+               * shadow hugs the rounded-rect + tail as one unified shape.
+               * No rectangular halo, no alpha bleed.
+               */}
+              <filter
+                id="tok-shadow"
+                x="-20%"
+                y="-15%"
+                width="140%"
+                height="160%"
+              >
+                <feGaussianBlur in="SourceAlpha" stdDeviation="3" result="blur" />
+                <feOffset in="blur" dx="0" dy="2" result="off" />
+                <feColorMatrix
+                  in="off"
+                  type="matrix"
+                  values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.13 0"
+                  result="shadow"
+                />
+                <feMerge>
+                  <feMergeNode in="shadow" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+            <path
+              d={buildPath(dims.w, dims.h)}
+              fill={BUBBLE_BG}
+              stroke="rgba(0,0,0,0.06)"
+              strokeWidth="0.75"
+              filter="url(#tok-shadow)"
+            />
+          </svg>
+        )}
 
-        {/* Bubble */}
+        {/* Content layer — z-index 1 so it sits above the SVG */}
         <div
+          ref={contentRef}
           style={{
             position: 'relative',
-            background: BG,
-            borderRadius: 14,
-            border: '1px solid rgba(0,0,0,0.07)',
-            boxShadow:
-              '0 2px 10px rgba(0,0,0,0.13), 0 0 1px rgba(0,0,0,0.06)',
+            zIndex: 1,
             padding: '10px 14px 12px 14px',
-            zIndex: 2,
           }}
         >
           {/* "Reply to @X's comment" header */}
@@ -290,15 +385,15 @@ const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
             &apos;s comment
           </div>
 
-          {/* Avatar + text row */}
+          {/* Avatar + username + comment inline */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
-            {/* Avatar — 30px, soft gray circle with initials */}
             <div
               style={{
                 width: 30,
                 height: 30,
                 borderRadius: '50%',
-                background: 'linear-gradient(135deg, #fe2c55 0%, #ee1d52 60%, #ff6550 100%)',
+                background:
+                  'linear-gradient(135deg, #fe2c55 0%, #ee1d52 60%, #ff6550 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -306,13 +401,11 @@ const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
                 color: '#fff',
                 fontSize: 12,
                 fontWeight: 700,
-                marginTop: 1,   // optical alignment with text cap height
+                marginTop: 1,
               }}
             >
               {initials}
             </div>
-
-            {/* Username + comment inline, wraps naturally */}
             <div
               style={{
                 fontSize: 14,
@@ -339,7 +432,7 @@ const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
 TikTokCommentBubble.displayName = 'TikTokCommentBubble';
 
 // ============================================================================
-// Inline download icon (no external dep)
+// Inline download icon
 // ============================================================================
 
 function DownloadIcon() {

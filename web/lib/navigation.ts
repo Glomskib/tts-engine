@@ -178,6 +178,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'All Requests', href: '/client/requests', icon: FileText },
       { name: 'Analytics', href: '/client/analytics', icon: BarChart },
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
+      { name: 'Comment Sticker', href: '/tools/tok-comment', icon: MessageSquare, external: true },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy },
     ],
   },

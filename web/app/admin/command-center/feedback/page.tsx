@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { RefreshCw, Bug, Lightbulb, Inbox, BarChart } from 'lucide-react';
-import CCSubnav from '../_components/CCSubnav';
+import { Bug, Lightbulb, Inbox, BarChart } from 'lucide-react';
+import CommandCenterShell from '../_components/CommandCenterShell';
+import { CCPageHeader, CCStatCard } from '../_components/ui';
+import CCEmptyState from '../_components/ui/CCEmptyState';
 import type { FeedbackItem, FeedbackStatus, FeedbackType, FeedbackStats } from '@/lib/command-center/feedback-types';
 import FeedbackFilterBar from './_components/FeedbackFilterBar';
 import FeedbackItemRow from './_components/FeedbackItemRow';
@@ -46,48 +48,27 @@ export default function FeedbackInboxPage() {
     });
     if (res.ok) {
       const json = await res.json();
-      // Update local state
       setItems((prev) => prev.map((item) => (item.id === id ? json.data : item)));
       if (selectedItem?.id === id) setSelectedItem(json.data);
-      // Refresh stats
       fetchData();
     }
   }
 
-  const statCards = [
-    { label: 'New', value: stats.new, icon: Inbox, color: 'text-blue-400' },
-    { label: 'Bugs', value: stats.bugs, icon: Bug, color: 'text-red-400' },
-    { label: 'Features', value: stats.features, icon: Lightbulb, color: 'text-amber-400' },
-    { label: 'Total', value: stats.total, icon: BarChart, color: 'text-zinc-400' },
-  ];
-
   return (
-    <div className="space-y-6">
-      <CCSubnav />
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">Feedback</h2>
-
-        <button
-          onClick={fetchData}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
+    <CommandCenterShell>
+      <CCPageHeader
+        title="Feedback"
+        subtitle="User feedback, bugs, and feature requests"
+        loading={loading}
+        onRefresh={fetchData}
+      />
 
       {/* Stat cards */}
-      <div className="grid grid-cols-4 gap-4">
-        {statCards.map((card) => (
-          <div key={card.label} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider">{card.label}</span>
-              <card.icon className={`w-4 h-4 ${card.color}`} />
-            </div>
-            <div className="text-2xl font-bold text-white">{card.value}</div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <CCStatCard label="New" value={stats.new} icon={Inbox} color="text-blue-400" />
+        <CCStatCard label="Bugs" value={stats.bugs} icon={Bug} color="text-red-400" />
+        <CCStatCard label="Features" value={stats.features} icon={Lightbulb} color="text-amber-400" />
+        <CCStatCard label="Total" value={stats.total} icon={BarChart} color="text-zinc-400" />
       </div>
 
       {/* Filter bar */}
@@ -101,7 +82,7 @@ export default function FeedbackInboxPage() {
       />
 
       {/* List */}
-      <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
         {items.map((item) => (
           <FeedbackItemRow
             key={item.id}
@@ -110,10 +91,14 @@ export default function FeedbackInboxPage() {
           />
         ))}
         {!loading && items.length === 0 && (
-          <div className="py-16 text-center text-zinc-500">No feedback items found</div>
+          <CCEmptyState
+            icon={Inbox}
+            title="No feedback items found"
+            body="Adjust your filters or wait for new submissions."
+          />
         )}
         {loading && items.length === 0 && (
-          <div className="py-16 text-center text-zinc-500">Loading...</div>
+          <div className="py-16 text-center text-zinc-500 text-sm">Loading...</div>
         )}
       </div>
 
@@ -125,6 +110,6 @@ export default function FeedbackInboxPage() {
           onUpdate={handleUpdate}
         />
       )}
-    </div>
+    </CommandCenterShell>
   );
 }

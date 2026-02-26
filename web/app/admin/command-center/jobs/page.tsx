@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { Plus, RefreshCw, ExternalLink } from 'lucide-react';
-import CCSubnav from '../_components/CCSubnav';
+import { Plus, ExternalLink, Briefcase } from 'lucide-react';
+import CommandCenterShell from '../_components/CommandCenterShell';
+import { CCPageHeader } from '../_components/ui';
+import { CCTable, CCThead, CCTh, CCTbody, CCTr, CCTd } from '../_components/ui/CCTable';
+import CCEmptyState from '../_components/ui/CCEmptyState';
 import JobDrawer from './_components/JobDrawer';
 import type { CcJob, JobStatus, JobPlatform } from '@/lib/command-center/types';
 
@@ -46,7 +49,6 @@ export default function JobTrackerPage() {
   const [platformFilter, setPlatformFilter] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
 
-  // New job form state
   const [newJob, setNewJob] = useState({
     title: '',
     source_url: '',
@@ -114,52 +116,48 @@ export default function JobTrackerPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <CCSubnav />
-
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">Jobs</h2>
-        <div className="flex items-center gap-3">
-          {/* Filters */}
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">All statuses</option>
-            {STATUS_OPTIONS.map((s) => (
-              <option key={s.value} value={s.value}>{s.label}</option>
-            ))}
-          </select>
-          <select
-            value={platformFilter}
-            onChange={(e) => setPlatformFilter(e.target.value)}
-            className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="">All platforms</option>
-            {PLATFORM_OPTIONS.map((p) => (
-              <option key={p.value} value={p.value}>{p.label}</option>
-            ))}
-          </select>
-          <button
-            onClick={fetchJobs}
-            className="p-2 text-zinc-400 hover:text-white"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          </button>
-          <button
-            onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-teal-600 hover:bg-teal-500 text-white rounded-lg"
-          >
-            <Plus className="w-4 h-4" /> Add Job
-          </button>
-        </div>
-      </div>
+    <CommandCenterShell>
+      <CCPageHeader
+        title="Jobs"
+        subtitle="Freelance job tracker and pipeline"
+        loading={loading}
+        onRefresh={fetchJobs}
+        actions={
+          <>
+            {/* Filters */}
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">All statuses</option>
+              {STATUS_OPTIONS.map((s) => (
+                <option key={s.value} value={s.value}>{s.label}</option>
+              ))}
+            </select>
+            <select
+              value={platformFilter}
+              onChange={(e) => setPlatformFilter(e.target.value)}
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="">All platforms</option>
+              {PLATFORM_OPTIONS.map((p) => (
+                <option key={p.value} value={p.value}>{p.label}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowAddForm(true)}
+              className="flex items-center gap-2 px-3 py-2 text-sm bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add Job
+            </button>
+          </>
+        }
+      />
 
       {/* Inline creation form */}
       {showAddForm && (
-        <div className="border border-zinc-700 rounded-lg p-4 bg-zinc-900 space-y-3">
+        <div className="border border-zinc-700 rounded-xl p-5 bg-zinc-900 space-y-3">
           <div className="grid grid-cols-2 gap-3">
             <input
               placeholder="Job title *"
@@ -167,18 +165,18 @@ export default function JobTrackerPage() {
               onChange={(e) => setNewJob({ ...newJob, title: e.target.value })}
               onKeyDown={(e) => { if (e.key === 'Enter') createJob(); }}
               autoFocus
-              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm col-span-2"
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2.5 text-sm col-span-2"
             />
             <input
               placeholder="Source URL (e.g. Upwork link)"
               value={newJob.source_url}
               onChange={(e) => setNewJob({ ...newJob, source_url: e.target.value })}
-              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm"
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2.5 text-sm"
             />
             <select
               value={newJob.platform}
               onChange={(e) => setNewJob({ ...newJob, platform: e.target.value as JobPlatform })}
-              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm"
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2.5 text-sm"
             >
               {PLATFORM_OPTIONS.map((p) => (
                 <option key={p.value} value={p.value}>{p.label}</option>
@@ -189,34 +187,34 @@ export default function JobTrackerPage() {
               type="number"
               value={newJob.hourly_rate}
               onChange={(e) => setNewJob({ ...newJob, hourly_rate: e.target.value })}
-              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm"
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2.5 text-sm"
             />
             <input
               placeholder="Budget"
               type="number"
               value={newJob.budget}
               onChange={(e) => setNewJob({ ...newJob, budget: e.target.value })}
-              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm"
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2.5 text-sm"
             />
             <input
               placeholder="Contact name/email"
               value={newJob.contact}
               onChange={(e) => setNewJob({ ...newJob, contact: e.target.value })}
-              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm"
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2.5 text-sm"
             />
             <textarea
               placeholder="Notes"
               value={newJob.notes}
               onChange={(e) => setNewJob({ ...newJob, notes: e.target.value })}
               rows={2}
-              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded px-3 py-2 text-sm"
+              className="bg-zinc-800 border border-zinc-700 text-zinc-300 rounded-lg px-3 py-2.5 text-sm"
             />
           </div>
           <div className="flex gap-2">
-            <button onClick={createJob} disabled={!newJob.title.trim()} className="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-500 text-white rounded disabled:opacity-50">
+            <button onClick={createJob} disabled={!newJob.title.trim()} className="px-4 py-2 text-sm bg-teal-600 hover:bg-teal-500 text-white rounded-lg disabled:opacity-50 transition-colors">
               Create
             </button>
-            <button onClick={() => setShowAddForm(false)} className="px-4 py-2 text-sm bg-zinc-700 text-zinc-300 rounded">
+            <button onClick={() => setShowAddForm(false)} className="px-4 py-2 text-sm bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded-lg transition-colors">
               Cancel
             </button>
           </div>
@@ -224,78 +222,79 @@ export default function JobTrackerPage() {
       )}
 
       {/* Jobs table */}
-      <div className="border border-zinc-800 rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-zinc-800 bg-zinc-900/50">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 uppercase">Title</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 uppercase">Platform</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 uppercase">Status</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 uppercase">Rate</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 uppercase">Budget</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 uppercase">Contact</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-zinc-500 uppercase">Updated</th>
+      <CCTable>
+        <CCThead>
+          <CCTh>Title</CCTh>
+          <CCTh>Platform</CCTh>
+          <CCTh>Status</CCTh>
+          <CCTh>Rate</CCTh>
+          <CCTh>Budget</CCTh>
+          <CCTh>Contact</CCTh>
+          <CCTh>Updated</CCTh>
+        </CCThead>
+        <CCTbody>
+          {jobs.length === 0 && (
+            <tr>
+              <td colSpan={7}>
+                {loading ? (
+                  <div className="px-4 py-8 text-center text-zinc-500 text-sm">Loading...</div>
+                ) : (
+                  <CCEmptyState
+                    icon={Briefcase}
+                    title="No jobs yet"
+                    body="Start tracking freelance opportunities."
+                    action={{ label: 'Add Job', onClick: () => setShowAddForm(true) }}
+                  />
+                )}
+              </td>
             </tr>
-          </thead>
-          <tbody className="divide-y divide-zinc-800">
-            {jobs.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-zinc-500">
-                  {loading ? 'Loading...' : 'No jobs yet'}
-                </td>
-              </tr>
-            )}
-            {jobs.map((job) => {
-              const si = getStatusInfo(job.status);
-              return (
-                <tr
-                  key={job.id}
-                  className="hover:bg-zinc-800/50 cursor-pointer transition-colors"
-                  onClick={() => setSelectedJob(job)}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-zinc-200 font-medium">{job.title}</span>
-                      {job.source_url && (
-                        <a
-                          href={job.source_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                          className="text-zinc-500 hover:text-teal-400"
-                        >
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-400 capitalize">{job.platform}</td>
-                  <td className="px-4 py-3">
-                    <select
-                      value={job.status}
-                      onChange={(e) => { e.stopPropagation(); handleInlineStatusChange(job.id, e.target.value); }}
-                      onClick={(e) => e.stopPropagation()}
-                      className={`text-xs px-2 py-1 rounded-full border-0 cursor-pointer ${si.color} bg-transparent`}
-                    >
-                      {STATUS_OPTIONS.map((s) => (
-                        <option key={s.value} value={s.value}>{s.label}</option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="px-4 py-3 text-zinc-400">
-                    {job.hourly_rate !== null ? `$${job.hourly_rate}/hr` : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-zinc-400">
-                    {job.budget !== null ? `$${job.budget}` : '—'}
-                  </td>
-                  <td className="px-4 py-3 text-zinc-400 truncate max-w-[150px]">{job.contact || '—'}</td>
-                  <td className="px-4 py-3 text-zinc-500 text-xs whitespace-nowrap">{timeAgo(job.updated_at)}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+          )}
+          {jobs.map((job) => {
+            const si = getStatusInfo(job.status);
+            return (
+              <CCTr key={job.id} onClick={() => setSelectedJob(job)}>
+                <CCTd>
+                  <div className="flex items-center gap-2">
+                    <span className="text-zinc-200 font-medium">{job.title}</span>
+                    {job.source_url && (
+                      <a
+                        href={job.source_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                        className="text-zinc-500 hover:text-teal-400"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                </CCTd>
+                <CCTd className="text-zinc-400 capitalize">{job.platform}</CCTd>
+                <CCTd>
+                  <select
+                    value={job.status}
+                    onChange={(e) => { e.stopPropagation(); handleInlineStatusChange(job.id, e.target.value); }}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`text-xs px-2.5 py-1 rounded-full border-0 cursor-pointer ${si.color} bg-transparent`}
+                  >
+                    {STATUS_OPTIONS.map((s) => (
+                      <option key={s.value} value={s.value}>{s.label}</option>
+                    ))}
+                  </select>
+                </CCTd>
+                <CCTd className="text-zinc-400">
+                  {job.hourly_rate !== null ? `$${job.hourly_rate}/hr` : '—'}
+                </CCTd>
+                <CCTd className="text-zinc-400">
+                  {job.budget !== null ? `$${job.budget}` : '—'}
+                </CCTd>
+                <CCTd className="text-zinc-400 truncate max-w-[150px]">{job.contact || '—'}</CCTd>
+                <CCTd className="text-zinc-500 text-xs whitespace-nowrap">{timeAgo(job.updated_at)}</CCTd>
+              </CCTr>
+            );
+          })}
+        </CCTbody>
+      </CCTable>
 
       {/* Job Drawer */}
       {selectedJob && (
@@ -305,6 +304,6 @@ export default function JobTrackerPage() {
           onUpdate={handleUpdateJob}
         />
       )}
-    </div>
+    </CommandCenterShell>
   );
 }

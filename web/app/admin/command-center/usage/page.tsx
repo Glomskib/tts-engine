@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
-import CCSubnav from '../_components/CCSubnav';
+import CommandCenterShell from '../_components/CommandCenterShell';
 
 interface RollupRow {
   day: string;
@@ -98,9 +98,8 @@ export default function UsagePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <CCSubnav />
-      <h2 className="text-lg font-semibold text-white">API Usage</h2>
+    <CommandCenterShell>
+      <h2 className="text-xl font-semibold text-white tracking-tight">API Usage</h2>
 
       {/* Date range + view toggle */}
       <div className="flex flex-wrap items-center gap-3">

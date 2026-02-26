@@ -1,16 +1,15 @@
 /**
- * Cron: Brain Dispatch — Every 2 minutes (local only)
+ * Cron: Brain Dispatch — Every 2 minutes
  *
- * Scans Obsidian Vault/Decisions/ for approved decisions without mc_status,
- * creates project_tasks in Supabase, writes back mc_task_id.
+ * Scans decisions (local vault OR GitHub repo) for approved decisions
+ * without mc_status, creates project_tasks in Supabase, writes back mc_task_id.
  *
- * Requires vault access (local filesystem). Skips gracefully if vault
- * is not mounted (e.g. Vercel production).
+ * Source priority: local vault > GitHub > skip
  */
 import { NextResponse } from 'next/server';
 import {
   runBrainDispatch,
-  vaultAccessible,
+  resolveSource,
 } from '@/Automation/brain_dispatcher';
 
 export const runtime = 'nodejs';
@@ -23,11 +22,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  if (!(await vaultAccessible())) {
+  const source = await resolveSource();
+  if (!source) {
     return NextResponse.json({
       ok: true,
       skipped: true,
-      reason: 'Vault not accessible (expected on Vercel)',
+      reason: 'No source available (no vault, no GitHub token)',
       timestamp: new Date().toISOString(),
     });
   }
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
   try {
     const result = await runBrainDispatch();
     console.log(
-      `[cron/brain-dispatch] dispatched=${result.dispatched.length} skipped=${result.skipped.length} errors=${result.errors.length}`,
+      `[cron/brain-dispatch] source=${result.source} dispatched=${result.dispatched.length} skipped=${result.skipped.length} errors=${result.errors.length}`,
     );
     return NextResponse.json({
       ok: true,

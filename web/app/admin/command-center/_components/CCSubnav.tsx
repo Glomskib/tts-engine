@@ -29,8 +29,8 @@ export default function CCSubnav() {
   }
 
   return (
-    <div className="-mx-6 px-6 border-b border-zinc-800 mb-5 overflow-x-auto scrollbar-none">
-      <nav className="flex gap-1 min-w-max" aria-label="Command Center navigation">
+    <div className="-mx-6 px-6 border-b border-zinc-800/80 mb-1 overflow-x-auto scrollbar-none">
+      <nav className="flex gap-0.5 min-w-max" aria-label="Command Center navigation">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const active = isActive(tab.href);
@@ -39,15 +39,15 @@ export default function CCSubnav() {
               key={tab.href}
               href={tab.href}
               className={`
-                flex items-center gap-1.5 px-3 py-2.5 text-sm font-medium whitespace-nowrap
+                flex items-center gap-1.5 px-3.5 py-2.5 text-sm font-medium whitespace-nowrap
                 border-b-2 transition-colors
                 ${active
                   ? 'border-teal-400 text-teal-400'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                  : 'border-transparent text-zinc-500 hover:text-zinc-300 hover:border-zinc-700'
                 }
               `}
             >
-              <Icon className="w-4 h-4" />
+              <Icon className="w-3.5 h-3.5" />
               {tab.label}
             </Link>
           );

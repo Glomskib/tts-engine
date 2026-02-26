@@ -1,9 +1,13 @@
 /**
- * Brain Dispatcher — Obsidian Vault → Mission Control
+ * Brain Dispatcher — Decisions → Mission Control
+ *
+ * Source adapter pattern:
+ *   - Local:  reads Obsidian vault on filesystem (dev / local Mac)
+ *   - GitHub: reads repo via Contents API   (Vercel production)
  *
  * Scans Vault/Decisions/ for notes with `status: approved` and
  * no `mc_status`. Creates project_tasks in Supabase, writes back
- * mc_task_id + mc_status to the note, and appends to the project worklog.
+ * mc_task_id + mc_status to the note (local fs or GitHub commit).
  *
  * Idempotent: notes with mc_status set are always skipped.
  */
@@ -11,6 +15,14 @@ import { readdir, readFile, writeFile, access } from 'fs/promises';
 import { join } from 'path';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logTaskEvent } from '@/lib/command-center/ingest';
+import {
+  getGitHubFeedConfig,
+  isGitHubFeedConfigured,
+  listDecisionFiles,
+  fetchFile,
+  updateFile,
+  type GitHubFeedConfig,
+} from '@/lib/brain-feed/github';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -23,11 +35,11 @@ export function getVaultPath(): string {
   );
 }
 
-/** Vault project key → cc_projects.type */
-const PROJECT_TYPE_MAP: Record<string, string> = {
-  FlashFlow: 'flashflow',
-  MMM: 'hhh',
-  ZebbysWorld: 'zebby',
+/** Vault project key → canonical cc_projects.name */
+const VAULT_TO_PROJECT_NAME: Record<string, string> = {
+  FlashFlow: 'FlashFlow',
+  MMM: 'MMM',
+  ZebbysWorld: "Zebby's World",
 };
 
 /** Vault project key → relative worklog path inside vault */
@@ -81,7 +93,7 @@ export function injectFrontmatterFields(
 }
 
 // ---------------------------------------------------------------------------
-// Worklog append
+// Worklog append (local filesystem only)
 // ---------------------------------------------------------------------------
 
 export async function appendWorklogEntry(
@@ -97,7 +109,6 @@ export async function appendWorklogEntry(
   const dateHeader = `## ${date}`;
 
   if (wl.includes(dateHeader)) {
-    // Append row after the existing table separator for this day
     const headerIdx = wl.indexOf(dateHeader);
     const sepIdx = wl.indexOf('|---', headerIdx);
     if (sepIdx !== -1) {
@@ -112,7 +123,6 @@ export async function appendWorklogEntry(
     }
   }
 
-  // Create new day section before the template comment
   const newSection = `## ${date}\n\n| Date | What Shipped | Proof | Blockers | Next |\n|------|-------------|-------|----------|------|\n${row}\n---\n\n`;
   const marker = '<!-- New day template:';
   if (wl.includes(marker)) {
@@ -128,7 +138,7 @@ export async function appendWorklogEntry(
 }
 
 // ---------------------------------------------------------------------------
-// Core dispatcher
+// Types
 // ---------------------------------------------------------------------------
 
 export interface DispatchResult {
@@ -139,6 +149,7 @@ export interface DispatchResult {
 }
 
 export interface BrainDispatchReport {
+  source: 'local' | 'github';
   dispatched: DispatchResult[];
   skipped: string[];
   errors: string[];
@@ -153,27 +164,69 @@ export async function vaultAccessible(): Promise<boolean> {
   }
 }
 
-export async function runBrainDispatch(): Promise<BrainDispatchReport> {
+/**
+ * Determine the best available source.
+ *
+ * Production (Vercel): GitHub first — vault is never mounted.
+ * Dev (local):         vault first  — faster, no API calls.
+ *
+ * Detection: if GITHUB_TOKEN is set AND any BRAIN_FEED_GITHUB_* var
+ * is present, treat GitHub as the primary source (production mode).
+ */
+export async function resolveSource(): Promise<'local' | 'github' | null> {
+  const ghConfigured = isGitHubFeedConfigured();
+  const hasBrainFeedEnv = !!(
+    process.env.BRAIN_FEED_GITHUB_OWNER ||
+    process.env.BRAIN_FEED_GITHUB_REPO ||
+    process.env.BRAIN_FEED_GITHUB_PATH
+  );
+
+  // Production: GitHub is primary when explicitly configured
+  if (ghConfigured && hasBrainFeedEnv) {
+    return 'github';
+  }
+
+  // Dev: prefer local vault when available
+  if (await vaultAccessible()) return 'local';
+
+  // Fallback: GitHub with just GITHUB_TOKEN (no BRAIN_FEED_* overrides)
+  if (ghConfigured) return 'github';
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Shared dispatch logic (operates on filename + content pairs)
+// ---------------------------------------------------------------------------
+
+interface DecisionFile {
+  name: string;
+  /** Full path (local fs path or GitHub repo path) */
+  path: string;
+  content: string;
+  /** GitHub blob SHA — only present for GitHub source */
+  sha?: string;
+}
+
+interface WritebackFn {
+  (file: DecisionFile, updatedContent: string, taskId: string): Promise<void>;
+}
+
+async function dispatchDecisions(
+  files: DecisionFile[],
+  writeback: WritebackFn,
+  source: 'local' | 'github',
+  vaultPath?: string,
+): Promise<BrainDispatchReport> {
   const dispatched: DispatchResult[] = [];
   const skipped: string[] = [];
   const errors: string[] = [];
-  const vaultPath = getVaultPath();
-  const decisionsDir = join(vaultPath, 'Vault', 'Decisions');
-
-  // 1. Read decision files
-  let files: string[];
-  try {
-    const entries = await readdir(decisionsDir);
-    files = entries.filter((f) => f.endsWith('.md'));
-  } catch {
-    return { dispatched, skipped, errors: [`Cannot read ${decisionsDir}`] };
-  }
 
   if (files.length === 0) {
-    return { dispatched, skipped: ['No decision files found'], errors };
+    return { source, dispatched, skipped: ['No decision files found'], errors };
   }
 
-  // 2. Build project ID lookup from cc_projects
+  // Build project ID lookup (name-based, case-insensitive)
   const { data: projects } = await supabaseAdmin
     .from('cc_projects')
     .select('id, name, type')
@@ -181,57 +234,52 @@ export async function runBrainDispatch(): Promise<BrainDispatchReport> {
 
   const projectLookup = new Map<string, string>();
   for (const p of projects || []) {
-    projectLookup.set(p.type, p.id);
     projectLookup.set(p.name.toLowerCase(), p.id);
+    // Legacy type key as fallback
+    projectLookup.set(p.type, p.id);
   }
 
-  // 3. Process each decision file
   for (const file of files) {
-    const filePath = join(decisionsDir, file);
-    let content: string;
-    try {
-      content = await readFile(filePath, 'utf-8');
-    } catch (e) {
-      errors.push(`${file}: read failed — ${e}`);
-      continue;
-    }
-
-    const parsed = parseFrontmatter(content);
+    const parsed = parseFrontmatter(file.content);
     if (!parsed) {
-      skipped.push(`${file}: no frontmatter`);
+      skipped.push(`${file.name}: no frontmatter`);
       continue;
     }
 
     const { data } = parsed;
 
-    // Gate: must be approved
+    // Gate: must be type=decision (if present) and status=approved
+    if (data.type && data.type !== 'decision') {
+      skipped.push(`${file.name}: type=${data.type}`);
+      continue;
+    }
     if (data.status !== 'approved') {
-      skipped.push(`${file}: status=${data.status || 'missing'}`);
+      skipped.push(`${file.name}: status=${data.status || 'missing'}`);
       continue;
     }
 
     // Gate: idempotency — skip if already dispatched
-    if (data.mc_status) {
-      skipped.push(`${file}: already dispatched (mc_status=${data.mc_status})`);
+    if (data.mc_status && data.mc_status !== '') {
+      skipped.push(`${file.name}: already dispatched (mc_status=${data.mc_status})`);
       continue;
     }
 
-    // Resolve project ID
+    // Resolve project ID by canonical name, then fallback to vault key
     const vaultProject = data.project || '';
-    const ccType = PROJECT_TYPE_MAP[vaultProject];
+    const canonicalName = VAULT_TO_PROJECT_NAME[vaultProject];
     const projectId =
-      projectLookup.get(ccType || '') ||
+      projectLookup.get((canonicalName || '').toLowerCase()) ||
       projectLookup.get(vaultProject.toLowerCase());
 
     if (!projectId) {
-      errors.push(`${file}: cannot resolve project "${vaultProject}"`);
+      errors.push(`${file.name}: cannot resolve project "${vaultProject}"`);
       continue;
     }
 
     // Build task fields
     const title =
       data.summary ||
-      file
+      file.name
         .replace(/\.md$/, '')
         .replace(/^\d{4}-\d{2}-\d{2}-/, '')
         .replace(/-/g, ' ');
@@ -240,27 +288,29 @@ export async function runBrainDispatch(): Promise<BrainDispatchReport> {
       : 3;
     const owner = data.owner || 'unassigned';
 
-    // 4. Insert into project_tasks
+    // Insert into project_tasks
     const { data: task, error: dbErr } = await supabaseAdmin
       .from('project_tasks')
       .insert({
         project_id: projectId,
         title,
-        description: `Dispatched from vault decision: ${file}\n\nOwner: ${owner}`,
+        description: `Dispatched from ${source} decision: ${file.name}\n\nOwner: ${owner}`,
         assigned_agent: owner === 'brandon' ? 'unassigned' : owner,
         status: 'queued' as const,
         priority,
         meta: {
           source: 'brain-dispatcher',
-          vault_file: file,
+          source_type: source,
+          vault_file: file.name,
           vault_project: vaultProject,
+          github_path: source === 'github' ? file.path : undefined,
         },
       })
       .select('id')
       .single();
 
     if (dbErr || !task) {
-      errors.push(`${file}: DB insert failed — ${dbErr?.message}`);
+      errors.push(`${file.name}: DB insert failed — ${dbErr?.message}`);
       continue;
     }
 
@@ -269,62 +319,205 @@ export async function runBrainDispatch(): Promise<BrainDispatchReport> {
       task_id: task.id,
       agent_id: 'brain-dispatcher',
       event_type: 'created',
-      payload: { source: 'obsidian-decision', vault_file: file },
+      payload: { source: `${source}-decision`, vault_file: file.name },
     });
 
-    // 5. Write mc_task_id and mc_status back to the note
+    // Write mc_task_id and mc_status back to the note
     const today = new Date().toISOString().slice(0, 10);
-    const updated = injectFrontmatterFields(content, {
+    const updated = injectFrontmatterFields(file.content, {
       mc_task_id: task.id,
       mc_status: 'created',
       updated: today,
     });
+
     try {
-      await writeFile(filePath, updated, 'utf-8');
+      await writeback(file, updated, task.id);
     } catch (e) {
-      errors.push(`${file}: writeback failed — ${e}`);
+      errors.push(`${file.name}: writeback failed — ${e}`);
     }
 
-    // 6. Append to project worklog
-    const worklogRel = WORKLOG_REL[vaultProject];
-    if (worklogRel) {
-      try {
-        await appendWorklogEntry(
-          join(vaultPath, worklogRel),
-          today,
-          `Decision dispatched → MC: ${title}`,
-          `mc-task: ${task.id.slice(0, 8)}`,
-        );
-      } catch (e) {
-        errors.push(`${file}: worklog append failed — ${e}`);
+    // Append to project worklog (local only)
+    if (source === 'local' && vaultPath) {
+      const worklogRel = WORKLOG_REL[vaultProject];
+      if (worklogRel) {
+        try {
+          await appendWorklogEntry(
+            join(vaultPath, worklogRel),
+            today,
+            `Decision dispatched → MC: ${title}`,
+            `mc-task: ${task.id.slice(0, 8)}`,
+          );
+        } catch (e) {
+          errors.push(`${file.name}: worklog append failed — ${e}`);
+        }
       }
     }
 
     dispatched.push({
-      file,
+      file: file.name,
       taskId: task.id,
       title,
       project: vaultProject,
     });
   }
 
+  return { source, dispatched, skipped, errors };
+}
+
+// ---------------------------------------------------------------------------
+// Local source adapter
+// ---------------------------------------------------------------------------
+
+async function runLocalDispatch(): Promise<BrainDispatchReport> {
+  const vaultPath = getVaultPath();
+  const decisionsDir = join(vaultPath, 'Vault', 'Decisions');
+
+  let fileNames: string[];
+  try {
+    const entries = await readdir(decisionsDir);
+    fileNames = entries.filter((f) => f.endsWith('.md'));
+  } catch {
+    return {
+      source: 'local',
+      dispatched: [],
+      skipped: [],
+      errors: [`Cannot read ${decisionsDir}`],
+    };
+  }
+
+  // Load file contents
+  const files: DecisionFile[] = [];
+  const readErrors: string[] = [];
+  for (const name of fileNames) {
+    const filePath = join(decisionsDir, name);
+    try {
+      const content = await readFile(filePath, 'utf-8');
+      files.push({ name, path: filePath, content });
+    } catch (e) {
+      readErrors.push(`${name}: read failed — ${e}`);
+    }
+  }
+
+  const writeback: WritebackFn = async (file, updatedContent) => {
+    await writeFile(file.path, updatedContent, 'utf-8');
+  };
+
+  const report = await dispatchDecisions(files, writeback, 'local', vaultPath);
+  report.errors.push(...readErrors);
+  return report;
+}
+
+// ---------------------------------------------------------------------------
+// GitHub source adapter
+// ---------------------------------------------------------------------------
+
+async function runGitHubDispatch(): Promise<BrainDispatchReport> {
+  const cfg = getGitHubFeedConfig();
+  if (!cfg) {
+    return {
+      source: 'github',
+      dispatched: [],
+      skipped: [],
+      errors: ['GitHub feed not configured (GITHUB_TOKEN missing)'],
+    };
+  }
+
+  // List decision files from repo
+  let entries: Awaited<ReturnType<typeof listDecisionFiles>>;
+  try {
+    entries = await listDecisionFiles(cfg);
+  } catch (e) {
+    return {
+      source: 'github',
+      dispatched: [],
+      skipped: [],
+      errors: [`GitHub list failed: ${e}`],
+    };
+  }
+
+  // Fetch each file's content
+  const files: DecisionFile[] = [];
+  const readErrors: string[] = [];
+  for (const entry of entries) {
+    try {
+      const fetched = await fetchFile(cfg, entry.path);
+      files.push({
+        name: entry.name,
+        path: fetched.path,
+        content: fetched.content,
+        sha: fetched.sha,
+      });
+    } catch (e) {
+      readErrors.push(`${entry.name}: GitHub fetch failed — ${e}`);
+    }
+  }
+
+  const writeback: WritebackFn = async (file, updatedContent, taskId) => {
+    if (!cfg.writeback) return;
+    if (!file.sha) {
+      throw new Error('No SHA for writeback');
+    }
+    await updateFile(
+      cfg,
+      file.path,
+      updatedContent,
+      file.sha,
+      `[brain-dispatch] mc_task_id=${taskId.slice(0, 8)}`,
+    );
+  };
+
+  const report = await dispatchDecisions(files, writeback, 'github');
+  report.errors.push(...readErrors);
+  return report;
+}
+
+// ---------------------------------------------------------------------------
+// Public API — main entry point
+// ---------------------------------------------------------------------------
+
+/**
+ * Run brain dispatch from the best available source.
+ * Orchestrator + cron routes call this.
+ */
+export async function runBrainDispatch(): Promise<BrainDispatchReport> {
+  const source = await resolveSource();
+
+  if (!source) {
+    return {
+      source: 'local',
+      dispatched: [],
+      skipped: ['No source available (no vault, no GitHub token)'],
+      errors: [],
+    };
+  }
+
+  const report = source === 'local'
+    ? await runLocalDispatch()
+    : await runGitHubDispatch();
+
   // Heartbeat: record run in ff_cron_runs (non-blocking)
+  const decisionsLoaded =
+    report.dispatched.length + report.skipped.length + report.errors.length;
   try {
     await supabaseAdmin.from('ff_cron_runs').insert({
-      job: 'brain-dispatch-local',
-      status: errors.length === 0 ? 'ok' : 'error',
+      job: `brain-dispatch-${source}`,
+      status: report.errors.length === 0 ? 'ok' : 'error',
       finished_at: new Date().toISOString(),
-      error: errors.length > 0 ? errors.join('; ') : null,
+      error: report.errors.length > 0 ? report.errors.join('; ') : null,
       meta: {
-        scanned_count: files.length,
-        dispatched_count: dispatched.length,
-        skipped_count: skipped.length,
+        source,
+        decisions_loaded: decisionsLoaded,
+        decisions_processed: report.dispatched.length + report.skipped.length,
+        tasks_created: report.dispatched.length,
+        scanned_count: decisionsLoaded,
+        dispatched_count: report.dispatched.length,
+        skipped_count: report.skipped.length,
       },
     });
-    console.log('[brain-dispatcher] Heartbeat recorded (local)');
+    console.log(`[brain-dispatcher] Heartbeat recorded (${source})`);
   } catch (e) {
     console.warn('[brain-dispatcher] Heartbeat insert failed:', e);
   }
 
-  return { dispatched, skipped, errors };
+  return report;
 }

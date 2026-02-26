@@ -1,8 +1,11 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { RefreshCw, ArrowUpDown } from 'lucide-react';
-import CCSubnav from '../_components/CCSubnav';
+import { ArrowUpDown, Zap } from 'lucide-react';
+import CommandCenterShell from '../_components/CommandCenterShell';
+import { CCPageHeader, CCSection } from '../_components/ui';
+import CCBadge from '../_components/ui/CCBadge';
+import CCEmptyState from '../_components/ui/CCEmptyState';
 
 interface AgentScoreboard {
   agent_id: string;
@@ -112,12 +115,12 @@ export default function AgentScoreboardPage() {
   function SortHeader({ field, children, className = '' }: { field: SortField; children: React.ReactNode; className?: string }) {
     return (
       <th
-        className={`px-3 py-3 font-medium cursor-pointer hover:text-zinc-300 select-none ${className}`}
+        className={`px-3 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider cursor-pointer hover:text-zinc-300 select-none ${className}`}
         onClick={() => toggleSort(field)}
       >
         <span className="flex items-center gap-1">
           {children}
-          {sortField === field && <ArrowUpDown className="w-3 h-3 text-emerald-400" />}
+          {sortField === field && <ArrowUpDown className="w-3 h-3 text-teal-400" />}
         </span>
       </th>
     );
@@ -126,38 +129,39 @@ export default function AgentScoreboardPage() {
   const is7d = timeRange === '7d';
 
   return (
-    <div className="space-y-6">
-      <CCSubnav />
-      <div className="flex items-center gap-4">
-        <h2 className="text-lg font-semibold text-white flex-1">Agents</h2>
-        <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-0.5">
-          <button
-            onClick={() => setTimeRange('7d')}
-            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-              timeRange === '7d' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Last 7 days
-          </button>
-          <button
-            onClick={() => setTimeRange('30d')}
-            className={`px-3 py-1.5 text-xs rounded-md transition-colors ${
-              timeRange === '30d' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
-            }`}
-          >
-            Last 30 days
-          </button>
-        </div>
-        <button onClick={fetchData} className="p-2 text-zinc-400 hover:text-white">
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-        </button>
-      </div>
+    <CommandCenterShell>
+      <CCPageHeader
+        title="Agents"
+        subtitle="Agent performance scoreboard and run history"
+        loading={loading}
+        onRefresh={fetchData}
+        actions={
+          <div className="flex items-center gap-0.5 bg-zinc-800 rounded-lg p-0.5">
+            <button
+              onClick={() => setTimeRange('7d')}
+              className={`px-3 py-1.5 text-xs rounded-md transition-colors font-medium ${
+                timeRange === '7d' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Last 7 days
+            </button>
+            <button
+              onClick={() => setTimeRange('30d')}
+              className={`px-3 py-1.5 text-xs rounded-md transition-colors font-medium ${
+                timeRange === '30d' ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              Last 30 days
+            </button>
+          </div>
+        }
+      />
 
       {/* Scoreboard table */}
-      <div className="border border-zinc-800 rounded-lg overflow-x-auto">
+      <div className="rounded-xl border border-zinc-800 overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-zinc-800 text-zinc-500 text-left text-xs">
+            <tr className="border-b border-zinc-800 bg-zinc-900/70 text-left">
               <SortHeader field="agent_id">Agent</SortHeader>
               <SortHeader field="total_runs" className="text-right">Runs</SortHeader>
               <SortHeader field="tasks_completed" className="text-right">OK / Fail</SortHeader>
@@ -168,7 +172,7 @@ export default function AgentScoreboardPage() {
               <SortHeader field="cost_per_task" className="text-right">$/Task</SortHeader>
               <SortHeader field="throughput_per_day" className="text-right">Tasks/Day</SortHeader>
               <SortHeader field="efficiency_score" className="text-right">Efficiency</SortHeader>
-              <th className="px-3 py-3 font-medium text-xs">Top Action</th>
+              <th className="px-3 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Top Action</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-zinc-800">
@@ -179,7 +183,7 @@ export default function AgentScoreboardPage() {
               const cost = is7d ? agent.cost_7d : agent.cost_30d;
 
               return (
-                <tr key={agent.agent_id} className="hover:bg-zinc-800/50">
+                <tr key={agent.agent_id} className="hover:bg-zinc-800/50 transition-colors">
                   <td className="px-3 py-3 text-zinc-300 font-mono text-xs">{agent.agent_id}</td>
                   <td className="px-3 py-3 text-right text-zinc-400">{runs}</td>
                   <td className="px-3 py-3 text-right">
@@ -209,47 +213,49 @@ export default function AgentScoreboardPage() {
               );
             })}
             {scoreboard.length === 0 && (
-              <tr><td colSpan={11} className="px-4 py-8 text-center text-zinc-500">{loading ? 'Loading...' : 'No agent data yet'}</td></tr>
+              <tr>
+                <td colSpan={11}>
+                  {loading ? (
+                    <div className="px-4 py-8 text-center text-zinc-500 text-sm">Loading...</div>
+                  ) : (
+                    <CCEmptyState icon={Zap} title="No agent data yet" body="Agent runs will appear once agents start processing tasks." />
+                  )}
+                </td>
+              </tr>
             )}
           </tbody>
         </table>
       </div>
 
       {/* Recent runs */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-3">Recent Agent Runs (last 50)</h2>
-        <div className="border border-zinc-800 rounded-lg overflow-x-auto">
+      <CCSection title="Recent Agent Runs" description="Last 50 runs" padding={false}>
+        <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-zinc-800 text-zinc-500 text-left">
-                <th className="px-4 py-3 font-medium">Time</th>
-                <th className="px-4 py-3 font-medium">Agent</th>
-                <th className="px-4 py-3 font-medium">Action</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Model</th>
-                <th className="px-4 py-3 font-medium text-right">Tokens</th>
-                <th className="px-4 py-3 font-medium text-right">Cost</th>
-                <th className="px-4 py-3 font-medium">Related</th>
+              <tr className="border-b border-zinc-800 bg-zinc-900/70 text-left">
+                <th className="px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Time</th>
+                <th className="px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Agent</th>
+                <th className="px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Action</th>
+                <th className="px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Model</th>
+                <th className="px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-right">Tokens</th>
+                <th className="px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider text-right">Cost</th>
+                <th className="px-4 py-3 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Related</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-zinc-800">
               {recentRuns.map((run) => (
-                <tr key={run.id} className="hover:bg-zinc-800/50">
-                  <td className="px-4 py-2 text-zinc-400 text-xs font-mono whitespace-nowrap">{new Date(run.created_at).toLocaleString()}</td>
-                  <td className="px-4 py-2 text-zinc-300 font-mono">{run.agent_id}</td>
-                  <td className="px-4 py-2 text-zinc-400">{run.action}</td>
-                  <td className="px-4 py-2">
-                    <span className={`px-1.5 py-0.5 text-xs rounded ${
-                      run.status === 'completed' ? 'bg-green-900/40 text-green-400' :
-                      run.status === 'failed' ? 'bg-red-900/40 text-red-400' :
-                      run.status === 'running' ? 'bg-blue-900/40 text-blue-400' :
-                      'bg-zinc-700/40 text-zinc-400'
-                    }`}>{run.status}</span>
+                <tr key={run.id} className="hover:bg-zinc-800/50 transition-colors">
+                  <td className="px-4 py-2.5 text-zinc-400 text-xs font-mono whitespace-nowrap">{new Date(run.created_at).toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-zinc-300 font-mono text-xs">{run.agent_id}</td>
+                  <td className="px-4 py-2.5 text-zinc-400">{run.action}</td>
+                  <td className="px-4 py-2.5">
+                    <CCBadge variant={run.status}>{run.status}</CCBadge>
                   </td>
-                  <td className="px-4 py-2 text-zinc-500 text-xs font-mono">{run.model_used || run.model_primary || '—'}</td>
-                  <td className="px-4 py-2 text-right text-zinc-400 text-xs">{(run.tokens_in + run.tokens_out).toLocaleString()}</td>
-                  <td className="px-4 py-2 text-right text-emerald-400">${Number(run.cost_usd).toFixed(4)}</td>
-                  <td className="px-4 py-2 text-zinc-600 text-xs">{run.related_type || '—'}</td>
+                  <td className="px-4 py-2.5 text-zinc-500 text-xs font-mono">{run.model_used || run.model_primary || '—'}</td>
+                  <td className="px-4 py-2.5 text-right text-zinc-400 text-xs">{(run.tokens_in + run.tokens_out).toLocaleString()}</td>
+                  <td className="px-4 py-2.5 text-right text-emerald-400">${Number(run.cost_usd).toFixed(4)}</td>
+                  <td className="px-4 py-2.5 text-zinc-600 text-xs">{run.related_type || '—'}</td>
                 </tr>
               ))}
               {recentRuns.length === 0 && (
@@ -258,7 +264,7 @@ export default function AgentScoreboardPage() {
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+      </CCSection>
+    </CommandCenterShell>
   );
 }

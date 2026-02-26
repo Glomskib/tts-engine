@@ -6,10 +6,13 @@ import {
   DollarSign, Activity, AlertTriangle, ListTodo,
   Lightbulb, TrendingUp, ChevronRight, RefreshCw,
   Zap, Target, Bot, Handshake, HeartPulse,
+  Clock, CheckCircle2, XCircle,
 } from 'lucide-react';
 import type { PipelineHealth } from '@/lib/command-center/types';
 import InitiativeFilter from './_components/InitiativeFilter';
-import CCSubnav from './_components/CCSubnav';
+import CommandCenterShell from './_components/CommandCenterShell';
+import { CCPageHeader, CCSection, CCStatCard } from './_components/ui';
+import CCBadge from './_components/ui/CCBadge';
 
 interface DashboardData {
   spend: { today: number; week: number; month: number };
@@ -68,25 +71,14 @@ interface TelemetryData {
   failures_by_agent_7d: { agent: string; count: number }[];
 }
 
-function StatCard({ label, value, sub, icon: Icon, href, color }: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  icon: React.ElementType;
-  href?: string;
-  color: string;
-}) {
-  const content = (
-    <div className={`rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 ${href ? 'hover:border-zinc-600 transition-colors cursor-pointer' : ''}`}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-zinc-500 uppercase tracking-wider">{label}</span>
-        <Icon className={`w-4 h-4 ${color}`} />
-      </div>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      {sub && <div className="text-xs text-zinc-500 mt-1">{sub}</div>}
-    </div>
-  );
-  return href ? <Link href={href}>{content}</Link> : content;
+interface CronRun {
+  id: string;
+  job: string;
+  status: string;
+  started_at: string;
+  finished_at: string | null;
+  error: string | null;
+  meta: Record<string, unknown>;
 }
 
 function formatCurrency(n: number) {
@@ -106,7 +98,6 @@ function timeAgo(ts: string) {
 
 function CostTrendBar({ trend }: { trend: { day: string; cost: number }[] }) {
   const maxCost = Math.max(...trend.map((t) => t.cost), 0.01);
-
   return (
     <div className="flex items-end gap-1 h-16">
       {trend.map((t) => (
@@ -123,21 +114,6 @@ function CostTrendBar({ trend }: { trend: { day: string; cost: number }[] }) {
   );
 }
 
-function statusBadge(status: string) {
-  const colors: Record<string, string> = {
-    completed: 'bg-emerald-500/20 text-emerald-400',
-    running: 'bg-blue-500/20 text-blue-400',
-    failed: 'bg-red-500/20 text-red-400',
-    queued: 'bg-zinc-500/20 text-zinc-400',
-    active: 'bg-blue-500/20 text-blue-400',
-  };
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full ${colors[status] || 'bg-zinc-700 text-zinc-400'}`}>
-      {status}
-    </span>
-  );
-}
-
 export default function CommandCenterDashboard() {
   const [stats, setStats] = useState<DashboardData | null>(null);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
@@ -151,6 +127,7 @@ export default function CommandCenterDashboard() {
   const [pipelineHealth, setPipelineHealth] = useState<PipelineHealth | null>(null);
   const [phDegraded, setPhDegraded] = useState(false);
   const [phRefreshing, setPhRefreshing] = useState(false);
+  const [cronRuns, setCronRuns] = useState<CronRun[]>([]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -193,35 +170,134 @@ export default function CommandCenterDashboard() {
     }
   };
 
+  const fetchCronHeartbeat = async () => {
+    try {
+      const res = await fetch('/api/admin/command-center/cron-heartbeat');
+      if (res.ok) {
+        const json = await res.json();
+        setCronRuns(json.data || []);
+      }
+    } catch {
+      // silent — dashboard card just shows stale data
+    }
+  };
+
   useEffect(() => { fetchData(); }, [initiativeId]);
 
   useEffect(() => {
     fetchPipelineHealth();
-    const id = setInterval(fetchPipelineHealth, 60_000);
+    fetchCronHeartbeat();
+    const id = setInterval(() => {
+      fetchPipelineHealth();
+      fetchCronHeartbeat();
+    }, 60_000);
     return () => clearInterval(id);
   }, []);
 
+  const QUICK_NAV = [
+    { label: 'API Usage', href: '/admin/command-center/usage', icon: Activity },
+    { label: 'Projects & Tasks', href: '/admin/command-center/projects', icon: ListTodo },
+    { label: 'Idea Dump', href: '/admin/command-center/ideas', icon: Lightbulb },
+    { label: 'Finance', href: '/admin/command-center/finance', icon: DollarSign },
+    { label: 'Agent Scoreboard', href: '/admin/command-center/agents', icon: Zap },
+    { label: 'FinOps', href: '/admin/command-center/finops', icon: TrendingUp },
+    { label: 'CRM Pipeline', href: '/admin/command-center/crm', icon: Handshake },
+  ];
+
   return (
-    <div className="space-y-6">
-      <CCSubnav />
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">Overview</h2>
-        <div className="flex items-center gap-3">
-          <InitiativeFilter value={initiativeId} onChange={setInitiativeId} />
-          <button
-            onClick={fetchData}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
-          </button>
-        </div>
+    <CommandCenterShell>
+      <CCPageHeader
+        title="Overview"
+        subtitle="FlashFlow Command Center"
+        loading={loading}
+        onRefresh={fetchData}
+        actions={<InitiativeFilter value={initiativeId} onChange={setInitiativeId} />}
+      />
+
+      {/* Row 1: Health — Pipeline + Cron Heartbeat */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        {/* Pipeline Health */}
+        <CCSection
+          title="Pipeline Health"
+          description="Agent queue status"
+          actions={
+            <button
+              onClick={fetchPipelineHealth}
+              disabled={phRefreshing}
+              className="p-1 rounded hover:bg-zinc-800 transition-colors disabled:opacity-50"
+              title="Refresh pipeline health"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 text-zinc-500 ${phRefreshing ? 'animate-spin' : ''}`} />
+            </button>
+          }
+        >
+          {pipelineHealth ? (
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-zinc-500" />
+                <span className="text-lg font-semibold text-zinc-300">{pipelineHealth.queued_count}</span>
+                <span className="text-xs text-zinc-500">queued</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Activity className="w-4 h-4 text-blue-400" />
+                <span className="text-lg font-semibold text-blue-400">{pipelineHealth.executing_count}</span>
+                <span className="text-xs text-zinc-500">executing</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <AlertTriangle className={`w-4 h-4 ${pipelineHealth.blocked_count > 0 ? 'text-red-400' : 'text-zinc-600'}`} />
+                <span className={`text-lg font-semibold ${pipelineHealth.blocked_count > 0 ? 'text-red-400' : 'text-zinc-500'}`}>{pipelineHealth.blocked_count}</span>
+                <span className="text-xs text-zinc-500">blocked</span>
+              </div>
+              <span className="text-xs text-zinc-600 ml-auto">Updated {timeAgo(pipelineHealth.last_updated)}</span>
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">{phDegraded ? 'MC unreachable' : 'Loading...'}</p>
+          )}
+          {phDegraded && pipelineHealth && (
+            <p className="text-xs text-amber-500 mt-2">MC unreachable — showing last snapshot</p>
+          )}
+        </CCSection>
+
+        {/* Cron Heartbeat */}
+        <CCSection
+          title="Cron Heartbeat"
+          description="Recent orchestrator runs"
+          actions={
+            <button
+              onClick={fetchCronHeartbeat}
+              className="p-1 rounded hover:bg-zinc-800 transition-colors"
+              title="Refresh heartbeat"
+            >
+              <RefreshCw className="w-3.5 h-3.5 text-zinc-500" />
+            </button>
+          }
+        >
+          {cronRuns.length > 0 ? (
+            <div className="space-y-2">
+              {cronRuns.slice(0, 5).map((run) => (
+                <div key={run.id} className="flex items-center gap-3 text-sm">
+                  {run.status === 'ok' ? (
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  ) : (
+                    <XCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
+                  )}
+                  <CCBadge variant={run.status}>{run.status}</CCBadge>
+                  <span className="text-xs text-zinc-500 font-mono">{run.job}</span>
+                  <span className="text-xs text-zinc-600 ml-auto whitespace-nowrap">
+                    {timeAgo(run.started_at)}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-500">No heartbeat data yet</p>
+          )}
+        </CCSection>
       </div>
 
-      {/* Stats Grid */}
+      {/* Row 2: Stats Grid */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
+        <CCStatCard
           label="Spend Today"
           value={stats ? formatCurrency(stats.spend.today) : '--'}
           sub={stats ? `7d: ${formatCurrency(stats.spend.week)} | 30d: ${formatCurrency(stats.spend.month)}` : undefined}
@@ -229,7 +305,7 @@ export default function CommandCenterDashboard() {
           color="text-emerald-400"
           href="/admin/command-center/usage"
         />
-        <StatCard
+        <CCStatCard
           label="Requests Today"
           value={stats?.requests.today ?? '--'}
           sub={stats ? `7d: ${stats.requests.week.toLocaleString()}` : undefined}
@@ -237,14 +313,14 @@ export default function CommandCenterDashboard() {
           color="text-blue-400"
           href="/admin/command-center/usage"
         />
-        <StatCard
+        <CCStatCard
           label="Errors Today"
           value={stats?.errors_today ?? '--'}
           icon={AlertTriangle}
           color="text-red-400"
           href="/admin/command-center/usage"
         />
-        <StatCard
+        <CCStatCard
           label="Active Tasks"
           value={stats?.active_tasks ?? '--'}
           sub={stats ? `${stats.blocked_tasks} blocked` : undefined}
@@ -252,7 +328,7 @@ export default function CommandCenterDashboard() {
           color="text-amber-400"
           href="/admin/command-center/projects"
         />
-        <StatCard
+        <CCStatCard
           label="Ideas Queued"
           value={stats?.ideas_queued ?? '--'}
           sub={stats ? `${stats.ideas_researched_24h} researched (24h)` : undefined}
@@ -260,14 +336,14 @@ export default function CommandCenterDashboard() {
           color="text-purple-400"
           href="/admin/command-center/ideas"
         />
-        <StatCard
+        <CCStatCard
           label="Initiatives"
           value={initiatives.length}
           sub={initiatives.length > 0 ? initiatives.map((i) => i.title).join(', ') : 'None active'}
           icon={Target}
           color="text-cyan-400"
         />
-        <StatCard
+        <CCStatCard
           label="CRM Pipeline"
           value={crmStats ? crmStats.deals : '--'}
           sub={crmStats ? `Weighted: $${(crmStats.weighted_value / 100).toLocaleString()}` : undefined}
@@ -275,90 +351,52 @@ export default function CommandCenterDashboard() {
           color="text-pink-400"
           href="/admin/command-center/crm"
         />
-
-        {/* Pipeline Health Card */}
-        <div className={`rounded-lg border ${phDegraded ? 'border-amber-600/60' : 'border-zinc-800'} bg-zinc-900/50 p-4`}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Pipeline Health</span>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={fetchPipelineHealth}
-                disabled={phRefreshing}
-                className="p-0.5 rounded hover:bg-zinc-800 transition-colors disabled:opacity-50"
-                title="Refresh pipeline health"
-              >
-                <RefreshCw className={`w-3 h-3 text-zinc-500 ${phRefreshing ? 'animate-spin' : ''}`} />
-              </button>
-              <HeartPulse className="w-4 h-4 text-teal-400" />
-            </div>
-          </div>
-          {pipelineHealth ? (
-            <>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-sm font-semibold text-zinc-300">{pipelineHealth.queued_count} <span className="text-xs font-normal text-zinc-500">queued</span></span>
-                <span className="text-sm font-semibold text-blue-400">{pipelineHealth.executing_count} <span className="text-xs font-normal text-zinc-500">executing</span></span>
-                <span className={`text-sm font-semibold ${pipelineHealth.blocked_count > 0 ? 'text-red-400' : 'text-zinc-400'}`}>{pipelineHealth.blocked_count} <span className="text-xs font-normal text-zinc-500">blocked</span></span>
-              </div>
-              <div className="text-xs text-zinc-600 mt-2">
-                Updated {timeAgo(pipelineHealth.last_updated)}
-              </div>
-            </>
-          ) : (
-            <div className="text-sm text-zinc-500 mt-1">{phDegraded ? 'MC unreachable' : 'Loading...'}</div>
-          )}
-          {phDegraded && pipelineHealth && (
-            <div className="text-xs text-amber-500 mt-1">MC unreachable — showing last snapshot</div>
-          )}
-        </div>
+        <CCStatCard
+          label="Pipeline Health"
+          value={pipelineHealth ? `${pipelineHealth.queued_count + pipelineHealth.executing_count}` : '--'}
+          sub={pipelineHealth ? `${pipelineHealth.queued_count} queued · ${pipelineHealth.executing_count} running` : undefined}
+          icon={HeartPulse}
+          color="text-teal-400"
+        />
       </div>
 
       {/* 7-Day Cost Trend */}
       {stats?.cost_trend_7d && stats.cost_trend_7d.length > 0 && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-          <h3 className="text-xs text-zinc-500 uppercase tracking-wider mb-3">7-Day Cost Trend</h3>
+        <CCSection title="7-Day Cost Trend">
           <CostTrendBar trend={stats.cost_trend_7d} />
-        </div>
+        </CCSection>
       )}
 
       {/* Quick Nav */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        {[
-          { label: 'API Usage', href: '/admin/command-center/usage' },
-          { label: 'Projects & Tasks', href: '/admin/command-center/projects' },
-          { label: 'Idea Dump', href: '/admin/command-center/ideas' },
-          { label: 'Finance', href: '/admin/command-center/finance' },
-          { label: 'Agent Scoreboard', href: '/admin/command-center/agents' },
-          { label: 'FinOps', href: '/admin/command-center/finops' },
-          { label: 'CRM Pipeline', href: '/admin/command-center/crm' },
-        ].map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="flex items-center justify-between px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg hover:border-zinc-600 transition-colors"
-          >
-            <span className="text-sm text-zinc-300">{item.label}</span>
-            <ChevronRight className="w-4 h-4 text-zinc-600" />
-          </Link>
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
+        {QUICK_NAV.map((item) => {
+          const NavIcon = item.icon;
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="flex items-center gap-2.5 px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-xl hover:border-zinc-600 hover:bg-zinc-800/50 transition-colors group"
+            >
+              <NavIcon className="w-4 h-4 text-zinc-500 group-hover:text-teal-400 transition-colors" />
+              <span className="text-sm text-zinc-300 flex-1">{item.label}</span>
+              <ChevronRight className="w-3.5 h-3.5 text-zinc-700 group-hover:text-zinc-400 transition-colors" />
+            </Link>
+          );
+        })}
       </div>
 
       {/* Two-column: Agent Runs + Ideas Processed */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Latest Agent Runs */}
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-          <div className="flex items-center gap-2 p-4 border-b border-zinc-800">
-            <Bot className="w-4 h-4 text-blue-400" />
-            <h3 className="text-sm font-semibold text-white">Latest Agent Runs</h3>
-          </div>
+        <CCSection title="Latest Agent Runs" padding={false}>
           <div className="divide-y divide-zinc-800 max-h-80 overflow-y-auto">
             {agentRuns.length === 0 && (
-              <div className="p-4 text-center text-zinc-500 text-sm">No agent runs yet</div>
+              <div className="p-6 text-center text-zinc-500 text-sm">No agent runs yet</div>
             )}
             {agentRuns.slice(0, 20).map((run) => (
-              <div key={run.id} className="px-4 py-2 flex items-center gap-3 text-sm">
+              <div key={run.id} className="px-5 py-2.5 flex items-center gap-3 text-sm">
                 <span className="font-mono text-xs text-zinc-400 w-24 truncate">{run.agent_id}</span>
                 <span className="text-zinc-500 w-28 truncate">{run.action}</span>
-                {statusBadge(run.status)}
+                <CCBadge variant={run.status}>{run.status}</CCBadge>
                 <span className="text-zinc-600 text-xs ml-auto">
                   {run.cost_usd > 0 ? formatCurrency(run.cost_usd) : '--'}
                 </span>
@@ -368,29 +406,26 @@ export default function CommandCenterDashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </CCSection>
 
-        {/* Ideas Processed Last Run */}
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-          <div className="flex items-center gap-2 p-4 border-b border-zinc-800">
-            <Zap className="w-4 h-4 text-purple-400" />
-            <h3 className="text-sm font-semibold text-white">Recently Processed Ideas</h3>
-          </div>
+        <CCSection title="Recently Processed Ideas" padding={false}>
           <div className="divide-y divide-zinc-800 max-h-80 overflow-y-auto">
             {processedIdeas.length === 0 && (
-              <div className="p-4 text-center text-zinc-500 text-sm">No ideas processed yet</div>
+              <div className="p-6 text-center text-zinc-500 text-sm">No ideas processed yet</div>
             )}
             {processedIdeas.map((idea) => (
-              <div key={idea.id} className="px-4 py-2 flex items-center gap-3 text-sm">
+              <div key={idea.id} className="px-5 py-2.5 flex items-center gap-3 text-sm">
                 <span className="text-zinc-300 flex-1 truncate">{idea.title}</span>
                 {idea.score !== null && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    idea.score >= 8 ? 'bg-emerald-500/20 text-emerald-400' :
-                    idea.score >= 5 ? 'bg-amber-500/20 text-amber-400' :
-                    'bg-zinc-500/20 text-zinc-400'
-                  }`}>
+                  <CCBadge
+                    color={
+                      idea.score >= 8 ? 'bg-emerald-500/20 text-emerald-400' :
+                      idea.score >= 5 ? 'bg-amber-500/20 text-amber-400' :
+                      'bg-zinc-500/20 text-zinc-400'
+                    }
+                  >
                     {idea.score}
-                  </span>
+                  </CCBadge>
                 )}
                 <span className="text-zinc-600 text-xs whitespace-nowrap">
                   {idea.last_processed_at ? timeAgo(idea.last_processed_at) : '--'}
@@ -398,127 +433,69 @@ export default function CommandCenterDashboard() {
               </div>
             ))}
           </div>
-        </div>
+        </CCSection>
       </div>
 
       {/* Telemetry: What's burning money/time */}
       {telemetry && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Top spend agents */}
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-            <div className="p-3 border-b border-zinc-800">
-              <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Top Spend Agents (7d)</h3>
-            </div>
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-zinc-800">
-                {telemetry.spend_by_agent_7d.length === 0 && (
-                  <tr><td className="px-4 py-3 text-center text-zinc-500">No data</td></tr>
-                )}
-                {telemetry.spend_by_agent_7d.map((r) => (
-                  <tr key={r.agent}>
-                    <td className="px-4 py-1.5 text-zinc-400 font-mono text-xs">{r.agent}</td>
-                    <td className="px-4 py-1.5 text-right text-emerald-400">{formatCurrency(r.cost)}</td>
-                    <td className="px-4 py-1.5 text-right text-zinc-500 text-xs">{r.count} req</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Top spend models */}
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-            <div className="p-3 border-b border-zinc-800">
-              <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Top Spend Models (7d)</h3>
-            </div>
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-zinc-800">
-                {telemetry.spend_by_model_7d.length === 0 && (
-                  <tr><td className="px-4 py-3 text-center text-zinc-500">No data</td></tr>
-                )}
-                {telemetry.spend_by_model_7d.map((r) => (
-                  <tr key={r.model}>
-                    <td className="px-4 py-1.5 text-zinc-400 font-mono text-xs">{r.model}</td>
-                    <td className="px-4 py-1.5 text-right text-emerald-400">{formatCurrency(r.cost)}</td>
-                    <td className="px-4 py-1.5 text-right text-zinc-500 text-xs">{r.count} req</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Slowest models (p95 latency) */}
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-            <div className="p-3 border-b border-zinc-800">
-              <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Slowest Models p95 (7d)</h3>
-            </div>
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-zinc-800">
-                {telemetry.latency_p95_by_model_7d.length === 0 && (
-                  <tr><td className="px-4 py-3 text-center text-zinc-500">No latency data</td></tr>
-                )}
-                {telemetry.latency_p95_by_model_7d.map((r) => (
-                  <tr key={r.model}>
-                    <td className="px-4 py-1.5 text-zinc-400 font-mono text-xs">{r.model}</td>
-                    <td className="px-4 py-1.5 text-right text-amber-400">{r.p95_ms.toLocaleString()}ms</td>
-                    <td className="px-4 py-1.5 text-right text-zinc-500 text-xs">{r.samples} samples</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Failures by agent */}
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-            <div className="p-3 border-b border-zinc-800">
-              <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Failures by Agent (7d)</h3>
-            </div>
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-zinc-800">
-                {telemetry.failures_by_agent_7d.length === 0 && (
-                  <tr><td className="px-4 py-3 text-center text-zinc-500">No failures</td></tr>
-                )}
-                {telemetry.failures_by_agent_7d.map((r) => (
-                  <tr key={r.agent}>
-                    <td className="px-4 py-1.5 text-zinc-400 font-mono text-xs">{r.agent}</td>
-                    <td className="px-4 py-1.5 text-right text-red-400">{r.count} failures</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          {[
+            { title: 'Top Spend Agents (7d)', data: telemetry.spend_by_agent_7d, keyField: 'agent' as const, valueField: 'cost' as const, countField: 'count' as const, valueColor: 'text-emerald-400', suffix: ' req' },
+            { title: 'Top Spend Models (7d)', data: telemetry.spend_by_model_7d, keyField: 'model' as const, valueField: 'cost' as const, countField: 'count' as const, valueColor: 'text-emerald-400', suffix: ' req' },
+            { title: 'Slowest Models p95 (7d)', data: telemetry.latency_p95_by_model_7d, keyField: 'model' as const, valueField: 'p95_ms' as const, countField: 'samples' as const, valueColor: 'text-amber-400', suffix: ' samples', valueFmt: (v: number) => `${v.toLocaleString()}ms` },
+            { title: 'Failures by Agent (7d)', data: telemetry.failures_by_agent_7d, keyField: 'agent' as const, valueField: 'count' as const, valueColor: 'text-red-400', valueFmt: (v: number) => `${v} failures` },
+          ].map((block) => (
+            <CCSection key={block.title} title={block.title} padding={false}>
+              <table className="w-full text-sm">
+                <tbody className="divide-y divide-zinc-800">
+                  {(!block.data || block.data.length === 0) && (
+                    <tr><td className="px-5 py-4 text-center text-zinc-500">No data</td></tr>
+                  )}
+                  {(block.data as Record<string, unknown>[])?.map((r) => (
+                    <tr key={String(r[block.keyField])} className="hover:bg-zinc-800/30">
+                      <td className="px-5 py-2 text-zinc-400 font-mono text-xs">{String(r[block.keyField])}</td>
+                      <td className={`px-3 py-2 text-right ${block.valueColor}`}>
+                        {block.valueFmt ? block.valueFmt(Number(r[block.valueField])) : formatCurrency(Number(r[block.valueField]))}
+                      </td>
+                      {block.countField && (
+                        <td className="px-3 py-2 text-right text-zinc-500 text-xs">
+                          {Number((r as Record<string, unknown>)[block.countField])}{block.suffix}
+                        </td>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </CCSection>
+          ))}
         </div>
       )}
 
       {/* Active Initiatives */}
       {initiatives.length > 0 && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-cyan-400" />
-            <h3 className="text-sm font-semibold text-white">Active Initiatives</h3>
-          </div>
+        <CCSection title="Active Initiatives">
           <div className="flex flex-wrap gap-3">
             {initiatives.map((init) => (
-              <div key={init.id} className="px-3 py-2 bg-zinc-800 rounded-lg border border-zinc-700">
+              <div key={init.id} className="px-3.5 py-2.5 bg-zinc-800/80 rounded-xl border border-zinc-700/50">
                 <div className="text-sm text-white font-medium">{init.title}</div>
                 <div className="text-xs text-zinc-500 mt-0.5">{init.type} &middot; {init.status}</div>
               </div>
             ))}
           </div>
-        </div>
+        </CCSection>
       )}
 
       {/* Recent Activity Feed */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-3">Recent Activity</h2>
-        <div className="border border-zinc-800 rounded-lg divide-y divide-zinc-800 bg-zinc-900/50">
+      <CCSection title="Recent Activity" padding={false}>
+        <div className="divide-y divide-zinc-800">
           {activity.length === 0 && (
             <div className="p-8 text-center text-zinc-500">
               {loading ? 'Loading...' : 'No recent activity'}
             </div>
           )}
           {activity.map((item) => (
-            <div key={item.id} className="px-4 py-3 flex items-start gap-3">
-              <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${item.source === 'task' ? 'bg-blue-400' : 'bg-purple-400'}`} />
+            <div key={item.id} className="px-5 py-3 flex items-start gap-3">
+              <div className={`mt-1.5 w-2 h-2 rounded-full flex-shrink-0 ${item.source === 'task' ? 'bg-blue-400' : 'bg-purple-400'}`} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono text-zinc-500 uppercase">{item.type}</span>
@@ -530,7 +507,7 @@ export default function CommandCenterDashboard() {
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      </CCSection>
+    </CommandCenterShell>
   );
 }

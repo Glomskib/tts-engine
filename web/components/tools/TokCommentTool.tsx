@@ -184,11 +184,11 @@ const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
           // (Tailwind classes work but inline guarantees no purge surprises)
           position: 'relative',
           display: 'inline-block',
-          maxWidth: 520,
-          width: '100%',
+          maxWidth: 480,
+          width: 'fit-content',
           background: '#ffffff',
           borderRadius: 16,
-          padding: '14px 16px 14px 20px',
+          padding: '10px 14px 10px 16px',
           boxShadow: '0 4px 24px rgba(0,0,0,0.18), 0 1px 4px rgba(0,0,0,0.10)',
           fontFamily:
             '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',

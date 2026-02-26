@@ -797,6 +797,7 @@ export default function LandingPage() {
             </Link>
             <div className="flex items-center gap-6 text-sm text-zinc-500">
               <Link href="/tools" className="hover:text-zinc-300 transition-colors">Tools</Link>
+              <Link href="/tools/tok-comment" className="hover:text-zinc-300 transition-colors">Comment Sticker</Link>
               <Link href="/transcribe" className="hover:text-zinc-300 transition-colors">Transcriber</Link>
               <Link href="/privacy" className="hover:text-zinc-300 transition-colors">Privacy</Link>
               <Link href="/terms" className="hover:text-zinc-300 transition-colors">Terms</Link>

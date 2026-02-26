@@ -111,6 +111,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Free Hook Generator', href: '/hooks', icon: Zap, external: true },
       { name: 'Script Library', href: '/admin/script-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite', tourId: 'nav-script-library' },
       { name: 'Comment Creator', href: '/admin/comment-creator', icon: MessageSquare },
+      { name: 'TikTok Comment Sticker', href: '/tools/tok-comment', icon: MessageSquare, external: true },
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic, tourId: 'nav-transcriber' },
       { name: 'YT Transcriber', href: '/admin/youtube-transcribe', icon: Youtube },
     ],

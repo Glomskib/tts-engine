@@ -12,9 +12,11 @@
  */
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logTaskEvent } from '@/lib/command-center/ingest';
+import { resolveProjectByName, CANONICAL_NAMES } from '@/lib/command-center/resolve-project';
 import {
   runBrainDispatch,
   vaultAccessible,
+  resolveSource,
   appendWorklogEntry,
   getVaultPath,
   type BrainDispatchReport,
@@ -50,11 +52,12 @@ const WORKLOG_REL: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 async function pass1_brainDispatch(): Promise<PassReport> {
-  if (!(await vaultAccessible())) {
+  const source = await resolveSource();
+  if (!source) {
     return {
       pass: 'brain-dispatch',
       ok: true,
-      detail: { skipped: true, reason: 'vault not accessible' },
+      detail: { skipped: true, reason: 'no source (no vault, no GitHub token)' },
     };
   }
 
@@ -63,6 +66,7 @@ async function pass1_brainDispatch(): Promise<PassReport> {
     pass: 'brain-dispatch',
     ok: report.errors.length === 0,
     detail: {
+      source: report.source,
       dispatched: report.dispatched.length,
       skipped: report.skipped.length,
       errors: report.errors,
@@ -113,21 +117,15 @@ async function pass2_feedbackEnforce(): Promise<PassReport> {
     (i) => !i.tags?.includes('auto-escalated'),
   );
 
-  // Resolve FlashFlow project ID (feedback is product feedback)
-  const { data: ffProject } = await supabaseAdmin
-    .from('cc_projects')
-    .select('id')
-    .eq('type', 'flashflow')
-    .eq('status', 'active')
-    .limit(1)
-    .single();
+  // Resolve FlashFlow project by canonical name (case-insensitive)
+  const ffProject = await resolveProjectByName(supabaseAdmin, CANONICAL_NAMES.FLASHFLOW);
 
   const projectId = ffProject?.id;
   if (!projectId) {
     return {
       pass: 'feedback-enforce',
       ok: false,
-      detail: { error: 'No active FlashFlow project found in cc_projects' },
+      detail: { error: `No active project matching "${CANONICAL_NAMES.FLASHFLOW}" found in cc_projects` },
     };
   }
 

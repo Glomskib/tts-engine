@@ -1,9 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Plus, RefreshCw, LayoutGrid, Table, ListPlus } from 'lucide-react';
+import { Plus, RefreshCw, LayoutGrid, Table, ListPlus } from 'lucide-react';
 import Link from 'next/link';
 import InitiativeFilter from '../_components/InitiativeFilter';
+import CCSubnav from '../_components/CCSubnav';
 import BoardView from './_components/BoardView';
 import TableView from './_components/TableView';
 import TaskDrawer from './_components/TaskDrawer';
@@ -132,15 +133,10 @@ export default function ProjectsPage() {
 
   return (
     <div className="space-y-6">
+      <CCSubnav />
       {/* Header */}
       <div className="flex items-center gap-4">
-        <Link href="/admin/command-center" className="text-zinc-500 hover:text-zinc-300">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white">Projects & Tasks</h1>
-          <p className="text-sm text-zinc-500">Track what the bots are working on</p>
-        </div>
+        <h2 className="text-lg font-semibold text-white flex-1">Campaigns</h2>
 
         {/* View switcher */}
         <div className="flex bg-zinc-800 rounded-lg p-0.5">
@@ -264,21 +260,29 @@ export default function ProjectsPage() {
             All Tasks
           </button>
           {projects.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => setSelectedProject(p.id)}
-              className={`w-full text-left px-3 py-2 text-sm rounded ${
-                selectedProject === p.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800'
-              }`}
-            >
-              <div className="font-medium truncate">{p.name}</div>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[p.status] || 'text-zinc-500'}`}>
-                  {p.status}
-                </span>
-                <span className="text-xs text-zinc-600">{p.type}</span>
-              </div>
-            </button>
+            <div key={p.id} className="flex items-center gap-1">
+              <button
+                onClick={() => setSelectedProject(p.id)}
+                className={`flex-1 text-left px-3 py-2 text-sm rounded ${
+                  selectedProject === p.id ? 'bg-zinc-700 text-white' : 'text-zinc-400 hover:bg-zinc-800'
+                }`}
+              >
+                <div className="font-medium truncate">{p.name}</div>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className={`text-xs px-1.5 py-0.5 rounded ${STATUS_COLORS[p.status] || 'text-zinc-500'}`}>
+                    {p.status}
+                  </span>
+                  <span className="text-xs text-zinc-600">{p.type}</span>
+                </div>
+              </button>
+              <Link
+                href={`/admin/command-center/projects/${p.id}`}
+                className="p-1.5 text-zinc-600 hover:text-zinc-300 transition-colors"
+                title="Open campaign detail"
+              >
+                <ListPlus className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           ))}
         </div>
 

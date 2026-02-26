@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { ArrowLeft, RefreshCw, ArrowUpDown } from 'lucide-react';
-import Link from 'next/link';
+import { RefreshCw, ArrowUpDown } from 'lucide-react';
+import CCSubnav from '../_components/CCSubnav';
 
 interface AgentScoreboard {
   agent_id: string;
@@ -127,14 +127,9 @@ export default function AgentScoreboardPage() {
 
   return (
     <div className="space-y-6">
+      <CCSubnav />
       <div className="flex items-center gap-4">
-        <Link href="/admin/command-center" className="text-zinc-500 hover:text-zinc-300">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white">Agent Scoreboard</h1>
-          <p className="text-sm text-zinc-500">Performance, cost & efficiency by agent</p>
-        </div>
+        <h2 className="text-lg font-semibold text-white flex-1">Agents</h2>
         <div className="flex items-center gap-1 bg-zinc-800 rounded-lg p-0.5">
           <button
             onClick={() => setTimeRange('7d')}

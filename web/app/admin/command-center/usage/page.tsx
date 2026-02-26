@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Download, RefreshCw } from 'lucide-react';
-import Link from 'next/link';
+import { Download, RefreshCw } from 'lucide-react';
+import CCSubnav from '../_components/CCSubnav';
 
 interface RollupRow {
   day: string;
@@ -99,15 +99,8 @@ export default function UsagePage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <Link href="/admin/command-center" className="text-zinc-500 hover:text-zinc-300">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div>
-          <h1 className="text-2xl font-bold text-white">API Usage</h1>
-          <p className="text-sm text-zinc-500">Token usage and cost tracking</p>
-        </div>
-      </div>
+      <CCSubnav />
+      <h2 className="text-lg font-semibold text-white">API Usage</h2>
 
       {/* Date range + view toggle */}
       <div className="flex flex-wrap items-center gap-3">

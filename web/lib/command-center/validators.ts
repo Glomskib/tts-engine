@@ -109,6 +109,34 @@ export const CreateFinanceAccountSchema = z.object({
 
 export type CreateFinanceAccountInput = z.infer<typeof CreateFinanceAccountSchema>;
 
+// ── Jobs ──────────────────────────────────────────────────────
+export const CreateCcJobSchema = z.object({
+  title: z.string().min(1).max(500),
+  source_url: z.string().max(2000).nullable().optional(),
+  notes: z.string().max(10000).default(''),
+  status: z.enum(['lead', 'applied', 'interviewing', 'hired', 'in_progress', 'delivered', 'closed']).default('lead'),
+  platform: z.enum(['upwork', 'fiverr', 'direct', 'other']).default('other'),
+  hourly_rate: z.number().min(0).nullable().optional(),
+  budget: z.number().min(0).nullable().optional(),
+  contact: z.string().max(500).default(''),
+  meta: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type CreateCcJobInput = z.infer<typeof CreateCcJobSchema>;
+
+export const UpdateCcJobSchema = z.object({
+  title: z.string().min(1).max(500).optional(),
+  source_url: z.string().max(2000).nullable().optional(),
+  notes: z.string().max(10000).optional(),
+  status: z.enum(['lead', 'applied', 'interviewing', 'hired', 'in_progress', 'delivered', 'closed']).optional(),
+  platform: z.enum(['upwork', 'fiverr', 'direct', 'other']).optional(),
+  hourly_rate: z.number().min(0).nullable().optional(),
+  budget: z.number().min(0).nullable().optional(),
+  contact: z.string().max(500).optional(),
+});
+
+export type UpdateCcJobInput = z.infer<typeof UpdateCcJobSchema>;
+
 // ── Projects (cc_projects) ─────────────────────────────────────
 export const CreateCcProjectSchema = z.object({
   name: z.string().min(1).max(300),

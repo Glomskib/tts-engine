@@ -51,6 +51,7 @@ import {
   Download,
   Youtube,
   Gauge,
+  Briefcase,
   type LucideIcon,
 } from 'lucide-react';
 import { meetsMinPlan, migrateOldPlanId, getPlanByStringId } from '@/lib/plans';
@@ -196,7 +197,8 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Overview', href: '/admin/command-center', icon: Activity, ownerOnly: true },
       { name: 'API Usage', href: '/admin/command-center/usage', icon: BarChart, ownerOnly: true },
-      { name: 'Projects & Tasks', href: '/admin/command-center/projects', icon: ListTodo, ownerOnly: true },
+      { name: 'Campaigns', href: '/admin/command-center/projects', icon: ListTodo, ownerOnly: true },
+      { name: 'Jobs', href: '/admin/command-center/jobs', icon: Briefcase, ownerOnly: true },
       { name: 'Idea Dump', href: '/admin/command-center/ideas', icon: Lightbulb, ownerOnly: true },
       { name: 'Finance', href: '/admin/command-center/finance', icon: DollarSign, ownerOnly: true },
       { name: 'Agent Scoreboard', href: '/admin/command-center/agents', icon: Zap, ownerOnly: true },

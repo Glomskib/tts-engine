@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import type { PipelineHealth } from '@/lib/command-center/types';
 import InitiativeFilter from './_components/InitiativeFilter';
+import CCSubnav from './_components/CCSubnav';
 
 interface DashboardData {
   spend: { today: number; week: number; month: number };
@@ -202,20 +203,20 @@ export default function CommandCenterDashboard() {
 
   return (
     <div className="space-y-6">
+      <CCSubnav />
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white">Command Center</h1>
-          <p className="text-sm text-zinc-500 mt-1">Internal ops dashboard</p>
+        <h2 className="text-lg font-semibold text-white">Overview</h2>
+        <div className="flex items-center gap-3">
+          <InitiativeFilter value={initiativeId} onChange={setInitiativeId} />
+          <button
+            onClick={fetchData}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
-        <InitiativeFilter value={initiativeId} onChange={setInitiativeId} />
-        <button
-          onClick={fetchData}
-          disabled={loading}
-          className="flex items-center gap-2 px-3 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors disabled:opacity-50"
-        >
-          <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
       </div>
 
       {/* Stats Grid */}

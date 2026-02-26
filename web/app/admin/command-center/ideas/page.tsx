@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Plus, RefreshCw, Send, X, Upload, FileText, Image, File, CheckCircle, Clock } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, RefreshCw, Send, X, Upload, FileText, Image, File, CheckCircle, Clock } from 'lucide-react';
 import InitiativeFilter from '../_components/InitiativeFilter';
+import CCSubnav from '../_components/CCSubnav';
 
 interface Idea {
   id: string;
@@ -203,14 +203,9 @@ export default function IdeasPage() {
 
   return (
     <div className="space-y-6">
+      <CCSubnav />
       <div className="flex items-center gap-4">
-        <Link href="/admin/command-center" className="text-zinc-500 hover:text-zinc-300">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white">Idea Dump</h1>
-          <p className="text-sm text-zinc-500">Quick intake + nightly research pipeline</p>
-        </div>
+        <h2 className="text-lg font-semibold text-white flex-1">Ideas</h2>
         <button onClick={() => setShowQuickAdd(true)} className="flex items-center gap-2 px-3 py-2 text-sm bg-purple-600 hover:bg-purple-500 text-white rounded-lg">
           <Plus className="w-4 h-4" /> Dump Idea
         </button>

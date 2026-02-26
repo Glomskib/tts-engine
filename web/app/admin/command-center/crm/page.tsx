@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, RefreshCw, Plus, DollarSign, Target, TrendingUp } from 'lucide-react';
+import { RefreshCw, Plus, DollarSign, Target, TrendingUp } from 'lucide-react';
+import CCSubnav from '../_components/CCSubnav';
 import CrmBoardView from './_components/CrmBoardView';
 import DealDrawer from './_components/DealDrawer';
 import PipelineProgressBar from './_components/PipelineProgressBar';
@@ -110,20 +110,10 @@ export default function CrmPage() {
 
   return (
     <div className="space-y-6">
+      <CCSubnav />
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/command-center"
-            className="text-zinc-500 hover:text-zinc-300 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-white">CRM Pipeline</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">Sponsors & sales tracking</p>
-          </div>
-        </div>
+        <h2 className="text-lg font-semibold text-white">CRM</h2>
 
         <div className="flex items-center gap-3">
           {/* Pipeline selector */}

@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ArrowLeft, Plus, RefreshCw, TrendingUp, TrendingDown, DollarSign, Upload, ChevronRight, X } from 'lucide-react';
-import Link from 'next/link';
+import { Plus, RefreshCw, TrendingUp, TrendingDown, DollarSign, Upload, ChevronRight, X } from 'lucide-react';
 import InitiativeFilter from '../_components/InitiativeFilter';
+import CCSubnav from '../_components/CCSubnav';
 
 interface FinanceSummary {
   from: string;
@@ -625,14 +625,9 @@ export default function FinancePage() {
 
   return (
     <div className="space-y-6">
+      <CCSubnav />
       <div className="flex items-center gap-4">
-        <Link href="/admin/command-center" className="text-zinc-500 hover:text-zinc-300">
-          <ArrowLeft className="w-5 h-5" />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-2xl font-bold text-white">Finance & Profit</h1>
-          <p className="text-sm text-zinc-500">Profitability, cashflow & transaction ledger</p>
-        </div>
+        <h2 className="text-lg font-semibold text-white flex-1">Finance</h2>
         <button onClick={() => setShowCsvImport(true)} className="flex items-center gap-2 px-3 py-2 text-sm bg-blue-600 hover:bg-blue-500 text-white rounded-lg">
           <Upload className="w-4 h-4" /> Import CSV
         </button>

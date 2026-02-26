@@ -1,11 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import Link from 'next/link';
 import {
-  ArrowLeft, RefreshCw, Download,
+  RefreshCw, Download,
   DollarSign, TrendingUp, Activity, Calculator,
 } from 'lucide-react';
+import CCSubnav from '../_components/CCSubnav';
 
 interface DashboardData {
   summary: { today: number; week: number; month: number; mtd_calls: number };
@@ -89,17 +89,10 @@ export default function FinOpsPage() {
 
   return (
     <div className="space-y-6">
+      <CCSubnav />
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <Link href="/admin/command-center" className="text-zinc-500 hover:text-zinc-300">
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-white">FinOps</h1>
-            <p className="text-sm text-zinc-500">LLM spend tracking &amp; burn-rate projection</p>
-          </div>
-        </div>
+        <h2 className="text-lg font-semibold text-white">FinOps</h2>
         <div className="flex items-center gap-2">
           <a
             href={exportUrl}

@@ -205,6 +205,37 @@ export interface FinanceSummary {
   by_project: Record<string, { in: number; out: number; project_name: string }>;
 }
 
+// ── Jobs ──────────────────────────────────────────────────────
+export type JobStatus = 'lead' | 'applied' | 'interviewing' | 'hired' | 'in_progress' | 'delivered' | 'closed';
+export type JobPlatform = 'upwork' | 'fiverr' | 'direct' | 'other';
+
+export interface CcJob {
+  id: string;
+  title: string;
+  source_url: string | null;
+  notes: string;
+  status: JobStatus;
+  platform: JobPlatform;
+  hourly_rate: number | null;
+  budget: number | null;
+  contact: string;
+  created_at: string;
+  updated_at: string;
+  meta: Record<string, unknown>;
+}
+
+export type JobEventType = 'status_change' | 'note' | 'created';
+
+export interface CcJobEvent {
+  id: string;
+  job_id: string;
+  ts: string;
+  event_type: JobEventType;
+  from_status: string | null;
+  to_status: string | null;
+  payload: Record<string, unknown>;
+}
+
 // ── Pipeline Health (from Mission Control) ────────────────────
 export interface PipelineHealth {
   queued_count: number;

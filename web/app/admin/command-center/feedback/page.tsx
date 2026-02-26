@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { ArrowLeft, RefreshCw, Bug, Lightbulb, Inbox, BarChart } from 'lucide-react';
+import { RefreshCw, Bug, Lightbulb, Inbox, BarChart } from 'lucide-react';
+import CCSubnav from '../_components/CCSubnav';
 import type { FeedbackItem, FeedbackStatus, FeedbackType, FeedbackStats } from '@/lib/command-center/feedback-types';
 import FeedbackFilterBar from './_components/FeedbackFilterBar';
 import FeedbackItemRow from './_components/FeedbackItemRow';
@@ -63,20 +63,10 @@ export default function FeedbackInboxPage() {
 
   return (
     <div className="space-y-6">
+      <CCSubnav />
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/command-center"
-            className="text-zinc-500 hover:text-zinc-300 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-white">Feedback Inbox</h1>
-            <p className="text-sm text-zinc-500 mt-0.5">User feedback tracking & triage</p>
-          </div>
-        </div>
+        <h2 className="text-lg font-semibold text-white">Feedback</h2>
 
         <button
           onClick={fetchData}

@@ -110,6 +110,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator', tourId: 'nav-content-studio' },
       { name: 'Free Hook Generator', href: '/hooks', icon: Zap, external: true },
       { name: 'Script Library', href: '/admin/script-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite', tourId: 'nav-script-library' },
+      { name: 'Comment Creator', href: '/admin/comment-creator', icon: MessageSquare },
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic, tourId: 'nav-transcriber' },
       { name: 'YT Transcriber', href: '/admin/youtube-transcribe', icon: Youtube },
     ],

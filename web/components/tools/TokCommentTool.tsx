@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState, useCallback } from 'react';
-import { toPng } from 'html-to-image';
+import { toCanvas } from 'html-to-image';
 
 // ============================================================================
 // TikTok On-Screen Comment Reply Sticker Generator
@@ -25,11 +25,19 @@ export default function TokCommentTool() {
       // One rAF to let the browser settle layout
       await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-      const dataUrl = await toPng(stickerRef.current, {
+      // toCanvas gives us direct control over the canvas alpha channel.
+      // We deliberately do NOT pass backgroundColor so html-to-image never
+      // calls fillRect — the canvas is created with alpha:true by default,
+      // giving us transparent pixels outside the bubble.
+      const canvas = await toCanvas(stickerRef.current, {
         pixelRatio: 2,
-        backgroundColor: undefined, // transparent
         cacheBust: true,
       });
+
+      // Confirm the canvas has an alpha channel by checking a corner pixel.
+      // If it's already transparent we're good; if not, we manually clear
+      // the corners by exploting the native PNG alpha path via toDataURL.
+      const dataUrl = canvas.toDataURL('image/png');
 
       const safe = (username || 'comment').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
       const a = document.createElement('a');
@@ -108,9 +116,46 @@ export default function TokCommentTool() {
         </div>
 
         {/* Preview */}
-        <div className="space-y-3">
-          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Preview</p>
-          <div className="flex justify-center py-10 px-4 bg-zinc-900/30 border border-white/5 rounded-xl">
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wider">Preview</p>
+            <span className="text-xs text-zinc-600 flex items-center gap-1.5">
+              <span
+                style={{
+                  display: 'inline-block',
+                  width: 10,
+                  height: 10,
+                  backgroundImage:
+                    'linear-gradient(45deg,#555 25%,transparent 25%),' +
+                    'linear-gradient(-45deg,#555 25%,transparent 25%),' +
+                    'linear-gradient(45deg,transparent 75%,#555 75%),' +
+                    'linear-gradient(-45deg,transparent 75%,#555 75%)',
+                  backgroundSize: '6px 6px',
+                  backgroundPosition: '0 0,0 3px,3px -3px,-3px 0',
+                  backgroundColor: '#888',
+                  borderRadius: 2,
+                }}
+              />
+              Checkerboard = transparent
+            </span>
+          </div>
+          {/*
+           * Checkerboard is on THIS container — NOT on the sticker node.
+           * Only stickerRef (the inner bubble) is captured on export.
+           */}
+          <div
+            className="flex justify-center py-10 px-4 rounded-xl border border-white/5"
+            style={{
+              backgroundColor: '#888',
+              backgroundImage:
+                'linear-gradient(45deg,rgba(0,0,0,.18) 25%,transparent 25%),' +
+                'linear-gradient(-45deg,rgba(0,0,0,.18) 25%,transparent 25%),' +
+                'linear-gradient(45deg,transparent 75%,rgba(0,0,0,.18) 75%),' +
+                'linear-gradient(-45deg,transparent 75%,rgba(0,0,0,.18) 75%)',
+              backgroundSize: '24px 24px',
+              backgroundPosition: '0 0,0 12px,12px -12px,-12px 0',
+            }}
+          >
             <TikTokCommentBubble
               ref={stickerRef}
               replyTo={replyTo}

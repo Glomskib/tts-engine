@@ -1,6 +1,8 @@
 /**
  * Overlay Clip Index — Module barrel export
  */
+export { requireYouTubeApiKey } from './env';
+
 export { getClipRules, parseRulesMarkdown } from './rules-parser';
 export type { ClipRules, Ingredient, ProductTypeMapping, PublishThresholds } from './rules-parser';
 

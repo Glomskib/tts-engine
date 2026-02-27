@@ -71,6 +71,14 @@
     {
       "path": "/api/cron/orchestrator",
       "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/clip-discover",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/clip-analyze",
+      "schedule": "15 * * * *"
     }
   ]
 }

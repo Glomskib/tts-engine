@@ -25,6 +25,11 @@ import type {
 } from './types';
 
 const TAG = '[ri:scraper]';
+const DEBUG = process.env.RI_DEBUG === '1';
+
+function dbg(...args: unknown[]) {
+  if (DEBUG) console.log(`${TAG} [DEBUG]`, ...args);
+}
 
 // ── Configuration ──────────────────────────────────────────────
 
@@ -35,6 +40,7 @@ const NAV_TIMEOUT = 30_000;
 const COMMENT_LOAD_TIMEOUT = 5_000;
 const ANTI_DETECT_DELAY_MIN = 1500;
 const ANTI_DETECT_DELAY_MAX = 3000;
+const STALE_SCROLL_LIMIT = 3;
 
 function getProfileDir(accountUsername: string, customPath?: string | null): string {
   if (customPath) return customPath;
@@ -231,6 +237,71 @@ export async function scrapeVideoList(
   return videos;
 }
 
+// ── Sort comments to "Newest" ────────────────────────────────
+
+async function switchToNewestSort(page: Page): Promise<boolean> {
+  // Step 1: Find and click the sort button/trigger
+  let sortOpened = false;
+  for (const sel of COMMENTS.sortButton) {
+    try {
+      const btn = await page.$(sel);
+      if (btn && await btn.isVisible()) {
+        dbg('Sort trigger found:', sel);
+        await btn.click();
+        await page.waitForTimeout(800);
+        sortOpened = true;
+        break;
+      }
+    } catch { /* next */ }
+  }
+
+  if (!sortOpened) {
+    dbg('No sort trigger found — trying inline text match');
+    // Some TikTok layouts embed the sort as plain clickable text
+    try {
+      const el = await page.$('text=Relevance');
+      if (el && await el.isVisible()) {
+        await el.click();
+        await page.waitForTimeout(800);
+        sortOpened = true;
+      }
+    } catch { /* nope */ }
+  }
+
+  if (!sortOpened) {
+    console.log(`${TAG} sort_newest_unavailable — no sort control found`);
+    return false;
+  }
+
+  // Step 2: Click "Newest"
+  for (const sel of COMMENTS.sortNewest) {
+    try {
+      const opt = await page.$(sel);
+      if (opt && await opt.isVisible()) {
+        dbg('Clicking "Newest" option:', sel);
+        await opt.click();
+        await page.waitForTimeout(2000);
+        console.log(`${TAG} Switched comment sort to Newest`);
+        return true;
+      }
+    } catch { /* next */ }
+  }
+
+  // Fallback: try locator text match
+  try {
+    const newest = page.locator(':visible:text-is("Newest")').first();
+    if (await newest.isVisible({ timeout: 1000 })) {
+      await newest.click();
+      await page.waitForTimeout(2000);
+      console.log(`${TAG} Switched comment sort to Newest (text match)`);
+      return true;
+    }
+  } catch { /* nope */ }
+
+  console.log(`${TAG} sort_newest_unavailable — "Newest" option not found in dropdown`);
+  return false;
+}
+
 // ── Scrape comments from a single video ────────────────────────
 
 export async function scrapeVideoComments(
@@ -241,6 +312,7 @@ export async function scrapeVideoComments(
 ): Promise<VideoScrapeResult> {
   const errors: string[] = [];
 
+  dbg('Video URL:', videoUrl);
   console.log(`${TAG} Scraping comments: ${videoUrl}`);
   await page.goto(videoUrl, { waitUntil: 'domcontentloaded', timeout: NAV_TIMEOUT });
   await page.waitForTimeout(randomDelay());
@@ -283,10 +355,17 @@ export async function scrapeVideoComments(
   }
   await page.waitForTimeout(3000);
 
+  // Switch sort to "Newest" before extraction
+  const sortSwitched = await switchToNewestSort(page);
+  if (sortSwitched) {
+    // After switching sort, wait for the comment list to refresh
+    await page.waitForTimeout(2000);
+  }
+
   // Scroll the comment list container to load more comments
   let previousCount = 0;
   let noNewCommentsRounds = 0;
-  const MAX_SCROLL_ROUNDS = 10;
+  const MAX_SCROLL_ROUNDS = 15;
 
   for (let round = 0; round < MAX_SCROLL_ROUNDS; round++) {
     let commentEls: ElementHandle[] = [];
@@ -295,11 +374,16 @@ export async function scrapeVideoComments(
       if (commentEls.length > 0) break;
     }
 
+    dbg(`Scroll round ${round}: ${commentEls.length} comment elements`);
+
     if (commentEls.length >= maxComments) break;
 
     if (commentEls.length === previousCount) {
       noNewCommentsRounds++;
-      if (noNewCommentsRounds >= 2) break;
+      if (noNewCommentsRounds >= STALE_SCROLL_LIMIT) {
+        dbg(`Stopping scroll — ${STALE_SCROLL_LIMIT} rounds with no new comments`);
+        break;
+      }
     } else {
       noNewCommentsRounds = 0;
     }
@@ -407,6 +491,15 @@ export async function scrapeVideoComments(
   }
 
   console.log(`${TAG} Extracted ${comments.length} comments from ${videoUrl}`);
+
+  // Debug logging
+  if (DEBUG && comments.length > 0) {
+    dbg(`Collected ${comments.length} comments from ${videoUrl}`);
+    const sample = comments.slice(0, 3);
+    dbg('First 3 platform_comment_ids:', sample.map(c => c.platform_comment_id));
+    dbg('First 3 texts:', sample.map(c => c.comment_text.slice(0, 80)));
+  }
+
   return { video, comments, errors };
 }
 

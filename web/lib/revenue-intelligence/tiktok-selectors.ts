@@ -121,6 +121,27 @@ export const COMMENTS = {
     '[class*="DivViewMoreComments"]',
     'button:has-text("View more comments")',
   ],
+  /** Comment sort button / dropdown trigger. */
+  sortButton: [
+    '[data-e2e="comment-sort"]',
+    '[class*="DivSortContainer"]',
+    '[class*="DivHeaderSort"]',
+    '[class*="SortBy"]',
+    'div[class*="DivCommentListContainer"] [class*="DivHeader"] div[role="button"]',
+    'div[class*="DivCommentListContainer"] [class*="DivSort"]',
+    // Fallback: any clickable element near the top of comment list with "Relevance" or sort text
+    'span:has-text("Relevance")',
+    'span:has-text("All comments")',
+  ],
+  /** "Newest" option within the sort dropdown/menu. */
+  sortNewest: [
+    '[data-e2e="comment-sort-newest"]',
+    'div[role="option"]:has-text("Newest")',
+    'li:has-text("Newest")',
+    'span:has-text("Newest")',
+    'div:has-text("Newest first")',
+    'p:has-text("Newest")',
+  ],
   /** Comment ID is usually in a data attribute or derived from the link. */
   commentIdAttr: 'data-comment-id',
 } as const;

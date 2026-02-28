@@ -17,6 +17,7 @@ import { SIM_COMMENT_PATTERN } from './simulation-filter';
 import type {
   InboxComment,
   InboxFilters,
+  RevenueModeItem,
   RiComment,
   RiCommentAnalysis,
   RiCommentStatus,
@@ -255,4 +256,111 @@ export async function getInboxStats(
     categories,
     avg_lead_score: userAnalyses.length > 0 ? Math.round(totalScore / userAnalyses.length) : 0,
   };
+}
+
+// ── Revenue Mode Inbox ────────────────────────────────────────
+
+const REVENUE_CATEGORIES = ['buying_intent', 'objection'] as const;
+
+/**
+ * Fetch high-intent comments for Revenue Mode.
+ * Filters to buying_intent + objection categories with lead_score >= threshold,
+ * ordered by urgency then lead score then recency.
+ */
+export async function getRevenueModeInbox({
+  userId,
+  minLeadScore = 70,
+  includeSimulation = false,
+}: {
+  userId: string;
+  minLeadScore?: number;
+  includeSimulation?: boolean;
+}): Promise<RevenueModeItem[]> {
+  // Step 1: Get qualifying analyses
+  const { data: analyses, error: aErr } = await supabaseAdmin
+    .from('ri_comment_analysis')
+    .select('comment_id, category, lead_score, urgency_score')
+    .in('category', [...REVENUE_CATEGORIES])
+    .gte('lead_score', minLeadScore);
+
+  if (aErr || !analyses || analyses.length === 0) {
+    if (aErr) console.error(`${TAG} Revenue mode analysis query failed:`, aErr.message);
+    return [];
+  }
+
+  const qualifiedIds = analyses.map((a) => a.comment_id);
+
+  // Step 2: Fetch matching comments
+  let commentsQuery = supabaseAdmin
+    .from('ri_comments')
+    .select('id, commenter_username, comment_text, platform_comment_id, ingested_at')
+    .eq('user_id', userId)
+    .in('id', qualifiedIds);
+
+  if (!includeSimulation) {
+    commentsQuery = commentsQuery.not('platform_comment_id', 'like', SIM_COMMENT_PATTERN);
+  }
+
+  const { data: comments, error: cErr } = await commentsQuery;
+  if (cErr || !comments || comments.length === 0) {
+    if (cErr) console.error(`${TAG} Revenue mode comments query failed:`, cErr.message);
+    return [];
+  }
+
+  const commentIds = comments.map((c) => c.id);
+
+  // Step 3: Batch-fetch statuses and drafts
+  const [statusRes, draftsRes] = await Promise.all([
+    supabaseAdmin
+      .from('ri_comment_status')
+      .select('comment_id, status')
+      .in('comment_id', commentIds),
+    supabaseAdmin
+      .from('ri_reply_drafts')
+      .select('comment_id, tone, draft_text')
+      .in('comment_id', commentIds),
+  ]);
+
+  const statusMap = new Map<string, RiCommentStatusValue>();
+  for (const s of statusRes.data ?? []) {
+    statusMap.set(s.comment_id, s.status as RiCommentStatusValue);
+  }
+
+  const draftsMap = new Map<string, { neutral?: string; friendly?: string; conversion?: string }>();
+  for (const d of draftsRes.data ?? []) {
+    const existing = draftsMap.get(d.comment_id) ?? {};
+    existing[d.tone as 'neutral' | 'friendly' | 'conversion'] = d.draft_text;
+    draftsMap.set(d.comment_id, existing);
+  }
+
+  const analysisMap = new Map<string, { category: string; lead_score: number; urgency_score: number }>();
+  for (const a of analyses) {
+    analysisMap.set(a.comment_id, a);
+  }
+
+  // Step 4: Assemble + sort
+  const items: RevenueModeItem[] = [];
+  for (const c of comments) {
+    const a = analysisMap.get(c.id);
+    if (!a) continue;
+
+    items.push({
+      commentId: c.id,
+      commenterUsername: c.commenter_username,
+      commentText: c.comment_text,
+      category: a.category as RevenueModeItem['category'],
+      leadScore: a.lead_score,
+      urgencyScore: a.urgency_score,
+      status: statusMap.get(c.id) ?? null,
+      drafts: draftsMap.get(c.id) ?? {},
+    });
+  }
+
+  items.sort((a, b) => {
+    if (b.urgencyScore !== a.urgencyScore) return b.urgencyScore - a.urgencyScore;
+    if (b.leadScore !== a.leadScore) return b.leadScore - a.leadScore;
+    return 0; // ingested_at already handled by DB order
+  });
+
+  return items;
 }

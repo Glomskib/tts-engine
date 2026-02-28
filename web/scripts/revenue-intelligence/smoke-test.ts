@@ -31,7 +31,7 @@ import {
 import { classifyComments } from '../../lib/revenue-intelligence/comment-classification-service';
 import { generateReplyDrafts } from '../../lib/revenue-intelligence/reply-draft-service';
 import { flagUrgentComments } from '../../lib/revenue-intelligence/urgency-scoring-service';
-import { getInboxComments, getInboxStats } from '../../lib/revenue-intelligence/revenue-inbox-service';
+import { getInboxComments, getInboxStats, getRevenueModeInbox } from '../../lib/revenue-intelligence/revenue-inbox-service';
 import { generateSimulationData } from '../../lib/revenue-intelligence/simulation-data';
 import { isSimulationComment } from '../../lib/revenue-intelligence/simulation-filter';
 import type { RiCreatorAccount } from '../../lib/revenue-intelligence/types';
@@ -223,8 +223,63 @@ async function main() {
   console.log(`  With sim: total=${statsWithSim.total_comments}, unread=${statsWithSim.unread}, urgent=${statsWithSim.urgent}`);
   console.log(`  Categories (with sim):`, statsWithSim.categories);
 
-  // Test 10: Agent logs
-  console.log('\n10. Agent Logs');
+  // Test 10: Revenue Mode Inbox
+  console.log('\n10. Revenue Mode Inbox');
+
+  // 10a: Default (excludes sim)
+  const revDefault = await getRevenueModeInbox({ userId: account.user_id });
+  const revDefaultHasSim = revDefault.some((i) =>
+    isSimulationComment(i.commentId), // commentId is a UUID, not platform_comment_id
+  );
+  // We check via the actual comment rows instead
+  const revDefaultSimCheck = await (async () => {
+    if (revDefault.length === 0) return false;
+    const ids = revDefault.map((i) => i.commentId);
+    const { data } = await supabaseAdmin
+      .from('ri_comments')
+      .select('platform_comment_id')
+      .in('id', ids);
+    return (data ?? []).some((c) => isSimulationComment(c.platform_comment_id));
+  })();
+  assert('Revenue Mode default excludes sim', !revDefaultSimCheck,
+    `${revDefault.length} items`);
+
+  // 10b: With sim
+  const revWithSim = await getRevenueModeInbox({
+    userId: account.user_id,
+    includeSimulation: true,
+  });
+  assert('Revenue Mode with sim >= without sim', revWithSim.length >= revDefault.length,
+    `default=${revDefault.length}, withSim=${revWithSim.length}`);
+
+  // 10c: Verify structure
+  if (revWithSim.length > 0) {
+    const first = revWithSim[0];
+    assert('Revenue Mode item has commentId', typeof first.commentId === 'string' && first.commentId.length > 0);
+    assert('Revenue Mode item has category', first.category === 'buying_intent' || first.category === 'objection');
+    assert('Revenue Mode item has leadScore >= 70', first.leadScore >= 70);
+    assert('Revenue Mode item has drafts object', typeof first.drafts === 'object');
+    console.log(`  Top item: @${first.commenterUsername} [${first.category}] lead=${first.leadScore} urgency=${first.urgencyScore}`);
+    console.log(`  Text: ${first.commentText.slice(0, 80)}`);
+  } else {
+    console.log('  No revenue mode items found (expected if no buying_intent/objection with lead >= 70)');
+  }
+
+  // 10d: Ordering check
+  if (revWithSim.length >= 2) {
+    const sorted = revWithSim.every((item, idx) => {
+      if (idx === 0) return true;
+      const prev = revWithSim[idx - 1];
+      return prev.urgencyScore > item.urgencyScore ||
+        (prev.urgencyScore === item.urgencyScore && prev.leadScore >= item.leadScore);
+    });
+    assert('Revenue Mode sorted by urgency DESC, lead DESC', sorted);
+  }
+
+  console.log(`  Revenue Mode: ${revDefault.length} live, ${revWithSim.length} total (with sim)`);
+
+  // Test 11: Agent logs
+  console.log('\n11. Agent Logs');
   const { data: logs } = await supabaseAdmin
     .from('ri_agent_logs')
     .select('action_type, duration_ms, error')

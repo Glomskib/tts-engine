@@ -222,6 +222,22 @@ export interface InboxFilters {
   includeSimulation?: boolean;
 }
 
+/** Revenue Mode inbox item — high-intent comments ready for action. */
+export interface RevenueModeItem {
+  commentId: string;
+  commenterUsername: string;
+  commentText: string;
+  category: RiCommentCategory;
+  leadScore: number;
+  urgencyScore: number;
+  status: RiCommentStatusValue | null;
+  drafts: {
+    neutral?: string;
+    friendly?: string;
+    conversion?: string;
+  };
+}
+
 /** Ingestion run configuration. */
 export interface IngestionConfig {
   max_videos_per_account: number;

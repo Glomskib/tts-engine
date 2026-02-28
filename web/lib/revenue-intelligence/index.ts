@@ -31,6 +31,7 @@ export {
   getInboxComments,
   updateCommentStatus,
   getInboxStats,
+  getRevenueModeInbox,
 } from './revenue-inbox-service';
 
 export type { InboxStats } from './revenue-inbox-service';

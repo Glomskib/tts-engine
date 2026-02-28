@@ -36,6 +36,9 @@ import { flagUrgentComments, sendUrgentAlerts } from '../../lib/revenue-intellig
 import { scrapeAccount } from '../../lib/revenue-intelligence/tiktok-scraper';
 import { generateSimulationData } from '../../lib/revenue-intelligence/simulation-data';
 import { logAgentAction } from '../../lib/revenue-intelligence/agent-logger';
+import { getRunState, countNewSince, updateRunState } from '../../lib/revenue-intelligence/run-state-service';
+import { getRevenueModeInbox } from '../../lib/revenue-intelligence/revenue-inbox-service';
+import { sendDigestAlert } from '../../lib/revenue-intelligence/telegram-digest';
 import type { IngestionConfig, IngestionRunResult, RiCreatorAccount } from '../../lib/revenue-intelligence/types';
 import { DEFAULT_INGESTION_CONFIG } from '../../lib/revenue-intelligence/types';
 
@@ -269,6 +272,46 @@ async function runCommentIngestion(): Promise<void> {
   console.log(`  Total errors:       ${allResults.reduce((s, r) => s + r.errors.length, 0)}`);
   console.log(`  Duration:           ${totalDuration}ms (${(totalDuration / 1000).toFixed(1)}s)`);
   console.log(`${'='.repeat(55)}\n`);
+
+  // Step 5: Run-state tracking + digest alerts
+  for (const account of accounts) {
+    try {
+      const prevState = await getRunState(account.user_id);
+      let newCount = 0;
+
+      if (prevState) {
+        newCount = await countNewSince(account.user_id, prevState.last_ingested_at);
+      } else {
+        // First run — all new comments count as new
+        newCount = totalNewComments;
+      }
+
+      await updateRunState(account.user_id);
+      console.log(`${TAG} Run state updated for @${account.username} (new_count: ${newCount})`);
+
+      // Find urgent count from this run's results
+      const accountResult = allResults.find((r) => r.account_id === account.id);
+      const urgentCount = accountResult ? accountResult.errors.length : 0; // placeholder
+
+      if (newCount > 0) {
+        const topItems = await getRevenueModeInbox({
+          userId: account.user_id,
+          limit: 3,
+          includeSimulation: simulate,
+        });
+
+        await sendDigestAlert({
+          username: account.username,
+          newCount,
+          urgentCount: 0,
+          topItems,
+        });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`${TAG} Run-state/digest error for @${account.username}:`, msg);
+    }
+  }
 
   await logAgentAction({
     user_id: null,

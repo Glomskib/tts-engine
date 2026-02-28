@@ -231,6 +231,8 @@ export interface RevenueModeItem {
   leadScore: number;
   urgencyScore: number;
   status: RiCommentStatusValue | null;
+  videoUrl?: string | null;
+  ingestedAt?: string;
   drafts: {
     neutral?: string;
     friendly?: string;

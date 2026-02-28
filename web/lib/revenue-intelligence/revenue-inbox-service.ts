@@ -271,10 +271,12 @@ export async function getRevenueModeInbox({
   userId,
   minLeadScore = 70,
   includeSimulation = false,
+  limit,
 }: {
   userId: string;
   minLeadScore?: number;
   includeSimulation?: boolean;
+  limit?: number;
 }): Promise<RevenueModeItem[]> {
   // Step 1: Get qualifying analyses
   const { data: analyses, error: aErr } = await supabaseAdmin
@@ -293,7 +295,7 @@ export async function getRevenueModeInbox({
   // Step 2: Fetch matching comments
   let commentsQuery = supabaseAdmin
     .from('ri_comments')
-    .select('id, commenter_username, comment_text, platform_comment_id, ingested_at')
+    .select('id, commenter_username, comment_text, platform_comment_id, ingested_at, video_id')
     .eq('user_id', userId)
     .in('id', qualifiedIds);
 
@@ -309,8 +311,10 @@ export async function getRevenueModeInbox({
 
   const commentIds = comments.map((c) => c.id);
 
-  // Step 3: Batch-fetch statuses and drafts
-  const [statusRes, draftsRes] = await Promise.all([
+  // Step 3: Batch-fetch statuses, drafts, and videos
+  const videoIds = Array.from(new Set(comments.map((c) => c.video_id)));
+
+  const [statusRes, draftsRes, videosRes] = await Promise.all([
     supabaseAdmin
       .from('ri_comment_status')
       .select('comment_id, status')
@@ -319,6 +323,10 @@ export async function getRevenueModeInbox({
       .from('ri_reply_drafts')
       .select('comment_id, tone, draft_text')
       .in('comment_id', commentIds),
+    supabaseAdmin
+      .from('ri_videos')
+      .select('id, video_url')
+      .in('id', videoIds),
   ]);
 
   const statusMap = new Map<string, RiCommentStatusValue>();
@@ -331,6 +339,11 @@ export async function getRevenueModeInbox({
     const existing = draftsMap.get(d.comment_id) ?? {};
     existing[d.tone as 'neutral' | 'friendly' | 'conversion'] = d.draft_text;
     draftsMap.set(d.comment_id, existing);
+  }
+
+  const videoUrlMap = new Map<string, string | null>();
+  for (const v of videosRes.data ?? []) {
+    videoUrlMap.set(v.id, v.video_url);
   }
 
   const analysisMap = new Map<string, { category: string; lead_score: number; urgency_score: number }>();
@@ -352,6 +365,8 @@ export async function getRevenueModeInbox({
       leadScore: a.lead_score,
       urgencyScore: a.urgency_score,
       status: statusMap.get(c.id) ?? null,
+      videoUrl: videoUrlMap.get(c.video_id) ?? null,
+      ingestedAt: c.ingested_at,
       drafts: draftsMap.get(c.id) ?? {},
     });
   }
@@ -361,6 +376,10 @@ export async function getRevenueModeInbox({
     if (b.leadScore !== a.leadScore) return b.leadScore - a.leadScore;
     return 0; // ingested_at already handled by DB order
   });
+
+  if (limit !== undefined && limit > 0) {
+    return items.slice(0, limit);
+  }
 
   return items;
 }

@@ -36,6 +36,16 @@ export {
 
 export type { InboxStats } from './revenue-inbox-service';
 
+// Run state
+export {
+  getRunState,
+  updateRunState,
+  countNewSince,
+} from './run-state-service';
+
+// Telegram digest
+export { sendDigestAlert } from './telegram-digest';
+
 // Simulation filter
 export {
   isSimulationComment,

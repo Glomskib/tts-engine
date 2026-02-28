@@ -106,6 +106,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/command-center/agents': 'Agent Scoreboard',
       '/admin/command-center/finops': 'FinOps',
       '/admin/video-editing': 'Editing Pipeline',
+      '/admin/revenue-mode': 'Revenue Mode',
     };
     let title = PAGE_TITLES[pathname];
     if (!title && pathname.startsWith('/admin/video-editing/')) title = 'Editing Request';

@@ -218,6 +218,8 @@ export interface InboxFilters {
   flagged_urgent?: boolean;
   limit?: number;
   offset?: number;
+  /** Include simulation (sim_*) comments. Default: false. */
+  includeSimulation?: boolean;
 }
 
 /** Ingestion run configuration. */

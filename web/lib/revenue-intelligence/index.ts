@@ -35,5 +35,13 @@ export {
 
 export type { InboxStats } from './revenue-inbox-service';
 
+// Simulation filter
+export {
+  isSimulationComment,
+  isSimulationVideo,
+  SIM_COMMENT_PATTERN,
+  SIM_VIDEO_PATTERN,
+} from './simulation-filter';
+
 // Logger
 export { logAgentAction, logAndTime } from './agent-logger';

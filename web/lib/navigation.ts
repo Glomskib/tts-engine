@@ -52,6 +52,7 @@ import {
   Youtube,
   Gauge,
   Briefcase,
+  Film,
   type LucideIcon,
 } from 'lucide-react';
 import { meetsMinPlan, migrateOldPlanId, getPlanByStringId } from '@/lib/plans';
@@ -131,6 +132,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Speak To Your Audience', href: '/admin/audience', icon: UserCheck },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro', tourId: 'nav-winners' },
       { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, minPlan: 'creator_pro' },
+      { name: 'Clip Index', href: '/admin/clip-index', icon: Film },
     ],
   },
   {

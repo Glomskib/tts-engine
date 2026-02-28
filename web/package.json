@@ -59,7 +59,9 @@
     "ri:ingest:dry": "tsx scripts/revenue-intelligence/run-ingestion.ts --dry-run",
     "ri:bootstrap": "tsx scripts/revenue-intelligence/bootstrap-session.ts",
     "ri:smoke": "tsx scripts/revenue-intelligence/smoke-test.ts",
-    "ri:smoke:db-only": "tsx scripts/revenue-intelligence/smoke-test.ts --skip-ai"
+    "ri:smoke:db-only": "tsx scripts/revenue-intelligence/smoke-test.ts --skip-ai",
+    "ri:purge:sim": "tsx scripts/revenue-intelligence/purge-sim.ts",
+    "ri:verify": "tsx scripts/revenue-intelligence/verify-latest.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

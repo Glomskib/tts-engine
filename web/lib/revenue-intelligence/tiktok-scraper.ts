@@ -26,6 +26,7 @@ import type {
 
 const TAG = '[ri:scraper]';
 const DEBUG = process.env.RI_DEBUG === '1';
+const RECENT_SWEEP = process.env.RI_RECENT_SWEEP === '1';
 
 function dbg(...args: unknown[]) {
   if (DEBUG) console.log(`${TAG} [DEBUG]`, ...args);
@@ -491,6 +492,97 @@ export async function scrapeVideoComments(
   }
 
   console.log(`${TAG} Extracted ${comments.length} comments from ${videoUrl}`);
+
+  // ── Recent sweep pass ──────────────────────────────────────
+  // Re-scroll to top and re-extract first ~20 comments to catch
+  // any that were posted between navigation and extraction.
+  if (RECENT_SWEEP && comments.length > 0) {
+    dbg('Recent sweep: re-scrolling to top');
+    await page.evaluate((containerSelectors: string[]) => {
+      for (const sel of containerSelectors) {
+        const container = document.querySelector(sel);
+        if (container) {
+          container.scrollTop = 0;
+          return;
+        }
+      }
+      window.scrollTo(0, 0);
+    }, [...COMMENTS.commentListContainer]);
+    await page.waitForTimeout(2000);
+
+    // Re-extract first ~20 comment elements
+    let sweepEls: ElementHandle[] = [];
+    for (const sel of COMMENTS.commentItem) {
+      sweepEls = await page.$$(sel);
+      if (sweepEls.length > 0) break;
+    }
+
+    const sweepLimit = Math.min(sweepEls.length, 20);
+    const existingIds = new Set(comments.map(c => c.platform_comment_id));
+    let newFromSweep = 0;
+
+    for (let i = 0; i < sweepLimit; i++) {
+      try {
+        const el = sweepEls[i];
+        const commentText = await tryText(el, COMMENTS.commentText);
+        if (!commentText) continue;
+
+        let username: string | null = null;
+        try {
+          const userLink = await el.$('a[href*="/@"]');
+          if (userLink) {
+            const href = await userLink.getAttribute('href');
+            if (href) {
+              const match = href.match(/\/@([^/?]+)/);
+              if (match) username = match[1];
+            }
+          }
+        } catch { /* fallback */ }
+        if (!username) username = await tryText(el, COMMENTS.username);
+        if (!username) continue;
+
+        let commentId = await el.getAttribute(COMMENTS.commentIdAttr);
+        if (!commentId) {
+          commentId = `${platformVideoId}_${hashString(username + commentText)}`;
+        }
+
+        if (existingIds.has(commentId)) continue;
+
+        // New comment found in sweep
+        const displayName = await tryText(el, COMMENTS.username);
+        const likeText = await tryText(el, COMMENTS.likeCount);
+        const replyText = await tryText(el, COMMENTS.replyCount);
+        const timestampText = await tryText(el, COMMENTS.timestamp);
+
+        comments.push({
+          platform_comment_id: commentId,
+          comment_text: commentText,
+          commenter_username: cleanUsername(username),
+          commenter_display_name: displayName !== username ? displayName : null,
+          like_count: likeText ? parseCount(likeText) : 0,
+          reply_count: replyText ? parseReplyCount(replyText) : 0,
+          is_reply: false,
+          parent_comment_id: null,
+          posted_at: timestampText ? parseRelativeTimestamp(timestampText) : null,
+          raw_json: {
+            like_text: likeText,
+            reply_text: replyText,
+            timestamp_text: timestampText,
+            from_recent_sweep: true,
+          },
+        });
+        existingIds.add(commentId);
+        newFromSweep++;
+      } catch { /* skip */ }
+    }
+
+    if (newFromSweep > 0) {
+      console.log(`${TAG} Recent sweep found ${newFromSweep} new comment(s)`);
+    }
+    dbg(`Recent sweep: checked ${sweepLimit} elements, ${newFromSweep} new`);
+  } else if (RECENT_SWEEP) {
+    dbg('Recent sweep: skipped (0 comments from main pass)');
+  }
 
   // Debug logging
   if (DEBUG && comments.length > 0) {

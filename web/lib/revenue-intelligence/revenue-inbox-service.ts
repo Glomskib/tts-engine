@@ -6,10 +6,14 @@
  * - Filter by status, category, urgency, lead score
  * - Update comment status (unread → reviewed → resolved)
  * - Get dashboard stats
+ *
+ * By default, simulation rows (platform_comment_id like 'sim_%') are excluded.
+ * Pass includeSimulation: true to include them.
  */
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { logAndTime } from './agent-logger';
+import { SIM_COMMENT_PATTERN } from './simulation-filter';
 import type {
   InboxComment,
   InboxFilters,
@@ -30,6 +34,7 @@ export async function getInboxComments(
 ): Promise<{ items: InboxComment[]; total: number }> {
   const limit = filters.limit ?? 20;
   const offset = filters.offset ?? 0;
+  const includeSim = filters.includeSimulation ?? false;
 
   // Build base query for comment IDs with filters
   let query = supabaseAdmin
@@ -38,9 +43,9 @@ export async function getInboxComments(
     .eq('user_id', filters.user_id)
     .eq('is_processed', true);
 
-  // Apply status filter via join
-  if (filters.status || filters.flagged_urgent !== undefined) {
-    // We'll filter after fetching statuses
+  // Exclude simulation rows by default
+  if (!includeSim) {
+    query = query.not('platform_comment_id', 'like', SIM_COMMENT_PATTERN);
   }
 
   const { data: commentRows, count, error } = await query
@@ -190,13 +195,24 @@ export interface InboxStats {
   avg_lead_score: number;
 }
 
-export async function getInboxStats(userId: string): Promise<InboxStats> {
+export async function getInboxStats(
+  userId: string,
+  opts?: { includeSimulation?: boolean },
+): Promise<InboxStats> {
+  const includeSim = opts?.includeSimulation ?? false;
+
   // Step 1: get user's processed comment IDs
-  const commentsRes = await supabaseAdmin
+  let query = supabaseAdmin
     .from('ri_comments')
     .select('id', { count: 'exact' })
     .eq('user_id', userId)
     .eq('is_processed', true);
+
+  if (!includeSim) {
+    query = query.not('platform_comment_id', 'like', SIM_COMMENT_PATTERN);
+  }
+
+  const commentsRes = await query;
 
   const total = commentsRes.count ?? 0;
   const commentIds = (commentsRes.data ?? []).map((c) => c.id);

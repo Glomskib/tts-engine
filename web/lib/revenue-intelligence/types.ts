@@ -254,3 +254,36 @@ export const DEFAULT_INGESTION_CONFIG: IngestionConfig = {
   headless: true,
   simulation_mode: false,
 };
+
+// ── Actions Queue Types ─────────────────────────────────────────
+
+export const RI_ACTION_TYPES = ['reply', 'followup_script'] as const;
+export type RiActionType = (typeof RI_ACTION_TYPES)[number];
+
+export const RI_QUEUE_STATUSES = ['queued', 'in_review', 'approved', 'rejected', 'done'] as const;
+export type RiQueueStatus = (typeof RI_QUEUE_STATUSES)[number];
+
+export interface RiActionsQueueItem {
+  id: string;
+  user_id: string;
+  comment_id: string;
+  action_type: RiActionType;
+  priority_score: number;
+  status: RiQueueStatus;
+  payload: Record<string, unknown>;
+  dedup_key: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export type RiActionsQueueInsert = Omit<RiActionsQueueItem, 'id' | 'created_at' | 'updated_at'> & {
+  id?: string;
+};
+
+export interface FollowupScriptPayload {
+  hookOptions: string[];
+  script: string;
+  broll: string[];
+  cta: string;
+  complianceNotes: string;
+}

@@ -28,6 +28,13 @@ export {
 } from './urgency-scoring-service';
 
 export {
+  enqueueActions,
+  getQueueItems,
+  updateQueueItemStatus,
+  computePriorityScore,
+} from './actions-queue-service';
+
+export {
   getInboxComments,
   updateCommentStatus,
   getInboxStats,

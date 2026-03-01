@@ -32,13 +32,13 @@ import {
 } from '../../lib/revenue-intelligence/comment-ingestion-service';
 import { classifyComments } from '../../lib/revenue-intelligence/comment-classification-service';
 import { generateReplyDrafts } from '../../lib/revenue-intelligence/reply-draft-service';
-import { flagUrgentComments, sendUrgentAlerts } from '../../lib/revenue-intelligence/urgency-scoring-service';
+import { flagUrgentComments } from '../../lib/revenue-intelligence/urgency-scoring-service';
+import { enqueueActions } from '../../lib/revenue-intelligence/actions-queue-service';
 import { scrapeAccount } from '../../lib/revenue-intelligence/tiktok-scraper';
 import { generateSimulationData } from '../../lib/revenue-intelligence/simulation-data';
 import { logAgentAction } from '../../lib/revenue-intelligence/agent-logger';
 import { getRunState, countNewSince, updateRunState } from '../../lib/revenue-intelligence/run-state-service';
-import { getRevenueModeInbox } from '../../lib/revenue-intelligence/revenue-inbox-service';
-import { sendDigestAlert } from '../../lib/revenue-intelligence/telegram-digest';
+import { sendTelegramMessage } from '../../lib/revenue-intelligence/telegram';
 import type { IngestionConfig, IngestionRunResult, RiCreatorAccount } from '../../lib/revenue-intelligence/types';
 import { DEFAULT_INGESTION_CONFIG } from '../../lib/revenue-intelligence/types';
 
@@ -203,7 +203,9 @@ async function runCommentIngestion(): Promise<void> {
     return;
   }
 
-  // Step 3: Classify + generate drafts + flag urgency
+  // Step 3: Classify + generate drafts + flag urgency + enqueue actions
+  let totalQueuedThisRun = 0;
+
   if (totalNewComments > 0) {
     console.log(`\n${'─'.repeat(50)}`);
     console.log(`${TAG} Processing ${totalNewComments} new comment(s) through AI pipeline`);
@@ -235,19 +237,13 @@ async function runCommentIngestion(): Promise<void> {
         const urgencyResult = await flagUrgentComments(commentIds);
         console.log(`${TAG} Flagged urgent: ${urgencyResult.flagged}`);
 
-        // Send Telegram alerts for urgent items
-        if (urgencyResult.flagged > 0) {
-          // Re-fetch the urgent comment IDs
-          const { data: urgentStatuses } = await (await import('@/lib/supabaseAdmin')).supabaseAdmin
-            .from('ri_comment_status')
-            .select('comment_id')
-            .in('comment_id', commentIds)
-            .eq('flagged_urgent', true);
-
-          const urgentIds = (urgentStatuses ?? []).map((s) => s.comment_id);
-          if (urgentIds.length > 0) {
-            await sendUrgentAlerts(urgentIds);
-          }
+        // Enqueue actions for human review
+        console.log(`${TAG} Enqueuing actions...`);
+        const queueResult = await enqueueActions({ userId: account.user_id, commentIds });
+        console.log(`${TAG} Enqueued: ${queueResult.enqueued}`);
+        totalQueuedThisRun += queueResult.enqueued;
+        if (queueResult.errors.length > 0) {
+          console.warn(`${TAG} Queue errors:`, queueResult.errors);
         }
 
         // Mark as processed
@@ -273,7 +269,7 @@ async function runCommentIngestion(): Promise<void> {
   console.log(`  Duration:           ${totalDuration}ms (${(totalDuration / 1000).toFixed(1)}s)`);
   console.log(`${'='.repeat(55)}\n`);
 
-  // Step 5: Run-state tracking + digest alerts
+  // Step 5: Run-state tracking + optional digest
   for (const account of accounts) {
     try {
       const prevState = await getRunState(account.user_id);
@@ -288,28 +284,31 @@ async function runCommentIngestion(): Promise<void> {
 
       await updateRunState(account.user_id);
       console.log(`${TAG} Run state updated for @${account.username} (new_count: ${newCount})`);
-
-      // Find urgent count from this run's results
-      const accountResult = allResults.find((r) => r.account_id === account.id);
-      const urgentCount = accountResult ? accountResult.errors.length : 0; // placeholder
-
-      if (newCount > 0) {
-        const topItems = await getRevenueModeInbox({
-          userId: account.user_id,
-          limit: 3,
-          includeSimulation: simulate,
-        });
-
-        await sendDigestAlert({
-          username: account.username,
-          newCount,
-          urgentCount: 0,
-          topItems,
-        });
-      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      console.error(`${TAG} Run-state/digest error for @${account.username}:`, msg);
+      console.error(`${TAG} Run-state error for @${account.username}:`, msg);
+    }
+  }
+
+  // Optional digest: send ONE Telegram message if RI_DIGEST_TELEGRAM=1
+  if (process.env.RI_DIGEST_TELEGRAM === '1' && totalQueuedThisRun > 0) {
+    try {
+      const { data: highPriorityRows } = await (await import('../../lib/supabaseAdmin')).supabaseAdmin
+        .from('ri_actions_queue')
+        .select('id')
+        .gte('priority_score', 75)
+        .eq('status', 'queued');
+
+      const highPriority = highPriorityRows?.length ?? 0;
+      const message =
+        `📋 <b>RI Queue Update</b>\n\n` +
+        `Queued ${totalQueuedThisRun} new action(s) (${highPriority} high priority).\n` +
+        `Review: /admin/revenue-mode`;
+
+      await sendTelegramMessage(message);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`${TAG} Digest Telegram error:`, msg);
     }
   }
 

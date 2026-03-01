@@ -32,6 +32,7 @@ import { classifyComments } from '../../lib/revenue-intelligence/comment-classif
 import { generateReplyDrafts } from '../../lib/revenue-intelligence/reply-draft-service';
 import { flagUrgentComments } from '../../lib/revenue-intelligence/urgency-scoring-service';
 import { getInboxComments, getInboxStats, getRevenueModeInbox } from '../../lib/revenue-intelligence/revenue-inbox-service';
+import { enqueueActions, getQueueItems } from '../../lib/revenue-intelligence/actions-queue-service';
 import { generateSimulationData } from '../../lib/revenue-intelligence/simulation-data';
 import { isSimulationComment } from '../../lib/revenue-intelligence/simulation-filter';
 import type { RiCreatorAccount } from '../../lib/revenue-intelligence/types';
@@ -288,6 +289,38 @@ async function main() {
   assert('Agent logs recorded', (logs?.length ?? 0) > 0, `found ${logs?.length}`);
   for (const log of logs ?? []) {
     console.log(`  ${log.action_type} (${log.duration_ms}ms)${log.error ? ` ERROR: ${log.error}` : ''}`);
+  }
+
+  // Tests 12-14: Queue tests (only when AI ran and we had unprocessed comments)
+  if (!skipAI && hasUnprocessed) {
+    const commentIds = unprocessed.slice(0, 5).map((c) => c.id);
+
+    // Test 12: Queue inserts
+    console.log('\n12. Queue Inserts');
+    const queueResult = await enqueueActions({ userId: account.user_id, commentIds });
+    assert('Queue enqueue no errors', queueResult.errors.length === 0, queueResult.errors.join(', '));
+    console.log(`  Enqueued: ${queueResult.enqueued}`);
+
+    // Test 13: Dedup
+    console.log('\n13. Queue Dedup');
+    const dedupResult = await enqueueActions({ userId: account.user_id, commentIds });
+    assert('Dedup run enqueues 0', dedupResult.enqueued === 0, `enqueued ${dedupResult.enqueued}`);
+
+    // Test 14: Sim filter
+    console.log('\n14. Queue Sim Filter');
+    const queueItems = await getQueueItems(account.user_id, 'queued');
+    let queueHasSim = false;
+    if (queueItems.length > 0) {
+      const queueCommentIds = queueItems.map((qi) => qi.comment_id);
+      const { data: queueComments } = await supabaseAdmin
+        .from('ri_comments')
+        .select('platform_comment_id')
+        .in('id', queueCommentIds);
+      queueHasSim = (queueComments ?? []).some((c) => isSimulationComment(c.platform_comment_id));
+    }
+    assert('Queue excludes sim_ comments', !queueHasSim, `${queueItems.length} items`);
+  } else if (skipAI) {
+    console.log('\n12-14. Skipping queue tests (--skip-ai)\n');
   }
 
   // Summary

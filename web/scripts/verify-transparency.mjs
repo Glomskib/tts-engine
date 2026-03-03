@@ -30,9 +30,8 @@ const OUT  = '/tmp/tok-comment-test.png';
   console.log(`Navigating to ${URL} …`);
   await page.goto(URL, { waitUntil: 'networkidle' });
 
-  // Fill inputs
+  // Fill inputs (username input was removed — bubble no longer shows replier)
   await page.fill('input[placeholder="originalcommenter"]', 'testuser');
-  await page.fill('input[placeholder="yourcreatorhandle"]', 'myhandle');
   await page.fill('textarea[placeholder="Type the comment text here..."]', 'This is a transparency test 👀');
   await page.waitForTimeout(400);
 

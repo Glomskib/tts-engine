@@ -2,6 +2,7 @@
 
 import React, { useRef, useState, useLayoutEffect, useCallback } from 'react';
 import { toCanvas } from 'html-to-image';
+import { formatReplyHeader } from '@/lib/tools/tok-comment';
 
 // ============================================================================
 // TikTok On-Screen Comment Reply Sticker Generator
@@ -9,7 +10,6 @@ import { toCanvas } from 'html-to-image';
 
 export default function TokCommentTool() {
   const [replyTo, setReplyTo] = useState('');
-  const [username, setUsername] = useState('');
   const [comment, setComment] = useState('');
   const [downloading, setDownloading] = useState(false);
   const [error, setError] = useState('');
@@ -33,7 +33,7 @@ export default function TokCommentTool() {
       });
 
       const dataUrl = canvas.toDataURL('image/png');
-      const safe = (username || 'comment').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
+      const safe = (replyTo || 'comment').replace(/[^a-z0-9_-]/gi, '_').toLowerCase();
       const a = document.createElement('a');
       a.href = dataUrl;
       a.download = `tiktok-reply-${safe}.png`;
@@ -44,9 +44,9 @@ export default function TokCommentTool() {
     } finally {
       setDownloading(false);
     }
-  }, [username]);
+  }, [replyTo]);
 
-  const hasContent = replyTo.trim() || username.trim() || comment.trim();
+  const hasContent = replyTo.trim() || comment.trim();
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white">
@@ -64,7 +64,7 @@ export default function TokCommentTool() {
         <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5 space-y-4">
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-zinc-300">
-              Reply to username <span className="text-zinc-600 text-xs">(the commenter)</span>
+              Commenter username <span className="text-zinc-600 text-xs">(who wrote the comment)</span>
             </label>
             <div className="flex items-center">
               <span className="px-3 py-2.5 bg-zinc-800 border border-r-0 border-white/10 rounded-l-lg text-zinc-500 text-sm select-none">@</span>
@@ -73,22 +73,6 @@ export default function TokCommentTool() {
                 value={replyTo}
                 onChange={e => setReplyTo(e.target.value)}
                 placeholder="originalcommenter"
-                className="flex-1 bg-zinc-800/50 border border-white/10 rounded-r-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">
-              Your username <span className="text-zinc-600 text-xs">(the creator replying)</span>
-            </label>
-            <div className="flex items-center">
-              <span className="px-3 py-2.5 bg-zinc-800 border border-r-0 border-white/10 rounded-l-lg text-zinc-500 text-sm select-none">@</span>
-              <input
-                type="text"
-                value={username}
-                onChange={e => setUsername(e.target.value)}
-                placeholder="yourcreatorhandle"
                 className="flex-1 bg-zinc-800/50 border border-white/10 rounded-r-lg px-3.5 py-2.5 text-sm text-zinc-100 placeholder-zinc-600 focus:outline-none focus:border-zinc-500"
               />
             </div>
@@ -150,7 +134,6 @@ export default function TokCommentTool() {
             <TikTokCommentBubble
               ref={stickerRef}
               replyTo={replyTo}
-              username={username}
               comment={comment}
             />
           </div>
@@ -197,49 +180,50 @@ export default function TokCommentTool() {
 
 interface BubbleProps {
   replyTo: string;
-  username: string;
   comment: string;
 }
 
-const BUBBLE_BG = '#F4F4F4';
-const TAIL_H    = 22;  // px the tail extends below the bubble bottom
-const R         = 14;  // bubble corner radius
+const BUBBLE_BG = '#FFFFFF';
+const TAIL_H    = 18;  // px the tail extends below the bubble bottom
+const R         = 16;  // bubble corner radius
 
 /**
  * Single SVG path: rounded rectangle + TikTok-style downward speech tail.
  *
- * The tail sits at the bottom-left of the bubble and points straight down
- * with a slight leftward lean — matching TikTok's native reply sticker.
- * Both sides of the tail use cubic bezier curves so the wedge is soft and
- * organic (no sharp triangle, no flat sides).
+ * The tail sits at the bottom-left of the bubble and points down-left
+ * matching TikTok's native reply sticker. Both sides of the tail use
+ * cubic bezier curves so the wedge blends smoothly into the rounded rect
+ * — no visible seam, no sharp triangle.
  *
  * Geometry (bubble = W × H, tail adds TAIL_H below):
  *
- *   tl──────────tr          ← tail base on bubble bottom  (x: 28 – 58)
- *      ╲      ╱
- *       ╲    ╱   ← inward-scooping cubic curves
- *        ╲  ╱
- *         ╲╱  ← rounded tip at (tx, ty)              (x: 16, y: H + TAIL_H)
+ *   ┌─────────────────────────────────┐
+ *   │          rounded rect           │
+ *   └───tl────tr──────────────────────┘
+ *         ╲     ╱
+ *          ╲   ╱    ← smooth cubic bezier curves
+ *           ╲ ╱
+ *            ╰      ← rounded tip at (tx, ty)
  */
 function buildPath(W: number, H: number): string {
   const r  = R;
-  const tl = 28;          // tail base left x
-  const tr = 58;          // tail base right x
-  const tx = 16;          // tail tip x
-  const ty = H + TAIL_H; // tail tip y
+  const tl = 26;           // tail base left x
+  const tr = 52;           // tail base right x
+  const tx = 14;           // tail tip x
+  const ty = H + TAIL_H;  // tail tip y
 
-  // Right wall of tail: start at (tr, H), arc inward + down to near tip.
-  // cp1 pulls rightward-then-down; cp2 converges toward tip from the right.
-  const rcp1x = tr - 3, rcp1y = H + 9;
-  const rcp2x = tx + 11, rcp2y = ty - 5;
+  // Right wall of tail: gentle curve from (tr, H) → near tip.
+  // cp1 starts nearly horizontal then sweeps down; cp2 converges from right.
+  const rcp1x = tr + 1,  rcp1y = H + 7;
+  const rcp2x = tx + 14, rcp2y = ty - 3;
 
   // Rounded tip: quadratic arc through the apex so the point is soft.
-  const tipX = tx,     tipY = ty + 1;   // apex of rounded tip
-  const tEndX = tx - 3, tEndY = ty - 1; // rejoin point for left wall
+  const tipX = tx,      tipY = ty + 2;
+  const tEndX = tx - 4, tEndY = ty - 2;
 
-  // Left wall of tail: mirror of right — scoops from near-tip back up to (tl, H).
-  const lcp1x = tx - 9,  lcp1y = ty - 5;
-  const lcp2x = tl + 1,  lcp2y = H + 9;
+  // Left wall of tail: mirror — curves from near-tip back up to (tl, H).
+  const lcp1x = tx - 12, lcp1y = ty - 3;
+  const lcp2x = tl - 1,  lcp2y = H + 7;
 
   return [
     `M${r} 0`,
@@ -248,11 +232,11 @@ function buildPath(W: number, H: number): string {
     `L${W} ${H - r}`,
     `Q${W} ${H} ${W - r} ${H}`,  // bottom-right corner
     `L${tr} ${H}`,                // bottom edge → tail right base
-    // Right side of tail
-    `C${rcp1x} ${rcp1y} ${rcp2x} ${rcp2y} ${tx + 4} ${ty - 1}`,
+    // Right side of tail — smooth cubic curve
+    `C${rcp1x} ${rcp1y} ${rcp2x} ${rcp2y} ${tx + 3} ${ty - 1}`,
     // Rounded tip
     `Q${tipX} ${tipY} ${tEndX} ${tEndY}`,
-    // Left side of tail
+    // Left side of tail — smooth cubic curve
     `C${lcp1x} ${lcp1y} ${lcp2x} ${lcp2y} ${tl} ${H}`,
     `L${r} ${H}`,
     `Q0 ${H} 0 ${H - r}`,        // bottom-left corner
@@ -263,11 +247,10 @@ function buildPath(W: number, H: number): string {
 }
 
 const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
-  ({ replyTo, username, comment }, ref) => {
-    const displayReplyTo  = replyTo.trim()  || 'someone';
-    const displayUsername = username.trim() || 'creator';
-    const displayComment  = comment.trim()  || 'Your comment text will appear here…';
-    const initials = displayUsername.charAt(0).toUpperCase();
+  ({ replyTo, comment }, ref) => {
+    const displayReplyTo = replyTo.trim() || 'someone';
+    const displayComment = comment.trim() || 'Your comment text will appear here…';
+    const initials = displayReplyTo.charAt(0).toUpperCase();
 
     // Measure the content div after each paint so the SVG fits exactly.
     const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
@@ -325,7 +308,6 @@ const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
               {/*
                * SVG drop-shadow filter — follows exact path contour so the
                * shadow hugs the rounded-rect + tail as one unified shape.
-               * No rectangular halo, no alpha bleed.
                */}
               <filter
                 id="tok-shadow"
@@ -339,7 +321,7 @@ const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
                 <feColorMatrix
                   in="off"
                   type="matrix"
-                  values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.13 0"
+                  values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.10 0"
                   result="shadow"
                 />
                 <feMerge>
@@ -351,8 +333,8 @@ const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
             <path
               d={buildPath(dims.w, dims.h)}
               fill={BUBBLE_BG}
-              stroke="rgba(0,0,0,0.06)"
-              strokeWidth="0.75"
+              stroke="rgba(0,0,0,0.05)"
+              strokeWidth="0.5"
               filter="url(#tok-shadow)"
             />
           </svg>
@@ -372,25 +354,25 @@ const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
             style={{
               fontSize: 11.5,
               fontWeight: 400,
-              color: '#8c8c8c',
+              color: '#8a8a8a',
               lineHeight: 1,
-              marginBottom: 7,
+              marginBottom: 8,
               letterSpacing: 0.05,
             }}
           >
             Reply to{' '}
-            <span style={{ fontWeight: 500, color: '#5c5c5c' }}>
+            <span style={{ fontWeight: 500, color: '#5a5a5a' }}>
               @{displayReplyTo}
             </span>
             &apos;s comment
           </div>
 
-          {/* Avatar + username + comment inline */}
+          {/* Avatar + comment text */}
           <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8 }}>
             <div
               style={{
-                width: 30,
-                height: 30,
+                width: 28,
+                height: 28,
                 borderRadius: '50%',
                 background:
                   'linear-gradient(135deg, #fe2c55 0%, #ee1d52 60%, #ff6550 100%)',
@@ -411,16 +393,12 @@ const TikTokCommentBubble = React.forwardRef<HTMLDivElement, BubbleProps>(
                 fontSize: 14,
                 lineHeight: 1.42,
                 color: '#111111',
+                fontWeight: 400,
                 wordBreak: 'break-word',
                 overflowWrap: 'break-word',
               }}
             >
-              <span style={{ fontWeight: 700, marginRight: 4 }}>
-                @{displayUsername}
-              </span>
-              <span style={{ fontWeight: 400, color: '#1a1a1a' }}>
-                {displayComment}
-              </span>
+              {displayComment}
             </div>
           </div>
         </div>

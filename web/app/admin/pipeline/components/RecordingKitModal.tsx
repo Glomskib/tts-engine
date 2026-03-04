@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { X, Copy, ExternalLink, CheckSquare, FileText, Palette, FolderPlus, Loader2, Scissors, FileAudio } from 'lucide-react';
+import { X, Copy, ExternalLink, CheckSquare, FileText, Palette, FolderPlus, Loader2, Scissors, FileAudio, Sparkles, MessageSquare, Mic } from 'lucide-react';
 import type { ContentItem, CowTier, ProcessingStatus } from '@/lib/content-items/types';
 import type { CreatorBriefData, PurpleCowTier } from '@/lib/briefs/creator-brief-types';
 import { useToast } from '@/contexts/ToastContext';
@@ -41,16 +41,40 @@ const PROCESSING_STATUS_LABELS: Record<ProcessingStatus, { label: string; color:
   failed: { label: 'Failed', color: 'text-red-600' },
 };
 
-export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded, onOpenEditorNotes }: RecordingKitModalProps) {
+export default function RecordingKitModal({ item, brief: initialBrief, onClose, onMarkRecorded, onOpenEditorNotes }: RecordingKitModalProps) {
   const { showSuccess, showError } = useToast();
+  const [brief, setBrief] = useState<CreatorBriefData | null>(initialBrief);
   const [selectedTier, setSelectedTier] = useState<CowTier>(
     (item.brief_selected_cow_tier as CowTier) || 'edgy'
   );
   const [confirming, setConfirming] = useState(false);
+  const [generatingBrief, setGeneratingBrief] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [folderUrl, setFolderUrl] = useState<string | null>(item.drive_folder_url);
 
   const activeTier = brief?.purple_cow?.tiers?.[selectedTier];
+
+  const handleGenerateBrief = useCallback(async () => {
+    setGeneratingBrief(true);
+    try {
+      const res = await fetch(`/api/content-items/${item.id}/brief`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cow_tier: selectedTier }),
+      });
+      const json = await res.json();
+      if (json.ok && json.data?.data) {
+        setBrief(json.data.data as CreatorBriefData);
+        showSuccess('Brief generated');
+      } else {
+        showError(json.error || 'Failed to generate brief');
+      }
+    } catch {
+      showError('Failed to generate brief');
+    } finally {
+      setGeneratingBrief(false);
+    }
+  }, [item.id, selectedTier, showSuccess, showError]);
 
   const handleCreateFolder = useCallback(async () => {
     setCreatingFolder(true);
@@ -97,7 +121,9 @@ export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
           <div>
-            <h2 className="text-lg font-bold">Recording Kit</h2>
+            <h2 className="text-lg font-bold flex items-center gap-2">
+              <Mic size={18} className="text-teal-600" /> Recording Kit
+            </h2>
             <span className="text-xs font-mono text-gray-500">{item.short_id} — {item.title}</span>
           </div>
           <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
@@ -107,7 +133,48 @@ export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-6">
-          {/* Script */}
+
+          {/* ── No brief: show generate button ─────────────────── */}
+          {!brief && (
+            <section className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 p-4 rounded-lg text-center space-y-3">
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                No Creator Brief generated yet. Generate one to get your script, checklist, and interrupts.
+              </p>
+              <button
+                onClick={handleGenerateBrief}
+                disabled={generatingBrief}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition disabled:opacity-50"
+              >
+                {generatingBrief ? (
+                  <><Loader2 size={14} className="animate-spin" /> Generating Brief...</>
+                ) : (
+                  <><Sparkles size={14} /> Generate Creator Brief</>
+                )}
+              </button>
+            </section>
+          )}
+
+          {/* ── Brief: One-liner & Plot ─────────────────────────── */}
+          {brief?.one_liner && (
+            <section>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-sm">Hook / One-Liner</h3>
+                <CopyBtn text={brief.one_liner} label="Copy Hook" />
+              </div>
+              <p className="bg-teal-50 dark:bg-teal-900/20 p-3 rounded-lg text-sm font-medium text-teal-800 dark:text-teal-300">
+                &ldquo;{brief.one_liner}&rdquo;
+              </p>
+            </section>
+          )}
+
+          {brief?.plot && (
+            <section>
+              <h3 className="font-semibold text-sm mb-2">Concept / Plot</h3>
+              <p className="text-sm text-gray-700 dark:text-gray-300">{brief.plot}</p>
+            </section>
+          )}
+
+          {/* ── Script ────────────────────────────────────────── */}
           {brief?.script_text && (
             <section>
               <div className="flex items-center justify-between mb-2">
@@ -120,7 +187,46 @@ export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded
             </section>
           )}
 
-          {/* Beforehand Checklist */}
+          {/* ── Scenes / Shots ────────────────────────────────── */}
+          {brief?.scenes && brief.scenes.length > 0 && (
+            <section>
+              <h3 className="font-semibold text-sm mb-2">Scenes</h3>
+              <div className="space-y-2">
+                {brief.scenes.map((scene, i) => (
+                  <div key={i} className="bg-gray-50 dark:bg-gray-800 p-2.5 rounded-lg text-sm">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-gray-500">Scene {scene.scene_number}</span>
+                      {scene.framing && <span className="text-xs text-blue-600 dark:text-blue-400">{scene.framing}</span>}
+                    </div>
+                    <p className="text-gray-700 dark:text-gray-300">{scene.action}</p>
+                    {scene.spoken_lines && (
+                      <p className="text-xs text-gray-500 mt-1 italic">&ldquo;{scene.spoken_lines}&rdquo;</p>
+                    )}
+                    {scene.on_screen_text && (
+                      <p className="text-xs text-gray-500 mt-0.5">On-screen: {scene.on_screen_text}</p>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── CTAs ──────────────────────────────────────────── */}
+          {(brief?.captions_pack?.ctas?.length ?? 0) > 0 && (
+            <section>
+              <h3 className="font-semibold text-sm mb-2">Calls to Action</h3>
+              <div className="space-y-1">
+                {brief!.captions_pack.ctas.map((cta, i) => (
+                  <div key={i} className="flex items-center justify-between text-sm text-orange-700 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20 p-2 rounded-lg">
+                    <span>{cta}</span>
+                    <CopyBtn text={cta} />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── Beforehand Checklist ──────────────────────────── */}
           {brief?.beforehand_checklist?.length ? (
             <section>
               <h3 className="font-semibold text-sm flex items-center gap-1 mb-2"><CheckSquare size={14} /> Beforehand Checklist</h3>
@@ -135,7 +241,7 @@ export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded
             </section>
           ) : null}
 
-          {/* Recording Notes */}
+          {/* ── Recording Notes ───────────────────────────────── */}
           {brief?.recording_notes?.length ? (
             <section>
               <h3 className="font-semibold text-sm mb-2">Recording Notes</h3>
@@ -145,7 +251,7 @@ export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded
             </section>
           ) : null}
 
-          {/* Purple Cow — Tier Switcher */}
+          {/* ── Purple Cow — Tier Switcher ────────────────────── */}
           {brief?.purple_cow?.tiers && (
             <section>
               <div className="flex items-center gap-2 mb-2">
@@ -178,14 +284,21 @@ export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded
                     <div><span className="font-medium text-gray-500 text-xs">Behavioral:</span> {activeTier.behavioral_interrupts.join(', ')}</div>
                   )}
                   {activeTier.comment_bait?.length > 0 && (
-                    <div><span className="font-medium text-gray-500 text-xs">Comment Bait:</span> {activeTier.comment_bait.join(' | ')}</div>
+                    <div>
+                      <span className="font-medium text-gray-500 text-xs flex items-center gap-1"><MessageSquare size={10} /> Comment Bait:</span>
+                      <ul className="mt-1 space-y-1 pl-2">
+                        {activeTier.comment_bait.map((b, i) => (
+                          <li key={i} className="text-xs text-purple-700 dark:text-purple-300">&bull; {b}</li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
                 </div>
               )}
             </section>
           )}
 
-          {/* Quick Copy Section */}
+          {/* ── Quick Copy Section ────────────────────────────── */}
           <section className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg space-y-2">
             <h3 className="font-semibold text-sm mb-1">Quick Copy</h3>
             <div className="flex items-center justify-between text-sm">
@@ -198,7 +311,7 @@ export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded
             </div>
           </section>
 
-          {/* Links */}
+          {/* ── Links: Drive folder + Brief doc ──────────────── */}
           <section className="flex gap-2 flex-wrap">
             {folderUrl ? (
               <a href={folderUrl} target="_blank" rel="noopener noreferrer"
@@ -228,7 +341,7 @@ export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded
             </p>
           )}
 
-          {/* After you upload */}
+          {/* ── After you upload ──────────────────────────────── */}
           <section className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg space-y-2">
             <h3 className="font-semibold text-sm mb-1">After You Upload</h3>
             <div className="flex items-center justify-between text-sm">

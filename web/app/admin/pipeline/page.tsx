@@ -7,6 +7,7 @@ import IncidentBanner from '../components/IncidentBanner';
 import VideoDrawer from './components/VideoDrawer';
 import CreateVideoDrawer from './components/CreateVideoDrawer';
 import ContentItemPanel from './components/ContentItemPanel';
+import ContentBoard from './components/ContentBoard';
 import RecordingKitModal from './components/RecordingKitModal';
 import type { ContentItem } from '@/lib/content-items/types';
 import type { CreatorBriefData } from '@/lib/briefs/creator-brief-types';
@@ -14,7 +15,7 @@ import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { VideoQueueMobile } from '@/components/VideoQueueMobile';
 import { VideoDetailSheet } from '@/components/VideoDetailSheet';
 import { FilterSheet } from '@/components/FilterSheet';
-import { Filter, Film, Download, LayoutGrid, List, Sparkles, FileText, Video } from 'lucide-react';
+import { Filter, Film, Download, LayoutGrid, List, Layers, Sparkles, FileText, Video } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import UpsellBanner from '@/components/UpsellBanner';
@@ -475,8 +476,8 @@ export default function AdminPipelinePage() {
 
   // View mode state (simple vs advanced) - simple is default for VA usability
   const [simpleView, setSimpleView] = useState(true);
-  // Board vs list view
-  const [viewMode, setViewMode] = useState<'list' | 'board'>('board');
+  // Board vs list vs content view
+  const [viewMode, setViewMode] = useState<'list' | 'board' | 'content'>('content');
   const [boardFilters, setBoardFilters] = useState<BoardFilters>({ brand: '', product: '', account: '' });
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, boolean>>({
     POSTED: true,
@@ -736,6 +737,8 @@ export default function AdminPipelinePage() {
           setViewMode('list');
         } else if (savedViewMode === 'board') {
           setViewMode('board');
+        } else if (savedViewMode === 'content') {
+          setViewMode('content');
         }
 
         // Restore filter state from localStorage
@@ -1533,6 +1536,25 @@ export default function AdminPipelinePage() {
     }
   };
 
+  // Open Recording Kit directly from content board by content item ID
+  const handleOpenRecordingKitById = async (contentItemId: string) => {
+    try {
+      const [itemRes, briefRes] = await Promise.all([
+        fetch(`/api/content-items/${contentItemId}`),
+        fetch(`/api/content-items/${contentItemId}/brief`),
+      ]);
+      const [itemJson, briefJson] = await Promise.all([itemRes.json(), briefRes.json()]);
+      if (itemJson.ok && itemJson.data) {
+        setRecordingKitItem(itemJson.data as ContentItem);
+        setRecordingKitBrief(briefJson.ok && briefJson.data?.data ? briefJson.data.data as CreatorBriefData : null);
+      } else {
+        showError('Failed to load content item');
+      }
+    } catch {
+      showError('Failed to load content item');
+    }
+  };
+
   // Open handoff modal
   const openHandoffModal = (video: QueueVideo) => {
     setHandoffModalVideoId(video.id);
@@ -1931,6 +1953,21 @@ export default function AdminPipelinePage() {
               title="Board view"
             >
               <LayoutGrid size={15} />
+            </button>
+            <button type="button"
+              onClick={() => { setViewMode('content'); localStorage.setItem(VIEW_MODE_KEY, 'content'); }}
+              style={{
+                padding: '7px 10px',
+                backgroundColor: viewMode === 'content' ? colors.accent : 'transparent',
+                color: viewMode === 'content' ? 'white' : colors.textMuted,
+                border: 'none',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+              }}
+              title="Content Items view"
+            >
+              <Layers size={15} />
             </button>
           </div>
 
@@ -2733,6 +2770,16 @@ export default function AdminPipelinePage() {
               );
             });
           })()}
+        </div>
+      )}
+
+      {/* Desktop: Content Items Board */}
+      {viewMode === 'content' && (
+        <div className="hidden lg:block">
+          <ContentBoard
+            onOpenPanel={(id) => setContentItemPanelId(id)}
+            onOpenRecordingKit={(id) => handleOpenRecordingKitById(id)}
+          />
         </div>
       )}
 

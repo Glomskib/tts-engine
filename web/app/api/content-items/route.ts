@@ -26,9 +26,15 @@ export const GET = withErrorCapture(async (request: Request) => {
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 100);
   const offset = parseInt(url.searchParams.get('offset') || '0');
 
+  const view = url.searchParams.get('view'); // 'board' for joined data
+
+  const selectFields = view === 'board'
+    ? '*, brands:brand_id(name), products:product_id(name)'
+    : '*';
+
   let query = supabaseAdmin
     .from('content_items')
-    .select('*', { count: 'exact' })
+    .select(selectFields, { count: 'exact' })
     .eq('workspace_id', user.id)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);

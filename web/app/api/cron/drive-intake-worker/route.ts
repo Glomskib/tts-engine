@@ -610,6 +610,96 @@ async function processJob(job: IntakeJob): Promise<Record<string, unknown>> {
     // Use the best duration we have
     const finalDuration = whisperDuration || durationSeconds;
 
+    // ── 6b. Content Item Mapping ──
+    let matchedContentItemId: string | null = null;
+    try {
+      // Priority 1: Folder match — check if parent folder matches a content item
+      if (meta.parentFolderIds?.length) {
+        for (const parentId of meta.parentFolderIds) {
+          const { data: folderMatch } = await supabaseAdmin
+            .from('content_items')
+            .select('id')
+            .eq('drive_folder_id', parentId)
+            .eq('workspace_id', user_id)
+            .limit(1)
+            .maybeSingle();
+          if (folderMatch) {
+            matchedContentItemId = folderMatch.id;
+            break;
+          }
+        }
+      }
+
+      // Priority 2: Filename token match — look for [FF-xxxxxx] in filename
+      if (!matchedContentItemId && name) {
+        const tokenMatch = name.match(/\[FF-([a-f0-9]{6})\]/i);
+        if (tokenMatch) {
+          const shortId = `FF-${tokenMatch[1]}`;
+          const { data: tokenResult } = await supabaseAdmin
+            .from('content_items')
+            .select('id')
+            .eq('short_id', shortId)
+            .eq('workspace_id', user_id)
+            .limit(1)
+            .maybeSingle();
+          if (tokenResult) {
+            matchedContentItemId = tokenResult.id;
+          }
+        }
+      }
+
+      // Attach raw footage asset if matched
+      if (matchedContentItemId) {
+        // Dedupe guard: skip if this file is already attached
+        const { data: existingAsset } = await supabaseAdmin
+          .from('content_item_assets')
+          .select('id')
+          .eq('content_item_id', matchedContentItemId)
+          .eq('kind', 'raw_footage')
+          .eq('file_id', drive_file_id)
+          .maybeSingle();
+
+        if (existingAsset) {
+          console.log(`${LOG} Skipping duplicate asset for content item ${matchedContentItemId}: ${drive_file_id}`);
+        } else {
+          console.log(`${LOG} Matched content item ${matchedContentItemId} for ${name}`);
+          await supabaseAdmin.from('content_item_assets').insert({
+            content_item_id: matchedContentItemId,
+            kind: 'raw_footage',
+            source: 'google_drive',
+            file_id: drive_file_id,
+            file_name: name,
+            file_url: `https://drive.google.com/file/d/${drive_file_id}/view`,
+            metadata: { mime_type: mimeType, size_bytes: bytesWritten, duration_seconds: finalDuration },
+          });
+
+          // Set raw footage fields on content_items row (first footage wins)
+          const driveViewUrl = `https://drive.google.com/file/d/${drive_file_id}/view`;
+          await supabaseAdmin
+            .from('content_items')
+            .update({
+              raw_footage_drive_file_id: drive_file_id,
+              raw_footage_url: driveViewUrl,
+            })
+            .eq('id', matchedContentItemId)
+            .is('raw_footage_drive_file_id', null); // only if not already set
+
+          // Attach transcript asset if available
+          if (transcript.length > 0) {
+            await supabaseAdmin.from('content_item_assets').insert({
+              content_item_id: matchedContentItemId,
+              kind: 'transcript',
+              source: 'generated',
+              metadata: { text: transcript, timestamps: segments },
+            });
+          }
+        }
+      }
+    } catch (ciErr) {
+      // Content item mapping is non-fatal — log and continue
+      console.warn(`${LOG} Content item mapping failed (non-fatal):`, ciErr instanceof Error ? ciErr.message : ciErr);
+    }
+
     // ── 7. Generate edit notes ──
     let editNotes: Record<string, unknown> | null = null;
     if (connector.create_edit_notes) {
@@ -699,6 +789,17 @@ async function processJob(job: IntakeJob): Promise<Record<string, unknown>> {
       } catch { /* non-fatal */ }
 
       console.log(`${LOG} Pipeline item created: ${code} (${videoId})`);
+
+      // Link video to content item if matched
+      if (matchedContentItemId && videoId) {
+        try {
+          await supabaseAdmin
+            .from('content_items')
+            .update({ video_id: videoId })
+            .eq('id', matchedContentItemId);
+          console.log(`${LOG} Linked video ${videoId} to content item ${matchedContentItemId}`);
+        } catch { /* non-fatal */ }
+      }
     }
 
     // ── 9. Track cost in rollups ──
@@ -730,6 +831,7 @@ async function processJob(job: IntakeJob): Promise<Record<string, unknown>> {
       estimated_cost_usd: costEstimate.total_usd,
       usage_files_this_month: usage.totalFiles,
       usage_minutes_this_month: usage.totalMinutes,
+      content_item_id: matchedContentItemId,
     };
 
   } finally {

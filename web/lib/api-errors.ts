@@ -60,7 +60,10 @@ export type ApiErrorCode =
   | 'MISSING_PRODUCT_ID'
   | 'JOB_NOT_ACTIVE'
   | 'DAILY_CAP_EXCEEDED'
-  | 'SLA_EXPIRED';
+  | 'SLA_EXPIRED'
+  | 'DRIVE_NOT_CONNECTED'
+  | 'DRIVE_API_ERROR'
+  | 'ITEM_NOT_FOUND';
 
 // Admin users who can use force=true bypass (environment-configurable)
 export function getAdminUsers(): string[] {

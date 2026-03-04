@@ -3,9 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Copy, Check, ExternalLink, Mic, Send, Plus, Sparkles, Anchor, Loader2 } from 'lucide-react';
+import { Copy, Check, ExternalLink, Mic, Send, Plus, Sparkles, Anchor, Loader2, Target, Lightbulb, FlaskConical } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import type { ContentItem } from '@/lib/content-items/types';
+import type { DailyMission } from '@/lib/ai/missions/generateDailyMission';
+import type { CoachInsight } from '@/lib/ai/coach/generateCoachInsight';
 
 interface ContentItemRow extends ContentItem {
   products?: { name: string } | null;
@@ -43,17 +45,22 @@ export default function StudioPage() {
   const [postItems, setPostItems] = useState<ContentItemRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [markingPosted, setMarkingPosted] = useState<string | null>(null);
+  const [mission, setMission] = useState<DailyMission | null>(null);
+  const [coachInsight, setCoachInsight] = useState<CoachInsight | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [recordRes, postRes] = await Promise.all([
+      const [recordRes, postRes, missionRes, coachRes] = await Promise.all([
         fetch('/api/content-items?status=ready_to_record&view=board&limit=3'),
         fetch('/api/content-items?status=ready_to_post&view=board&limit=5'),
+        fetch('/api/missions/daily'),
+        fetch('/api/coach/insight'),
       ]);
-      const [recordJson, postJson] = await Promise.all([recordRes.json(), postRes.json()]);
+      const [recordJson, postJson, missionJson, coachJson] = await Promise.all([
+        recordRes.json(), postRes.json(), missionRes.json(), coachRes.json(),
+      ]);
 
       if (recordJson.ok) {
-        // Sort by due_at asc (nulls last)
         const sorted = (recordJson.data || []).sort((a: ContentItemRow, b: ContentItemRow) => {
           if (!a.due_at && !b.due_at) return 0;
           if (!a.due_at) return 1;
@@ -63,6 +70,8 @@ export default function StudioPage() {
         setRecordItems(sorted);
       }
       if (postJson.ok) setPostItems(postJson.data || []);
+      if (missionJson.ok) setMission(missionJson.data);
+      if (coachJson.ok) setCoachInsight(coachJson.data);
     } catch { /* silent */ } finally {
       setLoading(false);
     }
@@ -92,6 +101,12 @@ export default function StudioPage() {
     }
   };
 
+  const hasMissionTasks = mission && (
+    mission.record_tasks.length > 0 ||
+    mission.post_tasks.length > 0 ||
+    mission.experiment_tasks.length > 0
+  );
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -107,6 +122,100 @@ export default function StudioPage() {
         <h1 className="text-2xl font-bold text-[var(--text)]">Creator Studio</h1>
         <p className="text-base text-[var(--text-muted)] mt-1">Your next actions at a glance.</p>
       </div>
+
+      {/* AI Coach Insight */}
+      {coachInsight && (
+        <div className="bg-gradient-to-br from-violet-500/10 to-teal-500/10 border border-violet-500/20 rounded-xl p-4 flex items-start gap-3">
+          <Lightbulb size={20} className="text-violet-400 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-[var(--text)] leading-relaxed">{coachInsight.message}</p>
+        </div>
+      )}
+
+      {/* Today's Mission */}
+      <section>
+        <h2 className="text-lg font-semibold text-[var(--text)] mb-3 flex items-center gap-2">
+          <Target size={20} className="text-amber-400" /> Today&apos;s Mission
+        </h2>
+
+        {!hasMissionTasks ? (
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-5 text-center">
+            <p className="text-base text-[var(--text-muted)]">All caught up! No missions today.</p>
+          </div>
+        ) : (
+          <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 space-y-4">
+            {/* Record tasks */}
+            {mission!.record_tasks.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Record</p>
+                <ul className="space-y-1.5">
+                  {mission!.record_tasks.map(task => (
+                    <li key={task.id} className="flex items-center gap-2 text-sm text-[var(--text)]">
+                      <Mic size={14} className="text-blue-400 flex-shrink-0" />
+                      <span className="truncate">
+                        {task.product_name && <span className="text-teal-400">{task.product_name}</span>}
+                        {task.product_name && ' — '}
+                        {task.title}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={`/admin/record/${mission!.record_tasks[0].content_item_id}`}
+                  className="flex items-center justify-center gap-2 w-full min-h-[40px] mt-2 rounded-lg text-sm font-medium transition-colors bg-teal-600 text-white active:bg-teal-700"
+                >
+                  Open Recording Kit
+                </Link>
+              </div>
+            )}
+
+            {/* Post tasks */}
+            {mission!.post_tasks.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Post</p>
+                <ul className="space-y-1.5">
+                  {mission!.post_tasks.map(task => (
+                    <li key={task.id} className="flex items-center gap-2 text-sm text-[var(--text)]">
+                      <Send size={14} className="text-green-400 flex-shrink-0" />
+                      <span className="truncate">
+                        {task.product_name && <span className="text-violet-400">{task.product_name}</span>}
+                        {task.product_name && ' — '}
+                        {task.title}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href={`/admin/post/${mission!.post_tasks[0].content_item_id}`}
+                  className="flex items-center justify-center gap-2 w-full min-h-[40px] mt-2 rounded-lg text-sm font-medium transition-colors bg-green-600 text-white active:bg-green-700"
+                >
+                  Post Now
+                </Link>
+              </div>
+            )}
+
+            {/* Experiment tasks */}
+            {mission!.experiment_tasks.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-2">Experiment</p>
+                <ul className="space-y-1.5">
+                  {mission!.experiment_tasks.map(task => (
+                    <li key={task.id} className="flex items-center gap-2 text-sm text-[var(--text)]">
+                      <FlaskConical size={14} className="text-amber-400 flex-shrink-0" />
+                      <span className="truncate italic">{task.hook_text}</span>
+                    </li>
+                  ))}
+                </ul>
+                <Link
+                  href="/admin/content-studio"
+                  className="flex items-center justify-center gap-2 w-full min-h-[40px] mt-2 rounded-lg text-sm font-medium transition-colors bg-amber-600 text-white active:bg-amber-700"
+                >
+                  Create Script
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* Section 1: Record Next */}
       <section>

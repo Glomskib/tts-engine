@@ -106,15 +106,6 @@ export async function POST(request: NextRequest) {
       status: 'needs_edit',
       google_drive_url: '',
       script_locked_text: `HOOK: ${hook_text}`,
-      brief: {
-        hook: hook_text,
-        product_name,
-        brand: brand || null,
-        content_type: content_type || null,
-        source,
-        package_id: package_id || null,
-        score: score || null,
-      },
     };
 
     if (productId) {

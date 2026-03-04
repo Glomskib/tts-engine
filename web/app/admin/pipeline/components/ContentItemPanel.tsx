@@ -3,12 +3,20 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors, BarChart3, Plus, Brain, Trophy, ChevronRight, Flame, MessageSquare, Repeat2, Lightbulb } from 'lucide-react';
+import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors, BarChart3, Plus, Brain, Trophy, ChevronRight, Flame, MessageSquare, Repeat2, Lightbulb, BookOpen } from 'lucide-react';
 import type { ContentItem, ContentItemStatus, CowTier, ProcessingStatus, ContentItemPost, MetricsSnapshot, PostPlatform, ContentItemAIInsight } from '@/lib/content-items/types';
 import type { EditorNotesJSON } from '@/lib/content-items/editor-notes-schema';
 import type { PostmortemJSON } from '@/lib/ai/postmortem/generatePostmortem';
 import type { ViralPlaybook } from '@/lib/ai/viral/generatePlaybook';
 import type { CreatorBriefData, PurpleCowTier } from '@/lib/briefs/creator-brief-types';
+
+interface ContentMemoryEntry {
+  id: string;
+  memory_type: string;
+  value: string;
+  performance_score: number;
+  occurrences: number;
+}
 
 interface ContentItemPanelProps {
   contentItemId: string;
@@ -606,6 +614,7 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
   const [metrics, setMetrics] = useState<Record<string, MetricsSnapshot>>({});
   const [insights, setInsights] = useState<Record<string, ContentItemAIInsight>>({});
   const [playbooks, setPlaybooks] = useState<Record<string, ViralPlaybook>>({});
+  const [memories, setMemories] = useState<ContentMemoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddPost, setShowAddPost] = useState(false);
   const [metricsPostId, setMetricsPostId] = useState<string | null>(null);
@@ -616,11 +625,12 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const [postsRes, metricsRes] = await Promise.all([
+      const [postsRes, metricsRes, memoryRes] = await Promise.all([
         fetch(`/api/content-items/${contentItemId}/posts`),
         fetch(`/api/content-items/${contentItemId}/metrics`),
+        fetch('/api/content-memory?limit=10'),
       ]);
-      const [postsJson, metricsJson] = await Promise.all([postsRes.json(), metricsRes.json()]);
+      const [postsJson, metricsJson, memoryJson] = await Promise.all([postsRes.json(), metricsRes.json(), memoryRes.json()]);
 
       if (postsJson.ok) {
         const loadedPosts = postsJson.data || [];
@@ -651,6 +661,9 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
           map[s.content_item_post_id] = s;
         }
         setMetrics(map);
+      }
+      if (memoryJson.ok) {
+        setMemories(memoryJson.data || []);
       }
     } catch {
       // silent
@@ -804,6 +817,35 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
           </div>
         )}
       </div>
+
+      {/* Top Learned Patterns */}
+      {memories.length > 0 && (
+        <div>
+          <h3 className="font-semibold text-sm mb-2 flex items-center gap-1">
+            <BookOpen size={14} /> Top Learned Patterns
+          </h3>
+          <div className="space-y-1">
+            {memories.map(mem => {
+              const typeColors: Record<string, string> = {
+                hook: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+                format: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+                product: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+                pattern: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+              };
+              return (
+                <div key={mem.id} className="flex items-center gap-2 py-1.5 px-2 bg-gray-50 dark:bg-gray-800 rounded text-xs">
+                  <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${typeColors[mem.memory_type] || typeColors.pattern}`}>
+                    {mem.memory_type}
+                  </span>
+                  <span className="flex-1 truncate text-gray-700 dark:text-gray-300">{mem.value}</span>
+                  <span className="text-gray-400 flex-shrink-0">{mem.occurrences}x</span>
+                  <span className="font-medium text-indigo-600 dark:text-indigo-400 flex-shrink-0">{mem.performance_score}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Modals */}
       {showAddPost && (

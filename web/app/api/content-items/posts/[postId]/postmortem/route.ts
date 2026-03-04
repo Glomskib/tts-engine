@@ -15,6 +15,7 @@ import { evaluateWinner } from '@/lib/content-intelligence/winnerDetector';
 import { extractHookPattern } from '@/lib/content-intelligence/hookExtractor';
 import { createNotification } from '@/lib/notifications/notify';
 import { generateAndStorePlaybook } from '@/lib/ai/viral/generateAndStorePlaybook';
+import { updateMemoryFromPostmortem } from '@/lib/content-intelligence/memoryUpdater';
 
 export const runtime = 'nodejs';
 
@@ -83,7 +84,7 @@ export const POST = withErrorCapture(async (
   // Load post with content item join
   const { data: post } = await supabaseAdmin
     .from('content_item_posts')
-    .select('id, workspace_id, content_item_id, platform, post_url, caption_used, hashtags_used')
+    .select('id, workspace_id, content_item_id, platform, post_url, caption_used, hashtags_used, product_id')
     .eq('id', postId)
     .eq('workspace_id', user.id)
     .single();
@@ -206,6 +207,20 @@ export const POST = withErrorCapture(async (
   extractHookPattern(postId, user.id, result.json).catch(e =>
     console.error(`[${correlationId}] hook extraction error:`, e),
   );
+
+  // Update content memory from postmortem learnings
+  (async () => {
+    let productName: string | null = null;
+    if (post.product_id) {
+      const { data: prod } = await supabaseAdmin
+        .from('products')
+        .select('name')
+        .eq('id', post.product_id)
+        .maybeSingle();
+      productName = prod?.name ?? null;
+    }
+    await updateMemoryFromPostmortem(user.id, result.json, productName);
+  })().catch(e => console.error(`[${correlationId}] memory update error:`, e));
 
   const response = NextResponse.json({
     ok: true,

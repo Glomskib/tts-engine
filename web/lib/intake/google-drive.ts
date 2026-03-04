@@ -56,6 +56,7 @@ export function createOAuth2Client() {
 export const SCOPES = [
   'https://www.googleapis.com/auth/drive.readonly',
   'https://www.googleapis.com/auth/drive.file', // needed for folder creation
+  'https://www.googleapis.com/auth/documents',   // needed for native Google Docs creation
   'https://www.googleapis.com/auth/userinfo.email',
 ];
 
@@ -225,6 +226,7 @@ export interface FileMetadata {
   name: string;
   mimeType: string;
   sizeBytes: number;
+  parentFolderIds: string[];
 }
 
 export async function getFileMetadata(
@@ -234,12 +236,13 @@ export async function getFileMetadata(
   const drive = await getDriveClient(userId);
   const meta = await drive.files.get({
     fileId,
-    fields: 'id, name, mimeType, size',
+    fields: 'id, name, mimeType, size, parents',
   });
   return {
     name: meta.data.name || `intake-${fileId}.mp4`,
     mimeType: meta.data.mimeType || 'video/mp4',
     sizeBytes: parseInt(meta.data.size || '0', 10),
+    parentFolderIds: (meta.data.parents as string[]) || [],
   };
 }
 

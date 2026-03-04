@@ -16,6 +16,7 @@ const BOOLEAN_FIELDS = [
   'telegram_bug_report',
   'telegram_pipeline_error',
   'telegram_every_script',
+  'posting_reminders_enabled',
 ] as const;
 
 const DEFAULTS: Record<string, boolean> = {
@@ -29,7 +30,10 @@ const DEFAULTS: Record<string, boolean> = {
   telegram_bug_report: true,
   telegram_pipeline_error: true,
   telegram_every_script: false,
+  posting_reminders_enabled: true,
 };
+
+const VALID_LEAD_MINUTES = [15, 30, 60];
 
 /**
  * GET /api/settings/notifications
@@ -88,11 +92,16 @@ export async function PUT(request: NextRequest) {
   }
 
   // Whitelist only known boolean fields
-  const update: Record<string, boolean | string> = { updated_at: new Date().toISOString() };
+  const update: Record<string, boolean | string | number> = { updated_at: new Date().toISOString() };
   for (const field of BOOLEAN_FIELDS) {
     if (typeof body[field] === 'boolean') {
       update[field] = body[field] as boolean;
     }
+  }
+
+  // Handle posting_reminder_lead_minutes (15, 30, or 60)
+  if (typeof body.posting_reminder_lead_minutes === 'number' && VALID_LEAD_MINUTES.includes(body.posting_reminder_lead_minutes)) {
+    update.posting_reminder_lead_minutes = body.posting_reminder_lead_minutes;
   }
 
   const { data, error } = await supabaseAdmin

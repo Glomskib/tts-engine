@@ -3,234 +3,111 @@
 import { useState, useEffect } from 'react';
 import {
   Sparkles, FileText, Video, Calendar, Trophy, BarChart3,
-  Package, Folder, CreditCard, X, Settings, Target, TrendingUp
+  Package, Folder, CreditCard, X, Settings
 } from 'lucide-react';
 import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCredits } from '@/hooks/useCredits';
+import { getDashboardRole } from '@/lib/dashboard-roles';
 import SetupChecklist from './SetupChecklist';
 import RetainerTracker from './RetainerTracker';
+import { ActivityFeed } from './_components/ActivityFeed';
+import { PerformanceSnapshot } from './_components/PerformanceSnapshot';
+import { PersonalQueue } from './_components/PersonalQueue';
+import { AdminPanel } from './_components/AdminPanel';
+import { TeamPanel } from './_components/TeamPanel';
+import { CreatorPanel } from './_components/CreatorPanel';
 
-interface DashboardStats {
-  scriptsCount: number;
-  activeBrands: number;
+interface DashboardData {
+  role: string;
+  isAdmin: boolean;
+  activityFeed: { id: string; type: 'pipeline' | 'user'; event: string; description: string; timestamp: string }[];
+  performance: {
+    postsThisWeek: number;
+    viewsThisWeek: number;
+    topVideo: { id: string; video_code: string; views_total: number; posted_url?: string } | null;
+    upcomingPosts: {
+      readyToPost: { id: string; video_code: string }[];
+      scheduled: { id: string; title: string; scheduled_for: string; platform: string }[];
+    };
+    scriptsCount: number;
+  };
+  personalQueue: {
+    needsApproval: { id: string; video_code: string; recording_status: string; created_at: string }[];
+    needsEdits: { id: string; video_code: string; recording_status: string; created_at: string; edit_notes?: string }[];
+    overdue: { id: string; video_code: string; recording_status: string; created_at: string }[];
+  };
+  pipeline?: {
+    statusCounts: Record<string, number>;
+    stuckVideos: { items: { id: string; video_code: string; recording_status: string; last_status_changed_at: string }[]; total: number };
+    failures: { items: { id: string; video_id: string; event_type: string; details: Record<string, unknown>; created_at: string }[]; total: number };
+  };
 }
 
 const ALL_QUICK_NAV_ITEMS = [
-  {
-    id: 'content-studio',
-    label: 'Content Studio',
-    href: '/admin/content-studio',
-    icon: Sparkles,
-    color: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
-    description: 'Generate AI scripts',
-  },
-  {
-    id: 'transcriber',
-    label: 'Transcriber',
-    href: '/admin/transcribe',
-    icon: FileText,
-    color: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-    description: 'Transcribe videos',
-  },
-  {
-    id: 'script-library',
-    label: 'Script Library',
-    href: '/admin/script-library',
-    icon: Folder,
-    color: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
-    description: 'Browse scripts',
-  },
-  {
-    id: 'production-board',
-    label: 'Production Board',
-    href: '/admin/pipeline',
-    icon: Video,
-    color: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-    description: 'Track production',
-  },
-  {
-    id: 'retainers',
-    label: 'Retainers',
-    href: '/admin/retainers',
-    icon: Target,
-    color: 'bg-teal-500/20 text-teal-400 border-teal-500/30',
-    description: 'Track retainers',
-  },
-  {
-    id: 'winners-bank',
-    label: 'Winners Bank',
-    href: '/admin/winners',
-    icon: Trophy,
-    color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
-    description: 'Winning videos',
-  },
-  {
-    id: 'analytics',
-    label: 'Analytics',
-    href: '/admin/analytics',
-    icon: BarChart3,
-    color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-    description: 'View insights',
-  },
-  {
-    id: 'brands',
-    label: 'Brands',
-    href: '/admin/brands',
-    icon: Package,
-    color: 'bg-violet-500/20 text-violet-400 border-violet-500/30',
-    description: 'Manage brands',
-  },
+  { id: 'content-studio', label: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, color: 'bg-teal-500/20 text-teal-400 border-teal-500/30', description: 'Generate AI scripts' },
+  { id: 'transcriber', label: 'Transcriber', href: '/admin/transcribe', icon: FileText, color: 'bg-purple-500/20 text-purple-400 border-purple-500/30', description: 'Transcribe videos' },
+  { id: 'script-library', label: 'Script Library', href: '/admin/script-library', icon: Folder, color: 'bg-blue-500/20 text-blue-400 border-blue-500/30', description: 'Browse scripts' },
+  { id: 'production-board', label: 'Production Board', href: '/admin/pipeline', icon: Video, color: 'bg-amber-500/20 text-amber-400 border-amber-500/30', description: 'Track production' },
+  { id: 'retainers', label: 'Retainers', href: '/admin/retainers', icon: BarChart3, color: 'bg-teal-500/20 text-teal-400 border-teal-500/30', description: 'Track retainers' },
+  { id: 'winners-bank', label: 'Winners Bank', href: '/admin/winners', icon: Trophy, color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', description: 'Winning videos' },
+  { id: 'analytics', label: 'Analytics', href: '/admin/analytics', icon: BarChart3, color: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30', description: 'View insights' },
+  { id: 'brands', label: 'Brands', href: '/admin/brands', icon: Package, color: 'bg-violet-500/20 text-violet-400 border-violet-500/30', description: 'Manage brands' },
 ];
 
 const DEFAULT_QUICK_LINKS = ['content-studio', 'transcriber', 'script-library', 'production-board', 'retainers', 'winners-bank', 'analytics', 'brands'];
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const { user, role, isAdmin } = useAuth();
   const { credits } = useCredits();
-  const [stats, setStats] = useState<DashboardStats>({ scriptsCount: 0, activeBrands: 0 });
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [customizingQuickLinks, setCustomizingQuickLinks] = useState(false);
   const [selectedQuickLinks, setSelectedQuickLinks] = useState<string[]>(DEFAULT_QUICK_LINKS);
-  const [incomeGoal, setIncomeGoal] = useState(5000);
-  const [videosGoal, setVideosGoal] = useState(50);
-  const [currentIncome, setCurrentIncome] = useState(0);
-  const [currentVideos, setCurrentVideos] = useState(0);
-  const [editingGoals, setEditingGoals] = useState(false);
-  const [autoCalcVideos, setAutoCalcVideos] = useState<number | null>(null);
-  const [autoCalcIncome, setAutoCalcIncome] = useState<number | null>(null);
-  const [goalsOverridden, setGoalsOverridden] = useState(false);
 
-  // Load saved preferences from localStorage
+  const dashboardRole = getDashboardRole(role, isAdmin);
+
+  // Load quick link preferences
   useEffect(() => {
-    // Load saved quick links
     const saved = localStorage.getItem('flashflow_quick_links');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setSelectedQuickLinks(parsed.slice(0, 8)); // Max 8 items
+          setSelectedQuickLinks(parsed.slice(0, 8));
         }
-      } catch (e) {
-        // Invalid JSON, use defaults
-      }
-    }
-
-    // Load saved monthly goals (user overrides)
-    const savedGoals = localStorage.getItem('flashflow_monthly_goals');
-    if (savedGoals) {
-      try {
-        const parsed = JSON.parse(savedGoals);
-        if (parsed.incomeGoal) setIncomeGoal(parsed.incomeGoal);
-        if (parsed.videosGoal) setVideosGoal(parsed.videosGoal);
-        if (parsed.overridden) setGoalsOverridden(true);
       } catch {
-        // Invalid JSON, use defaults
+        // use defaults
       }
     }
   }, []);
 
-  // Auto-calculate goals from brand quotas + retainer targets
+  // Fetch aggregated dashboard data
   useEffect(() => {
-    const fetchAutoCalc = async () => {
+    const fetchDashboard = async () => {
       try {
-        // Fetch brand quotas
-        const brandsRes = await fetch('/api/brands');
-        let totalQuotaVideos = 0;
-        if (brandsRes.ok) {
-          const brandsData = await brandsRes.json();
-          totalQuotaVideos = (brandsData.data || []).reduce((sum: number, b: { monthly_video_quota?: number }) => sum + (b.monthly_video_quota || 0), 0);
-        }
-
-        // Fetch retainer targets
-        const retainersRes = await fetch('/api/admin/retainers', { credentials: 'include' });
-        let retainerVideos = 0;
-        let retainerIncome = 0;
-        if (retainersRes.ok) {
-          const retainerData = await retainersRes.json();
-          if (retainerData.summary) {
-            retainerVideos = retainerData.summary.total_videos_needed || 0;
-            retainerIncome = (retainerData.summary.total_base || 0) + (retainerData.summary.total_potential || 0);
+        const res = await fetch('/api/admin/dashboard');
+        if (res.ok) {
+          const json = await res.json();
+          if (json.ok) {
+            setDashboardData(json.data);
           }
         }
-
-        const calcVideos = Math.max(totalQuotaVideos, retainerVideos);
-        setAutoCalcVideos(calcVideos);
-        setAutoCalcIncome(retainerIncome);
-
-        // If not overridden, use auto-calculated values
-        if (!localStorage.getItem('flashflow_monthly_goals') || !JSON.parse(localStorage.getItem('flashflow_monthly_goals') || '{}').overridden) {
-          if (calcVideos > 0) setVideosGoal(calcVideos);
-          if (retainerIncome > 0) setIncomeGoal(retainerIncome);
-        }
-      } catch {
-        // Silent fail — keep manual goals
-      }
-    };
-    fetchAutoCalc();
-  }, []);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        // Fetch scripts count
-        const scriptsRes = await fetch('/api/scripts?limit=1');
-        let scriptsCount = 0;
-        if (scriptsRes.ok) {
-          const scriptsData = await scriptsRes.json();
-          scriptsCount = scriptsData.meta?.total || 0;
-        }
-
-        // Fetch brands count
-        const brandsRes = await fetch('/api/brands');
-        let activeBrands = 0;
-        if (brandsRes.ok) {
-          const brandsData = await brandsRes.json();
-          activeBrands = brandsData.data?.length || 0;
-        }
-
-        // Fetch current month's income from analytics
-        const now = new Date();
-        const firstDayOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        const daysSinceMonthStart = Math.ceil((now.getTime() - firstDayOfMonth.getTime()) / (1000 * 60 * 60 * 24));
-        const revenueRes = await fetch(`/api/analytics?type=revenue&days=${daysSinceMonthStart}`);
-        let monthlyIncome = 0;
-        if (revenueRes.ok) {
-          const revenueData = await revenueRes.json();
-          monthlyIncome = revenueData.data?.reduce((sum: number, item: any) => sum + (item.revenue || 0), 0) || 0;
-        }
-
-        // Fetch current month's video count
-        const videosRes = await fetch('/api/videos');
-        let monthlyVideos = 0;
-        if (videosRes.ok) {
-          const videosData = await videosRes.json();
-          const monthStart = firstDayOfMonth.toISOString();
-          monthlyVideos = videosData.data?.filter((v: any) => v.created_at >= monthStart).length || 0;
-        }
-
-        setStats({ scriptsCount, activeBrands });
-        setCurrentIncome(monthlyIncome);
-        setCurrentVideos(monthlyVideos);
-      } catch (error) {
-        console.error('Failed to fetch dashboard stats:', error);
+      } catch (err) {
+        console.error('Failed to fetch dashboard data:', err);
       } finally {
         setLoading(false);
       }
     };
-
-    fetchStats();
+    fetchDashboard();
   }, []);
 
   const userName = user?.email?.split('@')[0] || '';
 
   const handleToggleQuickLink = (id: string) => {
     setSelectedQuickLinks(prev => {
-      if (prev.includes(id)) {
-        return prev.filter(item => item !== id);
-      } else if (prev.length < 8) {
-        return [...prev, id];
-      }
+      if (prev.includes(id)) return prev.filter(item => item !== id);
+      if (prev.length < 8) return [...prev, id];
       return prev;
     });
   };
@@ -240,247 +117,58 @@ export default function DashboardPage() {
     setCustomizingQuickLinks(false);
   };
 
-  const handleSaveGoals = () => {
-    localStorage.setItem('flashflow_monthly_goals', JSON.stringify({ incomeGoal, videosGoal, overridden: true }));
-    setGoalsOverridden(true);
-    setEditingGoals(false);
-  };
-
-  const handleResetToAuto = () => {
-    if (autoCalcVideos !== null && autoCalcVideos > 0) setVideosGoal(autoCalcVideos);
-    if (autoCalcIncome !== null && autoCalcIncome > 0) setIncomeGoal(autoCalcIncome);
-    setGoalsOverridden(false);
-    localStorage.removeItem('flashflow_monthly_goals');
-    setEditingGoals(false);
-  };
-
   const displayedQuickLinks = ALL_QUICK_NAV_ITEMS.filter(item => selectedQuickLinks.includes(item.id));
 
   return (
     <div className="pt-6 pb-24 lg:pb-8 space-y-8 max-w-7xl mx-auto">
       {/* Welcome Header */}
       <div>
-        <h1 className="text-3xl font-bold text-white">
+        <h1 className="text-3xl font-bold text-[var(--text)]">
           Welcome back{userName ? `, ${userName}` : ''}
         </h1>
-        <p className="text-zinc-400 text-sm mt-1">Here's what's happening with your content today</p>
+        <p className="text-[var(--text-muted)] text-sm mt-1">Here&apos;s what&apos;s happening with your content today</p>
       </div>
 
-      {/* Setup Checklist — data-driven, collapsible, auto-dismisses when complete */}
-      <SetupChecklist scriptsCount={stats.scriptsCount} totalVideos={currentVideos} />
+      {/* Setup Checklist */}
+      <SetupChecklist scriptsCount={dashboardData?.performance.scriptsCount ?? 0} totalVideos={dashboardData?.performance.postsThisWeek ?? 0} />
 
-      {/* Stats Row */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Credits Remaining */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-teal-500/20 flex items-center justify-center">
-              <CreditCard className="w-5 h-5 text-teal-400" />
-            </div>
-            <div>
-              <div className="text-sm text-zinc-400">Credits Remaining</div>
-              <div className="text-2xl font-bold text-white">
-                {loading ? '—' : credits?.remaining ?? 0}
-              </div>
-            </div>
-          </div>
-        </div>
+      {/* Section 2 — Performance Snapshot */}
+      <PerformanceSnapshot data={dashboardData?.performance ?? null} loading={loading} />
 
-        {/* Scripts Generated */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-purple-500/20 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-purple-400" />
-            </div>
-            <div>
-              <div className="text-sm text-zinc-400">Scripts Generated</div>
-              <div className="text-2xl font-bold text-white">
-                {loading ? '—' : stats.scriptsCount}
-              </div>
-            </div>
-          </div>
-          {!loading && stats.scriptsCount === 0 && (
-            <Link href="/admin/content-studio" className="text-xs text-teal-400 hover:text-teal-300 mt-1 inline-block">
-              Generate your first script &rarr;
-            </Link>
-          )}
-        </div>
-
-        {/* Active Brands */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="w-10 h-10 rounded-lg bg-amber-500/20 flex items-center justify-center">
-              <Package className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <div className="text-sm text-zinc-400">Active Brands</div>
-              <div className="text-2xl font-bold text-white">
-                {loading ? '—' : stats.activeBrands}
-              </div>
-            </div>
-          </div>
-          {!loading && stats.activeBrands === 0 && (
-            <Link href="/admin/brands" className="text-xs text-teal-400 hover:text-teal-300 mt-1 inline-block">
-              Add your first brand &rarr;
-            </Link>
-          )}
-        </div>
+      {/* Section 1 — Activity Feed + Section 3 — Personal Queue (side by side on desktop) */}
+      <div className="grid lg:grid-cols-2 gap-6">
+        <ActivityFeed items={dashboardData?.activityFeed ?? []} loading={loading} />
+        <PersonalQueue data={dashboardData?.personalQueue ?? null} loading={loading} />
       </div>
 
-      {/* Monthly Goals Widget */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <Target className="w-5 h-5 text-emerald-400" />
-            <h2 className="text-lg font-semibold text-white">Monthly Goals</h2>
-            {autoCalcVideos !== null && autoCalcVideos > 0 && !goalsOverridden && (
-              <span className="text-xs px-2 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
-                Auto-calculated: {autoCalcVideos} videos needed
-              </span>
-            )}
-            {goalsOverridden && (
-              <span className="text-xs px-2 py-0.5 bg-amber-500/10 text-amber-400 rounded-full border border-amber-500/20">
-                Custom override
-              </span>
-            )}
-          </div>
-          <button
-            onClick={() => setEditingGoals(true)}
-            className="px-3 py-1.5 text-sm text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
-          >
-            Edit Goals
-          </button>
-        </div>
-
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Income Goal */}
-          <div>
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 mb-2">
-              <span className="text-sm text-zinc-400">Income Goal</span>
-              <span className="text-sm font-semibold text-white tabular-nums">
-                ${currentIncome.toLocaleString()} / ${incomeGoal.toLocaleString()}
-              </span>
-            </div>
-            <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all duration-500 rounded-full"
-                style={{ width: `${Math.min((currentIncome / incomeGoal) * 100, 100)}%` }}
-              />
-            </div>
-            <div className="mt-1 text-xs text-zinc-500">
-              {Math.round((currentIncome / incomeGoal) * 100)}% complete
-            </div>
-          </div>
-
-          {/* Videos Goal */}
-          <div>
-            <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 mb-2">
-              <span className="text-sm text-zinc-400">Videos Goal</span>
-              <span className="text-sm font-semibold text-white tabular-nums">
-                {currentVideos} / {videosGoal}
-              </span>
-            </div>
-            <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-blue-500 to-purple-500 transition-all duration-500 rounded-full"
-                style={{ width: `${Math.min((currentVideos / videosGoal) * 100, 100)}%` }}
-              />
-            </div>
-            <div className="mt-1 text-xs text-zinc-500">
-              {Math.round((currentVideos / videosGoal) * 100)}% complete
-            </div>
-          </div>
-        </div>
-
-        {/* Accountability Text */}
-        <div className="mt-4 pt-4 border-t border-zinc-800">
-          <div className="flex items-start gap-2">
-            <TrendingUp className="w-4 h-4 text-teal-400 shrink-0 mt-0.5" />
-            <p className="text-sm text-zinc-400">
-              {currentIncome >= incomeGoal && currentVideos >= videosGoal
-                ? 'Amazing work! You have crushed your monthly goals!'
-                : currentIncome >= incomeGoal * 0.8 || currentVideos >= videosGoal * 0.8
-                ? 'You are on track! Keep up the momentum to hit your goals.'
-                : 'Stay focused! Consistency is the key to achieving your targets.'}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Retainer Tracker — shows active brand retainers with pace tracking */}
-      <RetainerTracker />
-
-      {/* Edit Goals Modal */}
-      {editingGoals && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-          <div className="bg-zinc-900 rounded-xl border border-zinc-800 max-w-md w-full">
-            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Edit Monthly Goals</h3>
-              <button
-                onClick={() => setEditingGoals(false)}
-                className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="p-6 space-y-4">
-              {/* Income Goal Input */}
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Income Goal ($)
-                </label>
-                <input
-                  type="number"
-                  value={incomeGoal}
-                  onChange={(e) => setIncomeGoal(Math.max(0, Number(e.target.value)))}
-                  min="0"
-                  step="100"
-                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:border-teal-500 focus:outline-none"
-                />
-              </div>
-
-              {/* Videos Goal Input */}
-              <div>
-                <label className="block text-sm font-medium text-zinc-300 mb-2">
-                  Videos Goal
-                </label>
-                <input
-                  type="number"
-                  value={videosGoal}
-                  onChange={(e) => setVideosGoal(Math.max(0, Number(e.target.value)))}
-                  min="0"
-                  step="1"
-                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white focus:border-teal-500 focus:outline-none"
-                />
-              </div>
-            </div>
-            <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 p-4 space-y-2">
-              <button
-                onClick={handleSaveGoals}
-                className="w-full py-3 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors"
-              >
-                Save Goals
-              </button>
-              {autoCalcVideos !== null && autoCalcVideos > 0 && (
-                <button
-                  onClick={handleResetToAuto}
-                  className="w-full py-2 text-sm text-zinc-400 hover:text-white transition-colors"
-                >
-                  Reset to auto-calculated ({autoCalcVideos} videos, ${autoCalcIncome?.toLocaleString() || '0'})
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
+      {/* Section 4 — Role-Specific Panel */}
+      {dashboardRole === 'admin' && dashboardData?.pipeline && (
+        <AdminPanel pipeline={dashboardData.pipeline} />
       )}
+      {dashboardRole === 'team' && (
+        <TeamPanel
+          scriptsCount={dashboardData?.performance.scriptsCount ?? 0}
+          personalQueue={dashboardData?.personalQueue ?? null}
+        />
+      )}
+      {dashboardRole === 'creator' && (
+        <CreatorPanel
+          scriptsCount={dashboardData?.performance.scriptsCount ?? 0}
+          viewsThisWeek={dashboardData?.performance.viewsThisWeek ?? 0}
+          postsThisWeek={dashboardData?.performance.postsThisWeek ?? 0}
+        />
+      )}
+
+      {/* Retainer Tracker */}
+      <RetainerTracker />
 
       {/* Quick Nav Grid */}
       <div className="relative">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-white">Quick Actions</h2>
+          <h2 className="text-xl font-semibold text-[var(--text)]">Quick Actions</h2>
           <button
             onClick={() => setCustomizingQuickLinks(true)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] bg-[var(--surface)] hover:bg-[var(--surface2)] rounded-lg transition-colors"
           >
             <Settings className="w-4 h-4" />
             <span className="hidden sm:inline">Customize</span>
@@ -493,17 +181,17 @@ export default function DashboardPage() {
               <Link
                 key={item.href}
                 href={item.href}
-                className={`group bg-zinc-900 border ${item.color} rounded-xl p-4 md:p-6 hover:scale-[1.02] transition-all duration-200 active:scale-[0.98] min-h-[80px] md:min-h-0`}
+                className={`group bg-[var(--surface)] border ${item.color} rounded-xl p-4 md:p-6 hover:scale-[1.02] transition-all duration-200 active:scale-[0.98] min-h-[80px] md:min-h-0`}
               >
                 <div className="flex flex-col items-start gap-2 md:gap-3">
                   <div className={`w-10 h-10 md:w-12 md:h-12 rounded-lg ${item.color} flex items-center justify-center flex-shrink-0`}>
                     <Icon className="w-5 h-5 md:w-6 md:h-6" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-white group-hover:text-teal-400 transition-colors text-sm md:text-base">
+                    <h3 className="font-semibold text-[var(--text)] group-hover:text-teal-400 transition-colors text-sm md:text-base">
                       {item.label}
                     </h3>
-                    <p className="text-xs text-zinc-500 mt-0.5 hidden sm:block">{item.description}</p>
+                    <p className="text-xs text-[var(--text-muted)] mt-0.5 hidden sm:block">{item.description}</p>
                   </div>
                 </div>
               </Link>
@@ -515,18 +203,18 @@ export default function DashboardPage() {
       {/* Customize Quick Links Modal */}
       {customizingQuickLinks && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-          <div className="bg-zinc-900 rounded-xl border border-zinc-800 max-w-md w-full max-h-[80vh] overflow-y-auto">
-            <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between">
-              <h3 className="text-lg font-semibold text-white">Customize Quick Actions</h3>
+          <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] max-w-md w-full max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] p-4 flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-[var(--text)]">Customize Quick Actions</h3>
               <button
                 onClick={() => setCustomizingQuickLinks(false)}
-                className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)] rounded-lg transition-colors"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="p-4 space-y-3">
-              <p className="text-sm text-zinc-400 mb-4">
+              <p className="text-sm text-[var(--text-muted)] mb-4">
                 Select up to 8 items to display. Selected items: {selectedQuickLinks.length}/8
               </p>
               {ALL_QUICK_NAV_ITEMS.map((item) => {
@@ -538,8 +226,8 @@ export default function DashboardPage() {
                     onClick={() => handleToggleQuickLink(item.id)}
                     className={`w-full flex items-center gap-3 p-3 rounded-lg border transition-all ${
                       isSelected
-                        ? 'bg-teal-500/10 border-teal-500/30 text-white'
-                        : 'bg-zinc-800/50 border-zinc-700 text-zinc-400 hover:bg-zinc-800 hover:text-white'
+                        ? 'bg-teal-500/10 border-teal-500/30 text-[var(--text)]'
+                        : 'bg-[var(--surface2)]/50 border-[var(--border)] text-[var(--text-muted)] hover:bg-[var(--surface2)] hover:text-[var(--text)]'
                     }`}
                   >
                     <div className={`w-10 h-10 rounded-lg ${item.color} flex items-center justify-center flex-shrink-0`}>
@@ -547,7 +235,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex-1 text-left">
                       <p className="font-medium text-sm">{item.label}</p>
-                      <p className="text-xs text-zinc-500">{item.description}</p>
+                      <p className="text-xs text-[var(--text-muted)]">{item.description}</p>
                     </div>
                     {isSelected && (
                       <div className="w-5 h-5 rounded-full bg-teal-500 flex items-center justify-center flex-shrink-0">
@@ -560,7 +248,7 @@ export default function DashboardPage() {
                 );
               })}
             </div>
-            <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 p-4">
+            <div className="sticky bottom-0 bg-[var(--surface)] border-t border-[var(--border)] p-4">
               <button
                 onClick={handleSaveQuickLinks}
                 className="w-full py-3 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors"
@@ -571,7 +259,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }

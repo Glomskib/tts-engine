@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import AdminPageLayout, { AdminCard, AdminButton } from '../../components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
-import { Mail, Send, Loader2, Check, Info } from 'lucide-react';
+import { Mail, Send, Loader2, Check, Info, Clock } from 'lucide-react';
 
 interface NotificationPrefs {
   email_script_of_day: boolean;
@@ -16,10 +16,16 @@ interface NotificationPrefs {
   telegram_bug_report: boolean;
   telegram_pipeline_error: boolean;
   telegram_every_script: boolean;
+  posting_reminders_enabled: boolean;
+  posting_reminder_lead_minutes: number;
 }
 
+type BooleanPrefKey = {
+  [K in keyof NotificationPrefs]: NotificationPrefs[K] extends boolean ? K : never;
+}[keyof NotificationPrefs];
+
 interface PrefItem {
-  key: keyof NotificationPrefs;
+  key: BooleanPrefKey;
   label: string;
   description: string;
 }
@@ -138,7 +144,7 @@ export default function NotificationPreferencesPage() {
     fetchPrefs();
   }, [fetchPrefs]);
 
-  function updatePref(key: keyof NotificationPrefs, value: boolean) {
+  function updatePref(key: BooleanPrefKey, value: boolean) {
     if (!prefs) return;
     setPrefs({ ...prefs, [key]: value });
     setDirty(true);
@@ -255,6 +261,50 @@ export default function NotificationPreferencesPage() {
             </span>
           </div>
         </div>
+      </AdminCard>
+
+      {/* Posting Reminders */}
+      <AdminCard
+        title="Posting Reminders"
+        subtitle="Get notified before scheduled posts so you can upload final videos"
+        headerActions={
+          <div className="flex items-center gap-1.5 text-zinc-500">
+            <Clock className="w-4 h-4" />
+          </div>
+        }
+      >
+        <div className="-mx-5 divide-y divide-white/5">
+          <ToggleRow
+            item={{
+              key: 'posting_reminders_enabled',
+              label: 'Enable posting reminders',
+              description: 'Receive a notification before your scheduled posting time if no video has been uploaded',
+            }}
+            checked={prefs.posting_reminders_enabled}
+            onChange={(val) => updatePref('posting_reminders_enabled', val)}
+          />
+        </div>
+        {prefs.posting_reminders_enabled && (
+          <div className="mt-4 pt-4 border-t border-white/10">
+            <label className="flex items-center gap-4 px-4">
+              <span className="text-sm text-zinc-300">Remind me</span>
+              <select
+                value={prefs.posting_reminder_lead_minutes}
+                onChange={(e) => {
+                  const mins = parseInt(e.target.value, 10);
+                  setPrefs({ ...prefs, posting_reminder_lead_minutes: mins });
+                  setDirty(true);
+                }}
+                className="bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white px-3 py-1.5 focus:outline-none focus:border-violet-500"
+              >
+                <option value={15}>15 min before</option>
+                <option value={30}>30 min before</option>
+                <option value={60}>1 hour before</option>
+              </select>
+              <span className="text-sm text-zinc-500">before posting time</span>
+            </label>
+          </div>
+        )}
       </AdminCard>
 
       {/* Unsaved changes banner */}

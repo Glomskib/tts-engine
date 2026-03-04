@@ -13,6 +13,7 @@ import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { generatePostmortem } from '@/lib/ai/postmortem/generatePostmortem';
 import { evaluateWinner } from '@/lib/content-intelligence/winnerDetector';
 import { extractHookPattern } from '@/lib/content-intelligence/hookExtractor';
+import { createNotification } from '@/lib/notifications/notify';
 
 export const runtime = 'nodejs';
 
@@ -178,6 +179,14 @@ export const POST = withErrorCapture(async (
     evaluateWinner(postId, user.id).catch(e =>
       console.error(`[${correlationId}] winner evaluation error:`, e),
     );
+
+    createNotification({
+      workspaceId: user.id,
+      type: 'viral_alert',
+      title: 'Viral Content Detected',
+      message: `AI postmortem flagged a post as a potential winner.`,
+      link: `/admin/pipeline?video=${post.content_item_id}`,
+    }).catch(() => {});
   }
 
   // Extract hook pattern if hook_strength >= 7

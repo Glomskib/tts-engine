@@ -7,6 +7,7 @@
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createWinner } from '@/lib/winners';
+import { createNotification } from '@/lib/notifications/notify';
 import type { PostmortemJSON } from '@/lib/ai/postmortem/generatePostmortem';
 
 export interface WinnerEvaluation {
@@ -137,6 +138,15 @@ export async function evaluateWinner(postId: string, workspaceId: string): Promi
     console.error('[winnerDetector] createWinner error:', error);
     return null;
   }
+
+  // Notify user of new winner
+  createNotification({
+    workspaceId,
+    type: 'new_winner',
+    title: 'New Winner Detected',
+    message: `AI detected a winning post: ${evaluation.reasons[0] || 'meets winner criteria'}.`,
+    link: '/admin/winners',
+  }).catch(() => {});
 
   return { id: winner.id };
 }

@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 
 const CreateNotificationSchema = z.object({
   user_id: z.string().uuid().optional(),
-  type: z.enum(['va_submission', 'winner_detected', 'brand_quota', 'pipeline_idle', 'drive_new_video', 'competitor_viral', 'system', 'info']),
+  type: z.enum(['va_submission', 'winner_detected', 'brand_quota', 'pipeline_idle', 'drive_new_video', 'competitor_viral', 'system', 'info', 'viral_alert', 'new_winner', 'score_A_plus']),
   title: z.string().min(1).max(200),
   message: z.string().min(1).max(2000),
   action_url: z.string().max(500).optional(),

@@ -18,6 +18,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { scoreAndPersist } from '@/lib/content-intelligence/contentScore';
+import { updateProductPerformance } from '@/lib/content-intelligence/productPerformance';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -107,6 +108,16 @@ export const GET = withErrorCapture(async (request: Request) => {
     } else {
       skipped++;
     }
+  }
+
+  // Update product performance aggregates for workspaces that had synced posts
+  const syncedWorkspaces = new Set(
+    candidates.filter((_, i) => i < synced).map(c => c.workspace_id),
+  );
+  for (const wsId of syncedWorkspaces) {
+    updateProductPerformance(wsId).catch(e =>
+      console.error(`${LOG} product performance error for ${wsId}:`, e),
+    );
   }
 
   console.log(`${LOG} Processed ${candidates.length} candidates: ${synced} synced, ${skipped} skipped in ${Date.now() - startedAt}ms`);

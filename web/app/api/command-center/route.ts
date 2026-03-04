@@ -28,6 +28,7 @@ export const GET = withErrorCapture(async (request: Request) => {
     viralResult,
     winnersResult,
     hooksResult,
+    productPerfResult,
   ] = await Promise.all([
     // 1. Record Queue
     supabaseAdmin
@@ -79,6 +80,14 @@ export const GET = withErrorCapture(async (request: Request) => {
       .select('id, pattern, example_hook, performance_score, uses_count')
       .eq('workspace_id', workspaceId)
       .order('performance_score', { ascending: false })
+      .limit(10),
+
+    // 7. Product Performance (top 5 by engagement)
+    supabaseAdmin
+      .from('product_performance')
+      .select('product_id, total_posts, avg_views, avg_engagement, products(name)')
+      .eq('workspace_id', workspaceId)
+      .order('avg_engagement', { ascending: false })
       .limit(5),
   ]);
 
@@ -91,6 +100,7 @@ export const GET = withErrorCapture(async (request: Request) => {
       viral_content: viralResult.data || [],
       recent_winners: winnersResult.data || [],
       top_hooks: hooksResult.data || [],
+      product_performance: productPerfResult.data || [],
     },
     correlation_id: correlationId,
   });

@@ -15,6 +15,7 @@
  */
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { createNotification } from '@/lib/notifications/notify';
 
 export type ContentGrade = 'A+' | 'A' | 'B' | 'C' | 'D';
 
@@ -130,6 +131,17 @@ export async function scoreAndPersist(
     .update({ performance_score: result.grade })
     .eq('id', postId)
     .eq('workspace_id', workspaceId);
+
+  // Notify on A+ score
+  if (result.grade === 'A+') {
+    createNotification({
+      workspaceId,
+      type: 'score_A_plus',
+      title: 'A+ Performance Score',
+      message: `A post scored A+ with ${result.engagement_rate}% engagement${result.hook_boosted ? ' (hook boosted)' : ''}.`,
+      link: `/admin/pipeline?video=${postId}`,
+    }).catch(() => {});
+  }
 
   return result;
 }

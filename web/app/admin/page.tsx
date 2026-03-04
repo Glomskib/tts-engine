@@ -5,6 +5,7 @@ import Link from 'next/link';
 import {
   Loader2, RefreshCw, Mic, Scissors, Send, Flame, Trophy, Zap,
   ChevronRight, ExternalLink, Lightbulb, Plus, Sparkles, Check,
+  BarChart3,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import AdminPageLayout, { AdminCard, EmptyState } from '@/app/admin/components/AdminPageLayout';
@@ -46,6 +47,14 @@ interface HookPattern {
   uses_count: number;
 }
 
+interface ProductPerf {
+  product_id: string;
+  total_posts: number;
+  avg_views: number;
+  avg_engagement: number;
+  products: { name: string } | null;
+}
+
 interface CommandCenterData {
   record_queue: ContentItem[];
   editing_queue: ContentItem[];
@@ -53,6 +62,7 @@ interface CommandCenterData {
   viral_content: ViralInsight[];
   recent_winners: WinnerEntry[];
   top_hooks: HookPattern[];
+  product_performance: ProductPerf[];
 }
 
 interface GeneratedIdea {
@@ -232,6 +242,13 @@ export default function CommandCenter() {
       maxWidth="2xl"
       headerActions={
         <div className="flex items-center gap-2">
+          <Link
+            href="/admin/content-studio?action=create"
+            className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Create Content Item
+          </Link>
           <button
             type="button"
             onClick={generateIdeas}
@@ -285,7 +302,7 @@ export default function CommandCenter() {
       {/* Intelligence Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Viral Content */}
-        <AdminCard title="Viral Content" subtitle="AI-detected winners">
+        <AdminCard title="Viral Alerts" subtitle="AI-detected winners">
           {data.viral_content.length > 0 ? (
             <div className="space-y-2">
               {data.viral_content.map((insight) => {
@@ -312,7 +329,7 @@ export default function CommandCenter() {
               })}
             </div>
           ) : (
-            <p className="text-sm text-zinc-600 py-4 text-center">No viral content detected yet</p>
+            <p className="text-sm text-zinc-600 py-4 text-center">No viral alerts yet</p>
           )}
         </AdminCard>
 
@@ -384,6 +401,40 @@ export default function CommandCenter() {
           )}
         </AdminCard>
       </div>
+
+      {/* Top Products */}
+      <AdminCard title="Top Products" subtitle="By engagement rate">
+        {data.product_performance.length > 0 ? (
+          <div className="space-y-1">
+            {data.product_performance.map((pp) => (
+              <Link
+                key={pp.product_id}
+                href="/admin/products"
+                className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-lg hover:bg-white/5 transition-colors group"
+              >
+                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-teal-500/10 flex-shrink-0">
+                  <BarChart3 size={14} className="text-teal-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-zinc-200 truncate">
+                    {pp.products?.name || 'Unknown Product'}
+                  </div>
+                  <div className="text-[11px] text-zinc-600">
+                    {pp.total_posts} post{pp.total_posts !== 1 ? 's' : ''}
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-xs font-medium text-teal-400">{pp.avg_engagement}% eng</div>
+                  <div className="text-[10px] text-zinc-600">{formatNum(pp.avg_views)} avg views</div>
+                </div>
+                <ChevronRight size={14} className="text-zinc-700 group-hover:text-zinc-400 flex-shrink-0" />
+              </Link>
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-zinc-600 py-4 text-center">No product data yet</p>
+        )}
+      </AdminCard>
 
       {/* Generated Ideas */}
       {ideas.length > 0 && (

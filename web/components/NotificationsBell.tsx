@@ -36,6 +36,10 @@ function getTypeIcon(type: string): string {
     case 'subscription': return '💳';
     case 'script_saved': return '📝';
     case 'welcome': return '👋';
+    case 'viral_alert': return '🔥';
+    case 'new_winner':
+    case 'winner_detected': return '🏆';
+    case 'score_A_plus': return '⭐';
     default: return '📢';
   }
 }

@@ -207,6 +207,9 @@ export default function SkitLibraryPage() {
   // Pipeline send
   const [sendingToPipelineId, setSendingToPipelineId] = useState<string | null>(null);
 
+  // Content Item creation from script
+  const [creatingCIForId, setCreatingCIForId] = useState<string | null>(null);
+
   // Winners
   const [winnerModalSkit, setWinnerModalSkit] = useState<SavedSkit | null>(null);
   const [showWinnersOnly, setShowWinnersOnly] = useState(false);
@@ -684,6 +687,36 @@ export default function SkitLibraryPage() {
       showError('Failed to add to pipeline');
     } finally {
       setSendingToPipelineId(null);
+    }
+  };
+
+  // Create a content item from a script
+  const handleCreateContentItem = async (skitId: string) => {
+    const skit = skits.find(s => s.id === skitId);
+    if (!skit) return;
+
+    setCreatingCIForId(skitId);
+    try {
+      const res = await fetch('/api/content-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: skit.title || 'Untitled Script',
+          video_id: skit.video_id || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        showSuccess('Content item created');
+        // Navigate to content items page
+        window.location.href = `/admin/content-items`;
+      } else {
+        showError(json.error || 'Failed to create content item');
+      }
+    } catch {
+      showError('Failed to create content item');
+    } finally {
+      setCreatingCIForId(null);
     }
   };
 
@@ -1885,6 +1918,23 @@ export default function SkitLibraryPage() {
                             {sendingToPipelineId === skit.id ? "Adding..." : "Add to Pipeline"}
                           </button>
                         )}
+
+                        {/* Create Content Item Button */}
+                        <button type="button"
+                          onClick={(e) => { e.stopPropagation(); handleCreateContentItem(skit.id); }}
+                          disabled={creatingCIForId === skit.id}
+                          title="Create a Content Item from this script"
+                          style={{
+                            ...secondaryButtonStyle,
+                            backgroundColor: "#7c3aed",
+                            borderColor: "#7c3aed",
+                            color: "white",
+                            opacity: creatingCIForId === skit.id ? 0.6 : 1,
+                            cursor: creatingCIForId === skit.id ? "wait" : "pointer",
+                          }}
+                        >
+                          {creatingCIForId === skit.id ? "Creating..." : "+ Content Item"}
+                        </button>
 
                         {/* Mark as Winner Button */}
                         {skit.is_winner ? (

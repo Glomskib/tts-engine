@@ -266,14 +266,33 @@ export async function GET(request: Request) {
       };
     });
 
+    // Bulk-lookup content_items linked to these videos
+    const videoIds = videosWithInfo.map(v => (v as Record<string, unknown>).id as string).filter(Boolean);
+    const contentItemMap: Record<string, string> = {};
+    if (videoIds.length > 0) {
+      const { data: ciRows } = await supabaseAdmin
+        .from('content_items')
+        .select('id, video_id')
+        .in('video_id', videoIds);
+      for (const row of ciRows || []) {
+        if (row.video_id) contentItemMap[row.video_id] = row.id;
+      }
+    }
+
+    // Attach content_item_id to each video
+    const videosWithContentItems = videosWithInfo.map(v => ({
+      ...v,
+      content_item_id: contentItemMap[(v as Record<string, unknown>).id as string] || null,
+    }));
+
     // Apply sorting based on sort param
-    let sortedVideos = videosWithInfo;
+    let sortedVideos = videosWithContentItems;
     if (sortParam === 'priority') {
       // Sort by priority_score descending (highest priority first)
-      sortedVideos = [...videosWithInfo].sort((a, b) => b.priority_score - a.priority_score);
+      sortedVideos = [...videosWithContentItems].sort((a, b) => b.priority_score - a.priority_score);
     } else if (sortParam === 'oldest') {
       // Sort by created_at ascending (oldest first)
-      sortedVideos = [...videosWithInfo].sort((a, b) => {
+      sortedVideos = [...videosWithContentItems].sort((a, b) => {
         const aVideo = a as Record<string, unknown>;
         const bVideo = b as Record<string, unknown>;
         const aTime = new Date(aVideo.created_at as string).getTime();

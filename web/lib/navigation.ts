@@ -101,7 +101,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'HOME',
     subscriptionType: 'saas',
     items: [
-      { name: 'Dashboard', href: '/admin/dashboard', icon: BarChart },
+      { name: 'Command Center', href: '/admin/dashboard', icon: Gauge },
     ],
   },
   {
@@ -120,6 +120,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'PIPELINE',
     subscriptionType: 'saas',
     items: [
+      { name: 'Content Items', href: '/admin/content-items', icon: ListTodo, tourId: 'nav-content-items' },
       { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, minPlan: 'creator_pro', tourId: 'nav-content-planner' },
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, minPlan: 'creator_pro', tourId: 'nav-pipeline' },
       { name: 'Drive Intake', href: '/admin/intake', icon: Download, minPlan: 'creator_pro' },

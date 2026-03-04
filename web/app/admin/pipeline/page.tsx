@@ -6,6 +6,10 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import IncidentBanner from '../components/IncidentBanner';
 import VideoDrawer from './components/VideoDrawer';
 import CreateVideoDrawer from './components/CreateVideoDrawer';
+import ContentItemPanel from './components/ContentItemPanel';
+import RecordingKitModal from './components/RecordingKitModal';
+import type { ContentItem } from '@/lib/content-items/types';
+import type { CreatorBriefData } from '@/lib/briefs/creator-brief-types';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { VideoQueueMobile } from '@/components/VideoQueueMobile';
 import { VideoDetailSheet } from '@/components/VideoDetailSheet';
@@ -93,6 +97,8 @@ interface QueueVideo {
   tiktok_post_status?: string | null;
   auto_post_error?: string | null;
   tiktok_url?: string | null;
+  // Content item bridge
+  content_item_id?: string | null;
 }
 
 interface AvailableScript {
@@ -446,6 +452,11 @@ export default function AdminPipelinePage() {
   const [postMessage, setPostMessage] = useState<string | null>(null);
   const [tiktokPosting, setTiktokPosting] = useState(false);
   const [tiktokContentConnected, setTiktokContentConnected] = useState(false);
+
+  // Content Item panel state
+  const [contentItemPanelId, setContentItemPanelId] = useState<string | null>(null);
+  const [recordingKitItem, setRecordingKitItem] = useState<ContentItem | null>(null);
+  const [recordingKitBrief, setRecordingKitBrief] = useState<CreatorBriefData | null>(null);
 
   // Handoff modal state
   const [handoffModalVideoId, setHandoffModalVideoId] = useState<string | null>(null);
@@ -1487,6 +1498,39 @@ export default function AdminPipelinePage() {
       return;
     }
     openDrawer(video);
+  };
+
+  // Open content item panel for a video — create one if it doesn't exist
+  const handleOpenContentItem = async (video: QueueVideo) => {
+    if (video.content_item_id) {
+      setContentItemPanelId(video.content_item_id);
+      return;
+    }
+    // Create a new content item linked to this video
+    try {
+      const res = await fetch('/api/content-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          title: getVideoDisplayTitle(video),
+          video_id: video.id,
+          product_id: video.product_id || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok && json.data?.id) {
+        // Update local video with new content_item_id
+        setQueueVideos(prev => prev.map(v =>
+          v.id === video.id ? { ...v, content_item_id: json.data.id } : v
+        ));
+        setContentItemPanelId(json.data.id);
+        showSuccess('Content item created');
+      } else {
+        showError(json.error || 'Failed to create content item');
+      }
+    } catch {
+      showError('Failed to create content item');
+    }
   };
 
   // Open handoff modal
@@ -2613,7 +2657,18 @@ export default function AdminPipelinePage() {
                                   <td className="px-4 py-2.5 text-xs" style={{ color: colors.textMuted }}>
                                     {video.created_at ? new Date(video.created_at).toLocaleDateString() : '—'}
                                   </td>
-                                  <td className="px-4 py-2.5 text-right">
+                                  <td className="px-4 py-2.5 text-right space-x-1">
+                                    {/* Content Item button */}
+                                    <button
+                                      onClick={(e) => { e.stopPropagation(); handleOpenContentItem(video); }}
+                                      className="text-xs rounded px-2 py-1 transition-colors"
+                                      style={{ backgroundColor: colors.surface2, border: `1px solid ${colors.border}`, color: colors.textSecondary }}
+                                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#7c3aed'; e.currentTarget.style.color = 'white'; }}
+                                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.surface2; e.currentTarget.style.color = colors.textSecondary; }}
+                                      title={video.content_item_id ? 'Open Content Item' : 'Create Content Item'}
+                                    >
+                                      {video.content_item_id ? 'CI' : '+ CI'}
+                                    </button>
                                     {/* Quick advance button */}
                                     {video.next_status && status !== 'POSTED' && status !== 'REJECTED' && (
                                       <button
@@ -2821,11 +2876,20 @@ export default function AdminPipelinePage() {
                       })()}
                     </span>
                   </td>
-                  {/* Owner */}
+                  {/* Owner + CI */}
                   <td style={tdStyle}>
-                    <span style={{ fontSize: '12px', color: colors.textMuted }}>
-                      {claimedByMe ? 'You' : claimedByOther ? (userMap[video.claimed_by!] || video.claimed_by?.slice(0, 8)) : '—'}
-                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '12px', color: colors.textMuted }}>
+                        {claimedByMe ? 'You' : claimedByOther ? (userMap[video.claimed_by!] || video.claimed_by?.slice(0, 8)) : '—'}
+                      </span>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleOpenContentItem(video); }}
+                        style={{ fontSize: '10px', padding: '1px 5px', borderRadius: '3px', backgroundColor: video.content_item_id ? '#7c3aed22' : colors.surface2, color: video.content_item_id ? '#7c3aed' : colors.textMuted, border: `1px solid ${video.content_item_id ? '#7c3aed44' : colors.border}`, cursor: 'pointer' }}
+                        title={video.content_item_id ? 'Open Content Item' : 'Create Content Item'}
+                      >
+                        {video.content_item_id ? 'CI' : '+CI'}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -3603,6 +3667,32 @@ export default function AdminPipelinePage() {
             fetchQueueVideos();
           }}
           onShowToast={(message) => showToast(message, 'success')}
+        />
+      )}
+
+      {/* Content Item Panel */}
+      {contentItemPanelId && (
+        <ContentItemPanel
+          contentItemId={contentItemPanelId}
+          onClose={() => setContentItemPanelId(null)}
+          onOpenRecordingKit={(item, brief) => {
+            setRecordingKitItem(item);
+            setRecordingKitBrief(brief);
+          }}
+        />
+      )}
+
+      {/* Recording Kit Modal */}
+      {recordingKitItem && (
+        <RecordingKitModal
+          item={recordingKitItem}
+          brief={recordingKitBrief}
+          onClose={() => { setRecordingKitItem(null); setRecordingKitBrief(null); }}
+          onMarkRecorded={() => {
+            fetchQueueVideos();
+            setRecordingKitItem(null);
+            setRecordingKitBrief(null);
+          }}
         />
       )}
 

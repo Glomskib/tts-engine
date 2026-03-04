@@ -3,11 +3,13 @@
 import { useState, useEffect, type ReactNode } from 'react';
 import { Lock, ArrowRight, Loader2 } from 'lucide-react';
 import Link from 'next/link';
+import { PLAN_RANK } from '@/lib/plans';
 
 const PLAN_LABELS: Record<string, string> = {
   free: 'Free',
   creator_lite: 'Creator Lite',
   creator_pro: 'Creator Pro',
+  business: 'Business',
   brand: 'Brand',
   agency: 'Agency',
 };
@@ -16,16 +18,9 @@ const PLAN_PRICES: Record<string, number> = {
   free: 0,
   creator_lite: 9,
   creator_pro: 29,
-  brand: 49,
-  agency: 149,
-};
-
-const PLAN_RANK: Record<string, number> = {
-  free: 0,
-  creator_lite: 1,
-  creator_pro: 2,
-  brand: 3,
-  agency: 4,
+  business: 59,
+  brand: 0,
+  agency: 0,
 };
 
 interface PlanGateProps {

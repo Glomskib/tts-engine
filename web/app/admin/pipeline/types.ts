@@ -52,6 +52,8 @@ export interface QueueVideo {
   tiktok_post_status?: string | null;
   auto_post_error?: string | null;
   tiktok_url?: string | null;
+  // Content item bridge
+  content_item_id?: string | null;
 }
 
 export interface BoardFilters {

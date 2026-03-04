@@ -235,6 +235,24 @@ CRITICAL RULES:
     return NextResponse.json({ ok: true, brief_id: brief.id, analysis });
   } catch (err) {
     console.error('[brief-analyze] Error:', err);
+    // Try to mark the brief as failed so it doesn't stay stuck in 'analyzing'
+    try {
+      const body = await request.clone().json().catch(() => ({}));
+      if (body.brief_text) {
+        // We don't have the brief ID here if creation itself failed,
+        // but if it was created, find it by user + status
+        const auth = await getApiAuthContext(request);
+        if (auth.user) {
+          await supabaseAdmin
+            .from('brand_briefs')
+            .update({ status: 'failed' })
+            .eq('user_id', auth.user.id)
+            .eq('status', 'analyzing')
+            .order('created_at', { ascending: false })
+            .limit(1);
+        }
+      }
+    } catch { /* best effort */ }
     return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
 }

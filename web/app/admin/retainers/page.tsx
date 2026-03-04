@@ -118,6 +118,7 @@ interface PastBrief {
 export default function RetainersPage() {
   const searchParams = useSearchParams();
   const initialTab = searchParams.get('tab') === 'briefs' ? 'briefs' : 'retainers';
+  const briefIdParam = searchParams.get('brief_id');
   const [activeTab, setActiveTab] = useState<'retainers' | 'briefs'>(initialTab);
 
   const [data, setData] = useState<{ retainers: Retainer[]; summary: Summary } | null>(null);
@@ -126,6 +127,7 @@ export default function RetainersPage() {
   // Past briefs state
   const [pastBriefs, setPastBriefs] = useState<PastBrief[]>([]);
   const [loadingBriefs, setLoadingBriefs] = useState(true);
+  const [selectedBriefId, setSelectedBriefId] = useState<string | null>(briefIdParam);
 
   // Brief upload state
   const [showBriefUpload, setShowBriefUpload] = useState(false);
@@ -138,6 +140,23 @@ export default function RetainersPage() {
   const [briefError, setBriefError] = useState<string | null>(null);
   const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
   const [pdfParsing, setPdfParsing] = useState(false);
+
+  // Load a specific brief by ID (from URL param or clicking a past brief)
+  const loadBriefById = useCallback(async (id: string) => {
+    try {
+      const res = await fetch(`/api/brand-briefs/${id}`, { credentials: 'include' });
+      if (!res.ok) return;
+      const d = await res.json();
+      if (d.brief?.ai_analysis) {
+        setBriefAnalysis(d.brief.ai_analysis);
+        setBriefTitle(d.brief.title || '');
+        if (d.brief.brand_id) setBriefBrandId(d.brief.brand_id);
+        setSelectedBriefId(id);
+      }
+    } catch {
+      // ignore
+    }
+  }, []);
 
   const fetchPastBriefs = useCallback(async () => {
     setLoadingBriefs(true);
@@ -164,7 +183,11 @@ export default function RetainersPage() {
       .catch(() => {});
     // Fetch past briefs
     fetchPastBriefs();
-  }, [fetchPastBriefs]);
+    // Auto-load brief from URL param
+    if (briefIdParam) {
+      loadBriefById(briefIdParam);
+    }
+  }, [fetchPastBriefs, briefIdParam, loadBriefById]);
 
   const handleAnalyzeBrief = async () => {
     if (!briefText.trim() || briefText.trim().length < 50) {
@@ -707,11 +730,14 @@ export default function RetainersPage() {
               <div className="space-y-2">
                 {pastBriefs.map(brief => {
                   const targetTotal = brief.income_projections?.target?.total;
+                  const isSelected = selectedBriefId === brief.id;
                   return (
-                    <Link
+                    <button
                       key={brief.id}
-                      href={`/admin/briefs?id=${brief.id}`}
-                      className="w-full text-left flex items-center justify-between px-4 py-3 rounded-lg border border-white/5 bg-zinc-800/30 hover:bg-zinc-800/50 transition-colors"
+                      onClick={() => loadBriefById(brief.id)}
+                      className={`w-full text-left flex items-center justify-between px-4 py-3 rounded-lg border transition-colors ${
+                        isSelected ? 'border-teal-500/30 bg-teal-500/5' : 'border-white/5 bg-zinc-800/30 hover:bg-zinc-800/50'
+                      }`}
                     >
                       <div className="flex items-center gap-3 min-w-0">
                         <FileText className="w-4 h-4 text-zinc-500 shrink-0" />
@@ -735,7 +761,7 @@ export default function RetainersPage() {
                           {brief.status}
                         </span>
                       </div>
-                    </Link>
+                    </button>
                   );
                 })}
               </div>

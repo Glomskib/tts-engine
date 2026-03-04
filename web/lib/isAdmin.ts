@@ -15,8 +15,8 @@ export type AdminRoleSource = 'app_metadata' | 'user_metadata' | 'allowlist' | '
 
 export function isAdmin(user: User | null | undefined): boolean {
   if (!user) return false;
+  // Only trust server-controlled app_metadata (not user-writable user_metadata)
   if (user.app_metadata?.role === 'admin') return true;
-  if (user.user_metadata?.role === 'admin') return true;
 
   const allowlist = process.env.ADMIN_USERS || '';
   const adminEmails = allowlist.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
@@ -28,7 +28,6 @@ export function isAdmin(user: User | null | undefined): boolean {
 export function getAdminRoleSource(user: User | null | undefined): AdminRoleSource {
   if (!user) return 'none';
   if (user.app_metadata?.role === 'admin') return 'app_metadata';
-  if (user.user_metadata?.role === 'admin') return 'user_metadata';
   const allowlist = process.env.ADMIN_USERS || '';
   const adminEmails = allowlist.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
   if (user.email && adminEmails.includes(user.email.toLowerCase())) return 'allowlist';

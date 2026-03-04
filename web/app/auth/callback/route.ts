@@ -121,22 +121,23 @@ export async function GET(request: Request) {
         console.error('Referral code generation error (non-fatal):', e);
       }
 
+      // Resolve referral code from URL param OR cookie fallback
+      const cookieHeader = request.headers.get('cookie') || '';
+      const ffRefMatch = cookieHeader.match(/(?:^|;\s*)ff_ref=([^;]+)/);
+      const cookieRef = ffRefMatch ? decodeURIComponent(ffRefMatch[1]) : null;
+      const effectiveRef = referralCode || cookieRef;
+
       // Process referral code if present (non-fatal)
-      if (referralCode) {
+      if (effectiveRef) {
         try {
-          await recordReferralSignup(referralCode, data.user.id);
+          await recordReferralSignup(effectiveRef, data.user.id);
         } catch (e) {
           console.error('Referral signup recording error (non-fatal):', e);
         }
       }
 
-      // Record affiliate attribution from cookie or URL param (non-fatal)
+      // Record affiliate attribution (non-fatal)
       try {
-        const cookieHeader = request.headers.get('cookie') || '';
-        const ffRefMatch = cookieHeader.match(/(?:^|;\s*)ff_ref=([^;]+)/);
-        const cookieRef = ffRefMatch ? decodeURIComponent(ffRefMatch[1]) : null;
-        const effectiveRef = referralCode || cookieRef;
-
         if (effectiveRef) {
           const method = referralCode && cookieRef ? 'both'
             : referralCode ? 'url_param'

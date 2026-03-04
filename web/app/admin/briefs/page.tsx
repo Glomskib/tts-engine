@@ -20,7 +20,7 @@ import {
   ExternalLink,
   Clock,
 } from 'lucide-react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 interface Brand {
   id: string;
@@ -116,11 +116,16 @@ const BRIEF_TYPES = [
 export default function BriefsPage() {
   const { showSuccess, showError } = useToast();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
-  // Redirect to retainers page with briefs tab
+  // Redirect to retainers page with briefs tab (preserve brief ID if present)
   useEffect(() => {
-    router.replace('/admin/retainers?tab=briefs');
-  }, [router]);
+    const briefIdParam = searchParams.get('id');
+    const target = briefIdParam
+      ? `/admin/retainers?tab=briefs&brief_id=${briefIdParam}`
+      : '/admin/retainers?tab=briefs';
+    router.replace(target);
+  }, [router, searchParams]);
 
   // Form state
   const [brands, setBrands] = useState<Brand[]>([]);

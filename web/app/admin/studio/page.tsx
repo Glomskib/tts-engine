@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Copy, Check, ExternalLink, Mic, Send, Plus, Sparkles, Anchor, Loader2, Target, Lightbulb, FlaskConical } from 'lucide-react';
+import { Copy, Check, ExternalLink, Mic, Send, Plus, Sparkles, Anchor, Loader2, Target, Lightbulb, FlaskConical, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import type { ContentItem } from '@/lib/content-items/types';
 import type { DailyMission } from '@/lib/ai/missions/generateDailyMission';
@@ -47,17 +47,19 @@ export default function StudioPage() {
   const [markingPosted, setMarkingPosted] = useState<string | null>(null);
   const [mission, setMission] = useState<DailyMission | null>(null);
   const [coachInsight, setCoachInsight] = useState<CoachInsight | null>(null);
+  const [creatorScore, setCreatorScore] = useState<{ creator_score: number; trend: string } | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
-      const [recordRes, postRes, missionRes, coachRes] = await Promise.all([
+      const [recordRes, postRes, missionRes, coachRes, scoreRes] = await Promise.all([
         fetch('/api/content-items?status=ready_to_record&view=board&limit=3'),
         fetch('/api/content-items?status=ready_to_post&view=board&limit=5'),
         fetch('/api/missions/daily'),
         fetch('/api/coach/insight'),
+        fetch('/api/creator-score'),
       ]);
-      const [recordJson, postJson, missionJson, coachJson] = await Promise.all([
-        recordRes.json(), postRes.json(), missionRes.json(), coachRes.json(),
+      const [recordJson, postJson, missionJson, coachJson, scoreJson] = await Promise.all([
+        recordRes.json(), postRes.json(), missionRes.json(), coachRes.json(), scoreRes.json(),
       ]);
 
       if (recordJson.ok) {
@@ -72,6 +74,7 @@ export default function StudioPage() {
       if (postJson.ok) setPostItems(postJson.data || []);
       if (missionJson.ok) setMission(missionJson.data);
       if (coachJson.ok) setCoachInsight(coachJson.data);
+      if (scoreJson.ok) setCreatorScore(scoreJson.data);
     } catch { /* silent */ } finally {
       setLoading(false);
     }
@@ -118,9 +121,19 @@ export default function StudioPage() {
   return (
     <div className="px-4 pb-8 space-y-8 max-w-lg mx-auto">
       {/* Header */}
-      <div className="pt-2">
-        <h1 className="text-2xl font-bold text-[var(--text)]">Creator Studio</h1>
-        <p className="text-base text-[var(--text-muted)] mt-1">Your next actions at a glance.</p>
+      <div className="pt-2 flex items-start justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-[var(--text)]">Creator Studio</h1>
+          <p className="text-base text-[var(--text-muted)] mt-1">Your next actions at a glance.</p>
+        </div>
+        {creatorScore && (
+          <div className="flex items-center gap-2 bg-[var(--surface)] border border-[var(--border)] rounded-xl px-3 py-2">
+            <span className="text-2xl font-bold text-[var(--text)]">{creatorScore.creator_score}</span>
+            {creatorScore.trend === 'up' && <TrendingUp size={16} className="text-emerald-400" />}
+            {creatorScore.trend === 'down' && <TrendingDown size={16} className="text-red-400" />}
+            {creatorScore.trend === 'stable' && <Minus size={16} className="text-zinc-500" />}
+          </div>
+        )}
       </div>
 
       {/* AI Coach Insight */}

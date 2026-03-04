@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Copy, Check, ExternalLink, Send, Loader2, ArrowLeft } from 'lucide-react';
+import { Copy, Check, ExternalLink, Send, Loader2, ArrowLeft, Sparkles } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import type { ContentItem } from '@/lib/content-items/types';
 
@@ -33,6 +33,7 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
   const [postUrl, setPostUrl] = useState('');
   const [views, setViews] = useState('');
   const [likes, setLikes] = useState('');
+  const [generatingCaption, setGeneratingCaption] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -141,15 +142,55 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
         )}
 
         {/* Caption */}
-        {item.caption && (
-          <section>
-            <h2 className="text-lg font-semibold text-[var(--text)] mb-2">Caption</h2>
-            <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 mb-3">
-              <p className="text-base text-[var(--text)] whitespace-pre-wrap">{item.caption}</p>
-            </div>
-            <CopyBtn text={item.caption} label="Copy Caption" />
-          </section>
-        )}
+        <section>
+          <h2 className="text-lg font-semibold text-[var(--text)] mb-2">Caption</h2>
+          {item.caption ? (
+            <>
+              <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 mb-3">
+                <p className="text-base text-[var(--text)] whitespace-pre-wrap">{item.caption}</p>
+              </div>
+              <CopyBtn text={item.caption} label="Copy Caption" />
+            </>
+          ) : (
+            <p className="text-sm text-[var(--text-muted)] mb-3">No caption yet.</p>
+          )}
+          <button
+            onClick={async () => {
+              setGeneratingCaption(true);
+              try {
+                const res = await fetch('/api/ai/caption', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ content_item_id: contentItemId }),
+                });
+                const json = await res.json();
+                if (json.ok && json.data) {
+                  // Save caption to content item
+                  await fetch(`/api/content-items/${contentItemId}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      caption: json.data.caption,
+                      hashtags: json.data.hashtags,
+                    }),
+                  });
+                  setItem(prev => prev ? { ...prev, caption: json.data.caption, hashtags: json.data.hashtags } : prev);
+                  showToast({ message: 'Caption generated!', type: 'success' });
+                } else {
+                  showToast({ message: json.error || 'Failed to generate caption', type: 'error' });
+                }
+              } catch {
+                showToast({ message: 'Network error', type: 'error' });
+              } finally {
+                setGeneratingCaption(false);
+              }
+            }}
+            disabled={generatingCaption}
+            className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-medium transition-colors bg-violet-600 text-white active:bg-violet-700 disabled:opacity-50 mt-2"
+          >
+            {generatingCaption ? <><Loader2 size={18} className="animate-spin" /> Generating...</> : <><Sparkles size={18} /> {item.caption ? 'Regenerate Caption' : 'Generate AI Caption'}</>}
+          </button>
+        </section>
 
         {/* Hashtags */}
         {hashtags && (

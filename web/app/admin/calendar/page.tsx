@@ -1157,6 +1157,22 @@ export default function ContentPlannerPage() {
                 <button onClick={() => { fetchCalendar(); fetchPackage(); }} className="p-2 text-zinc-400 hover:text-white transition-colors">
                   <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
                 </button>
+                <button
+                  onClick={async () => {
+                    try {
+                      const res = await fetch('/api/ai/schedule-suggest');
+                      const json = await res.json();
+                      if (json.ok && json.data) {
+                        showSuccess(json.data.message);
+                      }
+                    } catch {
+                      showError('Failed to get schedule suggestion');
+                    }
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-500 transition-colors"
+                >
+                  <Zap className="w-3.5 h-3.5" /> Smart Schedule
+                </button>
               </>
             )}
           </div>

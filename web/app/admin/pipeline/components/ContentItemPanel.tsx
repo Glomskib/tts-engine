@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film } from 'lucide-react';
-import type { ContentItem, ContentItemStatus, CowTier } from '@/lib/content-items/types';
+import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors } from 'lucide-react';
+import type { ContentItem, ContentItemStatus, CowTier, ProcessingStatus } from '@/lib/content-items/types';
 import type { CreatorBriefData, PurpleCowTier } from '@/lib/briefs/creator-brief-types';
 
 interface ContentItemPanelProps {
@@ -13,7 +13,7 @@ interface ContentItemPanelProps {
   onOpenRecordingKit: (item: ContentItem, brief: CreatorBriefData | null) => void;
 }
 
-type PanelTab = 'brief' | 'script' | 'purple_cow' | 'upload' | 'meta' | 'history';
+type PanelTab = 'brief' | 'script' | 'purple_cow' | 'upload' | 'editor_notes' | 'meta' | 'history';
 
 const STATUS_LABELS: Record<ContentItemStatus, string> = {
   briefing: 'Briefing',
@@ -69,6 +69,22 @@ function PurpleCowSection({ tier, name }: { tier: PurpleCowTier; name: string })
         <div><span className="text-xs font-medium text-gray-500">Comment Bait:</span> <span className="text-sm">{tier.comment_bait.join(' | ')}</span></div>
       )}
     </div>
+  );
+}
+
+const PROCESSING_BADGE_STYLES: Record<ProcessingStatus, string> = {
+  none: 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400',
+  pending: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  processing: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  completed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  failed: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+};
+
+function ProcessingBadge({ status }: { status: ProcessingStatus }) {
+  return (
+    <span className={`px-2 py-0.5 rounded text-xs font-medium ${PROCESSING_BADGE_STYLES[status]}`}>
+      {status === 'processing' ? 'Processing...' : status.charAt(0).toUpperCase() + status.slice(1)}
+    </span>
   );
 }
 
@@ -142,6 +158,21 @@ function UploadTab({ item, assetCounts, onItemUpdate }: { item: ContentItem; ass
           <Upload size={14} /> Waiting for raw footage upload...
         </div>
       ) : null}
+
+      {/* Processing Status */}
+      {(item.transcript_status !== 'none' || item.editor_notes_status !== 'none') && (
+        <div className="space-y-2">
+          <h4 className="text-xs font-medium text-gray-500">Processing</h4>
+          <div className="flex justify-between text-sm items-center">
+            <span>Transcription</span>
+            <ProcessingBadge status={item.transcript_status} />
+          </div>
+          <div className="flex justify-between text-sm items-center">
+            <span>Editor Notes</span>
+            <ProcessingBadge status={item.editor_notes_status} />
+          </div>
+        </div>
+      )}
 
       {/* Assets */}
       <div className="space-y-2">
@@ -265,6 +296,7 @@ export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordi
     { key: 'script', label: 'Script', icon: <Sparkles size={14} /> },
     { key: 'purple_cow', label: 'Purple Cow', icon: <Palette size={14} /> },
     { key: 'upload', label: 'Upload', icon: <Upload size={14} /> },
+    { key: 'editor_notes', label: 'Edit Notes', icon: <Scissors size={14} /> },
     { key: 'meta', label: 'Meta', icon: <Hash size={14} /> },
     { key: 'history', label: 'History', icon: <Clock size={14} /> },
   ];
@@ -481,6 +513,87 @@ export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordi
         {/* Upload Tab */}
         {activeTab === 'upload' && (
           <UploadTab item={item} assetCounts={assetCounts} onItemUpdate={setItem} />
+        )}
+
+        {/* Editor Notes Tab */}
+        {activeTab === 'editor_notes' && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-2">
+              <h3 className="font-semibold text-sm">Editor Notes</h3>
+              <ProcessingBadge status={item.editor_notes_status} />
+            </div>
+            {item.editor_notes ? (
+              <>
+                {item.editor_notes.editing_style && (
+                  <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg text-sm">
+                    <span className="font-medium text-xs text-gray-500">Style: </span>{item.editor_notes.editing_style}
+                  </div>
+                )}
+                {item.editor_notes.overall_notes && (
+                  <div className="text-sm">{item.editor_notes.overall_notes}</div>
+                )}
+                {item.editor_notes.cut_suggestions?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Cut Suggestions</h4>
+                    <div className="space-y-1">
+                      {item.editor_notes.cut_suggestions.map((c, i) => (
+                        <div key={i} className="text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                          <span className="font-mono text-xs text-gray-400">{c.start_ts}–{c.end_ts}</span>{' '}
+                          <span>{c.reason}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {item.editor_notes.broll_suggestions?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">B-Roll Ideas</h4>
+                    <div className="space-y-1">
+                      {item.editor_notes.broll_suggestions.map((b, i) => (
+                        <div key={i} className="text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                          <span className="font-mono text-xs text-gray-400">{b.start_ts}–{b.end_ts}</span>{' '}
+                          <span>{b.broll_idea}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {item.editor_notes.on_screen_text_timing?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">On-Screen Text</h4>
+                    <div className="space-y-1">
+                      {item.editor_notes.on_screen_text_timing.map((t, i) => (
+                        <div key={i} className="text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                          <span className="font-mono text-xs text-gray-400">{t.ts}</span>{' '}
+                          <span className="font-medium">{t.text}</span>{' '}
+                          <span className="text-gray-400">({t.duration_s}s)</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {item.editor_notes.jump_cut_opportunities?.length > 0 && (
+                  <div>
+                    <h4 className="text-xs font-medium text-gray-500 mb-1">Jump Cut Opportunities</h4>
+                    <div className="space-y-1">
+                      {item.editor_notes.jump_cut_opportunities.map((j, i) => (
+                        <div key={i} className="text-sm">
+                          <span className="font-mono text-xs text-gray-400">{j.ts}</span>{' '}{j.suggestion}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            ) : item.editor_notes_status === 'pending' || item.editor_notes_status === 'processing' ? (
+              <div className="text-center py-8 text-gray-500">
+                <Loader2 size={24} className="mx-auto mb-2 animate-spin opacity-30" />
+                <p className="text-sm">Editor notes are being generated...</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-500">No editor notes available. Upload raw footage to trigger automatic generation.</p>
+            )}
+          </div>
         )}
 
         {/* Meta Tab */}

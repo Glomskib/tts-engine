@@ -674,25 +674,33 @@ async function processJob(job: IntakeJob): Promise<Record<string, unknown>> {
           });
 
           // Set raw footage fields on content_items row (first footage wins)
+          // Also queue transcript processing if intake didn't already transcribe
           const driveViewUrl = `https://drive.google.com/file/d/${drive_file_id}/view`;
-          await supabaseAdmin
-            .from('content_items')
-            .update({
-              raw_footage_drive_file_id: drive_file_id,
-              raw_footage_url: driveViewUrl,
-            })
-            .eq('id', matchedContentItemId)
-            .is('raw_footage_drive_file_id', null); // only if not already set
+          const ciUpdate: Record<string, unknown> = {
+            raw_footage_drive_file_id: drive_file_id,
+            raw_footage_url: driveViewUrl,
+          };
 
-          // Attach transcript asset if available
           if (transcript.length > 0) {
+            // Intake already transcribed — store and mark complete, queue editor notes
             await supabaseAdmin.from('content_item_assets').insert({
               content_item_id: matchedContentItemId,
               kind: 'transcript',
               source: 'generated',
               metadata: { text: transcript, timestamps: segments },
             });
+            ciUpdate.transcript_status = 'completed';
+            ciUpdate.editor_notes_status = 'pending'; // queue for AI editor notes
+          } else {
+            // No transcript yet — queue for processing worker
+            ciUpdate.transcript_status = 'pending';
           }
+
+          await supabaseAdmin
+            .from('content_items')
+            .update(ciUpdate)
+            .eq('id', matchedContentItemId)
+            .is('raw_footage_drive_file_id', null); // only if not already set
         }
       }
     } catch (ciErr) {

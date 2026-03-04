@@ -21,6 +21,8 @@ export const CONTENT_ITEM_STATUSES: ContentItemStatus[] = [
 
 export type CowTier = 'safe' | 'edgy' | 'unhinged';
 
+export type ProcessingStatus = 'none' | 'pending' | 'processing' | 'completed' | 'failed';
+
 export interface EditorNotes {
   cut_suggestions: Array<{ start_ts: string; end_ts: string; reason: string }>;
   pause_removals: Array<{ start_ts: string; end_ts: string }>;
@@ -57,6 +59,8 @@ export interface ContentItem {
   hashtags: string[] | null;
   caption: string | null;
   editor_notes: EditorNotes | null;
+  transcript_status: ProcessingStatus;
+  editor_notes_status: ProcessingStatus;
   created_at: string;
   updated_at: string;
 }

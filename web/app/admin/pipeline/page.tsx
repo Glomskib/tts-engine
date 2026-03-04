@@ -2773,14 +2773,12 @@ export default function AdminPipelinePage() {
         </div>
       )}
 
-      {/* Desktop: Content Items Board */}
+      {/* Content Items Board (mobile + desktop) */}
       {viewMode === 'content' && (
-        <div className="hidden lg:block">
-          <ContentBoard
-            onOpenPanel={(id) => setContentItemPanelId(id)}
-            onOpenRecordingKit={(id) => handleOpenRecordingKitById(id)}
-          />
-        </div>
+        <ContentBoard
+          onOpenPanel={(id) => setContentItemPanelId(id)}
+          onOpenRecordingKit={(id) => handleOpenRecordingKitById(id)}
+        />
       )}
 
       {/* Desktop: Quiet, Scannable Table */}

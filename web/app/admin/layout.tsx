@@ -108,9 +108,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/video-editing': 'Editing Pipeline',
       '/admin/hooks': 'Hook Library',
       '/admin/revenue-mode': 'Revenue Mode',
+      '/admin/studio': 'Creator Studio',
     };
     let title = PAGE_TITLES[pathname];
     if (!title && pathname.startsWith('/admin/video-editing/')) title = 'Editing Request';
+    if (!title && pathname.startsWith('/admin/record/')) title = 'Recording Kit';
+    if (!title && pathname.startsWith('/admin/post/')) title = 'Post Content';
     document.title = `${title || 'Admin'} | FlashFlow AI`;
   }, [pathname]);
 

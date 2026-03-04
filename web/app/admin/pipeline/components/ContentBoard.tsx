@@ -228,18 +228,95 @@ export default function ContentBoard({ onOpenPanel, onOpenRecordingKit }: Conten
               <ChevronDown className={`w-4 h-4 ml-auto text-zinc-500 transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
             </button>
 
-            {/* Table */}
+            {/* Mobile Cards */}
             {!isCollapsed && group.length > 0 && (
-              <div className="overflow-x-auto">
+              <div className="lg:hidden p-3 space-y-3">
+                {group.map(item => {
+                  const due = item.due_at ? new Date(item.due_at) : null;
+                  const isOverdue = due && due < new Date();
+                  const dueLabel = due
+                    ? (() => {
+                        const diffDays = Math.ceil((due.getTime() - Date.now()) / 86400000);
+                        if (diffDays === 0) return 'Today';
+                        if (diffDays === 1) return 'Tomorrow';
+                        if (diffDays < 0) return `${Math.abs(diffDays)}d overdue`;
+                        if (diffDays <= 7) return `${diffDays}d`;
+                        return due.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                      })()
+                    : null;
+
+                  return (
+                    <div
+                      key={item.id}
+                      className="rounded-xl p-4 space-y-3"
+                      style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}` }}
+                      onClick={() => onOpenPanel(item.id)}
+                    >
+                      {/* Title */}
+                      <p className="text-base font-medium line-clamp-1" style={{ color: colors.text }}>
+                        {item.title}
+                      </p>
+
+                      {/* Meta row: product, due */}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {item.products?.name && (
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${config.bg} ${config.color} border`}>
+                            {item.products.name}
+                          </span>
+                        )}
+                        {dueLabel && (
+                          <span className={`text-xs font-medium ${isOverdue ? 'text-red-400' : ''}`} style={isOverdue ? {} : { color: colors.textMuted }}>
+                            Due {dueLabel}
+                          </span>
+                        )}
+                        <span className="text-[10px] font-mono ml-auto" style={{ color: colors.textMuted }}>{item.short_id}</span>
+                      </div>
+
+                      {/* Primary CTA */}
+                      <div onClick={(e) => e.stopPropagation()}>
+                        {item.status === 'ready_to_record' ? (
+                          <button
+                            onClick={() => onOpenRecordingKit(item.id)}
+                            className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-semibold text-white active:brightness-90"
+                            style={{ backgroundColor: '#0F766E' }}
+                          >
+                            <Mic size={18} /> Open Recording Kit
+                          </button>
+                        ) : item.status === 'ready_to_post' ? (
+                          <button
+                            onClick={() => handleAdvance(item)}
+                            className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-semibold bg-green-600 text-white active:bg-green-700"
+                          >
+                            <Send size={18} /> Publish
+                          </button>
+                        ) : item.status !== 'posted' ? (
+                          <button
+                            onClick={() => handleAdvance(item)}
+                            className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-medium active:brightness-90"
+                            style={{ backgroundColor: colors.surface2, border: `1px solid ${colors.border}`, color: colors.textSecondary }}
+                          >
+                            Advance →
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Desktop Table */}
+            {!isCollapsed && group.length > 0 && (
+              <div className="overflow-x-auto hidden lg:block">
                 <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ borderBottom: `1px solid ${colors.border}` }}>
                       <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Title</th>
-                      <th className="text-left px-4 py-2 font-medium text-xs hidden md:table-cell" style={{ color: colors.textMuted }}>Brand</th>
-                      <th className="text-left px-4 py-2 font-medium text-xs hidden md:table-cell" style={{ color: colors.textMuted }}>Product</th>
-                      <th className="text-left px-4 py-2 font-medium text-xs hidden lg:table-cell" style={{ color: colors.textMuted }}>Due</th>
-                      <th className="text-left px-4 py-2 font-medium text-xs hidden lg:table-cell" style={{ color: colors.textMuted }}>Next Step</th>
-                      <th className="text-left px-4 py-2 font-medium text-xs hidden xl:table-cell" style={{ color: colors.textMuted }}>Links</th>
+                      <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Brand</th>
+                      <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Product</th>
+                      <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Due</th>
+                      <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Next Step</th>
+                      <th className="text-left px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Links</th>
                       <th className="text-right px-4 py-2 font-medium text-xs" style={{ color: colors.textMuted }}>Actions</th>
                     </tr>
                   </thead>
@@ -259,19 +336,19 @@ export default function ContentBoard({ onOpenPanel, onOpenRecordingKit }: Conten
                           </div>
                           <div className="text-[10px] font-mono" style={{ color: colors.textMuted }}>{item.short_id}</div>
                         </td>
-                        <td className="px-4 py-2.5 hidden md:table-cell text-xs" style={{ color: colors.textSecondary }}>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: colors.textSecondary }}>
                           {item.brands?.name || '—'}
                         </td>
-                        <td className="px-4 py-2.5 hidden md:table-cell text-xs truncate max-w-[150px]" style={{ color: colors.textSecondary }}>
+                        <td className="px-4 py-2.5 text-xs truncate max-w-[150px]" style={{ color: colors.textSecondary }}>
                           {item.products?.name || '—'}
                         </td>
-                        <td className="px-4 py-2.5 hidden lg:table-cell text-xs" style={{ color: item.due_at ? colors.textSecondary : colors.textMuted }}>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: item.due_at ? colors.textSecondary : colors.textMuted }}>
                           {formatDate(item.due_at)}
                         </td>
-                        <td className="px-4 py-2.5 hidden lg:table-cell text-xs" style={{ color: colors.textSecondary }}>
+                        <td className="px-4 py-2.5 text-xs" style={{ color: colors.textSecondary }}>
                           {getNextStep(item.status)}
                         </td>
-                        <td className="px-4 py-2.5 hidden xl:table-cell">
+                        <td className="px-4 py-2.5">
                           <div className="flex items-center gap-1.5">
                             {item.drive_folder_url && (
                               <a href={item.drive_folder_url} target="_blank" rel="noopener noreferrer"
@@ -295,7 +372,6 @@ export default function ContentBoard({ onOpenPanel, onOpenRecordingKit }: Conten
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            {/* Primary CTA based on status */}
                             {item.status === 'ready_to_record' ? (
                               <button
                                 onClick={() => onOpenRecordingKit(item.id)}
@@ -317,7 +393,6 @@ export default function ContentBoard({ onOpenPanel, onOpenRecordingKit }: Conten
                                 Advance
                               </button>
                             ) : null}
-                            {/* Open panel button */}
                             <button
                               onClick={() => onOpenPanel(item.id)}
                               className="text-xs rounded px-2 py-1.5 transition-colors"

@@ -2,7 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
-import { assertFeature } from "@/lib/openclaw-gate";
+
 
 export const runtime = "nodejs";
 
@@ -206,14 +206,6 @@ interface ImportResult {
  * Returns per-URL results with summary counts.
  */
 export async function POST(request: Request) {
-  const gate = assertFeature("external_research");
-  if (!gate.ok) {
-    return NextResponse.json(
-      { ok: false, error: gate.message, code: gate.code },
-      { status: gate.status ?? 200 },
-    );
-  }
-
   const correlationId =
     request.headers.get("x-correlation-id") || generateCorrelationId();
 

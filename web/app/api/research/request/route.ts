@@ -9,21 +9,11 @@
  * Feature gate: external_research (requires OpenClaw enabled).
  */
 import { NextResponse } from 'next/server';
-import { assertFeature } from '@/lib/openclaw-gate';
 import { dispatch } from '@/lib/flashflow/agent-dispatch';
 import type { RunSource } from '@/lib/ops/run-source';
 
 export async function POST(request: Request) {
-  // 1. Feature gate
-  const gate = assertFeature('external_research');
-  if (!gate.ok) {
-    return NextResponse.json(
-      { error: gate.message, code: gate.code },
-      { status: gate.status ?? 200 },
-    );
-  }
-
-  // 2. Auth: AGENT_DISPATCH_SECRET bearer token
+  // 1. Auth: AGENT_DISPATCH_SECRET bearer token
   const auth = request.headers.get('authorization');
   const secret = process.env.AGENT_DISPATCH_SECRET;
   if (!secret || auth !== `Bearer ${secret}`) {

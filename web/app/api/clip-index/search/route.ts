@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { validateApiAccess } from "@/lib/auth/validateApiAccess";
+import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { getUserPlan } from "@/lib/subscription";
 import { meetsMinPlan } from "@/lib/plans";
@@ -26,8 +26,8 @@ export async function GET(request: NextRequest) {
   const correlationId =
     request.headers.get("x-correlation-id") || generateCorrelationId();
 
-  const auth = await validateApiAccess(request);
-  if (!auth) {
+  const auth = await getApiAuthContext(request);
+  if (!auth.user) {
     return createApiErrorResponse(
       "UNAUTHORIZED",
       "Authentication required",
@@ -36,17 +36,28 @@ export async function GET(request: NextRequest) {
     );
   }
 
-  const userId = auth.userId;
+  const userId = auth.user.id;
 
-  // Plan check — results locked behind Creator Pro+
-  const userPlan = await getUserPlan(userId);
-  if (!meetsMinPlan(userPlan.plan, "creator_pro")) {
-    return NextResponse.json({
-      ok: true,
-      locked: true,
-      teaser_count: 0,
-      correlation_id: correlationId,
-    });
+  // Plan check — admins and unlimited accounts bypass, others need Creator Pro+
+  if (!auth.isAdmin) {
+    const userPlan = await getUserPlan(userId);
+    if (!meetsMinPlan(userPlan.plan, "creator_pro")) {
+      // Check if they have unlimited credits
+      const { data: credits } = await supabaseAdmin
+        .from("user_credits")
+        .select("credits_remaining")
+        .eq("user_id", userId)
+        .single();
+      const isUnlimited = credits?.credits_remaining === -1;
+      if (!isUnlimited) {
+        return NextResponse.json({
+          ok: true,
+          locked: true,
+          teaser_count: 0,
+          correlation_id: correlationId,
+        });
+      }
+    }
   }
 
   // Parse query params

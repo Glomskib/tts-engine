@@ -1,21 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
-import { assertFeature } from '@/lib/openclaw-gate';
 
 export const runtime = 'nodejs';
 
 const TIKTOK_URL_PATTERN = /^https?:\/\/(www\.|vm\.)?tiktok\.com\//;
 
 export async function GET(request: NextRequest) {
-  const gate = assertFeature('external_research');
-  if (!gate.ok) {
-    return NextResponse.json(
-      { ok: false, error: gate.message, code: gate.code },
-      { status: gate.status ?? 200 },
-    );
-  }
-
   const correlationId = generateCorrelationId();
 
   const authContext = await getApiAuthContext(request);

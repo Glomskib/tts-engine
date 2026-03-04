@@ -10,8 +10,6 @@ import OpenAI from 'openai';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
-import { assertFeature } from '@/lib/openclaw-gate';
-
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
@@ -142,14 +140,6 @@ async function prepareAudioFile(videoPath: string): Promise<string> {
 // ============================================================================
 
 export async function POST(request: Request) {
-  const gate = assertFeature('external_research');
-  if (!gate.ok) {
-    return NextResponse.json(
-      { ok: false, error: gate.message, code: gate.code },
-      { status: gate.status ?? 200 },
-    );
-  }
-
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
 

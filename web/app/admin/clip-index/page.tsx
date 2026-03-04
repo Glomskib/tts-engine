@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useTheme, getThemeColors } from "@/app/components/ThemeProvider";
 import { useCredits } from "@/hooks/useCredits";
+import { useAuth } from "@/contexts/AuthContext";
 import { meetsMinPlan } from "@/lib/plans";
 import { Film, Search, Lock, ExternalLink } from "lucide-react";
 import Link from "next/link";
@@ -42,7 +43,8 @@ interface ClipResult {
 export default function ClipIndexPage() {
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
-  const { subscription, isLoading: creditsLoading } = useCredits();
+  const { subscription, credits, isLoading: creditsLoading } = useCredits();
+  const { isAdmin } = useAuth();
 
   const [query, setQuery] = useState("");
   const [productType, setProductType] = useState("");
@@ -52,7 +54,8 @@ export default function ClipIndexPage() {
   const [locked, setLocked] = useState(false);
 
   const planId = subscription?.planId || "free";
-  const isPro = meetsMinPlan(planId, "creator_pro");
+  const isUnlimited = credits?.isUnlimited === true || credits?.remaining === -1;
+  const isPro = isAdmin || isUnlimited || meetsMinPlan(planId, "creator_pro");
 
   const fetchClips = useCallback(async () => {
     if (!isPro) {

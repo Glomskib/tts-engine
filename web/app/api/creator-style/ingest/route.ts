@@ -12,8 +12,6 @@ import { getTranscript, detectPlatform } from '@/lib/creator-style/transcript-ad
 import { extractFrames } from '@/lib/creator-style/frame-extractor';
 import { analyzeVisuals, analyzeStyle } from '@/lib/creator-style/ai-analysis';
 import { buildStylePack } from '@/lib/creator-style/style-pack';
-import { assertFeature } from '@/lib/openclaw-gate';
-
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minutes
 
@@ -23,14 +21,6 @@ interface IngestBody {
 }
 
 export async function POST(request: Request) {
-  const gate = assertFeature('external_research');
-  if (!gate.ok) {
-    return NextResponse.json(
-      { ok: false, error: gate.message, code: gate.code },
-      { status: gate.status ?? 200 },
-    );
-  }
-
   const auth = await getApiAuthContext(request);
   if (!auth.user) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

@@ -4,7 +4,6 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createWinner } from '@/lib/winners';
 import { z } from 'zod';
-import { assertFeature } from '@/lib/openclaw-gate';
 
 export const runtime = 'nodejs';
 
@@ -43,14 +42,6 @@ interface OEmbedResponse {
  * Fetches metadata via oEmbed, optionally resolves brand/product, creates winner.
  */
 export async function POST(request: NextRequest) {
-  const gate = assertFeature('external_research');
-  if (!gate.ok) {
-    return NextResponse.json(
-      { ok: false, error: gate.message, code: gate.code },
-      { status: gate.status ?? 200 },
-    );
-  }
-
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   const authContext = await getApiAuthContext(request);

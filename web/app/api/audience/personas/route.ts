@@ -186,10 +186,64 @@ export async function POST(request: Request) {
   const input = parseResult.data;
 
   try {
-    const insertPayload = {
-      ...input,
+    // Whitelist only columns that exist in the DB — never spread raw input
+    const insertPayload: Record<string, unknown> = {
+      user_id: authContext.user.id,
       created_by: authContext.user.id,
+      name: input.name,
     };
+
+    // Core
+    if (input.description) insertPayload.description = input.description;
+    if (input.avatar_type) insertPayload.avatar_type = input.avatar_type;
+
+    // Demographics
+    if (input.age_range) insertPayload.age_range = input.age_range;
+    if (input.gender) insertPayload.gender = input.gender;
+    if (input.income_level) insertPayload.income_level = input.income_level;
+    if (input.location_type) insertPayload.location_type = input.location_type;
+    if (input.life_stage) insertPayload.life_stage = input.life_stage;
+    if (input.lifestyle) insertPayload.lifestyle = input.lifestyle;
+
+    // Custom Builder
+    if (input.marital_status) insertPayload.marital_status = input.marital_status;
+    if (input.kids_count) insertPayload.kids_count = input.kids_count;
+    if (input.job_title) insertPayload.job_title = input.job_title;
+    if (input.education) insertPayload.education = input.education;
+    if (input.employment_status) insertPayload.employment_status = input.employment_status;
+    if (input.daily_routine) insertPayload.daily_routine = input.daily_routine;
+    if (input.shopping_habits) insertPayload.shopping_habits = input.shopping_habits;
+    if (input.full_description) insertPayload.full_description = input.full_description;
+    if (input.goals?.length) insertPayload.goals = input.goals;
+    if (input.struggles?.length) insertPayload.struggles = input.struggles;
+
+    // Psychographics
+    if (input.values?.length) insertPayload.values = input.values;
+    if (input.interests?.length) insertPayload.interests = input.interests;
+    if (input.personality_traits?.length) insertPayload.personality_traits = input.personality_traits;
+
+    // Communication
+    if (input.tone_preference) insertPayload.tone_preference = input.tone_preference;
+    if (input.tone) insertPayload.tone = input.tone;
+    if (input.humor_style) insertPayload.humor_style = input.humor_style;
+    if (input.attention_span) insertPayload.attention_span = input.attention_span;
+    if (input.trust_builders?.length) insertPayload.trust_builders = input.trust_builders;
+    if (input.phrases_they_use?.length) insertPayload.phrases_they_use = input.phrases_they_use;
+    if (input.phrases_to_avoid?.length) insertPayload.phrases_to_avoid = input.phrases_to_avoid;
+
+    // Pain Points & Motivations
+    if (input.pain_points?.length) insertPayload.pain_points = input.pain_points;
+    if (input.primary_pain_points?.length) insertPayload.primary_pain_points = input.primary_pain_points;
+    if (input.emotional_triggers?.length) insertPayload.emotional_triggers = input.emotional_triggers;
+    if (input.buying_objections?.length) insertPayload.buying_objections = input.buying_objections;
+    if (input.common_objections?.length) insertPayload.common_objections = input.common_objections;
+    if (input.purchase_motivators?.length) insertPayload.purchase_motivators = input.purchase_motivators;
+
+    // Content Preferences
+    if (input.content_types_preferred?.length) insertPayload.content_types_preferred = input.content_types_preferred;
+    if (input.content_they_engage_with?.length) insertPayload.content_they_engage_with = input.content_they_engage_with;
+    if (input.platforms?.length) insertPayload.platforms = input.platforms;
+    if (input.best_posting_times) insertPayload.best_posting_times = input.best_posting_times;
 
     const { data, error } = await supabaseAdmin
       .from("audience_personas")

@@ -270,10 +270,20 @@ export default function AudiencePage() {
     if (persona) {
       setEditingPersona(persona);
       // Map legacy fields to new fields for editing
+      // Merge legacy + new fields, consolidate duplicates
+      const mergedPainPoints = persona.primary_pain_points?.length
+        ? persona.primary_pain_points
+        : persona.struggles?.length
+          ? persona.struggles
+          : persona.pain_points?.map(p => p.point) || [];
+      const mergedLifestyle = persona.lifestyle || persona.daily_routine || '';
       setPersonaForm({
         ...persona,
         tone_preference: persona.tone_preference || persona.tone,
-        primary_pain_points: persona.primary_pain_points || persona.pain_points?.map(p => p.point) || [],
+        primary_pain_points: mergedPainPoints,
+        struggles: mergedPainPoints,
+        lifestyle: mergedLifestyle,
+        daily_routine: mergedLifestyle,
         buying_objections: persona.buying_objections || persona.common_objections || [],
         content_types_preferred: persona.content_types_preferred || persona.content_they_engage_with || [],
       });
@@ -1510,19 +1520,6 @@ export default function AudiencePage() {
                         </select>
                       </div>
                       <div>
-                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>ORIENTATION</label>
-                        <select
-                          value={personaForm.sexual_orientation || ""}
-                          onChange={(e) => setPersonaForm({ ...personaForm, sexual_orientation: e.target.value })}
-                          style={inputStyle}
-                        >
-                          <option value="">Select...</option>
-                          {SEXUAL_ORIENTATION_OPTIONS.map((opt) => (
-                            <option key={opt.value} value={opt.value}>{opt.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
                         <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>KIDS</label>
                         <select
                           value={personaForm.kids_count || ""}
@@ -1620,25 +1617,18 @@ export default function AudiencePage() {
                       </select>
                     </div>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px", marginTop: "12px" }}>
-                    <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LIFESTYLE</label>
-                      <input
-                        value={personaForm.lifestyle || ""}
-                        onChange={(e) => setPersonaForm({ ...personaForm, lifestyle: e.target.value })}
-                        placeholder="e.g. busy professional, fitness enthusiast"
-                        style={inputStyle}
-                      />
-                    </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>DAILY ROUTINE</label>
-                      <input
-                        value={personaForm.daily_routine || ""}
-                        onChange={(e) => setPersonaForm({ ...personaForm, daily_routine: e.target.value })}
-                        placeholder="e.g. Up at 5am, gym, work 9-5, kids activities"
-                        style={inputStyle}
-                      />
-                    </div>
+                  <div style={{ marginTop: "12px" }}>
+                    <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "4px" }}>LIFESTYLE & DAILY ROUTINE</label>
+                    <textarea
+                      value={personaForm.lifestyle || ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setPersonaForm({ ...personaForm, lifestyle: val, daily_routine: val });
+                      }}
+                      placeholder="e.g. Busy professional, fitness enthusiast. Up at 5am, gym before work, 9-5 office job, kids activities in the evening."
+                      rows={2}
+                      style={{ ...inputStyle, resize: "vertical" }}
+                    />
                   </div>
                 </div>
 
@@ -1660,19 +1650,6 @@ export default function AudiencePage() {
                         style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
                       />
                     </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                        STRUGGLES (one per line)
-                      </label>
-                      <textarea
-                        value={(personaForm.struggles || []).join("\n")}
-                        onChange={(e) => setPersonaForm({ ...personaForm, struggles: e.target.value.split("\n").filter(Boolean) })}
-                        placeholder="Never enough time in the day&#10;Constant decision fatigue&#10;Feeling guilty about self-care"
-                        rows={3}
-                        style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
-                      />
-                    </div>
-
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>VALUES</label>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: "6px" }}>
@@ -1906,13 +1883,16 @@ export default function AudiencePage() {
                   <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
                     <div>
                       <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>
-                        PRIMARY PAIN POINTS (one per line)
+                        STRUGGLES & PAIN POINTS (one per line)
                       </label>
                       <textarea
                         value={(personaForm.primary_pain_points || []).join("\n")}
-                        onChange={(e) => setPersonaForm({ ...personaForm, primary_pain_points: e.target.value.split("\n").filter(Boolean) })}
-                        placeholder="Never enough time in the day&#10;Constant mental load&#10;Can't turn off mom brain at night"
-                        rows={3}
+                        onChange={(e) => {
+                          const items = e.target.value.split("\n").filter(Boolean);
+                          setPersonaForm({ ...personaForm, primary_pain_points: items, struggles: items });
+                        }}
+                        placeholder="Never enough time in the day&#10;Constant mental load&#10;Can't turn off mom brain at night&#10;Feeling guilty about self-care"
+                        rows={4}
                         style={{ ...inputStyle, resize: "vertical", fontFamily: "monospace", fontSize: "12px" }}
                       />
                     </div>
@@ -1994,15 +1974,6 @@ export default function AudiencePage() {
                         })}
                       </div>
                     </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>SHOPPING HABITS</label>
-                      <input
-                        value={personaForm.shopping_habits || ""}
-                        onChange={(e) => setPersonaForm({ ...personaForm, shopping_habits: e.target.value })}
-                        placeholder="e.g. Researches online, buys on Amazon, impulse buys on TikTok"
-                        style={inputStyle}
-                      />
-                    </div>
                   </div>
                 </div>
 
@@ -2078,14 +2049,25 @@ export default function AudiencePage() {
                         })}
                       </div>
                     </div>
-                    <div>
-                      <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>BEST POSTING TIMES</label>
-                      <input
-                        value={personaForm.best_posting_times || ""}
-                        onChange={(e) => setPersonaForm({ ...personaForm, best_posting_times: e.target.value })}
-                        placeholder="e.g., Early morning (6-8am), Late evening after kids sleep"
-                        style={inputStyle}
-                      />
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>SHOPPING HABITS</label>
+                        <input
+                          value={personaForm.shopping_habits || ""}
+                          onChange={(e) => setPersonaForm({ ...personaForm, shopping_habits: e.target.value })}
+                          placeholder="e.g. Researches online, impulse buys on TikTok"
+                          style={inputStyle}
+                        />
+                      </div>
+                      <div>
+                        <label style={{ display: "block", fontSize: "11px", fontWeight: 500, color: colors.textMuted, marginBottom: "6px" }}>BEST POSTING TIMES</label>
+                        <input
+                          value={personaForm.best_posting_times || ""}
+                          onChange={(e) => setPersonaForm({ ...personaForm, best_posting_times: e.target.value })}
+                          placeholder="e.g. Early morning (6-8am), Late evening"
+                          style={inputStyle}
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>

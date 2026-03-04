@@ -3,10 +3,11 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors, BarChart3, Plus, Brain, Trophy, ChevronRight } from 'lucide-react';
+import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors, BarChart3, Plus, Brain, Trophy, ChevronRight, Flame, MessageSquare, Repeat2, Lightbulb } from 'lucide-react';
 import type { ContentItem, ContentItemStatus, CowTier, ProcessingStatus, ContentItemPost, MetricsSnapshot, PostPlatform, ContentItemAIInsight } from '@/lib/content-items/types';
 import type { EditorNotesJSON } from '@/lib/content-items/editor-notes-schema';
 import type { PostmortemJSON } from '@/lib/ai/postmortem/generatePostmortem';
+import type { ViralPlaybook } from '@/lib/ai/viral/generatePlaybook';
 import type { CreatorBriefData, PurpleCowTier } from '@/lib/briefs/creator-brief-types';
 
 interface ContentItemPanelProps {
@@ -540,12 +541,71 @@ function PostmortemInsightCard({ insight, onRegenerate, regenerating }: {
   );
 }
 
+// ─── Viral Playbook Card ─────────────────────────────────────
+
+function ViralPlaybookCard({ playbook }: { playbook: ViralPlaybook }) {
+  return (
+    <div className="bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg space-y-2 text-xs mt-2">
+      <div className="flex items-center gap-1 font-semibold text-orange-800 dark:text-orange-200">
+        <Flame size={12} /> Viral Playbook
+      </div>
+
+      {/* Why It Worked */}
+      <div>
+        <span className="font-medium text-gray-500">Why It Worked:</span>
+        <p className="text-gray-700 dark:text-gray-300 mt-0.5">{playbook.why_it_worked}</p>
+      </div>
+
+      {/* Follow-up Ideas */}
+      {playbook.followup_ideas.length > 0 && (
+        <div>
+          <span className="font-medium text-blue-700 dark:text-blue-400 flex items-center gap-1">
+            <Lightbulb size={10} /> Follow-up Ideas:
+          </span>
+          <ul className="mt-0.5 text-gray-600 dark:text-gray-400">
+            {playbook.followup_ideas.map((idea, i) => (
+              <li key={i} className="flex items-start gap-1">
+                <ChevronRight size={10} className="mt-0.5 flex-shrink-0" /> {idea}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Comment Strategy */}
+      <div>
+        <span className="font-medium text-green-700 dark:text-green-400 flex items-center gap-1">
+          <MessageSquare size={10} /> Reply Strategy:
+        </span>
+        <p className="text-gray-700 dark:text-gray-300 mt-0.5">{playbook.reply_comment_strategy}</p>
+      </div>
+
+      {/* Remix Variations */}
+      {playbook.remix_variations.length > 0 && (
+        <div>
+          <span className="font-medium text-purple-700 dark:text-purple-400 flex items-center gap-1">
+            <Repeat2 size={10} /> Remix Variations:
+          </span>
+          <ul className="mt-0.5 text-gray-600 dark:text-gray-400">
+            {playbook.remix_variations.map((remix, i) => (
+              <li key={i} className="flex items-start gap-1">
+                <ChevronRight size={10} className="mt-0.5 flex-shrink-0" /> {remix}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Performance Tab ─────────────────────────────────────────
 
 function PerformanceTab({ contentItemId }: { contentItemId: string }) {
   const [posts, setPosts] = useState<ContentItemPost[]>([]);
   const [metrics, setMetrics] = useState<Record<string, MetricsSnapshot>>({});
   const [insights, setInsights] = useState<Record<string, ContentItemAIInsight>>({});
+  const [playbooks, setPlaybooks] = useState<Record<string, ViralPlaybook>>({});
   const [loading, setLoading] = useState(true);
   const [showAddPost, setShowAddPost] = useState(false);
   const [metricsPostId, setMetricsPostId] = useState<string | null>(null);
@@ -566,18 +626,24 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
         const loadedPosts = postsJson.data || [];
         setPosts(loadedPosts);
 
-        // Fetch postmortem insights for each post
+        // Fetch postmortem insights and playbooks for each post
         const insightMap: Record<string, ContentItemAIInsight> = {};
+        const playbookMap: Record<string, ViralPlaybook> = {};
         await Promise.all(
           loadedPosts.map(async (p: ContentItemPost) => {
             try {
-              const res = await fetch(`/api/content-items/posts/${p.id}/postmortem`);
-              const json = await res.json();
-              if (json.ok && json.data) insightMap[p.id] = json.data;
+              const [pmRes, pbRes] = await Promise.all([
+                fetch(`/api/content-items/posts/${p.id}/postmortem`),
+                fetch(`/api/content-items/posts/${p.id}/playbook`),
+              ]);
+              const [pmJson, pbJson] = await Promise.all([pmRes.json(), pbRes.json()]);
+              if (pmJson.ok && pmJson.data) insightMap[p.id] = pmJson.data;
+              if (pbJson.ok && pbJson.data?.json) playbookMap[p.id] = pbJson.data.json as ViralPlaybook;
             } catch { /* silent */ }
           }),
         );
         setInsights(insightMap);
+        setPlaybooks(playbookMap);
       }
       if (metricsJson.ok) {
         const map: Record<string, MetricsSnapshot> = {};
@@ -721,11 +787,16 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
 
                   {/* AI Postmortem Insight */}
                   {expandedInsight === post.id && insights[post.id] && (
-                    <PostmortemInsightCard
-                      insight={insights[post.id]}
-                      onRegenerate={() => handleGeneratePostmortem(post.id)}
-                      regenerating={generatingPostmortem === post.id}
-                    />
+                    <>
+                      <PostmortemInsightCard
+                        insight={insights[post.id]}
+                        onRegenerate={() => handleGeneratePostmortem(post.id)}
+                        regenerating={generatingPostmortem === post.id}
+                      />
+                      {playbooks[post.id] && (
+                        <ViralPlaybookCard playbook={playbooks[post.id]} />
+                      )}
+                    </>
                   )}
                 </div>
               );

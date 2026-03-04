@@ -14,6 +14,7 @@ import { generatePostmortem } from '@/lib/ai/postmortem/generatePostmortem';
 import { evaluateWinner } from '@/lib/content-intelligence/winnerDetector';
 import { extractHookPattern } from '@/lib/content-intelligence/hookExtractor';
 import { createNotification } from '@/lib/notifications/notify';
+import { generateAndStorePlaybook } from '@/lib/ai/viral/generateAndStorePlaybook';
 
 export const runtime = 'nodejs';
 
@@ -187,6 +188,18 @@ export const POST = withErrorCapture(async (
       message: `AI postmortem flagged a post as a potential winner.`,
       link: `/admin/pipeline?video=${post.content_item_id}`,
     }).catch(() => {});
+
+    // Generate viral playbook in the background
+    generateAndStorePlaybook({
+      postId,
+      contentItemId: post.content_item_id,
+      workspaceId: user.id,
+      postmortem: result.json,
+      metrics: metricsRow,
+      correlationId,
+    }).catch(e =>
+      console.error(`[${correlationId}] playbook generation error:`, e),
+    );
   }
 
   // Extract hook pattern if hook_strength >= 7

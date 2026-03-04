@@ -3,9 +3,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors, BarChart3, Plus } from 'lucide-react';
-import type { ContentItem, ContentItemStatus, CowTier, ProcessingStatus, ContentItemPost, MetricsSnapshot, PostPlatform } from '@/lib/content-items/types';
+import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors, BarChart3, Plus, Brain, Trophy, ChevronRight } from 'lucide-react';
+import type { ContentItem, ContentItemStatus, CowTier, ProcessingStatus, ContentItemPost, MetricsSnapshot, PostPlatform, ContentItemAIInsight } from '@/lib/content-items/types';
 import type { EditorNotesJSON } from '@/lib/content-items/editor-notes-schema';
+import type { PostmortemJSON } from '@/lib/ai/postmortem/generatePostmortem';
 import type { CreatorBriefData, PurpleCowTier } from '@/lib/briefs/creator-brief-types';
 
 interface ContentItemPanelProps {
@@ -435,14 +436,106 @@ function AddMetricsModal({ contentItemId, postId, onClose, onCreated }: {
   );
 }
 
+// ─── Postmortem Insight Card ─────────────────────────────────
+
+function PostmortemInsightCard({ insight, onRegenerate, regenerating }: {
+  insight: ContentItemAIInsight;
+  onRegenerate: () => void;
+  regenerating: boolean;
+}) {
+  const pm = insight.json as PostmortemJSON | null;
+  if (!pm) return null;
+
+  return (
+    <div className="bg-purple-50 dark:bg-purple-900/20 p-3 rounded-lg space-y-2 text-xs">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1 font-semibold text-purple-800 dark:text-purple-200">
+          <Brain size={12} /> AI Postmortem
+          {pm.winner_candidate && (
+            <span className="ml-1 px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 flex items-center gap-0.5">
+              <Trophy size={10} /> Winner
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-gray-400">{new Date(insight.generated_at).toLocaleDateString()}</span>
+          <button
+            onClick={onRegenerate}
+            disabled={regenerating}
+            className="text-[10px] text-purple-600 hover:underline disabled:opacity-50"
+          >
+            {regenerating ? 'Regenerating...' : 'Regenerate'}
+          </button>
+        </div>
+      </div>
+
+      <p className="text-gray-700 dark:text-gray-300">{pm.summary}</p>
+
+      {/* Hook Analysis */}
+      <div className="flex items-center gap-3">
+        <span className="font-medium text-gray-500">Hook:</span>
+        <span>{pm.hook_analysis.hook_strength}/10</span>
+        <span className="text-gray-400">|</span>
+        <span className="italic">{pm.hook_analysis.pattern_detected}</span>
+        <span className="text-gray-400">|</span>
+        <span>Scroll-stop: {pm.hook_analysis.scroll_stop_rating}/10</span>
+      </div>
+
+      {/* Engagement */}
+      <div className="flex items-center gap-3">
+        <span className="font-medium text-gray-500">Engagement:</span>
+        <span>{pm.engagement_analysis.engagement_rate.toFixed(1)}%</span>
+        <span className="text-gray-400">|</span>
+        <span>Sentiment: {pm.engagement_analysis.comment_sentiment}</span>
+      </div>
+
+      {/* What worked / failed */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <span className="font-medium text-green-700 dark:text-green-400">Worked:</span>
+          <ul className="list-disc list-inside mt-0.5 text-gray-600 dark:text-gray-400">
+            {pm.what_worked.map((w, i) => <li key={i}>{w}</li>)}
+          </ul>
+        </div>
+        {pm.what_failed.length > 0 && (
+          <div>
+            <span className="font-medium text-red-700 dark:text-red-400">Missed:</span>
+            <ul className="list-disc list-inside mt-0.5 text-gray-600 dark:text-gray-400">
+              {pm.what_failed.map((f, i) => <li key={i}>{f}</li>)}
+            </ul>
+          </div>
+        )}
+      </div>
+
+      {/* Next Ideas */}
+      {pm.next_ideas.length > 0 && (
+        <div>
+          <span className="font-medium text-blue-700 dark:text-blue-400">Next Ideas:</span>
+          <ul className="mt-0.5 text-gray-600 dark:text-gray-400">
+            {pm.next_ideas.map((idea, i) => (
+              <li key={i} className="flex items-start gap-1">
+                <ChevronRight size={10} className="mt-0.5 flex-shrink-0" /> {idea}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Performance Tab ─────────────────────────────────────────
 
 function PerformanceTab({ contentItemId }: { contentItemId: string }) {
   const [posts, setPosts] = useState<ContentItemPost[]>([]);
   const [metrics, setMetrics] = useState<Record<string, MetricsSnapshot>>({});
+  const [insights, setInsights] = useState<Record<string, ContentItemAIInsight>>({});
   const [loading, setLoading] = useState(true);
   const [showAddPost, setShowAddPost] = useState(false);
   const [metricsPostId, setMetricsPostId] = useState<string | null>(null);
+  const [generatingPostmortem, setGeneratingPostmortem] = useState<string | null>(null);
+  const [expandedInsight, setExpandedInsight] = useState<string | null>(null);
+  const { showToast } = useToast();
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -453,7 +546,23 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
       ]);
       const [postsJson, metricsJson] = await Promise.all([postsRes.json(), metricsRes.json()]);
 
-      if (postsJson.ok) setPosts(postsJson.data || []);
+      if (postsJson.ok) {
+        const loadedPosts = postsJson.data || [];
+        setPosts(loadedPosts);
+
+        // Fetch postmortem insights for each post
+        const insightMap: Record<string, ContentItemAIInsight> = {};
+        await Promise.all(
+          loadedPosts.map(async (p: ContentItemPost) => {
+            try {
+              const res = await fetch(`/api/content-items/posts/${p.id}/postmortem`);
+              const json = await res.json();
+              if (json.ok && json.data) insightMap[p.id] = json.data;
+            } catch { /* silent */ }
+          }),
+        );
+        setInsights(insightMap);
+      }
       if (metricsJson.ok) {
         const map: Record<string, MetricsSnapshot> = {};
         for (const s of (metricsJson.data || []) as MetricsSnapshot[]) {
@@ -469,6 +578,25 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
   }, [contentItemId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleGeneratePostmortem = async (postId: string) => {
+    setGeneratingPostmortem(postId);
+    try {
+      const res = await fetch(`/api/content-items/posts/${postId}/postmortem`, { method: 'POST' });
+      const json = await res.json();
+      if (json.ok && json.data) {
+        setInsights(prev => ({ ...prev, [postId]: json.data }));
+        setExpandedInsight(postId);
+        showToast({ message: 'Postmortem generated', type: 'success' });
+      } else {
+        showToast({ message: json.error || 'Failed to generate postmortem', type: 'error' });
+      }
+    } catch {
+      showToast({ message: 'Failed to generate postmortem', type: 'error' });
+    } finally {
+      setGeneratingPostmortem(null);
+    }
+  };
 
   if (loading) {
     return (
@@ -545,11 +673,43 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
                       {snapshot ? 'Update Metrics' : 'Add Metrics'}
                     </button>
                     {snapshot && (
-                      <span className="text-[10px] text-gray-400">
-                        Updated {new Date(snapshot.captured_at).toLocaleDateString()}
-                      </span>
+                      <>
+                        <span className="text-[10px] text-gray-400">
+                          Updated {new Date(snapshot.captured_at).toLocaleDateString()}
+                        </span>
+                        <span className="text-[10px] text-gray-300 dark:text-gray-600">|</span>
+                        {insights[post.id] ? (
+                          <button
+                            onClick={() => setExpandedInsight(expandedInsight === post.id ? null : post.id)}
+                            className="text-[10px] text-purple-600 hover:underline flex items-center gap-0.5"
+                          >
+                            <Brain size={10} /> View Postmortem
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleGeneratePostmortem(post.id)}
+                            disabled={generatingPostmortem === post.id}
+                            className="text-[10px] text-purple-600 hover:underline flex items-center gap-0.5 disabled:opacity-50"
+                          >
+                            {generatingPostmortem === post.id ? (
+                              <><Loader2 size={10} className="animate-spin" /> Analyzing...</>
+                            ) : (
+                              <><Brain size={10} /> AI Postmortem</>
+                            )}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
+
+                  {/* AI Postmortem Insight */}
+                  {expandedInsight === post.id && insights[post.id] && (
+                    <PostmortemInsightCard
+                      insight={insights[post.id]}
+                      onRegenerate={() => handleGeneratePostmortem(post.id)}
+                      regenerating={generatingPostmortem === post.id}
+                    />
+                  )}
                 </div>
               );
             })}

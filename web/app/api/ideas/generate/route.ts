@@ -32,14 +32,14 @@ export const POST = withErrorCapture(async (request: Request) => {
     brandsResult,
     productsResult,
   ] = await Promise.all([
-    fetchTopHookPatterns(workspaceId, 10),
+    fetchTopHookPatterns(workspaceId, 20),
 
     supabaseAdmin
       .from('winners_bank')
       .select('hook, performance_score, view_count')
       .eq('user_id', workspaceId)
       .order('performance_score', { ascending: false })
-      .limit(10),
+      .limit(20),
 
     supabaseAdmin
       .from('content_item_ai_insights')
@@ -47,7 +47,7 @@ export const POST = withErrorCapture(async (request: Request) => {
       .eq('workspace_id', workspaceId)
       .eq('insight_type', 'postmortem')
       .order('generated_at', { ascending: false })
-      .limit(5),
+      .limit(20),
 
     supabaseAdmin
       .from('brands')

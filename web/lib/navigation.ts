@@ -12,6 +12,7 @@ import {
   Calendar,
   BarChart,
   Activity,
+  BarChart3,
   Settings,
   CreditCard,
   Bell,
@@ -135,6 +136,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro', tourId: 'nav-winners' },
       { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, minPlan: 'creator_pro' },
       { name: 'Clip Index', href: '/admin/clip-index', icon: Film },
+      { name: 'Performance', href: '/admin/performance', icon: BarChart3, minPlan: 'creator_pro' },
     ],
   },
   {

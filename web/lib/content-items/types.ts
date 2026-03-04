@@ -2,6 +2,8 @@
  * Content Item types — canonical entity for the content lifecycle.
  */
 
+import type { EditorNotesJSON } from './editor-notes-schema';
+
 export type ContentItemStatus =
   | 'briefing'
   | 'ready_to_record'
@@ -61,6 +63,14 @@ export interface ContentItem {
   editor_notes: EditorNotes | null;
   transcript_status: ProcessingStatus;
   editor_notes_status: ProcessingStatus;
+  transcript_text: string | null;
+  transcript_json: Array<{ start: number; end: number; text: string }> | null;
+  transcript_error: string | null;
+  editor_notes_text: string | null;
+  editor_notes_json: EditorNotesJSON | null;
+  editor_notes_error: string | null;
+  raw_footage_received_at: string | null;
+  last_processed_raw_file_id: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -5,6 +5,7 @@ import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors } from 'lucide-react';
 import type { ContentItem, ContentItemStatus, CowTier, ProcessingStatus } from '@/lib/content-items/types';
+import type { EditorNotesJSON } from '@/lib/content-items/editor-notes-schema';
 import type { CreatorBriefData, PurpleCowTier } from '@/lib/briefs/creator-brief-types';
 
 interface ContentItemPanelProps {
@@ -196,6 +197,250 @@ function UploadTab({ item, assetCounts, onItemUpdate }: { item: ContentItem; ass
   );
 }
 
+function formatSec(sec: number): string {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, '0')}`;
+}
+
+const TIMELINE_LABEL_COLORS: Record<string, string> = {
+  keep: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  cut: 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+  tighten: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200',
+  broll: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  text: 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200',
+  retake: 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+};
+
+function EditorNotesTab({ item, onRetry }: { item: ContentItem; onRetry: (field: 'transcript_status' | 'editor_notes_status') => void }) {
+  const enhanced = item.editor_notes_json as EditorNotesJSON | null;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <h3 className="font-semibold text-sm">Editor Notes</h3>
+        <ProcessingBadge status={item.editor_notes_status} />
+      </div>
+
+      {/* Failed state with retry */}
+      {item.editor_notes_status === 'failed' && (
+        <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg space-y-2">
+          <p className="text-sm text-red-700 dark:text-red-300">
+            {item.editor_notes_error || 'Editor notes generation failed.'}
+          </p>
+          <button
+            onClick={() => onRetry('editor_notes_status')}
+            className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Transcript failed */}
+      {item.transcript_status === 'failed' && (
+        <div className="bg-red-50 dark:bg-red-900/20 p-3 rounded-lg space-y-2">
+          <p className="text-sm text-red-700 dark:text-red-300">
+            Transcription failed: {item.transcript_error || 'Unknown error'}
+          </p>
+          <button
+            onClick={() => onRetry('transcript_status')}
+            className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition"
+          >
+            Retry Transcription
+          </button>
+        </div>
+      )}
+
+      {/* Processing state */}
+      {(item.editor_notes_status === 'pending' || item.editor_notes_status === 'processing' ||
+        item.transcript_status === 'pending' || item.transcript_status === 'processing') &&
+        item.editor_notes_status !== 'failed' && item.transcript_status !== 'failed' && (
+        <div className="text-center py-8 text-gray-500">
+          <Loader2 size={24} className="mx-auto mb-2 animate-spin opacity-30" />
+          <p className="text-sm">
+            {item.transcript_status === 'pending' || item.transcript_status === 'processing'
+              ? 'Transcribing raw footage...'
+              : 'Generating editor notes...'}
+          </p>
+        </div>
+      )}
+
+      {/* Enhanced notes display */}
+      {enhanced && (
+        <>
+          {/* Summary */}
+          <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg text-sm">
+            {enhanced.summary}
+          </div>
+
+          {/* Editing Style */}
+          <div className="space-y-1">
+            <h4 className="text-xs font-medium text-gray-500">Editing Style</h4>
+            <div className="text-sm space-y-1 bg-gray-50 dark:bg-gray-800 p-3 rounded-lg">
+              <div><span className="font-medium">Pace:</span> {enhanced.editing_style.pace}</div>
+              <div><span className="font-medium">Jump Cuts:</span> {enhanced.editing_style.jump_cut_recommendation}</div>
+              <div><span className="font-medium">Music/SFX:</span> {enhanced.editing_style.music_sfx_notes}</div>
+            </div>
+          </div>
+
+          {/* Caption + Hashtags — copy-friendly */}
+          <div className="space-y-2">
+            <h4 className="text-xs font-medium text-gray-500">Caption</h4>
+            <div className="flex items-start justify-between bg-gray-50 dark:bg-gray-800 p-2 rounded text-sm">
+              <span>{enhanced.caption.primary}</span>
+              <CopyButton text={enhanced.caption.primary} label="Copy" />
+            </div>
+            <div className="flex items-start justify-between bg-gray-50 dark:bg-gray-800 p-2 rounded text-sm text-gray-500">
+              <span>{enhanced.caption.alt}</span>
+              <CopyButton text={enhanced.caption.alt} label="Alt" />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-medium text-gray-500">Hashtags</h4>
+              <CopyButton text={enhanced.hashtags.join(' ')} label="Copy All" />
+            </div>
+            <div className="flex flex-wrap gap-1">
+              {enhanced.hashtags.map((h, i) => (
+                <span key={i} className="text-xs bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded">{h}</span>
+              ))}
+            </div>
+          </div>
+
+          {/* Timeline */}
+          {enhanced.timeline?.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-1">Timeline</h4>
+              <div className="space-y-1">
+                {enhanced.timeline.map((t, i) => (
+                  <div key={i} className="text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-gray-400">{formatSec(t.start_sec)}–{formatSec(t.end_sec)}</span>
+                      <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${TIMELINE_LABEL_COLORS[t.label] || 'bg-gray-100'}`}>
+                        {t.label}
+                      </span>
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-400 mt-0.5">{t.note}</p>
+                    {t.broll && <p className="text-xs text-blue-600 mt-0.5">B-Roll: {t.broll}</p>}
+                    {t.on_screen_text && <p className="text-xs text-purple-600 mt-0.5">Text: {t.on_screen_text}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Mistakes / Retakes */}
+          {enhanced.mistakes_retakes?.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-1">Mistakes / Retakes</h4>
+              <div className="space-y-1">
+                {enhanced.mistakes_retakes.map((m, i) => (
+                  <div key={i} className="text-sm bg-orange-50 dark:bg-orange-900/20 p-2 rounded">
+                    <span className="font-mono text-xs text-gray-400">{formatSec(m.at_sec)}</span>{' '}
+                    <span className="font-medium">{m.issue}</span> — <span className="text-gray-500">{m.fix}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* B-Roll Pack */}
+          {enhanced.broll_pack?.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-1">B-Roll Pack</h4>
+              <div className="space-y-1">
+                {enhanced.broll_pack.map((b, i) => (
+                  <div key={i} className="text-sm bg-blue-50 dark:bg-blue-900/20 p-2 rounded">
+                    <span className="font-mono text-xs text-gray-400">{formatSec(b.at_sec)}</span>{' '}
+                    <span className="text-xs font-medium text-blue-600">[{b.type}]</span>{' '}
+                    {b.prompt}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* CTA */}
+          {enhanced.cta && (
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-1">CTA</h4>
+              <div className="text-sm bg-green-50 dark:bg-green-900/20 p-2 rounded">
+                <span className="font-mono text-xs text-gray-400">{formatSec(enhanced.cta.at_sec)}</span>{' '}
+                &ldquo;{enhanced.cta.line}&rdquo;
+              </div>
+            </div>
+          )}
+
+          {/* Comment Bait */}
+          {enhanced.comment_bait && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-medium text-gray-500">Comment Bait</h4>
+              {(['safe', 'spicy', 'chaotic'] as const).map(tier => {
+                const items = enhanced.comment_bait[tier];
+                if (!items?.length) return null;
+                const tierColors = tier === 'safe' ? 'bg-green-50 dark:bg-green-900/20' : tier === 'spicy' ? 'bg-orange-50 dark:bg-orange-900/20' : 'bg-red-50 dark:bg-red-900/20';
+                return (
+                  <div key={tier}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-medium capitalize">{tier}</span>
+                      <CopyButton text={items.join('\n')} label="Copy" />
+                    </div>
+                    <div className={`${tierColors} p-2 rounded space-y-1`}>
+                      {items.map((bait, i) => (
+                        <p key={i} className="text-sm">{bait}</p>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Fallback: legacy editor_notes if no enhanced notes */}
+      {!enhanced && item.editor_notes && item.editor_notes_status === 'completed' && (
+        <>
+          {item.editor_notes.editing_style && (
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg text-sm">
+              <span className="font-medium text-xs text-gray-500">Style: </span>{item.editor_notes.editing_style}
+            </div>
+          )}
+          {item.editor_notes.overall_notes && (
+            <div className="text-sm">{item.editor_notes.overall_notes}</div>
+          )}
+          {item.editor_notes.cut_suggestions?.length > 0 && (
+            <div>
+              <h4 className="text-xs font-medium text-gray-500 mb-1">Cut Suggestions</h4>
+              <div className="space-y-1">
+                {item.editor_notes.cut_suggestions.map((c, i) => (
+                  <div key={i} className="text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
+                    <span className="font-mono text-xs text-gray-400">{c.start_ts}–{c.end_ts}</span>{' '}
+                    <span>{c.reason}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Empty state */}
+      {!enhanced && !item.editor_notes &&
+        item.editor_notes_status !== 'pending' && item.editor_notes_status !== 'processing' &&
+        item.editor_notes_status !== 'failed' && item.transcript_status !== 'failed' && (
+        <div className="text-center py-8 text-gray-500">
+          <Scissors size={24} className="mx-auto mb-2 opacity-30" />
+          <p className="text-sm">No editor notes available.</p>
+          <p className="text-xs text-gray-400 mt-1">Upload raw footage to trigger automatic generation.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordingKit }: ContentItemPanelProps) {
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
@@ -260,6 +505,26 @@ export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordi
       showError('Failed to generate brief');
     } finally {
       setGeneratingBrief(false);
+    }
+  };
+
+  const handleRetryProcessing = async (field: 'transcript_status' | 'editor_notes_status') => {
+    if (!item) return;
+    try {
+      const res = await fetch(`/api/content-items/${contentItemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ [field]: 'pending' }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setItem(json.data);
+        showSuccess('Retry queued');
+      } else {
+        showError(json.error || 'Failed to retry');
+      }
+    } catch {
+      showError('Failed to retry');
     }
   };
 
@@ -517,83 +782,7 @@ export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordi
 
         {/* Editor Notes Tab */}
         {activeTab === 'editor_notes' && (
-          <div className="space-y-4">
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-sm">Editor Notes</h3>
-              <ProcessingBadge status={item.editor_notes_status} />
-            </div>
-            {item.editor_notes ? (
-              <>
-                {item.editor_notes.editing_style && (
-                  <div className="bg-indigo-50 dark:bg-indigo-900/20 p-3 rounded-lg text-sm">
-                    <span className="font-medium text-xs text-gray-500">Style: </span>{item.editor_notes.editing_style}
-                  </div>
-                )}
-                {item.editor_notes.overall_notes && (
-                  <div className="text-sm">{item.editor_notes.overall_notes}</div>
-                )}
-                {item.editor_notes.cut_suggestions?.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Cut Suggestions</h4>
-                    <div className="space-y-1">
-                      {item.editor_notes.cut_suggestions.map((c, i) => (
-                        <div key={i} className="text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                          <span className="font-mono text-xs text-gray-400">{c.start_ts}–{c.end_ts}</span>{' '}
-                          <span>{c.reason}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {item.editor_notes.broll_suggestions?.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">B-Roll Ideas</h4>
-                    <div className="space-y-1">
-                      {item.editor_notes.broll_suggestions.map((b, i) => (
-                        <div key={i} className="text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                          <span className="font-mono text-xs text-gray-400">{b.start_ts}–{b.end_ts}</span>{' '}
-                          <span>{b.broll_idea}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {item.editor_notes.on_screen_text_timing?.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">On-Screen Text</h4>
-                    <div className="space-y-1">
-                      {item.editor_notes.on_screen_text_timing.map((t, i) => (
-                        <div key={i} className="text-sm bg-gray-50 dark:bg-gray-800 p-2 rounded">
-                          <span className="font-mono text-xs text-gray-400">{t.ts}</span>{' '}
-                          <span className="font-medium">{t.text}</span>{' '}
-                          <span className="text-gray-400">({t.duration_s}s)</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                {item.editor_notes.jump_cut_opportunities?.length > 0 && (
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 mb-1">Jump Cut Opportunities</h4>
-                    <div className="space-y-1">
-                      {item.editor_notes.jump_cut_opportunities.map((j, i) => (
-                        <div key={i} className="text-sm">
-                          <span className="font-mono text-xs text-gray-400">{j.ts}</span>{' '}{j.suggestion}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </>
-            ) : item.editor_notes_status === 'pending' || item.editor_notes_status === 'processing' ? (
-              <div className="text-center py-8 text-gray-500">
-                <Loader2 size={24} className="mx-auto mb-2 animate-spin opacity-30" />
-                <p className="text-sm">Editor notes are being generated...</p>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-500">No editor notes available. Upload raw footage to trigger automatic generation.</p>
-            )}
-          </div>
+          <EditorNotesTab item={item} onRetry={handleRetryProcessing} />
         )}
 
         {/* Meta Tab */}

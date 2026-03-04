@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { X, Copy, ExternalLink, CheckSquare, FileText, Palette, FolderPlus, Loader2 } from 'lucide-react';
-import type { ContentItem, CowTier } from '@/lib/content-items/types';
+import { X, Copy, ExternalLink, CheckSquare, FileText, Palette, FolderPlus, Loader2, Scissors, FileAudio } from 'lucide-react';
+import type { ContentItem, CowTier, ProcessingStatus } from '@/lib/content-items/types';
 import type { CreatorBriefData, PurpleCowTier } from '@/lib/briefs/creator-brief-types';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -11,6 +11,7 @@ interface RecordingKitModalProps {
   brief: CreatorBriefData | null;
   onClose: () => void;
   onMarkRecorded: () => void;
+  onOpenEditorNotes?: () => void;
 }
 
 const TIER_LABELS: Record<CowTier, string> = {
@@ -32,7 +33,15 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
   );
 }
 
-export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded }: RecordingKitModalProps) {
+const PROCESSING_STATUS_LABELS: Record<ProcessingStatus, { label: string; color: string }> = {
+  none: { label: 'Pending', color: 'text-gray-400' },
+  pending: { label: 'Queued', color: 'text-yellow-600' },
+  processing: { label: 'Running', color: 'text-blue-600' },
+  completed: { label: 'Ready', color: 'text-green-600' },
+  failed: { label: 'Failed', color: 'text-red-600' },
+};
+
+export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded, onOpenEditorNotes }: RecordingKitModalProps) {
   const { showSuccess, showError } = useToast();
   const [selectedTier, setSelectedTier] = useState<CowTier>(
     (item.brief_selected_cow_tier as CowTier) || 'edgy'
@@ -218,6 +227,35 @@ export default function RecordingKitModal({ item, brief, onClose, onMarkRecorded
               Create a Google Drive folder to receive raw footage uploads for this content item.
             </p>
           )}
+
+          {/* After you upload */}
+          <section className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg space-y-2">
+            <h3 className="font-semibold text-sm mb-1">After You Upload</h3>
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                <FileAudio size={14} /> Transcript
+              </span>
+              <span className={`text-xs font-medium ${PROCESSING_STATUS_LABELS[item.transcript_status].color}`}>
+                {PROCESSING_STATUS_LABELS[item.transcript_status].label}
+              </span>
+            </div>
+            <div className="flex items-center justify-between text-sm">
+              <span className="flex items-center gap-1.5 text-gray-600 dark:text-gray-300">
+                <Scissors size={14} /> Editor Notes
+              </span>
+              <span className={`text-xs font-medium ${PROCESSING_STATUS_LABELS[item.editor_notes_status].color}`}>
+                {PROCESSING_STATUS_LABELS[item.editor_notes_status].label}
+              </span>
+            </div>
+            {item.editor_notes_status === 'completed' && onOpenEditorNotes && (
+              <button
+                onClick={() => { onClose(); onOpenEditorNotes(); }}
+                className="w-full mt-1 px-3 py-1.5 text-xs bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-300 rounded hover:bg-indigo-100 transition"
+              >
+                Open Editor Notes
+              </button>
+            )}
+          </section>
         </div>
 
         {/* Footer */}

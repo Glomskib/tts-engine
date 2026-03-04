@@ -3,7 +3,12 @@
  *
  * Processes content items that need transcription or editor notes generation:
  *   1. Claim items with transcript_status='pending' → transcribe via Whisper
- *   2. Claim items with editor_notes_status='pending' → generate via Claude
+ *   2. Claim items with editor_notes_status='pending' → generate via Claude (enhanced)
+ *
+ * Idempotency:
+ *   - Uses last_processed_raw_file_id to skip already-processed files
+ *   - Atomic claim via UPDATE … WHERE status='pending'
+ *   - Stores errors in transcript_error / editor_notes_error
  *
  * Runs every 5 minutes. Protected by CRON_SECRET.
  * Plan gated: editor notes require creator_pro+.
@@ -12,6 +17,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { downloadFileStream } from '@/lib/intake/google-drive';
 import { generateEditorNotes } from '@/lib/briefs/generateEditorNotes';
+import { generateEnhancedEditorNotes } from '@/lib/briefs/generateEditorNotes';
 import { meetsMinPlan } from '@/lib/plans';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { captureRouteError } from '@/lib/errorTracking';
@@ -34,6 +40,11 @@ interface ClaimableItem {
   raw_footage_url: string | null;
   transcript_status: string;
   editor_notes_status: string;
+  last_processed_raw_file_id: string | null;
+  brand_id: string | null;
+  product_id: string | null;
+  brief_selected_cow_tier: string;
+  title: string;
 }
 
 export const GET = withErrorCapture(async (request: Request) => {
@@ -71,10 +82,10 @@ export const GET = withErrorCapture(async (request: Request) => {
  * Process items needing transcription.
  */
 async function processTranscriptionQueue() {
-  // Claim pending items (mark as processing to prevent double-pickup)
+  // Atomic claim: UPDATE where status='pending' to prevent double-pickup
   const { data: items, error: fetchErr } = await supabaseAdmin
     .from('content_items')
-    .select('id, workspace_id, raw_footage_drive_file_id, raw_footage_url, transcript_status, editor_notes_status')
+    .select('id, workspace_id, raw_footage_drive_file_id, raw_footage_url, transcript_status, editor_notes_status, last_processed_raw_file_id, brand_id, product_id, brief_selected_cow_tier, title')
     .eq('transcript_status', 'pending')
     .not('raw_footage_drive_file_id', 'is', null)
     .order('updated_at', { ascending: true })
@@ -82,38 +93,64 @@ async function processTranscriptionQueue() {
 
   if (fetchErr) {
     console.error(`${LOG} Failed to fetch transcript queue:`, fetchErr.message);
-    return { processed: 0, succeeded: 0, failed: 0 };
+    return { processed: 0, succeeded: 0, failed: 0, skipped: 0 };
   }
 
   if (!items || items.length === 0) {
-    return { processed: 0, succeeded: 0, failed: 0 };
+    return { processed: 0, succeeded: 0, failed: 0, skipped: 0 };
   }
 
-  // Mark as processing
+  // Mark as processing atomically
   const ids = items.map(i => i.id);
   await supabaseAdmin
     .from('content_items')
-    .update({ transcript_status: 'processing' })
-    .in('id', ids);
+    .update({ transcript_status: 'processing', transcript_error: null })
+    .in('id', ids)
+    .eq('transcript_status', 'pending'); // double-check to prevent race
 
   let succeeded = 0;
   let failed = 0;
+  let skipped = 0;
 
   for (const item of items) {
+    // Idempotency: skip if this file was already processed
+    if (
+      item.last_processed_raw_file_id === item.raw_footage_drive_file_id &&
+      item.last_processed_raw_file_id !== null
+    ) {
+      console.log(`${LOG} Skipping ${item.id}: file ${item.raw_footage_drive_file_id} already processed`);
+      await supabaseAdmin
+        .from('content_items')
+        .update({ transcript_status: 'completed' })
+        .eq('id', item.id);
+      skipped++;
+      continue;
+    }
+
     try {
       await transcribeContentItem(item);
       succeeded++;
     } catch (err) {
-      console.error(`${LOG} Transcription failed for ${item.id}:`, err instanceof Error ? err.message : err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`${LOG} Transcription failed for ${item.id}:`, errorMsg);
       await supabaseAdmin
         .from('content_items')
-        .update({ transcript_status: 'failed' })
+        .update({
+          transcript_status: 'failed',
+          transcript_error: errorMsg.slice(0, 1000),
+        })
         .eq('id', item.id);
+
+      captureRouteError(err instanceof Error ? err : new Error(errorMsg), {
+        route: '/api/cron/content-item-processing',
+        feature: 'content-item-processing',
+        extra: { content_item_id: item.id, workspace_id: item.workspace_id, step: 'transcription' },
+      });
       failed++;
     }
   }
 
-  return { processed: items.length, succeeded, failed };
+  return { processed: items.length, succeeded, failed, skipped };
 }
 
 /**
@@ -126,7 +163,6 @@ async function transcribeContentItem(item: ClaimableItem) {
 
   console.log(`${LOG} Transcribing ${item.id} (file: ${item.raw_footage_drive_file_id})`);
 
-  // Download from Drive to temp file
   const tmpPath = join(tmpdir(), `ci-transcribe-${randomUUID()}.mp4`);
 
   try {
@@ -152,6 +188,7 @@ async function transcribeContentItem(item: ClaimableItem) {
       end: s.end,
       text: s.text,
     }));
+    const duration = response.duration || 0;
 
     console.log(`${LOG} Transcribed ${item.id}: ${transcript.length} chars, ${segments.length} segments`);
 
@@ -160,14 +197,18 @@ async function transcribeContentItem(item: ClaimableItem) {
       content_item_id: item.id,
       kind: 'transcript',
       source: 'generated',
-      metadata: { text: transcript, timestamps: segments, duration_seconds: response.duration },
+      metadata: { text: transcript, timestamps: segments, duration_seconds: duration },
     });
 
-    // Update content item: mark transcript done, queue editor notes
+    // Update content item with transcript data + queue editor notes
     await supabaseAdmin
       .from('content_items')
       .update({
         transcript_status: 'completed',
+        transcript_text: transcript,
+        transcript_json: segments,
+        transcript_error: null,
+        last_processed_raw_file_id: item.raw_footage_drive_file_id,
         editor_notes_status: 'pending',
       })
       .eq('id', item.id);
@@ -183,7 +224,7 @@ async function transcribeContentItem(item: ClaimableItem) {
 async function processEditorNotesQueue() {
   const { data: items, error: fetchErr } = await supabaseAdmin
     .from('content_items')
-    .select('id, workspace_id, editor_notes_status')
+    .select('id, workspace_id, editor_notes_status, transcript_status, last_processed_raw_file_id, raw_footage_drive_file_id, brand_id, product_id, brief_selected_cow_tier, title')
     .eq('editor_notes_status', 'pending')
     .eq('transcript_status', 'completed')
     .order('updated_at', { ascending: true })
@@ -202,43 +243,55 @@ async function processEditorNotesQueue() {
   const ids = items.map((i: { id: string }) => i.id);
   await supabaseAdmin
     .from('content_items')
-    .update({ editor_notes_status: 'processing' })
-    .in('id', ids);
+    .update({ editor_notes_status: 'processing', editor_notes_error: null })
+    .in('id', ids)
+    .eq('editor_notes_status', 'pending');
 
   let succeeded = 0;
   let failed = 0;
   let skippedPlan = 0;
 
   for (const item of items) {
+    const ci = item as ClaimableItem;
+
     try {
       // Plan gate: check if user meets creator_pro
       const { data: userRole } = await supabaseAdmin
         .from('user_roles')
         .select('role')
-        .eq('user_id', (item as { workspace_id: string }).workspace_id)
+        .eq('user_id', ci.workspace_id)
         .maybeSingle();
 
       const role = (userRole?.role as string) || 'free';
       const isAdmin = role === 'admin';
 
       if (!isAdmin && !meetsMinPlan(role, 'creator_pro')) {
-        // User doesn't have the plan — skip but don't fail
         await supabaseAdmin
           .from('content_items')
           .update({ editor_notes_status: 'none' })
-          .eq('id', (item as { id: string }).id);
+          .eq('id', ci.id);
         skippedPlan++;
         continue;
       }
 
-      await generateContentItemEditorNotes((item as { id: string }).id);
+      await generateContentItemEditorNotes(ci);
       succeeded++;
     } catch (err) {
-      console.error(`${LOG} Editor notes failed for ${(item as { id: string }).id}:`, err instanceof Error ? err.message : err);
+      const errorMsg = err instanceof Error ? err.message : String(err);
+      console.error(`${LOG} Editor notes failed for ${ci.id}:`, errorMsg);
       await supabaseAdmin
         .from('content_items')
-        .update({ editor_notes_status: 'failed' })
-        .eq('id', (item as { id: string }).id);
+        .update({
+          editor_notes_status: 'failed',
+          editor_notes_error: errorMsg.slice(0, 1000),
+        })
+        .eq('id', ci.id);
+
+      captureRouteError(err instanceof Error ? err : new Error(errorMsg), {
+        route: '/api/cron/content-item-processing',
+        feature: 'content-item-processing',
+        extra: { content_item_id: ci.id, workspace_id: ci.workspace_id, step: 'editor_notes' },
+      });
       failed++;
     }
   }
@@ -248,67 +301,140 @@ async function processEditorNotesQueue() {
 
 /**
  * Generate editor notes for a content item using Claude.
+ * Produces both legacy EditorNotes (for backward compat) and enhanced EditorNotesJSON.
  */
-async function generateContentItemEditorNotes(contentItemId: string) {
-  console.log(`${LOG} Generating editor notes for ${contentItemId}`);
+async function generateContentItemEditorNotes(item: ClaimableItem) {
+  console.log(`${LOG} Generating editor notes for ${item.id}`);
 
-  // Fetch the latest transcript asset
-  const { data: transcriptAsset } = await supabaseAdmin
-    .from('content_item_assets')
-    .select('metadata')
-    .eq('content_item_id', contentItemId)
-    .eq('kind', 'transcript')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  // Fetch transcript data — prefer from content_items columns, fallback to asset
+  let transcript = '';
+  let timestamps: Array<{ start: number; end: number; text: string }> = [];
+  let durationSeconds = 0;
 
-  if (!transcriptAsset?.metadata) {
-    throw new Error('No transcript found');
+  // Try content_items columns first
+  const { data: ciData } = await supabaseAdmin
+    .from('content_items')
+    .select('transcript_text, transcript_json')
+    .eq('id', item.id)
+    .single();
+
+  if (ciData?.transcript_text) {
+    transcript = ciData.transcript_text;
+    timestamps = (ciData.transcript_json as Array<{ start: number; end: number; text: string }>) || [];
+    if (timestamps.length > 0) {
+      durationSeconds = timestamps[timestamps.length - 1].end;
+    }
+  } else {
+    // Fallback to asset
+    const { data: transcriptAsset } = await supabaseAdmin
+      .from('content_item_assets')
+      .select('metadata')
+      .eq('content_item_id', item.id)
+      .eq('kind', 'transcript')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (!transcriptAsset?.metadata) {
+      throw new Error('No transcript found');
+    }
+
+    const meta = transcriptAsset.metadata as { text?: string; timestamps?: Array<{ start: number; end: number; text: string }>; duration_seconds?: number };
+    transcript = meta.text || '';
+    timestamps = meta.timestamps || [];
+    durationSeconds = meta.duration_seconds || 0;
   }
-
-  const meta = transcriptAsset.metadata as { text?: string; timestamps?: Array<{ start: number; end: number; text: string }> };
-  const transcript = meta.text || '';
-  const timestamps = meta.timestamps || [];
 
   if (!transcript) {
     throw new Error('Transcript is empty');
   }
 
-  // Fetch original script from latest brief (if any)
+  // Fetch brief context
   const { data: briefRow } = await supabaseAdmin
     .from('creator_briefs')
     .select('data')
-    .eq('content_item_id', contentItemId)
+    .eq('content_item_id', item.id)
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  const originalScript = (briefRow?.data as { script_text?: string })?.script_text || undefined;
+  const briefData = briefRow?.data as Record<string, unknown> | null;
+  const originalScript = (briefData?.script_text as string) || undefined;
+  const persona = (briefData?.audience_persona as string) || undefined;
 
-  // Generate editor notes via Claude
-  const editorNotes = await generateEditorNotes({
+  // Fetch brand/product names for context
+  let brandName: string | undefined;
+  let productName: string | undefined;
+
+  if (item.brand_id) {
+    const { data: brand } = await supabaseAdmin
+      .from('brands')
+      .select('name')
+      .eq('id', item.brand_id)
+      .maybeSingle();
+    brandName = (brand?.name as string) || undefined;
+  }
+
+  if (item.product_id) {
+    const { data: product } = await supabaseAdmin
+      .from('products')
+      .select('name')
+      .eq('id', item.product_id)
+      .maybeSingle();
+    productName = (product?.name as string) || undefined;
+  }
+
+  // Generate enhanced editor notes
+  const { json: enhancedNotes, markdown } = await generateEnhancedEditorNotes({
     transcript,
     timestamps,
     originalScript,
-    correlationId: `ci-${contentItemId}`,
+    persona,
+    brandName,
+    productName,
+    cowTier: item.brief_selected_cow_tier as 'safe' | 'edgy' | 'unhinged',
+    durationSeconds,
+    correlationId: `ci-${item.id}`,
   });
 
-  // Store on content_items.editor_notes
+  // Also generate legacy notes for backward compat (stored in editor_notes column)
+  let legacyNotes;
+  try {
+    legacyNotes = await generateEditorNotes({
+      transcript,
+      timestamps,
+      originalScript,
+      correlationId: `ci-legacy-${item.id}`,
+    });
+  } catch {
+    // Legacy notes are non-critical — continue without them
+    console.warn(`${LOG} Legacy editor notes generation failed for ${item.id} (non-fatal)`);
+  }
+
+  // Update content item with all results
+  const updateData: Record<string, unknown> = {
+    editor_notes_status: 'completed',
+    editor_notes_json: enhancedNotes,
+    editor_notes_text: markdown,
+    editor_notes_error: null,
+  };
+
+  if (legacyNotes) {
+    updateData.editor_notes = legacyNotes;
+  }
+
   await supabaseAdmin
     .from('content_items')
-    .update({
-      editor_notes: editorNotes,
-      editor_notes_status: 'completed',
-    })
-    .eq('id', contentItemId);
+    .update(updateData)
+    .eq('id', item.id);
 
-  // Also store as an asset for tracking
+  // Store as asset for tracking
   await supabaseAdmin.from('content_item_assets').insert({
-    content_item_id: contentItemId,
+    content_item_id: item.id,
     kind: 'editor_notes',
     source: 'generated',
-    metadata: editorNotes,
+    metadata: enhancedNotes,
   });
 
-  console.log(`${LOG} Editor notes generated for ${contentItemId}`);
+  console.log(`${LOG} Editor notes generated for ${item.id}`);
 }

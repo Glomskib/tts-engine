@@ -68,6 +68,8 @@ export const GET = withErrorCapture(async (
 
 // ── PATCH /api/content-items/[id] ────────────────────────────────
 
+const PROCESSING_STATUSES = ['none', 'pending', 'processing', 'completed', 'failed'] as const;
+
 const UpdateSchema = z.object({
   title: z.string().min(1).optional(),
   status: z.enum(CONTENT_ITEM_STATUSES as [string, ...string[]]).optional(),
@@ -82,6 +84,8 @@ const UpdateSchema = z.object({
   ai_description: z.string().nullable().optional(),
   hashtags: z.array(z.string()).nullable().optional(),
   caption: z.string().nullable().optional(),
+  transcript_status: z.enum(PROCESSING_STATUSES).optional(),
+  editor_notes_status: z.enum(PROCESSING_STATUSES).optional(),
 }).strict();
 
 export const PATCH = withErrorCapture(async (
@@ -112,7 +116,7 @@ export const PATCH = withErrorCapture(async (
   // Verify ownership
   const { data: existing } = await supabaseAdmin
     .from('content_items')
-    .select('id')
+    .select('id, transcript_status, editor_notes_status')
     .eq('id', id)
     .eq('workspace_id', user.id)
     .single();
@@ -121,9 +125,26 @@ export const PATCH = withErrorCapture(async (
     return createApiErrorResponse('NOT_FOUND', 'Content item not found', 404, correlationId);
   }
 
+  // Validate processing status transitions: only allow retry (failed → pending)
+  if (parsed.data.transcript_status === 'pending' && existing.transcript_status !== 'failed') {
+    return createApiErrorResponse('VALIDATION_ERROR', 'Can only retry transcription from failed state', 400, correlationId);
+  }
+  if (parsed.data.editor_notes_status === 'pending' && existing.editor_notes_status !== 'failed') {
+    return createApiErrorResponse('VALIDATION_ERROR', 'Can only retry editor notes from failed state', 400, correlationId);
+  }
+
+  // Build update data — clear errors when retrying
+  const updateData = { ...parsed.data } as Record<string, unknown>;
+  if (parsed.data.transcript_status === 'pending') {
+    updateData.transcript_error = null;
+  }
+  if (parsed.data.editor_notes_status === 'pending') {
+    updateData.editor_notes_error = null;
+  }
+
   const { data: updated, error } = await supabaseAdmin
     .from('content_items')
-    .update(parsed.data)
+    .update(updateData)
     .eq('id', id)
     .select('*')
     .single();

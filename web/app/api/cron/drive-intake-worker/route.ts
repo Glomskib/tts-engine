@@ -679,6 +679,7 @@ async function processJob(job: IntakeJob): Promise<Record<string, unknown>> {
           const ciUpdate: Record<string, unknown> = {
             raw_footage_drive_file_id: drive_file_id,
             raw_footage_url: driveViewUrl,
+            raw_footage_received_at: new Date().toISOString(),
           };
 
           if (transcript.length > 0) {
@@ -690,6 +691,9 @@ async function processJob(job: IntakeJob): Promise<Record<string, unknown>> {
               metadata: { text: transcript, timestamps: segments },
             });
             ciUpdate.transcript_status = 'completed';
+            ciUpdate.transcript_text = transcript;
+            ciUpdate.transcript_json = segments;
+            ciUpdate.last_processed_raw_file_id = drive_file_id;
             ciUpdate.editor_notes_status = 'pending'; // queue for AI editor notes
           } else {
             // No transcript yet — queue for processing worker

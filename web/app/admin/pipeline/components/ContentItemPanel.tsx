@@ -990,6 +990,7 @@ export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordi
   const [item, setItem] = useState<ContentItem | null>(null);
   const [brief, setBrief] = useState<CreatorBriefData | null>(null);
   const [briefMeta, setBriefMeta] = useState<{ version: number; claim_risk_score: number } | null>(null);
+  const [winningHooks, setWinningHooks] = useState<Array<{ pattern: string; example_hook: string | null; performance_score: number }>>([]);
   const [assetCounts, setAssetCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [generatingBrief, setGeneratingBrief] = useState(false);
@@ -1019,6 +1020,14 @@ export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordi
   }, [contentItemId, showError]);
 
   useEffect(() => { fetchItem(); }, [fetchItem]);
+
+  // Fetch winning hook patterns
+  useEffect(() => {
+    fetch('/api/hook-patterns')
+      .then(r => r.json())
+      .then(json => { if (json.ok) setWinningHooks(json.data || []); })
+      .catch(() => {});
+  }, []);
 
   // Fetch history events if video_id exists
   useEffect(() => {
@@ -1217,6 +1226,25 @@ export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordi
                     <ul className="text-sm list-disc pl-4 space-y-1">
                       {brief.recording_notes.map((n, i) => <li key={i}>{n}</li>)}
                     </ul>
+                  </div>
+                )}
+                {winningHooks.length > 0 && (
+                  <div className="bg-yellow-50 dark:bg-yellow-900/20 p-3 rounded-lg">
+                    <h4 className="text-xs font-semibold text-yellow-800 dark:text-yellow-200 mb-2 flex items-center gap-1">
+                      <Trophy size={12} /> Winning Hooks
+                    </h4>
+                    <div className="space-y-1.5">
+                      {winningHooks.slice(0, 5).map((h, i) => (
+                        <div key={i} className="flex items-start gap-2 text-xs">
+                          <span className="font-medium text-yellow-700 dark:text-yellow-300 whitespace-nowrap">{h.performance_score}/10</span>
+                          <span className="text-gray-700 dark:text-gray-300">{h.pattern}</span>
+                          {h.example_hook && (
+                            <span className="text-gray-400 italic truncate">&mdash; {h.example_hook}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[10px] text-gray-400 mt-1.5">These hooks performed well in past content. Brief generation uses them automatically.</p>
                   </div>
                 )}
                 <div className="flex gap-2">

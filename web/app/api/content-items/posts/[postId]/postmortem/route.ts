@@ -12,6 +12,7 @@ import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors'
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { generatePostmortem } from '@/lib/ai/postmortem/generatePostmortem';
 import { evaluateWinner } from '@/lib/content-intelligence/winnerDetector';
+import { extractHookPattern } from '@/lib/content-intelligence/hookExtractor';
 
 export const runtime = 'nodejs';
 
@@ -178,6 +179,11 @@ export const POST = withErrorCapture(async (
       console.error(`[${correlationId}] winner evaluation error:`, e),
     );
   }
+
+  // Extract hook pattern if hook_strength >= 7
+  extractHookPattern(postId, user.id, result.json).catch(e =>
+    console.error(`[${correlationId}] hook extraction error:`, e),
+  );
 
   const response = NextResponse.json({
     ok: true,

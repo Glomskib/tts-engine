@@ -8,6 +8,7 @@
 import { callAnthropicJSON } from '@/lib/ai/anthropic';
 import { classifyClaimRisk } from '@/lib/marketing/claim-risk';
 import { buildWinnersContext } from '@/lib/winners/context';
+import { fetchTopHookPatterns } from '@/lib/content-intelligence/hookExtractor';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import type { CreatorBriefData, PurpleCowTier } from './creator-brief-types';
 import type { WinnersIntelligence } from '@/lib/winners/types';
@@ -71,7 +72,15 @@ function validateBrief(brief: CreatorBriefData): string[] {
 
 // ── Prompt Building ──────────────────────────────────────────────
 
-function buildSystemPrompt(winnersContext: string): string {
+function buildHookPatternsContext(hooks: Array<{ pattern: string; example_hook: string | null; performance_score: number }>): string {
+  if (hooks.length === 0) return '';
+  const lines = hooks.map(h =>
+    `  - "${h.pattern}" (score: ${h.performance_score}/10)${h.example_hook ? ` — e.g. "${h.example_hook}"` : ''}`,
+  );
+  return `\nWINNING HOOK PATTERNS (from past high-performing content — use or adapt these):\n${lines.join('\n')}\n`;
+}
+
+function buildSystemPrompt(winnersContext: string, hookPatternsContext: string): string {
   return `You are a senior UGC content strategist for supplement and wellness brands.
 You create structured creator briefs that maximize scroll-stopping power via the "Purple Cow" methodology.
 
@@ -94,7 +103,7 @@ Key requirements:
 - purple_cow.notes_for_creator: Tips on how to execute the purple cow elements
 
 ${winnersContext}
-
+${hookPatternsContext}
 IMPORTANT: Do not make health claims that could be flagged by regulators. Use hedging language ("may help", "designed to support") instead of absolute claims ("cures", "proven to"). Keep captions compliant.`;
 }
 
@@ -156,12 +165,13 @@ export async function generateCreatorBrief(
   input: BriefGenerationInput,
 ): Promise<BriefGenerationResult> {
   // 1. Gather context
-  const winnersIntel = await fetchWinnersIntelligence(
-    input.workspaceId,
-    input.productCategory,
-  );
+  const [winnersIntel, topHooks] = await Promise.all([
+    fetchWinnersIntelligence(input.workspaceId, input.productCategory),
+    fetchTopHookPatterns(input.workspaceId, 5),
+  ]);
   const winnersContext = buildWinnersContext(winnersIntel);
-  const systemPrompt = buildSystemPrompt(winnersContext);
+  const hookPatternsContext = buildHookPatternsContext(topHooks);
+  const systemPrompt = buildSystemPrompt(winnersContext, hookPatternsContext);
 
   // 2. First generation attempt
   let { parsed: brief } = await callAnthropicJSON<CreatorBriefData>(

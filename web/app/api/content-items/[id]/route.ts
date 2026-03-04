@@ -116,13 +116,18 @@ export const PATCH = withErrorCapture(async (
   // Verify ownership
   const { data: existing } = await supabaseAdmin
     .from('content_items')
-    .select('id, transcript_status, editor_notes_status')
+    .select('id, transcript_status, editor_notes_status, product_id')
     .eq('id', id)
     .eq('workspace_id', user.id)
     .single();
 
   if (!existing) {
     return createApiErrorResponse('NOT_FOUND', 'Content item not found', 404, correlationId);
+  }
+
+  // Enforce product linkage when marking ready_to_post
+  if (parsed.data.status === 'ready_to_post' && !existing.product_id && !parsed.data.product_id) {
+    return createApiErrorResponse('MISSING_PRODUCT_ID', 'Link a product before marking ready to post', 400, correlationId);
   }
 
   // Validate processing status transitions: only allow retry (failed → pending)

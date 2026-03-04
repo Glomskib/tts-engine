@@ -105,13 +105,18 @@ export const POST = withErrorCapture(async (
   // Verify content item ownership
   const { data: item } = await supabaseAdmin
     .from('content_items')
-    .select('id')
+    .select('id, product_id')
     .eq('id', id)
     .eq('workspace_id', user.id)
     .single();
 
   if (!item) {
     return createApiErrorResponse('NOT_FOUND', 'Content item not found', 404, correlationId);
+  }
+
+  // Enforce product linkage
+  if (!item.product_id) {
+    return createApiErrorResponse('MISSING_PRODUCT_ID', 'Link a product to create a post', 400, correlationId);
   }
 
   // Infer platform from URL if not provided

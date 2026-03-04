@@ -3,7 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors, BarChart3, Plus, Brain, Trophy, ChevronRight, Flame, MessageSquare, Repeat2, Lightbulb, BookOpen } from 'lucide-react';
+import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, Loader2, Film, Scissors, BarChart3, Plus, Brain, Trophy, ChevronRight, Flame, MessageSquare, Repeat2, Lightbulb, BookOpen } from 'lucide-react';
+import DriveFolderButton from '@/components/DriveFolderButton';
 import type { ContentItem, ContentItemStatus, CowTier, ProcessingStatus, ContentItemPost, MetricsSnapshot, PostPlatform, ContentItemAIInsight } from '@/lib/content-items/types';
 import type { EditorNotesJSON } from '@/lib/content-items/editor-notes-schema';
 import type { PostmortemJSON } from '@/lib/ai/postmortem/generatePostmortem';
@@ -101,49 +102,15 @@ function ProcessingBadge({ status }: { status: ProcessingStatus }) {
 }
 
 function UploadTab({ item, assetCounts, onItemUpdate }: { item: ContentItem; assetCounts: Record<string, number>; onItemUpdate: (i: ContentItem) => void }) {
-  const { showSuccess, showError } = useToast();
-  const [creatingFolder, setCreatingFolder] = useState(false);
-
-  const handleCreateFolder = async () => {
-    setCreatingFolder(true);
-    try {
-      const res = await fetch(`/api/content-items/${item.id}/drive-folder`, { method: 'POST' });
-      const json = await res.json();
-      if (json.ok) {
-        onItemUpdate({ ...item, drive_folder_id: json.data.drive_folder_id, drive_folder_url: json.data.drive_folder_url });
-        showSuccess('Upload folder created');
-      } else {
-        showError(json.error || 'Failed to create folder');
-      }
-    } catch {
-      showError('Failed to create folder');
-    } finally {
-      setCreatingFolder(false);
-    }
-  };
-
   return (
     <div className="space-y-4">
       {/* Drive folder */}
-      {item.drive_folder_url ? (
-        <a
-          href={item.drive_folder_url}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-700 dark:text-blue-300 hover:bg-blue-100 transition"
-        >
-          <ExternalLink size={14} /> Open Upload Folder
-        </a>
-      ) : (
-        <button
-          onClick={handleCreateFolder}
-          disabled={creatingFolder}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-sm text-blue-700 dark:text-blue-300 hover:bg-blue-100 transition w-full disabled:opacity-50"
-        >
-          {creatingFolder ? <Loader2 size={14} className="animate-spin" /> : <FolderPlus size={14} />}
-          {creatingFolder ? 'Creating folder...' : 'Create Upload Folder'}
-        </button>
-      )}
+      <DriveFolderButton
+        contentItemId={item.id}
+        driveFolderUrl={item.drive_folder_url}
+        onFolderReady={(url, folderId) => onItemUpdate({ ...item, drive_folder_id: folderId, drive_folder_url: url })}
+        className="w-full"
+      />
       {item.brief_doc_url && (
         <a
           href={item.brief_doc_url}
@@ -622,6 +589,7 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
   const [metricsPostId, setMetricsPostId] = useState<string | null>(null);
   const [generatingPostmortem, setGeneratingPostmortem] = useState<string | null>(null);
   const [generatingVariations, setGeneratingVariations] = useState<string | null>(null);
+  const [syncingMetrics, setSyncingMetrics] = useState<string | null>(null);
   const [expandedInsight, setExpandedInsight] = useState<string | null>(null);
   const { showToast } = useToast();
 
@@ -714,6 +682,26 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
     }
   };
 
+  const handleSyncMetrics = async (postId: string) => {
+    setSyncingMetrics(postId);
+    try {
+      const res = await fetch(`/api/content-items/posts/${postId}/metrics/sync`, { method: 'POST' });
+      const json = await res.json();
+      if (json.ok && json.data) {
+        setMetrics(prev => ({ ...prev, [postId]: json.data }));
+        showToast({ message: 'Metrics synced', type: 'success' });
+      } else if (json.code === 'PROVIDER_NOT_CONFIGURED') {
+        showToast({ message: 'Not connected yet — use manual entry', type: 'info' });
+      } else {
+        showToast({ message: json.error || json.message || 'Failed to sync', type: 'error' });
+      }
+    } catch {
+      showToast({ message: 'Failed to sync metrics', type: 'error' });
+    } finally {
+      setSyncingMetrics(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -782,12 +770,23 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
                     </div>
                   ) : null}
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={() => setMetricsPostId(post.id)}
                       className="text-[10px] text-indigo-600 hover:underline"
                     >
                       {snapshot ? 'Update Metrics' : 'Add Metrics'}
+                    </button>
+                    <button
+                      onClick={() => handleSyncMetrics(post.id)}
+                      disabled={syncingMetrics === post.id}
+                      className="text-[10px] text-teal-600 hover:underline flex items-center gap-0.5 disabled:opacity-50"
+                    >
+                      {syncingMetrics === post.id ? (
+                        <><Loader2 size={10} className="animate-spin" /> Syncing...</>
+                      ) : (
+                        'Sync'
+                      )}
                     </button>
                     {snapshot && (
                       <>

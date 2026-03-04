@@ -2,9 +2,11 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Copy, Check, ExternalLink, Send, Loader2, ArrowLeft, Sparkles } from 'lucide-react';
+import { Copy, Check, ExternalLink, Send, Loader2, ArrowLeft, Sparkles, Package, FileText, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import type { ContentItem } from '@/lib/content-items/types';
+import DriveFolderButton from '@/components/DriveFolderButton';
+import ProductPicker from '@/components/ProductPicker';
 
 function CopyBtn({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -34,6 +36,9 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
   const [views, setViews] = useState('');
   const [likes, setLikes] = useState('');
   const [generatingCaption, setGeneratingCaption] = useState(false);
+  const [showProductPicker, setShowProductPicker] = useState(false);
+  const [generatingPackage, setGeneratingPackage] = useState(false);
+  const [postPackageMarkdown, setPostPackageMarkdown] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -48,6 +53,44 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
   }, [contentItemId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  const handleLinkProduct = async (productId: string, productName: string) => {
+    setShowProductPicker(false);
+    try {
+      const res = await fetch(`/api/content-items/${contentItemId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ product_id: productId }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setItem(prev => prev ? { ...prev, product_id: productId, products: { name: productName } } : prev);
+        showToast({ message: `Linked: ${productName}`, type: 'success' });
+      } else {
+        showToast({ message: json.error || 'Failed to link product', type: 'error' });
+      }
+    } catch {
+      showToast({ message: 'Network error', type: 'error' });
+    }
+  };
+
+  const handleGeneratePackage = async () => {
+    setGeneratingPackage(true);
+    try {
+      const res = await fetch(`/api/content-items/${contentItemId}/post-package`, { method: 'POST' });
+      const json = await res.json();
+      if (json.ok && json.data) {
+        setPostPackageMarkdown(json.data.markdown);
+        showToast({ message: 'Post package generated', type: 'success' });
+      } else {
+        showToast({ message: json.error || 'Failed to generate package', type: 'error' });
+      }
+    } catch {
+      showToast({ message: 'Network error', type: 'error' });
+    } finally {
+      setGeneratingPackage(false);
+    }
+  };
 
   const handleMarkPosted = async () => {
     setPosting(true);
@@ -77,7 +120,12 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
         showToast({ message: 'Marked as posted!', type: 'success' });
         router.push('/admin/studio');
       } else {
-        showToast({ message: json.error || 'Failed', type: 'error' });
+        if (json.error_code === 'MISSING_PRODUCT_ID') {
+          showToast({ message: 'Link a product first', type: 'error' });
+          setShowProductPicker(true);
+        } else {
+          showToast({ message: json.error || 'Failed', type: 'error' });
+        }
       }
     } catch {
       showToast({ message: 'Network error', type: 'error' });
@@ -103,6 +151,7 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
   }
 
   const hashtags = item.hashtags?.join(' ') || '';
+  const hasProduct = !!item.product_id;
 
   return (
     <div className="pb-28 max-w-lg mx-auto">
@@ -111,11 +160,35 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
         <button onClick={() => router.back()} className="flex items-center gap-1 text-sm text-[var(--text-muted)] mb-3">
           <ArrowLeft size={16} /> Back
         </button>
-        <h1 className="text-xl font-bold text-[var(--text)]">Post Content</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold text-[var(--text)]">Post Content</h1>
+          <DriveFolderButton
+            contentItemId={item.id}
+            driveFolderUrl={item.drive_folder_url}
+            compact
+          />
+        </div>
         <p className="text-sm text-[var(--text-muted)] font-mono">{item.short_id} — {item.title}</p>
       </div>
 
       <div className="px-4 space-y-6">
+        {/* Product enforcement banner */}
+        {!hasProduct && (
+          <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 flex items-center gap-3">
+            <AlertTriangle size={20} className="text-amber-500 shrink-0" />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-amber-400">Link a product to post</p>
+              <p className="text-xs text-amber-400/70 mt-0.5">Required before marking as posted</p>
+            </div>
+            <button
+              onClick={() => setShowProductPicker(true)}
+              className="px-3 py-1.5 text-xs font-medium rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition"
+            >
+              Link
+            </button>
+          </div>
+        )}
+
         {/* Video Preview */}
         {item.final_video_url && (
           <section>
@@ -132,12 +205,22 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
         )}
 
         {/* Product */}
-        {item.products?.name && (
+        {item.products?.name ? (
           <section>
             <h2 className="text-lg font-semibold text-[var(--text)] mb-2">Product</h2>
             <span className="inline-block text-sm px-3 py-1 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20">
               {item.products.name}
             </span>
+          </section>
+        ) : hasProduct ? null : (
+          <section>
+            <h2 className="text-lg font-semibold text-[var(--text)] mb-2">Product</h2>
+            <button
+              onClick={() => setShowProductPicker(true)}
+              className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-medium bg-zinc-800 text-zinc-200 active:bg-zinc-700"
+            >
+              <Package size={18} /> Link Product
+            </button>
           </section>
         )}
 
@@ -208,6 +291,33 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
           <CopyBtn text={`${item.caption}\n\n${hashtags}`} label="Copy Caption + Hashtags" />
         )}
 
+        {/* Post Package */}
+        <section>
+          <h2 className="text-lg font-semibold text-[var(--text)] mb-2">Post Package</h2>
+          <button
+            onClick={handleGeneratePackage}
+            disabled={generatingPackage || !hasProduct}
+            className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-medium transition-colors bg-indigo-600 text-white active:bg-indigo-700 disabled:opacity-50"
+          >
+            {generatingPackage ? (
+              <><Loader2 size={18} className="animate-spin" /> Generating...</>
+            ) : (
+              <><FileText size={18} /> Generate Post Package</>
+            )}
+          </button>
+          {!hasProduct && (
+            <p className="text-xs text-[var(--text-muted)] mt-1 text-center">Link a product first</p>
+          )}
+          {postPackageMarkdown && (
+            <div className="mt-3 space-y-2">
+              <pre className="bg-[var(--surface)] border border-[var(--border)] rounded-xl p-4 text-xs text-[var(--text)] whitespace-pre-wrap overflow-x-auto max-h-[400px] overflow-y-auto">
+                {postPackageMarkdown}
+              </pre>
+              <CopyBtn text={postPackageMarkdown} label="Copy Package" />
+            </div>
+          )}
+        </section>
+
         {/* Open TikTok */}
         <a
           href="https://www.tiktok.com/upload"
@@ -263,13 +373,20 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
         <div className="max-w-lg mx-auto">
           <button
             onClick={handleMarkPosted}
-            disabled={posting}
+            disabled={posting || !hasProduct}
             className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-semibold bg-green-600 text-white active:bg-green-700 disabled:opacity-50"
           >
             {posting ? <><Loader2 size={18} className="animate-spin" /> Posting...</> : <><Send size={18} /> Mark Posted</>}
           </button>
         </div>
       </div>
+
+      {/* Product Picker Modal */}
+      <ProductPicker
+        isOpen={showProductPicker}
+        onClose={() => setShowProductPicker(false)}
+        onSelect={handleLinkProduct}
+      />
     </div>
   );
 }

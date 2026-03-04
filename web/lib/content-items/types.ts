@@ -105,7 +105,7 @@ export interface CreatorBriefRow {
 export type PostPlatform = 'tiktok' | 'instagram' | 'youtube' | 'facebook' | 'other';
 export type PostStatus = 'posted' | 'deleted' | 'unknown';
 export type MetricsSource = 'manual' | 'posting_provider' | 'platform_api';
-export type InsightType = 'postmortem' | 'hook' | 'next' | 'winner_candidate';
+export type InsightType = 'postmortem' | 'hook' | 'next' | 'winner_candidate' | 'post_package';
 
 export const POST_PLATFORMS: PostPlatform[] = ['tiktok', 'instagram', 'youtube', 'facebook', 'other'];
 

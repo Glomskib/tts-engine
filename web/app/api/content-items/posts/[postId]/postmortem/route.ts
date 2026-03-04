@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { generatePostmortem } from '@/lib/ai/postmortem/generatePostmortem';
+import { evaluateWinner } from '@/lib/content-intelligence/winnerDetector';
 
 export const runtime = 'nodejs';
 
@@ -169,6 +170,13 @@ export const POST = withErrorCapture(async (
   if (error) {
     console.error(`[${correlationId}] ai_insights insert error:`, error);
     return createApiErrorResponse('DB_ERROR', 'Failed to save postmortem', 500, correlationId);
+  }
+
+  // Auto-evaluate for winner bank when postmortem flags winner_candidate
+  if (result.json.winner_candidate) {
+    evaluateWinner(postId, user.id).catch(e =>
+      console.error(`[${correlationId}] winner evaluation error:`, e),
+    );
   }
 
   const response = NextResponse.json({

@@ -62,7 +62,9 @@ export type ApiErrorCode =
   | 'DAILY_CAP_EXCEEDED'
   | 'SLA_EXPIRED'
   | 'DRIVE_NOT_CONNECTED'
+  | 'DRIVE_NOT_CONFIGURED'
   | 'DRIVE_API_ERROR'
+  | 'NO_ROOT_FOLDER'
   | 'ITEM_NOT_FOUND';
 
 // Admin users who can use force=true bypass (environment-configurable)

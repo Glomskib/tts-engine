@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Copy, Check, ExternalLink, FolderPlus, Loader2, Sparkles, ArrowLeft } from 'lucide-react';
+import { Copy, Check, ExternalLink, FolderPlus, Loader2, Sparkles, ArrowLeft, FileText, Save } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import type { ContentItem } from '@/lib/content-items/types';
 import type { CreatorBriefData, BriefScene } from '@/lib/briefs/creator-brief-types';
@@ -32,6 +32,10 @@ export default function RecordPage({ params }: { params: Promise<{ contentItemId
   const [generatingBrief, setGeneratingBrief] = useState(false);
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [folderUrl, setFolderUrl] = useState<string | null>(null);
+  const [transcriptText, setTranscriptText] = useState('');
+  const [rawDriveFileUrl, setRawDriveFileUrl] = useState('');
+  const [transcriptSaved, setTranscriptSaved] = useState(false);
+  const [savingTranscript, setSavingTranscript] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -43,6 +47,13 @@ export default function RecordPage({ params }: { params: Promise<{ contentItemId
       if (itemJson.ok && itemJson.data) {
         setItem(itemJson.data);
         setFolderUrl(itemJson.data.drive_folder_url);
+        if (itemJson.data.transcript_text) {
+          setTranscriptText(itemJson.data.transcript_text);
+          setTranscriptSaved(true);
+        }
+        if (itemJson.data.raw_footage_url) {
+          setRawDriveFileUrl(itemJson.data.raw_footage_url);
+        }
       }
       if (briefJson.ok && briefJson.data?.data) {
         setBrief(briefJson.data.data as CreatorBriefData);
@@ -79,7 +90,7 @@ export default function RecordPage({ params }: { params: Promise<{ contentItemId
   const handleCreateFolder = async () => {
     setCreatingFolder(true);
     try {
-      const res = await fetch(`/api/content-items/${contentItemId}/drive-folder`, { method: 'POST' });
+      const res = await fetch(`/api/content-items/${contentItemId}/drive/ensure`, { method: 'POST' });
       const json = await res.json();
       if (json.ok) {
         setFolderUrl(json.data.drive_folder_url);
@@ -252,6 +263,78 @@ export default function RecordPage({ params }: { params: Promise<{ contentItemId
             </pre>
           </section>
         )}
+
+        {/* Transcript */}
+        <section>
+          <h2 className="text-lg font-semibold text-[var(--text)] mb-2 flex items-center gap-2">
+            <FileText size={20} className="text-violet-400" /> Transcript
+          </h2>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-sm text-[var(--text-muted)] mb-1">
+                Paste transcript {transcriptSaved && <span className="text-emerald-400 ml-2">Saved</span>}
+              </label>
+              <textarea
+                value={transcriptText}
+                onChange={(e) => { setTranscriptText(e.target.value); setTranscriptSaved(false); }}
+                placeholder="Paste the full transcript of your recorded video here..."
+                rows={6}
+                className="w-full min-h-[120px] px-4 py-3 rounded-xl text-base bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)] resize-y"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-[var(--text-muted)] mb-1">Raw footage Drive link (optional)</label>
+              <input
+                type="url"
+                value={rawDriveFileUrl}
+                onChange={(e) => setRawDriveFileUrl(e.target.value)}
+                placeholder="https://drive.google.com/file/d/..."
+                className="w-full min-h-[48px] px-4 rounded-xl text-base bg-[var(--surface)] border border-[var(--border)] text-[var(--text)] placeholder:text-[var(--text-muted)]"
+              />
+            </div>
+            <button
+              onClick={async () => {
+                if (!transcriptText.trim()) {
+                  showToast({ message: 'Enter transcript text first', type: 'error' });
+                  return;
+                }
+                setSavingTranscript(true);
+                try {
+                  // Extract Drive file ID from URL if present
+                  let rawFileId: string | undefined;
+                  if (rawDriveFileUrl) {
+                    const match = rawDriveFileUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                    if (match) rawFileId = match[1];
+                  }
+                  const res = await fetch(`/api/content-items/${contentItemId}/transcript`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      transcript_text: transcriptText.trim(),
+                      source: 'manual',
+                      raw_drive_file_id: rawFileId,
+                    }),
+                  });
+                  const json = await res.json();
+                  if (json.ok) {
+                    setTranscriptSaved(true);
+                    showToast({ message: 'Transcript saved!', type: 'success' });
+                  } else {
+                    showToast({ message: json.error || 'Failed to save', type: 'error' });
+                  }
+                } catch {
+                  showToast({ message: 'Network error', type: 'error' });
+                } finally {
+                  setSavingTranscript(false);
+                }
+              }}
+              disabled={savingTranscript || !transcriptText.trim()}
+              className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-medium transition-colors bg-violet-600 text-white active:bg-violet-700 disabled:opacity-50"
+            >
+              {savingTranscript ? <><Loader2 size={18} className="animate-spin" /> Saving...</> : <><Save size={18} /> Save Transcript</>}
+            </button>
+          </div>
+        </section>
       </div>
 
       {/* Sticky bottom action bar */}

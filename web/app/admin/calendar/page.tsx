@@ -406,6 +406,7 @@ export default function ContentPlannerPage() {
   const handleDragStart = (e: React.DragEvent, video: CalendarVideo) => {
     setDragVideo(video);
     setDragIdea(null);
+    setSelectedDay(null); // Close drawer so drop targets are reachable
     e.dataTransfer.effectAllowed = 'move';
     e.dataTransfer.setData('text/plain', video.id);
     e.dataTransfer.setData('application/x-type', 'video');
@@ -430,7 +431,7 @@ export default function ContentPlannerPage() {
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
+    e.dataTransfer.dropEffect = dragIdea ? 'copy' : 'move';
   };
 
   // Drop handler — reschedule existing video
@@ -499,6 +500,7 @@ export default function ContentPlannerPage() {
   const handleIdeaDragStart = (e: React.DragEvent, item: PackageItem) => {
     setDragIdea(item);
     setDragVideo(null);
+    setSelectedDay(null); // Close drawer so drop targets are reachable
     e.dataTransfer.effectAllowed = 'copy';
     e.dataTransfer.setData('text/plain', item.id);
     e.dataTransfer.setData('application/x-type', 'idea');
@@ -735,7 +737,7 @@ export default function ContentPlannerPage() {
                 : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
           }
         `}
-        onClick={() => setSelectedDay(dateKey)}
+        onClick={() => { if (!dragVideo && !dragIdea) setSelectedDay(dateKey); }}
         onDragEnter={(e) => handleDragEnter(e, dateKey)}
         onDragLeave={(e) => handleDragLeave(e, dateKey)}
         onDragOver={handleDragOver}

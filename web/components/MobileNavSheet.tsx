@@ -2,38 +2,9 @@
 
 import { useState, useMemo } from 'react';
 import Link from 'next/link';
-import { ChevronDown, Home, Activity, Download, Eye, ListTodo, Users, Zap } from 'lucide-react';
+import { ChevronDown, Home } from 'lucide-react';
 import { BottomSheet } from '@/components/BottomSheet';
 import { isNavItemActive, type NavSectionResolved } from '@/lib/navigation';
-
-interface NavGroup {
-  label: string;
-  itemHrefs: string[];
-}
-
-const NAV_GROUPS: NavGroup[] = [
-  {
-    label: 'Create',
-    itemHrefs: ['/admin/content-studio', '/admin/transcribe', '/admin/youtube-transcribe', '/admin/script-library', '/tools/tok-comment'],
-  },
-  {
-    label: 'Pipeline',
-    itemHrefs: ['/admin/pipeline', '/admin/posting-queue'],
-  },
-  {
-    label: 'Insights',
-    itemHrefs: ['/admin/winners', '/admin/products', '/admin/brands', '/admin/analytics'],
-  },
-];
-
-const ADMIN_ITEMS = [
-  { name: 'Ops', href: '/admin/ops', icon: Activity },
-  { name: 'Ingestion', href: '/admin/ingestion', icon: Download },
-  { name: 'Hook Review', href: '/admin/hook-suggestions', icon: Eye },
-  { name: 'Assignments', href: '/admin/assignments', icon: ListTodo },
-  { name: 'Users', href: '/admin/settings/users', icon: Users },
-  { name: 'Upgrades', href: '/admin/upgrade-requests', icon: Zap },
-];
 
 interface MobileNavSheetProps {
   open: boolean;
@@ -43,45 +14,26 @@ interface MobileNavSheetProps {
   isAdmin?: boolean;
 }
 
-export function MobileNavSheet({ open, onClose, navSections, pathname, isAdmin }: MobileNavSheetProps) {
-  // Flatten all nav items from sections for href-based lookup
-  const allNavItems = useMemo(() => {
-    return navSections.flatMap((s) => s.items);
+export function MobileNavSheet({ open, onClose, navSections, pathname }: MobileNavSheetProps) {
+  // Separate HOME section (render flat) from the rest (render as accordions)
+  const sections = useMemo(() => {
+    return navSections.filter((s) => s.items.length > 0);
   }, [navSections]);
 
-  // Build grouped items by matching hrefs against flattened nav items
-  const groups = useMemo(() => {
-    const result = NAV_GROUPS.map((group) => {
-      const items = group.itemHrefs
-        .map((href) => allNavItems.find((item) => item.href === href))
-        .filter((item): item is typeof allNavItems[0] => item !== undefined);
-      return { label: group.label, items };
-    }).filter((g) => g.items.length > 0);
-
-    // Add Admin group if user is admin
-    if (isAdmin) {
-      result.push({
-        label: 'Admin',
-        items: ADMIN_ITEMS as any,
-      });
+  // Auto-expand the section containing the active page
+  const activeSectionTitle = useMemo(() => {
+    for (const section of sections) {
+      if (section.items.some((item) => isNavItemActive(pathname, item.href))) {
+        return section.title;
+      }
     }
+    return null;
+  }, [sections, pathname]);
 
-    return result;
-  }, [allNavItems, isAdmin]);
+  const [expandedTitle, setExpandedTitle] = useState<string | null>(activeSectionTitle);
 
-  // Auto-expand the group containing the active page
-  const activeGroupIndex = useMemo(() => {
-    return groups.findIndex((g) =>
-      g.items.some((item) => isNavItemActive(pathname, item.href))
-    );
-  }, [groups, pathname]);
-
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(
-    activeGroupIndex >= 0 ? activeGroupIndex : null
-  );
-
-  const toggleGroup = (index: number) => {
-    setExpandedIndex((prev) => (prev === index ? null : index));
+  const toggleSection = (title: string) => {
+    setExpandedTitle((prev) => (prev === title ? null : title));
   };
 
   return (
@@ -105,18 +57,18 @@ export function MobileNavSheet({ open, onClose, navSections, pathname, isAdmin }
 
         <div className="h-px bg-zinc-800 mx-3 my-1" />
 
-        {groups.map((group, idx) => {
-          const isExpanded = expandedIndex === idx;
+        {sections.map((section) => {
+          const isExpanded = expandedTitle === section.title;
           return (
-            <div key={group.label}>
-              {/* Group header */}
+            <div key={section.title}>
+              {/* Section header */}
               <button
                 type="button"
-                onClick={() => toggleGroup(idx)}
+                onClick={() => toggleSection(section.title)}
                 className="flex items-center justify-between w-full px-3 py-3.5 rounded-xl text-left hover:bg-zinc-800/60 active:bg-zinc-800 transition-colors"
               >
                 <span className="text-[15px] font-semibold text-zinc-200">
-                  {group.label}
+                  {section.title}
                 </span>
                 <ChevronDown
                   className={`w-5 h-5 text-zinc-500 transition-transform duration-200 ${
@@ -128,7 +80,7 @@ export function MobileNavSheet({ open, onClose, navSections, pathname, isAdmin }
               {/* Expanded items */}
               {isExpanded && (
                 <div className="ml-1 mb-2 space-y-0.5">
-                  {group.items.map((item) => {
+                  {section.items.map((item) => {
                     const active = isNavItemActive(pathname, item.href);
                     const Icon = item.icon;
                     return (
@@ -146,9 +98,9 @@ export function MobileNavSheet({ open, onClose, navSections, pathname, isAdmin }
                       >
                         <Icon className="w-5 h-5 flex-shrink-0" />
                         <span className="text-[15px] font-medium">{item.name}</span>
-                        {'locked' in item && item.locked && (
+                        {item.locked && (
                           <span className="ml-auto text-[11px] text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
-                            {(item as any).requiredPlanName}
+                            {item.requiredPlanName}
                           </span>
                         )}
                       </Link>

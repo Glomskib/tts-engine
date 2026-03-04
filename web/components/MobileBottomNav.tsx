@@ -13,7 +13,8 @@ import {
   Trophy,
   BarChart3,
   Package,
-  Youtube
+  Youtube,
+  ListTodo
 } from 'lucide-react';
 
 // All available nav items for middle slots (content-studio is the fixed first slot)
@@ -26,9 +27,10 @@ const AVAILABLE_NAV_ITEMS = [
   { id: 'winners', href: '/admin/winners', icon: Trophy, label: 'Winners' },
   { id: 'analytics', href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
   { id: 'brands', href: '/admin/brands', icon: Package, label: 'Brands' },
+  { id: 'content-items', href: '/admin/content-items', icon: ListTodo, label: 'Items' },
 ];
 
-const DEFAULT_MIDDLE_SLOTS = ['pipeline', 'script-library', 'transcribe'];
+const DEFAULT_MIDDLE_SLOTS = ['pipeline', 'calendar', 'winners'];
 
 interface MobileBottomNavProps {
   onMoreClick: () => void;

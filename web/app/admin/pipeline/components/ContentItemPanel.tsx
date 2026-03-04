@@ -216,6 +216,22 @@ function PlatformBadge({ platform }: { platform: string }) {
   );
 }
 
+const SCORE_COLORS: Record<string, string> = {
+  'A+': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  'A': 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
+  'B': 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
+  'C': 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200',
+  'D': 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200',
+};
+
+function ContentScoreBadge({ grade }: { grade: string }) {
+  return (
+    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${SCORE_COLORS[grade] || SCORE_COLORS.D}`}>
+      {grade}
+    </span>
+  );
+}
+
 // ─── Add Post Modal ──────────────────────────────────────────
 
 function AddPostModal({ contentItemId, onClose, onCreated }: {
@@ -642,6 +658,7 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
                 <div key={post.id} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg space-y-2">
                   <div className="flex items-center gap-2">
                     <PlatformBadge platform={post.platform} />
+                    {post.performance_score && <ContentScoreBadge grade={post.performance_score} />}
                     <a href={post.post_url} target="_blank" rel="noopener noreferrer"
                       className="text-xs text-blue-600 hover:underline truncate flex-1 flex items-center gap-1">
                       <ExternalLink size={10} /> {post.post_url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}...

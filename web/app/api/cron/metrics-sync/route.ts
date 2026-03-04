@@ -17,6 +17,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
+import { scoreAndPersist } from '@/lib/content-intelligence/contentScore';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -163,6 +164,11 @@ async function syncPostMetrics(
           .from('content_item_posts')
           .update({ metrics_source: provider.name })
           .eq('id', candidate.post_id);
+
+        // Auto-score after metrics update
+        scoreAndPersist(candidate.post_id, candidate.workspace_id).catch(e =>
+          console.error(`${LOG} scoring error for ${candidate.post_id}:`, e),
+        );
 
         return { synced: true, source: provider.name };
       }

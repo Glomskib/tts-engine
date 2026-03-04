@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { z } from 'zod';
+import { scoreAndPersist } from '@/lib/content-intelligence/contentScore';
 
 export const runtime = 'nodejs';
 
@@ -160,6 +161,11 @@ export const POST = withErrorCapture(async (
     console.error(`[${correlationId}] metrics_snapshots insert error:`, error);
     return createApiErrorResponse('DB_ERROR', 'Failed to save metrics', 500, correlationId);
   }
+
+  // Auto-score the post after metrics update
+  scoreAndPersist(parsed.data.content_item_post_id, user.id).catch(e =>
+    console.error(`[${correlationId}] content score error:`, e),
+  );
 
   const response = NextResponse.json({
     ok: true,

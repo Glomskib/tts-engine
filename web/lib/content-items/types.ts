@@ -122,6 +122,7 @@ export interface ContentItemPost {
   posted_at: string | null;
   status: PostStatus;
   metrics_source: MetricsSource;
+  performance_score: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -66,7 +66,9 @@ export interface PipelineResult {
   articlesFound: number;
   intelDocId?: string;
   draftsDocId?: string;
-  bufferPushed: boolean;
+  bufferPushed: boolean;  // legacy name; true = drafts queued to marketing engine
+  marketingRunId?: string;
+  marketingQueued?: number;
   warnings: string[];  // non-fatal (source fetch failures)
   errors: string[];    // fatal (Claude API, MC post failures)
   log: string[];

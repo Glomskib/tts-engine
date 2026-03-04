@@ -18,8 +18,11 @@ config({ path: '.env.local' });
 
 import { chromium, type Page, type BrowserContext } from 'playwright';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import { CONFIG, getLaunchOptions } from '../../../../skills/tiktok-studio-uploader/types.js';
+import { logSessionValidity } from '../../../lib/session-logger';
+import { getNodeId } from '../../../lib/node-id';
 
 const TAG = '[tiktok:bootstrap]';
 
@@ -199,6 +202,17 @@ async function saveState(context: BrowserContext, page: Page, verified: boolean)
   console.log(`${TAG} Meta:                ${META_FILE}`);
   console.log(`${TAG} Verified:            ${verified}`);
   console.log(`${TAG} Timestamp:           ${now.toISOString()}`);
+
+  // Update DB session status so preflight checks pass
+  const nodeId = getNodeId();
+  await logSessionValidity({
+    nodeName: nodeId,
+    platform: 'tiktok_studio',
+    isValid: verified,
+    reason: verified ? 'bootstrap: login verified' : 'bootstrap: login not confirmed',
+  });
+  console.log(`${TAG} DB session status:   updated (node_id=${nodeId}, hostname=${os.hostname()}, valid=${verified})`);
+
   console.log('');
   console.log(`${TAG} Next run should land on Studio without login.`);
   console.log(`${TAG} To test:   npm run tiktok:check-session`);

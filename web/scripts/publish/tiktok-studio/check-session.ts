@@ -24,6 +24,7 @@ import * as os from 'os';
 import * as path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import { CONFIG, getLaunchOptions } from '../../../../skills/tiktok-studio-uploader/types.js';
+import { getNodeId } from '../../../lib/node-id';
 
 const TAG = '[tiktok:check-session]';
 const SESSION_TTL_HOURS = parseInt(process.env.SESSION_TTL_HOURS || '24', 10);
@@ -48,7 +49,7 @@ async function logSessionValidity(isValid: boolean, reason: string): Promise<voi
       .from('ff_session_status')
       .upsert(
         {
-          node_name: os.hostname(),
+          node_name: getNodeId(),
           platform: 'tiktok_studio',
           account_id: null,
           is_valid: isValid,

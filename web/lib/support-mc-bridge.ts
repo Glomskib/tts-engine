@@ -1,3 +1,5 @@
+import { isOpenClawEnabled, openclawSkipLog } from './openclaw-gate';
+
 const MC_BASE_URL = process.env.MISSION_CONTROL_BASE_URL || process.env.MC_BASE_URL || 'https://mc.flashflowai.com';
 // Canonical token: MISSION_CONTROL_TOKEN → MISSION_CONTROL_AGENT_TOKEN (no MC_API_TOKEN)
 const MC_TOKEN = process.env.MISSION_CONTROL_TOKEN || process.env.MISSION_CONTROL_AGENT_TOKEN || '';
@@ -8,6 +10,10 @@ const MC_TOKEN = process.env.MISSION_CONTROL_TOKEN || process.env.MISSION_CONTRO
  * Sends both Authorization: Bearer and x-service-token for compatibility.
  */
 export function crossPostToMC(threadId: string, subject: string, visitorEmail: string | null): void {
+  if (!isOpenClawEnabled()) {
+    openclawSkipLog('crossPostToMC');
+    return;
+  }
   if (!MC_TOKEN) {
     console.warn('[support-mc-bridge] No MC token configured (set MISSION_CONTROL_TOKEN)');
     return;

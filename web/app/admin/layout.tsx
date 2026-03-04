@@ -36,7 +36,7 @@ function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+      className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)] rounded-lg transition-colors"
       title={`Switch to ${isDark ? 'light' : 'dark'} mode`}
       aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
     >
@@ -203,7 +203,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   if (auth.loading) {
     return (
       <ToastProvider>
-        <div className="flex items-center justify-center min-h-screen bg-zinc-950 text-zinc-400">
+        <div className="flex items-center justify-center min-h-screen bg-[var(--bg)] text-[var(--text-muted)]">
           <div className="flex items-center gap-3 text-lg">
             <div className="w-6 h-6 border-2 border-zinc-600 border-t-zinc-300 rounded-full animate-spin" />
             Loading...
@@ -248,7 +248,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                       : 'px-3 py-2.5 text-sm'}
                     ${active
                       ? 'bg-teal-500/20 text-teal-400'
-                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                      : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)]'
                     }
                   `}
                 >
@@ -272,7 +272,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       ))}
 
       {/* Bottom spacer */}
-      <div className="px-2 mt-4 pt-4 border-t border-zinc-800" />
+      <div className="px-2 mt-4 pt-4 border-t border-[var(--border)]" />
     </nav>
   );
 
@@ -280,7 +280,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const SidebarUpgradeCard = () => {
     if (subscription?.planId && subscription.planId !== 'free') return null;
     return (
-      <div className="px-3 py-4 border-t border-zinc-800">
+      <div className="px-3 py-4 border-t border-[var(--border)]">
         <div className="rounded-xl bg-gradient-to-br from-teal-500/10 to-violet-500/10 border border-teal-500/20 p-3">
           <p className="text-xs font-medium text-zinc-200 mb-1">Free plan</p>
           <p className="text-[10px] text-zinc-500 mb-2.5 leading-relaxed">Unlock unlimited scripts, all personas, and priority generation.</p>
@@ -298,7 +298,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <AriaLiveProvider>
     <SkipLink />
     <OfflineIndicator />
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
 
       {/* ============================================================
           MOBILE LAYOUT - Only rendered when isMobile is true
@@ -308,7 +308,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {/* Mobile Header - Simplified with proper overflow handling */}
           <header className="
             fixed top-0 left-0 right-0 h-14 z-40
-            bg-zinc-950/95 backdrop-blur-sm border-b border-zinc-800
+            bg-[var(--bg)] backdrop-blur-sm border-b border-[var(--border)]
             flex items-center justify-between px-3 gap-2
           ">
             <Link href="/admin" className="flex items-center gap-2 flex-shrink-0 min-w-0">
@@ -340,16 +340,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               />
 
               {/* Sidebar Panel - Wider on mobile for easier reading */}
-              <aside className="absolute inset-y-0 left-0 w-[320px] max-w-[90vw] bg-zinc-950 border-r border-zinc-800 flex flex-col">
+              <aside className="absolute inset-y-0 left-0 w-[320px] max-w-[90vw] bg-[var(--bg)] border-r border-[var(--border)] flex flex-col">
                 {/* Header */}
-                <div className="flex items-center justify-between p-5 border-b border-zinc-800">
+                <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
                   <div className="flex items-center gap-3">
                     <Image src={BRAND.logo} alt={BRAND.name} width={40} height={40} className="rounded-lg" />
                     <span className="font-bold text-2xl">{BRAND.name}</span>
                   </div>
                   <button type="button"
                     onClick={() => setSidebarOpen(false)}
-                    className="p-3 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl min-w-[48px] min-h-[48px] flex items-center justify-center"
+                    className="p-3 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)] rounded-xl min-w-[48px] min-h-[48px] flex items-center justify-center"
                     aria-label="Close sidebar"
                   >
                     <X className="w-7 h-7" />
@@ -360,14 +360,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                 <SidebarContent onItemClick={() => setSidebarOpen(false)} />
 
                 {/* User info - Larger for mobile */}
-                <div className="p-5 border-t border-zinc-800">
+                <div className="p-5 border-t border-[var(--border)]">
                   <div className="flex items-center gap-4 mb-5">
                     <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white font-bold text-2xl">
                       {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[17px] font-medium text-white truncate">{auth.userEmail}</p>
-                      <p className="text-base text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
+                      <p className="text-[17px] font-medium text-[var(--text)] truncate">{auth.userEmail}</p>
+                      <p className="text-base text-[var(--text-muted)]">{subscription?.planName || 'Free'} Plan</p>
                     </div>
                   </div>
                   <div className="space-y-2">
@@ -376,7 +376,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                         setSidebarOpen(false);
                         setCustomizeNavOpen(true);
                       }}
-                      className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors min-h-[52px]"
+                      className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-[var(--text-muted)] hover:bg-[var(--surface2)] rounded-xl transition-colors min-h-[52px]"
                     >
                       <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
@@ -385,7 +385,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     </button>
                     <button type="button"
                       onClick={handleLogout}
-                      className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-red-400 hover:bg-zinc-800 rounded-xl transition-colors min-h-[52px]"
+                      className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-red-400 hover:bg-[var(--surface2)] rounded-xl transition-colors min-h-[52px]"
                     >
                       <LogOut className="w-7 h-7" />
                       Logout
@@ -400,16 +400,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {userMenuOpen && (
             <div className="fixed inset-0 z-50" role="dialog" aria-label="User menu">
               <div className="absolute inset-0 bg-black/80" onClick={() => setUserMenuOpen(false)} />
-              <div className="absolute bottom-0 left-0 right-0 bg-zinc-900 rounded-t-3xl p-6 pb-12 safe-bottom">
-                <div className="w-14 h-1.5 bg-zinc-700 rounded-full mx-auto mb-6" />
+              <div className="absolute bottom-0 left-0 right-0 bg-[var(--surface)] rounded-t-3xl p-6 pb-12 safe-bottom">
+                <div className="w-14 h-1.5 bg-[var(--surface2)] rounded-full mx-auto mb-6" />
 
-                <div className="flex items-center gap-4 mb-6 pb-6 border-b border-zinc-800">
+                <div className="flex items-center gap-4 mb-6 pb-6 border-b border-[var(--border)]">
                   <div className="w-16 h-16 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white font-bold text-2xl flex-shrink-0">
                     {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xl font-medium text-white truncate">{auth.userEmail}</p>
-                    <p className="text-[17px] text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
+                    <p className="text-xl font-medium text-[var(--text)] truncate">{auth.userEmail}</p>
+                    <p className="text-[17px] text-[var(--text-muted)]">{subscription?.planName || 'Free'} Plan</p>
                   </div>
                 </div>
 
@@ -417,7 +417,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   <Link
                     href="/admin/settings"
                     onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-4 px-5 py-5 text-[17px] text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors min-h-[56px]"
+                    className="flex items-center gap-4 px-5 py-5 text-[17px] text-[var(--text-muted)] hover:bg-[var(--surface2)] rounded-xl transition-colors min-h-[56px]"
                   >
                     <User className="w-7 h-7" />
                     Account Settings
@@ -425,14 +425,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   <Link
                     href="/admin/billing"
                     onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-4 px-5 py-5 text-[17px] text-zinc-300 hover:bg-zinc-800 rounded-xl transition-colors min-h-[56px]"
+                    className="flex items-center gap-4 px-5 py-5 text-[17px] text-[var(--text-muted)] hover:bg-[var(--surface2)] rounded-xl transition-colors min-h-[56px]"
                   >
                     <Zap className="w-7 h-7" />
                     Upgrade Plan
                   </Link>
                   <button type="button"
                     onClick={handleLogout}
-                    className="flex items-center gap-4 w-full px-5 py-5 text-[17px] text-red-400 hover:bg-zinc-800 rounded-xl transition-colors min-h-[56px]"
+                    className="flex items-center gap-4 w-full px-5 py-5 text-[17px] text-red-400 hover:bg-[var(--surface2)] rounded-xl transition-colors min-h-[56px]"
                   >
                     <LogOut className="w-7 h-7" />
                     Logout
@@ -445,12 +445,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {/* Customize Mobile Nav Modal */}
           {customizeNavOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
-              <div className="bg-zinc-900 rounded-xl border border-zinc-800 max-w-md w-full max-h-[80vh] overflow-y-auto">
-                <div className="sticky top-0 bg-zinc-900 border-b border-zinc-800 p-4 flex items-center justify-between">
-                  <h3 className="text-lg font-semibold text-white">Customize Bottom Nav</h3>
+              <div className="bg-[var(--surface)] rounded-xl border border-[var(--border)] max-w-md w-full max-h-[80vh] overflow-y-auto">
+                <div className="sticky top-0 bg-[var(--surface)] border-b border-[var(--border)] p-4 flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-[var(--text)]">Customize Bottom Nav</h3>
                   <button
                     onClick={() => setCustomizeNavOpen(false)}
-                    className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                    className="p-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)] rounded-lg transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -475,7 +475,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     </code>
                   </div>
                 </div>
-                <div className="sticky bottom-0 bg-zinc-900 border-t border-zinc-800 p-4">
+                <div className="sticky bottom-0 bg-[var(--surface)] border-t border-[var(--border)] p-4">
                   <button
                     onClick={() => setCustomizeNavOpen(false)}
                     className="w-full py-3 bg-teal-500 text-white rounded-lg font-medium hover:bg-teal-600 transition-colors"
@@ -529,9 +529,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       {!isMobile && (
         <>
           {/* Desktop Sidebar - Fixed */}
-          <aside className="fixed inset-y-0 left-0 w-72 bg-zinc-950 border-r border-zinc-800 flex flex-col z-40">
+          <aside className="fixed inset-y-0 left-0 w-72 bg-[var(--bg)] border-r border-[var(--border)] flex flex-col z-40">
             {/* Logo */}
-            <div className="flex items-center gap-3 px-4 py-5 border-b border-zinc-800">
+            <div className="flex items-center gap-3 px-4 py-5 border-b border-[var(--border)]">
               <Image src={BRAND.logo} alt={BRAND.name} width={36} height={36} className="rounded-lg" />
               <span className="font-bold text-xl">{BRAND.name}</span>
             </div>
@@ -542,18 +542,18 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </aside>
 
           {/* Desktop Header */}
-          <header className="fixed top-0 left-72 right-0 z-30 bg-zinc-950/95 backdrop-blur border-b border-zinc-800">
+          <header className="fixed top-0 left-72 right-0 z-30 bg-[var(--bg)] backdrop-blur border-b border-[var(--border)]">
             <div className="flex items-center justify-end px-6 h-16">
               <div className="flex items-center gap-4">
                 {/* Search trigger */}
                 <button
                   onClick={() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k', metaKey: true }))}
                   aria-label="Search (Cmd+K)"
-                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-zinc-500 hover:text-zinc-300 bg-zinc-900 border border-zinc-800 rounded-lg transition-colors"
+                  className="flex items-center gap-2 px-3 py-1.5 text-sm text-[var(--text-muted)] hover:text-[var(--text)] bg-[var(--surface)] border border-[var(--border)] rounded-lg transition-colors"
                 >
                   <Search className="w-4 h-4" />
                   <span className="hidden xl:inline">Search...</span>
-                  <kbd className="hidden xl:inline ml-2 px-1.5 py-0.5 text-[10px] bg-zinc-800 border border-zinc-700 rounded font-mono">⌘K</kbd>
+                  <kbd className="hidden xl:inline ml-2 px-1.5 py-0.5 text-[10px] bg-[var(--surface2)] border border-[var(--border)] rounded font-mono">⌘K</kbd>
                 </button>
                 <ThemeToggle />
                 <ClawbotStatus compact />
@@ -566,7 +566,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                     onClick={() => setUserMenuOpen(!userMenuOpen)}
                     aria-label="User menu"
                     aria-expanded={userMenuOpen}
-                    className="flex items-center gap-2 px-3 py-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                    className="flex items-center gap-2 px-3 py-2 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)] rounded-lg transition-colors"
                   >
                     <div className="w-8 h-8 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white text-sm font-bold">
                       {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
@@ -578,16 +578,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   {userMenuOpen && (
                     <>
                       <div className="fixed inset-0 z-40" onClick={() => setUserMenuOpen(false)} />
-                      <div className="absolute right-0 mt-2 w-56 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl py-2 z-50">
-                        <div className="px-4 py-2 border-b border-zinc-800">
-                          <p className="text-sm font-medium text-white truncate">{auth.userEmail}</p>
-                          <p className="text-xs text-zinc-500">{subscription?.planName || 'Free'} Plan</p>
+                      <div className="absolute right-0 mt-2 w-56 bg-[var(--surface)] border border-[var(--border)] rounded-xl shadow-xl py-2 z-50">
+                        <div className="px-4 py-2 border-b border-[var(--border)]">
+                          <p className="text-sm font-medium text-[var(--text)] truncate">{auth.userEmail}</p>
+                          <p className="text-xs text-[var(--text-muted)]">{subscription?.planName || 'Free'} Plan</p>
                         </div>
                         <div className="py-1">
                           <Link
                             href="/admin/settings"
                             onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                            className="flex items-center gap-3 px-4 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)] transition-colors"
                           >
                             <User className="w-4 h-4" />
                             Account Settings
@@ -595,16 +595,16 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                           <Link
                             href="/admin/billing"
                             onClick={() => setUserMenuOpen(false)}
-                            className="flex items-center gap-3 px-4 py-2 text-sm text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+                            className="flex items-center gap-3 px-4 py-2 text-sm text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)] transition-colors"
                           >
                             <Zap className="w-4 h-4" />
                             Upgrade Plan
                           </Link>
                         </div>
-                        <div className="border-t border-zinc-800 pt-1">
+                        <div className="border-t border-[var(--border)] pt-1">
                           <button type="button"
                             onClick={handleLogout}
-                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-zinc-800 transition-colors"
+                            className="flex items-center gap-3 w-full px-4 py-2 text-sm text-red-400 hover:text-red-300 hover:bg-[var(--surface2)] transition-colors"
                           >
                             <LogOut className="w-4 h-4" />
                             Logout

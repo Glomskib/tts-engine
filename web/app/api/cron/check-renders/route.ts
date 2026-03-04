@@ -23,6 +23,10 @@ import { submitCompose, SfxClip } from "@/lib/compose";
 import { buildDefaultSfxPlan } from "@/lib/ambient-audio";
 import { runQualityCheck } from "@/app/api/render/quality-check/route";
 import { sendTelegramLog } from "@/lib/telegram";
+import { AI_BROLL_AVAILABLE } from "@/lib/marketplace/broll-providers";
+import { estimateHeyGenCost } from "@/lib/finops/heygen-cost";
+import { logToolUsageEventAsync } from "@/lib/finops/log-tool-usage";
+import { withErrorCapture } from "@/lib/errors/withErrorCapture";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -59,7 +63,7 @@ async function getSfxClipsForVideo(videoId: string, duration: number): Promise<S
   }
 }
 
-export async function GET() {
+export const GET = withErrorCapture(async () => {
   const results: Record<string, unknown>[] = [];
 
   // --- Phase 1: Check pending Shotstack compose renders ---
@@ -77,7 +81,7 @@ export async function GET() {
     results,
     timestamp: new Date().toISOString(),
   });
-}
+}, { routeName: '/api/cron/check-renders', feature: 'video-pipeline' });
 
 /**
  * Phase 1: Videos that have a compose_render_id but no final_video_url.
@@ -141,18 +145,23 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
           });
         } else {
           // Quality passed (or check unavailable — pass through)
+          // Use COMPLETE_WITH_WARNINGS if B-roll was skipped
+          const finalStatus = AI_BROLL_AVAILABLE ? "READY_FOR_REVIEW" : "READY_FOR_REVIEW";
+          const warnings = AI_BROLL_AVAILABLE ? [] : ["SKIPPED_BROLL"];
+
           await supabaseAdmin
             .from("videos")
             .update({
-              recording_status: "READY_FOR_REVIEW",
+              recording_status: finalStatus,
               ...(qualityScore ? { quality_score: qualityScore } : {}),
+              ...(warnings.length ? { pipeline_warnings: warnings } : {}),
             })
             .eq("id", video.id);
 
           sendTelegramLog(
             qualityScore
-              ? `🎬 Quality Gate: ${productLabel} scored ${qualityScore.avg}/10 — PASS\n  Visible: ${qualityScore.product_visible}, Legible: ${qualityScore.label_legible}, Look: ${qualityScore.natural_look}, Light: ${qualityScore.lighting_quality}`
-              : `🎬 Video ready: ${productLabel} (quality check unavailable)`
+              ? `🎬 Quality Gate: ${productLabel} scored ${qualityScore.avg}/10 — PASS${warnings.length ? ` (${warnings.join(', ')})` : ''}\n  Visible: ${qualityScore.product_visible}, Legible: ${qualityScore.label_legible}, Look: ${qualityScore.natural_look}, Light: ${qualityScore.lighting_quality}`
+              : `🎬 Video ready: ${productLabel} (quality check unavailable)${warnings.length ? ` [${warnings.join(', ')}]` : ''}`
           );
 
           results.push({
@@ -160,6 +169,7 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
             phase: "compose",
             status: "done",
             quality: qualityScore?.avg ?? null,
+            warnings,
             finalUrl,
           });
         }
@@ -181,6 +191,10 @@ async function checkComposeRenders(results: Record<string, unknown>[]) {
         results.push({ id: video.id, phase: "compose", status: renderStatus });
       }
     } catch (err) {
+      const { captureRouteException } = await import('@/lib/errorTracking');
+      captureRouteException(err instanceof Error ? err : new Error(String(err)), {
+        route: '/api/cron/check-renders', jobId: video.id, phase: 'compose',
+      });
       console.error(`[check-renders] Compose poll error for ${video.id}:`, err);
       results.push({ id: video.id, phase: "compose", status: "error", error: String(err) });
     }
@@ -328,6 +342,38 @@ async function checkHeyGenRenders(results: Record<string, unknown>[]) {
       if (status.status === "completed" && status.video_url) {
         console.log(`[check-renders] HeyGen completed for ${video.id}: ${status.video_url}`);
 
+        // Log HeyGen cost to FinOps (idempotent — skips if already logged)
+        if (status.duration && status.duration > 0) {
+          const { data: existing } = await supabaseAdmin
+            .from("tool_usage_events")
+            .select("id")
+            .eq("tool_name", "heygen")
+            .eq("run_id", video.render_task_id)
+            .limit(1);
+
+          if (!existing?.length) {
+            const cost = estimateHeyGenCost({ durationSeconds: status.duration });
+            logToolUsageEventAsync({
+              tool_name: "heygen",
+              lane: "video-pipeline",
+              run_id: video.render_task_id,
+              duration_ms: status.duration * 1000,
+              success: true,
+              cost_usd: cost.estimated_usd,
+              metadata: {
+                video_id: video.id,
+                heygen_video_id: video.render_task_id,
+                engine: cost.engine,
+                duration_seconds: cost.duration_seconds,
+                credits_used: cost.credits_used,
+                rate_credits_per_min: cost.rate_credits_per_min,
+                usd_per_credit: cost.usd_per_credit,
+              },
+            });
+            console.log(`[check-renders] FinOps: logged HeyGen cost $${cost.estimated_usd} for ${video.id} (${cost.credits_used} credits)`);
+          }
+        }
+
         // Re-host HeyGen video to Supabase (HeyGen URLs may expire)
         const rehostedUrl = await rehostVideo(status.video_url, video.id, "heygen");
 
@@ -366,24 +412,28 @@ async function checkHeyGenRenders(results: Record<string, unknown>[]) {
           });
         } else {
           // No overlays — HeyGen video IS the final video
+          const heygenWarnings = AI_BROLL_AVAILABLE ? [] : ["SKIPPED_BROLL"];
+
           await supabaseAdmin
             .from("videos")
             .update({
               runway_video_url: rehostedUrl,
               final_video_url: rehostedUrl,
               recording_status: "READY_FOR_REVIEW",
+              ...(heygenWarnings.length ? { pipeline_warnings: heygenWarnings } : {}),
             })
             .eq("id", video.id);
 
           const productLabel = await getVideoProductLabel(video.id);
           sendTelegramLog(
-            `🎬 <b>HeyGen video ready for review</b>\nProduct: ${productLabel}\nVideo: <code>${video.id}</code>`
+            `🎬 <b>HeyGen video ready for review</b>\nProduct: ${productLabel}\nVideo: <code>${video.id}</code>${heygenWarnings.length ? `\n${heygenWarnings.join(', ')}` : ''}`
           );
 
           results.push({
             id: video.id,
             phase: "heygen",
             status: "done",
+            warnings: heygenWarnings,
             finalUrl: rehostedUrl,
           });
         }

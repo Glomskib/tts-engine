@@ -33,6 +33,10 @@ import {
   generateUnifiedScript,
   type UnifiedScriptOutput,
 } from '@/lib/unified-script-generator';
+import { AI_BROLL_AVAILABLE } from '@/lib/marketplace/broll-providers';
+import { withErrorCapture } from '@/lib/errors/withErrorCapture';
+import { captureRouteError } from '@/lib/errorTracking';
+import { markCaptured } from '@/lib/errors/withErrorCapture';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -82,7 +86,7 @@ async function logStep(params: {
   }
 }
 
-export async function POST(request: NextRequest) {
+export const POST = withErrorCapture(async (request: Request) => {
   const correlationId =
     request.headers.get('x-correlation-id') || generateCorrelationId();
 
@@ -655,9 +659,33 @@ export async function POST(request: NextRequest) {
     });
 
     // ================================================================
-    // STEPS 4-6: Handled by the check-renders cron
+    // STEP 4: B-roll (skip if providers not configured)
     // ================================================================
-    // Step 4: B-roll via Runway (TODO — future enhancement)
+    if (!AI_BROLL_AVAILABLE) {
+      await logStep({
+        videoId: video.id,
+        step: 4,
+        stepName: 'B-roll Generation',
+        status: 'completed',
+        correlationId,
+        details: {
+          productLabel,
+          skipped: 'SKIPPED_BROLL',
+          reason: 'B-roll providers not yet configured',
+        },
+      });
+
+      const { captureRouteMessage } = await import('@/lib/errorTracking');
+      captureRouteMessage('B-roll step skipped — providers not configured', {
+        route: '/api/pipeline/auto-generate',
+        jobId: video.id,
+        fingerprint: ['broll-skipped'],
+      });
+    }
+
+    // ================================================================
+    // STEPS 5-6: Handled by the check-renders cron
+    // ================================================================
     // Step 5: Shotstack compose (cron: HeyGen complete → re-host → compose)
     // Step 6: Quality gate (cron: compose complete → frame capture → score)
 
@@ -682,6 +710,7 @@ export async function POST(request: NextRequest) {
         persona: bestScript?.persona || personaName,
         sales_approach: bestScript?.salesApproach || null,
         pipeline_status: 'rendering',
+        warnings: AI_BROLL_AVAILABLE ? [] : ['SKIPPED_BROLL'],
         steps: {
           1: {
             name: 'Script Generation (Unified)',
@@ -701,9 +730,9 @@ export async function POST(request: NextRequest) {
             avatar: avatarId,
           },
           4: {
-            name: 'B-roll (Runway)',
-            status: 'pending',
-            note: 'Future enhancement',
+            name: 'B-roll',
+            status: AI_BROLL_AVAILABLE ? 'pending' : 'skipped',
+            note: AI_BROLL_AVAILABLE ? 'Handled by check-renders cron' : 'SKIPPED_BROLL',
           },
           5: {
             name: 'Shotstack Compose',
@@ -731,6 +760,13 @@ export async function POST(request: NextRequest) {
     response.headers.set('x-correlation-id', correlationId);
     return response;
   } catch (err) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    captureRouteError(error, {
+      route: '/api/pipeline/auto-generate',
+      feature: 'video-pipeline',
+      videoId: video.id,
+    });
+    markCaptured(error);
     console.error(`[${correlationId}] Pipeline error:`, err);
 
     // Mark video as failed
@@ -738,19 +774,19 @@ export async function POST(request: NextRequest) {
       .from('videos')
       .update({
         recording_status: 'REJECTED',
-        recording_notes: `Pipeline error: ${err instanceof Error ? err.message : 'Unknown error'}`,
+        recording_notes: `Pipeline error: ${error.message}`,
       })
       .eq('id', video.id);
 
     sendTelegramNotification(
-      `🔴 Pipeline FAILED: <b>${productLabel}</b>\n❌ ${err instanceof Error ? err.message : 'Unknown error'}`
+      `🔴 Pipeline FAILED: <b>${productLabel}</b>\n❌ ${error.message}`
     ).catch(() => {});
 
     return createApiErrorResponse(
       'INTERNAL',
-      err instanceof Error ? err.message : 'Pipeline failed',
+      error.message,
       500,
       correlationId
     );
   }
-}
+}, { routeName: '/api/pipeline/auto-generate', feature: 'video-pipeline' });

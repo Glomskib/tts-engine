@@ -17,16 +17,21 @@ export interface BrollResult {
   tags: string[];
 }
 
+/** Whether AI b-roll generation is available (stub until provider is configured). */
+export const AI_BROLL_AVAILABLE = false;
+
+/** Whether stock b-roll fetching is available (stub until provider is configured). */
+export const STOCK_BROLL_AVAILABLE = false;
+
 // ---- AI Generator stub (e.g. Veo / Runway) ----
 export async function generateAiBroll(_req: BrollRequest): Promise<BrollResult | null> {
-  // TODO: Implement when AI video provider is configured
-  // Example: call Runway/Veo API with req.description, get mp4 bytes
+  // STUB: Awaiting AI video provider integration (Runway / Veo)
   return null;
 }
 
 // ---- Stock provider stub (future) ----
 export async function fetchStockBroll(_req: BrollRequest): Promise<BrollResult | null> {
-  // TODO: Implement when stock provider (Pexels, Storyblocks, etc.) is configured
+  // STUB: Awaiting stock provider integration (Pexels / Storyblocks)
   return null;
 }
 

@@ -137,6 +137,7 @@ export default function RetainersPage() {
   const [briefAnalysis, setBriefAnalysis] = useState<BriefAnalysis | null>(null);
   const [briefError, setBriefError] = useState<string | null>(null);
   const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
+  const [pdfParsing, setPdfParsing] = useState(false);
 
   const fetchPastBriefs = useCallback(async () => {
     setLoadingBriefs(true);
@@ -349,8 +350,63 @@ export default function RetainersPage() {
             </div>
           </div>
 
+          {/* PDF Upload */}
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Brief Text (paste the full brief)</label>
+            <label className="block text-xs text-zinc-400 mb-1">Upload PDF (optional)</label>
+            <label className="block cursor-pointer">
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  if (file.type !== 'application/pdf') {
+                    setBriefError('Please upload a PDF file');
+                    return;
+                  }
+                  setPdfParsing(true);
+                  setBriefError(null);
+                  try {
+                    const formData = new FormData();
+                    formData.append('file', file);
+                    const res = await fetch('/api/admin/briefs/parse-pdf', {
+                      method: 'POST',
+                      credentials: 'include',
+                      body: formData,
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.error || 'PDF parsing failed');
+                    if (data.extraction.lowSignal) {
+                      setBriefError('PDF appears to be image-based or has very little extractable text.');
+                    }
+                    setBriefText(data.extraction.text);
+                  } catch (err: unknown) {
+                    setBriefError(err instanceof Error ? err.message : 'PDF parsing failed');
+                  } finally {
+                    setPdfParsing(false);
+                    e.target.value = '';
+                  }
+                }}
+                className="hidden"
+              />
+              <div className="border-2 border-dashed border-zinc-700 hover:border-violet-500 rounded-lg p-3 text-center transition-colors">
+                {pdfParsing ? (
+                  <div className="flex items-center justify-center gap-2 text-sm text-zinc-400">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Extracting text from PDF...
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2 text-sm text-zinc-400">
+                    <Upload className="w-4 h-4" />
+                    Click to upload a PDF brief
+                  </div>
+                )}
+              </div>
+            </label>
+          </div>
+
+          <div>
+            <label className="block text-xs text-zinc-400 mb-1">Brief Text (paste or upload PDF above)</label>
             <textarea
               value={briefText}
               onChange={(e) => setBriefText(e.target.value)}
@@ -362,7 +418,7 @@ export default function RetainersPage() {
               <span className="text-xs text-zinc-500">{briefText.length} characters</span>
               <button
                 onClick={handleAnalyzeBrief}
-                disabled={analyzingBrief || briefText.trim().length < 50}
+                disabled={analyzingBrief || pdfParsing || briefText.trim().length < 50}
                 className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-500 disabled:bg-zinc-700 disabled:text-zinc-500 text-white rounded-lg text-sm font-medium transition-colors"
               >
                 {analyzingBrief ? <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</> : <><Sparkles className="w-4 h-4" /> Analyze with AI</>}

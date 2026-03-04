@@ -532,7 +532,7 @@ export default function ContentPlannerPage() {
         id: d.data.video_id,
         video_code: d.data.video_code,
         status: 'needs_edit',
-        recording_status: 'NEEDS_SCRIPT',
+        recording_status: d.data.status || 'NEEDS_SCRIPT',
         scheduled_date: dateKey,
         product_name: item.product_name,
         product_brand: item.brand,
@@ -574,8 +574,9 @@ export default function ContentPlannerPage() {
     const itemType = e.dataTransfer.getData('application/x-type');
 
     if (itemType === 'idea' && dragIdea) {
+      const ideaToSchedule = dragIdea;
       setDragIdea(null);
-      await handleDropIdea(dateKey, dragIdea);
+      await handleDropIdea(dateKey, ideaToSchedule);
     } else if (dragVideo) {
       await handleDropVideo(e, dateKey);
     } else {
@@ -715,7 +716,7 @@ export default function ContentPlannerPage() {
     const videos = data?.calendar[dateKey] || [];
     const today = isToday(day);
     const past = isPast(day) && !today;
-    const isDropping = dropTarget === dateKey && dragVideo?.scheduled_date !== dateKey;
+    const isDropping = dropTarget === dateKey && (dragIdea !== null || (dragVideo !== null && dragVideo.scheduled_date !== dateKey));
     const isCurrentMonth = calendarMode === 'month' ? day.getMonth() === monthDate.getMonth() : true;
 
     return (

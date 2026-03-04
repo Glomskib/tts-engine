@@ -47,6 +47,9 @@ export default function AdminThreadDetailPage({ params }: { params: Promise<{ th
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const [isInternal, setIsInternal] = useState(false);
+  const [draftLoading, setDraftLoading] = useState(false);
+  const [draftConfidence, setDraftConfidence] = useState<number | null>(null);
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchThread = useCallback(async () => {
@@ -112,18 +115,29 @@ export default function AdminThreadDetailPage({ params }: { params: Promise<{ th
   };
 
   const draftAiReply = async () => {
+    setDraftLoading(true);
+    setDraftConfidence(null);
+    setSuggestedTags([]);
     try {
       const res = await fetch('/api/support/draft-reply', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ thread_id: threadId }),
       });
-      if (res.ok) {
-        const json = await res.json();
+      const json = await res.json();
+      if (res.ok && json.ok) {
         setReply(json.draft || '');
+        setDraftConfidence(json.confidence ?? null);
+        setSuggestedTags(json.suggested_tags || []);
+        const level = json.confidence >= 0.8 ? 'high' : json.confidence >= 0.5 ? 'medium' : 'low';
+        showSuccess(`AI draft generated (${level} confidence)`);
+      } else {
+        showError(json.message || json.error || 'Failed to draft reply');
       }
     } catch {
       showError('Failed to draft reply');
+    } finally {
+      setDraftLoading(false);
     }
   };
 
@@ -213,16 +227,46 @@ export default function AdminThreadDetailPage({ params }: { params: Promise<{ th
                   <StickyNote className="w-4 h-4" />
                   Add Internal Note
                 </button>
-                <div className="relative group">
-                  <button
-                    onClick={draftAiReply}
-                    className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-zinc-400 text-sm font-medium rounded-lg transition-colors hover:bg-zinc-700 hover:text-zinc-300"
-                  >
-                    <Sparkles className="w-4 h-4" />
-                    Draft Reply (AI)
-                  </button>
-                </div>
+                <button
+                  onClick={draftAiReply}
+                  disabled={draftLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-zinc-800 text-zinc-400 text-sm font-medium rounded-lg transition-colors hover:bg-zinc-700 hover:text-zinc-300 disabled:opacity-50"
+                >
+                  {draftLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                  {draftLoading ? 'Drafting...' : 'Draft Reply (AI)'}
+                </button>
+                {draftConfidence !== null && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full leading-none font-medium ${
+                    draftConfidence >= 0.8
+                      ? 'bg-emerald-900/40 text-emerald-400'
+                      : draftConfidence >= 0.5
+                        ? 'bg-amber-900/40 text-amber-400'
+                        : 'bg-red-900/40 text-red-400'
+                  }`}>
+                    {Math.round(draftConfidence * 100)}% confidence
+                  </span>
+                )}
               </div>
+              {suggestedTags.length > 0 && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[10px] text-zinc-500 uppercase font-medium">Suggested tags:</span>
+                  {suggestedTags.map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => {
+                        const currentTags = thread?.tags || [];
+                        if (!currentTags.includes(tag)) {
+                          updateThread('tags', [...currentTags, tag] as unknown as string);
+                          showSuccess(`Tag "${tag}" applied`);
+                        }
+                      }}
+                      className="text-[11px] px-2 py-0.5 bg-violet-900/30 text-violet-400 rounded-full hover:bg-violet-900/50 transition-colors cursor-pointer"
+                    >
+                      + {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </AdminCard>
         </div>

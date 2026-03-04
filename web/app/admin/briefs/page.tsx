@@ -141,6 +141,13 @@ export default function BriefsPage() {
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
   const [uploadType, setUploadType] = useState<'text' | 'image' | 'pdf'>('text');
 
+  // PDF parsing state
+  const [pdfParsing, setPdfParsing] = useState(false);
+  const [pdfParseResult, setPdfParseResult] = useState<{
+    extraction: { text: string; pageCount: number; meta?: { title?: string; author?: string }; lowSignal: boolean };
+    parsed: unknown | null;
+  } | null>(null);
+
   // Past briefs
   const [pastBriefs, setPastBriefs] = useState<PastBrief[]>([]);
   const [loadingBriefs, setLoadingBriefs] = useState(true);
@@ -188,7 +195,36 @@ export default function BriefsPage() {
     } else if (file.type === 'application/pdf') {
       setUploadType('pdf');
       setUploadPreview(null);
-      showError('PDF parsing coming soon. For now, copy text from PDF and paste it.');
+      setPdfParseResult(null);
+      setPdfParsing(true);
+
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const res = await fetch('/api/admin/briefs/parse-pdf', {
+          method: 'POST',
+          credentials: 'include',
+          body: formData,
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'PDF parsing failed');
+
+        setPdfParseResult({ extraction: data.extraction, parsed: data.parsed });
+        setBriefText(data.extraction.text);
+
+        if (data.extraction.lowSignal) {
+          showError('PDF appears to be image-based or has very little text. You may need to paste the text manually.');
+        } else {
+          showSuccess(`PDF extracted (${data.extraction.pageCount} page${data.extraction.pageCount !== 1 ? 's' : ''}). Text populated below.`);
+        }
+      } catch (e: unknown) {
+        const msg = e instanceof Error ? e.message : 'PDF parsing failed';
+        showError(msg);
+        setUploadedFile(null);
+        setPdfParseResult(null);
+      } finally {
+        setPdfParsing(false);
+      }
     } else {
       showError('Please upload an image (PNG/JPG) or PDF file');
       setUploadedFile(null);
@@ -387,6 +423,37 @@ export default function BriefsPage() {
                         Remove
                       </button>
                     </div>
+                  ) : uploadType === 'pdf' && uploadedFile ? (
+                    <div className="space-y-2">
+                      <FileText className="w-8 h-8 text-teal-400 mx-auto" />
+                      <p className="text-sm text-zinc-300">{uploadedFile.name}</p>
+                      {pdfParsing ? (
+                        <div className="flex items-center justify-center gap-2 text-xs text-zinc-400">
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                          Extracting text from PDF...
+                        </div>
+                      ) : pdfParseResult ? (
+                        <p className="text-xs text-zinc-400">
+                          {pdfParseResult.extraction.pageCount} page{pdfParseResult.extraction.pageCount !== 1 ? 's' : ''} extracted
+                        </p>
+                      ) : null}
+                      {pdfParseResult?.extraction?.lowSignal && (
+                        <p className="text-xs text-amber-400">Low text content — may be an image-based PDF</p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setUploadedFile(null);
+                          setUploadType('text');
+                          setPdfParseResult(null);
+                          setBriefText('');
+                        }}
+                        className="text-xs text-red-400 hover:text-red-300"
+                      >
+                        Remove
+                      </button>
+                    </div>
                   ) : (
                     <>
                       <FileText className="w-8 h-8 text-zinc-500 mx-auto mb-2" />
@@ -401,6 +468,12 @@ export default function BriefsPage() {
               <p className="text-xs text-teal-400 mt-2 flex items-center gap-1">
                 <CheckCircle className="w-3 h-3" />
                 AI will extract text from this image
+              </p>
+            )}
+            {uploadType === 'pdf' && pdfParseResult && !pdfParseResult.extraction.lowSignal && (
+              <p className="text-xs text-teal-400 mt-2 flex items-center gap-1">
+                <CheckCircle className="w-3 h-3" />
+                PDF text extracted and populated below
               </p>
             )}
           </div>
@@ -435,7 +508,7 @@ export default function BriefsPage() {
 
           <button
             onClick={analyzeBrief}
-            disabled={analyzing || (briefText.length < 50 && !uploadPreview)}
+            disabled={analyzing || pdfParsing || (briefText.length < 50 && !uploadPreview)}
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
           >
             {analyzing ? (

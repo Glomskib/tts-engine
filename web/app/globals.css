@@ -47,15 +47,15 @@
 }
 
 [data-theme="dark"] {
-  /* Core surfaces */
-  --bg: #0B0F14;
-  --surface: #111827;
-  --surface2: #0F172A;
-  --border: #1F2937;
+  /* Core surfaces — aligned with Tailwind zinc palette */
+  --bg: #09090b;          /* zinc-950 */
+  --surface: #18181b;     /* zinc-900 */
+  --surface2: #27272a;    /* zinc-800 */
+  --border: #27272a;      /* zinc-800 */
 
   /* Typography */
-  --text: #E5E7EB;
-  --text-muted: #9CA3AF;
+  --text: #fafafa;        /* zinc-50 */
+  --text-muted: #a1a1aa;  /* zinc-400 */
 
   /* Accent */
   --accent: #2DD4BF;
@@ -82,15 +82,15 @@
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
-    /* Core surfaces */
-    --bg: #0B0F14;
-    --surface: #111827;
-    --surface2: #0F172A;
-    --border: #1F2937;
+    /* Core surfaces — aligned with Tailwind zinc palette */
+    --bg: #09090b;
+    --surface: #18181b;
+    --surface2: #27272a;
+    --border: #27272a;
 
     /* Typography */
-    --text: #E5E7EB;
-    --text-muted: #9CA3AF;
+    --text: #fafafa;
+    --text-muted: #a1a1aa;
 
     /* Accent */
     --accent: #2DD4BF;

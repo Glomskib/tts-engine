@@ -1,0 +1,860 @@
+================================================================================
+  FLASHFLOW AI (OpenClaw/Bolt) — COMPREHENSIVE PRODUCT AUDIT
+  Generated: 2026-03-02
+================================================================================
+
+TABLE OF CONTENTS
+─────────────────
+  1. Executive Summary
+  2. Tech Stack
+  3. Application Structure (Pages & Routes)
+  4. Video Generation Pipeline
+  5. Revenue Intelligence System
+  6. Daily Intel, Trending & Virals
+  7. Transcriber AI
+  8. Mission Control Bridge
+  9. TikTok Integrations (3 Types)
+  10. Subscription & Billing (Stripe)
+  11. External Service Integrations
+  12. Database Schema (196 Migrations)
+  13. Cron Jobs & Scheduled Tasks (20 Jobs)
+  14. Intelligence Agents & Automation
+  15. FinOps (Cost Tracking)
+  16. Support, Affiliate & Marketplace
+  17. Auth & Security
+  18. Full File Inventory
+
+================================================================================
+1. EXECUTIVE SUMMARY
+================================================================================
+
+FlashFlow AI is a full-stack SaaS platform for TikTok content creators and
+e-commerce brands. It automates the entire lifecycle of short-form video content:
+
+  Script Generation → Avatar Video Rendering → Quality Scoring →
+  Auto-Posting → Performance Tracking → Revenue Intelligence
+
+The platform is built as a Next.js 16 monolith deployed on Vercel, backed by
+Supabase (PostgreSQL + Auth + Storage), with 20 cron jobs orchestrating
+background automation. It integrates with 12+ external services including
+HeyGen (avatar videos), Runway (AI video), Anthropic Claude (AI brain),
+Stripe (billing), TikTok (3 separate integration types), Telegram (alerts),
+and more.
+
+Key numbers:
+  - 569 API routes
+  - 273 lib modules
+  - 196 database migrations (100+ tables)
+  - 20 Vercel cron jobs
+  - 67+ React components
+  - 8 subscription tiers
+  - 12+ external service integrations
+
+================================================================================
+2. TECH STACK
+================================================================================
+
+  Framework:      Next.js 16.1.3 (App Router)
+  Language:       TypeScript 5
+  React:          19.2.3
+  CSS:            Tailwind CSS 3.4
+  Database:       Supabase (PostgreSQL w/ RLS)
+  Auth:           Supabase Auth (SSR cookies)
+  Hosting:        Vercel (with cron functions)
+  AI (primary):   Anthropic Claude (Sonnet for scripts, Haiku for classification)
+  AI (secondary): OpenAI (embeddings, some generation)
+  Video:          HeyGen (avatar), Runway (gen AI video), Shotstack (composition)
+  Payments:       Stripe (subscriptions + one-time)
+  Email:          Resend + SendGrid
+  Alerts:         Telegram Bot API
+  Scraping:       Playwright (TikTok comments, trending)
+  Package Mgr:    pnpm
+  Testing:        Vitest (unit), Playwright (e2e)
+  Linting:        ESLint 9 + Next.js config
+  Build:          Webpack (via next dev --webpack)
+
+================================================================================
+3. APPLICATION STRUCTURE (PAGES & ROUTES)
+================================================================================
+
+── Public Marketing Pages ──────────────────────────────────────────────────────
+  /about              About FlashFlow AI — mission, history, features
+  /agencies           Landing page for multi-brand UGC agencies
+  /brands             Landing page for TikTok Shop brands
+  /creators           Landing page for solo UGC creators
+  /blog               Content articles on TikTok hooks, scripts, strategy
+  /examples           Script examples showcase (12+ niches, filterable)
+  /features           Feature comparison table across all plans
+  /pricing            4 SaaS tiers + 2 enterprise plans with Stripe checkout
+  /free-scripts       Lead magnet — email capture for hooks + script templates
+  /generator          Free AI script generator (3 free generations, localStorage)
+
+── Auth Pages ──────────────────────────────────────────────────────────────────
+  /login              Login/signup authentication
+  /signup             User signup flow
+  /auth               Auth callback handlers
+  /verify-email       Email verification flow
+
+── Core App Pages ──────────────────────────────────────────────────────────────
+  /client             Client portal dashboard — video tracking, status, quick links
+  /accounts           Account management — create/manage platform accounts
+  /concepts           Concept workbench — video concepts, hooks, scripts, product linking
+  /videos             Video management and viewing
+  /variants           Content variants management
+  /uploader           Video file upload portal
+  /tools              TikTok toolkit hub — 8 tools (4 free, 4 premium)
+  /transcriber        Transcriber AI (redirects to /transcribe)
+  /upgrade            Subscription upgrade prompt
+
+── Admin Pages ─────────────────────────────────────────────────────────────────
+  /admin              Admin dashboard hub (95 subdirectories!)
+  /admin/dashboard    Main admin overview
+  /admin/videos       Video management
+  /admin/scripts      Script management
+  /admin/users        User management
+  /admin/analytics    Analytics dashboards
+  /admin/pipeline     Pipeline monitoring
+  /admin/hook-bank    Hook template management
+  ... (90+ more admin sub-pages)
+
+── API Routes ──────────────────────────────────────────────────────────────────
+  Total: 569 route.ts files under /app/api/
+
+  Major API domains:
+  - /api/scripts/         Script generation, scoring, templates
+  - /api/pipeline/        Video pipeline orchestration
+  - /api/transcribe/      Transcriber AI endpoints
+  - /api/revenue-mode/    Revenue Intelligence
+  - /api/ri/              Revenue Intelligence v2
+  - /api/cron/            20 scheduled jobs
+  - /api/admin/           Admin operations
+  - /api/stripe/          Payment & subscription webhooks
+  - /api/tiktok/          TikTok integrations
+  - /api/flashflow/       Core platform APIs
+  - /api/zebby/           Zebby character scene builder
+  - /api/brain-feed/      Decision source from GitHub
+  - /api/auth/            Auth operations
+  - /api/videos/          Video CRUD
+  - /api/users/           User management
+  - /api/accounts/        Account management
+
+================================================================================
+4. VIDEO GENERATION PIPELINE
+================================================================================
+
+The video pipeline is FlashFlow's core product. It takes a product/hook idea
+and produces a fully rendered, ready-to-post TikTok video.
+
+── Pipeline Flow ───────────────────────────────────────────────────────────────
+
+  1. SCRIPT GENERATION
+     └─ lib/unified-script-generator.ts (25.5 KB)
+     └─ Uses Claude Sonnet
+     └─ Input: product ID, content type, persona, sales approach, hook
+     └─ Output: hook, setup, body, CTA, on-screen text, captions, hashtags,
+        filming notes
+     └─ Draws from winner patterns + audience persona + creator style
+     └─ Intelligent variety biased toward proven patterns
+
+  2. SCRIPT SCORING
+     └─ AI evaluates script quality (0-10 scale)
+     └─ Auto-retry up to 3x if score < 7
+     └─ Scorer feedback fed into regeneration prompts
+
+  3. TEXT-TO-SPEECH
+     └─ ElevenLabs voice synthesis
+     └─ Persona-to-voice mapping (lib/heygen-personas.ts)
+
+  4. AVATAR VIDEO (HeyGen)
+     └─ lib/heygen.ts
+     └─ Upload audio → POST /v2/video/generate → poll status → download MP4
+     └─ 7 personas with specific avatar + voice combos:
+        • Skeptic → Aditya + Brian (deep)
+        • Educator → Aditya + Eric (smooth)
+        • Hype Man → Aditya + Liam (energetic)
+        • Sober Curious → Abigail + Jessica (warm)
+        • Chronic Warrior → Abigail + Sarah (reassuring)
+        • Honest Reviewer → Abigail + Matilda (professional)
+        • Relatable Friend → Abigail + Laura (casual)
+     └─ Output: 9:16 vertical (TikTok/Reels/Shorts)
+
+  5. AI VIDEO (Runway) — optional
+     └─ lib/runway.ts
+     └─ Text-to-video and image-to-video
+     └─ Models: gen3a_turbo, gen4.5, veo3, veo3.1, veo3.1_fast
+     └─ 9:16 vertical default
+
+  6. VIDEO COMPOSITION (Shotstack)
+     └─ lib/shotstack.ts, shotstack-compose-v2.ts
+     └─ Timeline-based composition of avatar + B-roll + text overlays
+     └─ Output: MP4, SD, 9:16, 30fps
+
+  7. QUALITY GATE
+     └─ Automated quality check before publishing
+     └─ Videos move through states: RENDERING → READY_FOR_REVIEW →
+        APPROVED → READY_TO_POST → POSTED
+
+── Auto-Generate Orchestrator ──────────────────────────────────────────────────
+
+  Endpoint: POST /api/pipeline/auto-generate
+  Auth: Admin session or CRON_SECRET Bearer token
+
+  6-step orchestration:
+    Step 1: Generate UGC script (unified script generator)
+    Step 2: Score script (retry ≤3x if <7)
+    Step 3: Generate HeyGen avatar video (async)
+    Step 4: Generate B-roll via Runway (TODO)
+    Step 5: Shotstack compose (async cron)
+    Step 6: Quality gate (async cron)
+
+  Features:
+    - Correlation ID tracking for debugging
+    - Telegram notifications at each stage
+    - Logs to video_events table
+
+── Check-Renders Cron ──────────────────────────────────────────────────────────
+
+  Schedule: Every 2 minutes
+  Endpoint: /api/cron/check-renders
+
+  3 phases:
+    Phase 1: Poll HeyGen for rendering status
+    Phase 2: Poll Shotstack for composition status
+    Phase 3: Move completed videos to next lifecycle state
+
+── Auto-Post Cron ──────────────────────────────────────────────────────────────
+
+  Schedule: Every 15 minutes
+  Endpoint: /api/cron/auto-post
+
+  Picks READY_TO_POST videos and publishes to TikTok via Content Posting API.
+  Respects posting schedule and rate limits.
+
+── Winner Detection ────────────────────────────────────────────────────────────
+
+  Analyzes posted video performance metrics.
+  Identifies "winner" scripts/hooks for future generation patterns.
+  Winners Bank: /admin/winners — manages winning templates.
+
+================================================================================
+5. REVENUE INTELLIGENCE SYSTEM
+================================================================================
+
+Automated TikTok comment monitoring → AI classification → reply drafting →
+urgency alerting. This is a full autonomous agent for comment-based revenue
+capture.
+
+── Pipeline ────────────────────────────────────────────────────────────────────
+
+  1. COMMENT INGESTION
+     └─ lib/revenue-intelligence/comment-ingestion-service.ts
+     └─ Playwright scraper visits TikTok creator profiles
+     └─ Scrapes recent video comments (configurable max per video/account)
+     └─ Deduplicates via platform_comment_id
+     └─ Stores in ri_comments (with is_processed flag)
+
+  2. COMMENT CLASSIFICATION (Claude Haiku)
+     └─ lib/revenue-intelligence/comment-classification-service.ts
+     └─ Categories:
+        • buying_intent  — wants to buy, asks price/link
+        • objection      — skepticism, concerns
+        • shipping       — delivery questions
+        • support        — product issues, returns
+        • praise         — positive feedback
+        • troll          — spam, hate, irrelevant
+        • general        — everything else
+     └─ Scores: lead_score (0-100), urgency_score (0-100), confidence (0-100)
+     └─ Batch: max 20 comments per API call
+     └─ Stored in ri_comment_analysis
+
+  3. REPLY DRAFT GENERATION (Claude Haiku)
+     └─ lib/revenue-intelligence/reply-draft-service.ts
+     └─ 3 drafts per comment:
+        • neutral     — professional, non-pushy
+        • friendly    — warm, casual, emoji-friendly
+        • conversion  — sales-leaning, includes CTA
+     └─ TikTok limit: 150 chars per reply
+     └─ Stored in ri_reply_drafts
+
+  4. AUTO-DRAFT (Gated)
+     └─ lib/revenue-intelligence/auto-draft-service.ts
+     └─ Selectively drafts high-scoring items first (lead >= threshold)
+     └─ Runs before standard reply generation
+     └─ Env-gated via RI_AUTO_DRAFT_ENABLED
+
+  5. URGENCY SCORING
+     └─ lib/revenue-intelligence/urgency-scoring-service.ts
+     └─ Thresholds:
+        • buying_intent + lead_score ≥ 70 → URGENT
+        • objection + urgency_score ≥ 60 → URGENT
+        • support + urgency_score ≥ 50 → URGENT
+        • shipping + urgency_score ≥ 60 → URGENT
+        • Any comment with ≥ 50 likes → URGENT (viral)
+     └─ Flags in ri_comment_status
+
+  6. ACTIONS QUEUE
+     └─ lib/revenue-intelligence/actions-queue-service.ts
+     └─ Enqueues items for human review
+     └─ Priority scoring for inbox ordering
+
+  7. ALERT POLICY → TELEGRAM DIGEST
+     └─ lib/revenue-intelligence/alert-policy.ts (pure logic, zero deps)
+     └─ Modes: off | urgent | batch | digest | all
+     └─ SINGLE alert path: run-ingestion.ts → evaluateAlertPolicy() →
+        sendDigestAlert() — no per-comment Telegram spam
+     └─ Env config: RI_ALERT_MODE, RI_ALERT_BATCH_MIN, RI_ALERT_DIGEST_MINUTES
+
+── Orchestration ───────────────────────────────────────────────────────────────
+
+  Entry: scripts/revenue-intelligence/run-ingestion.ts
+  CLI modes:
+    pnpm ri:ingest              # Full live run
+    pnpm ri:ingest:sim          # Simulation mode (mock data)
+    pnpm ri:ingest:dry          # Dry run (no DB writes)
+
+  Also: pnpm ri:ingest:daemon   # Long-running daemon (every 10-15 min)
+
+  Safety: File-based run lock (lib/revenue-intelligence/run-lock.ts)
+    - PID-aware, 10-minute TTL
+    - Prevents daemon + manual overlap
+
+── Revenue Inbox (UI) ──────────────────────────────────────────────────────────
+
+  lib/revenue-intelligence/revenue-inbox-service.ts
+  - Comment status: unread → reviewed → resolved
+  - Filter by category, urgency, video
+  - Reply draft selection and posting
+
+── Database Tables ─────────────────────────────────────────────────────────────
+
+  ri_creator_accounts    Active TikTok accounts to monitor
+  ri_videos              Scraped videos
+  ri_comments            Raw comments (ingested_at, is_processed)
+  ri_comment_analysis    Classification + scoring results
+  ri_reply_drafts        3 tone variants per comment
+  ri_comment_status      Unread/reviewed/resolved tracking
+  ri_actions_queue       Prioritized human review queue
+  ri_run_state           Last ingestion state (incremental updates)
+  ri_agent_logs          Structured activity logs
+
+================================================================================
+6. DAILY INTEL, TRENDING & VIRALS
+================================================================================
+
+── Daily Virals (Trending TikTok Shop Products) ───────────────────────────────
+
+  Cron: 1:30 PM UTC daily (/api/cron/daily-virals)
+  Scripts: scripts/trending/daily-virals/
+
+  Flow:
+    1. Scrape TikTok Shop top-performing videos (Playwright)
+    2. Extract: product name, category, hook, views, GMV velocity
+    3. Upload screenshots to asset CDN
+    4. Upsert into ff_trending_items table
+    5. Post to Mission Control as document
+    6. Export trending.json for frontend
+
+  API: GET /api/flashflow/trending?date=YYYY-MM-DD
+  Returns: Last 20 trending items for a given date
+
+── Daily Intel Agents ──────────────────────────────────────────────────────────
+
+  scripts/daily-intel/run.ts — orchestrator
+  Pipelines: --pipeline cycling | --pipeline eds
+
+  Cycling Agent (scripts/daily-intel/agents/cycling-agent.ts)
+    - Monitors cycling/wellness industry intel
+    - Dry run: pnpm job:cycling-agent:dry
+
+  Zebby Agent (scripts/daily-intel/agents/zebby-agent.ts)
+    - Character-driven content intel
+    - Dry run: pnpm job:zebby-agent:dry
+
+  Weekly Digest (scripts/daily-intel/agents/weekly-digest.ts)
+    - Aggregates weekly intel summary
+    - Dry run: pnpm job:weekly-digest:dry
+
+── Zebby Scene Builder ─────────────────────────────────────────────────────────
+
+  lib/zebby/scene-builder.ts
+  Characters: Zebby, Spoonie, Bracer
+  Generates multi-character scenes from intel text
+  Endpoint: POST /api/zebby/scenes/from-intel
+  Output: scenes, image prompts, storyboard, VO lines
+
+── Brain Feed (GitHub Decision Source) ─────────────────────────────────────────
+
+  lib/brain-feed/github.ts + github_decision_source.ts
+  Reads/writes markdown decision files from GitHub repo
+  (brandonglomski/brandons-second-brain-feed)
+  Replaces local Obsidian vault dependency
+
+================================================================================
+7. TRANSCRIBER AI
+================================================================================
+
+Upload a video/audio → get transcript → AI rewrites it as a TikTok script in
+a specific persona and tone.
+
+── Personas (Customer Archetypes) ──────────────────────────────────────────────
+
+  lib/transcriber-personas.ts
+
+  skeptic         "I thought this was BS" → proven conversion arc
+  sober_curious   Wellness journey, non-preachy
+  chronic_warrior Raw + hopeful, fighter energy
+  honest_reviewer Calm, measured, tried everything
+  educator        Confident, drops science
+  storyteller     Narrative-driven, personal journey
+  hype_man        High energy, disbelief, unboxing vibes
+  relatable_friend Casual, friend texting, low-key sell
+  custom          User-defined persona
+
+── Voice Tones ─────────────────────────────────────────────────────────────────
+
+  conversational  Like talking to a friend
+  authoritative   Expert confidence, facts-first
+  empathetic      Understanding, validates feelings
+  high_energy     Excited, fast-paced
+  educational     Clear, informative
+  raw_authentic   Unfiltered, stream of consciousness
+
+── Rewrite / Regenerate ────────────────────────────────────────────────────────
+
+  Endpoint: POST /api/transcribe/rewrite
+  First rewrite: Structure-preserving rewrite of original transcript
+  Regenerate: Variant of previous rewrite (same talk track, different words)
+
+  Validation (lib/regenerate-validation.ts):
+    - Section count must match ±1
+    - CTA keyword overlap ≥ 50%
+    - Word count within ±15%
+    - Auto-retry with strict prompt on failure
+
+  Variation: POST /api/transcribe/variation
+  UI: components/TranscriberCore.tsx
+
+── Persona-to-Avatar Mapping ───────────────────────────────────────────────────
+
+  lib/heygen-personas.ts — maps transcriber personas to HeyGen avatar + voice
+  Used when rendering the rewritten script as avatar video.
+
+================================================================================
+8. MISSION CONTROL BRIDGE
+================================================================================
+
+Mission Control (mc.flashflowai.com) is an external operations dashboard.
+FlashFlow posts documents, tasks, and status updates to it.
+
+── HTTP Client ─────────────────────────────────────────────────────────────────
+
+  lib/flashflow/mission-control.ts
+  Base URL: MC_BASE_URL || 'https://mc.flashflowai.com'
+
+  Token resolution:
+    1. MISSION_CONTROL_TOKEN (preferred)
+    2. MISSION_CONTROL_AGENT_TOKEN (agent-only fallback)
+
+  Every request sends BOTH headers:
+    Authorization: Bearer <token>
+    x-service-token: <token>
+
+  Self-healing: On 401, calls /api/auth-check for diagnosis, retries once,
+  sends Telegram alert if still failing.
+
+── Support Bridge ──────────────────────────────────────────────────────────────
+
+  lib/support-mc-bridge.ts
+  Fire-and-forget POST to MC /api/documents
+  Logs live-chat support threads as MC documents
+  Title format: "[Support] {subject}"
+
+── MC Health Check ─────────────────────────────────────────────────────────────
+
+  pnpm mc:health → scripts/mc-health.ts
+  Verifies MC connectivity and token validity.
+
+── Watchdog ────────────────────────────────────────────────────────────────────
+
+  ~/ops/watchdog/openclaw_watchdog.sh via launchd (every 2 min)
+  Monitors MC availability and alerts on failure.
+
+================================================================================
+9. TIKTOK INTEGRATIONS (3 TYPES)
+================================================================================
+
+FlashFlow has THREE separate TikTok integration types:
+
+── Type 1: TikTok Content Posting API ──────────────────────────────────────────
+
+  lib/tiktok-content.ts
+  Purpose: Post videos directly to TikTok
+  Used by: Auto-post cron, manual posting
+  OAuth-based creator authorization
+
+── Type 2: TikTok Shop / Partner API ───────────────────────────────────────────
+
+  lib/tiktok-partner.ts
+  Purpose: Product catalog, affiliate management, shop analytics
+  Used by: Product mapping, affiliate statements, shop data sync
+  Scripts:
+    pnpm tiktok:product-map    Map products
+    pnpm tiktok:nightly        Nightly upload job
+    pnpm tiktok:nightly-draft  Draft selection
+    pnpm tiktok:selector       Nightly selector
+    pnpm tiktok:upload-pack    Upload from content pack
+    pnpm tiktok:regression     Regression testing
+
+── Type 3: TikTok Login / Session (Playwright) ────────────────────────────────
+
+  lib/tiktok-login.ts + lib/revenue-intelligence/tiktok-scraper.ts
+  Purpose: Browser-based scraping (comments, trending, videos)
+  Used by: Revenue Intelligence, Daily Virals
+  Session management:
+    pnpm tiktok:bootstrap        Bootstrap browser session
+    pnpm tiktok:check-session    Verify session validity
+    pnpm tiktok:healthcheck      Session health check
+    pnpm tiktok:backup           Backup session data
+    pnpm tiktok:rotate           Rotate session
+    pnpm tiktok:recover          Recover expired session
+    pnpm tiktok:selfheal         Self-heal session issues
+
+── TikTok Downloader ───────────────────────────────────────────────────────────
+
+  lib/tiktok-downloader.ts
+  Uses @tobyg74/tiktok-api-dl package
+  Downloads TikTok videos for analysis/transcription
+
+================================================================================
+10. SUBSCRIPTION & BILLING (STRIPE)
+================================================================================
+
+── SaaS Plans (6 Tiers) ───────────────────────────────────────────────────────
+
+  lib/plans.ts + lib/subscription.ts
+
+  free           Free tier (limited generations)
+  creator_lite   $9/month — Creator Lite
+  creator_pro    $29/month — Creator Pro (Most Popular)
+  business       $59/month — Business
+  brand          Contact us — Brand (enterprise)
+  agency         Contact us — Agency (enterprise)
+
+── Org-Level Plans (3 Tiers) ───────────────────────────────────────────────────
+
+  free           Free org plan
+  pro            $499/month — Professional
+  enterprise     $1,499/month — Enterprise
+
+── Editing Add-ons ─────────────────────────────────────────────────────────────
+
+  editing_only   $19 — Editing Only
+  editing_addon  $10 — Extra Edits Pack
+  per_video      $3 — Single Video Edit
+
+── Billing Infrastructure ──────────────────────────────────────────────────────
+
+  lib/billing.ts          Stripe client + subscription management
+  lib/subscription.ts     Plan definitions + feature gates
+  lib/subscriptions.ts    Subscription state queries
+  /api/stripe/            Webhook handlers
+  /pricing                Checkout UI with plan comparison
+
+================================================================================
+11. EXTERNAL SERVICE INTEGRATIONS
+================================================================================
+
+  Service          Main Files                              Purpose
+  ────────────────────────────────────────────────────────────────────────────
+  Anthropic Claude lib/ai/anthropic.ts                     Script gen, classification,
+                                                           reply drafts, scoring
+                   Used in 16+ API routes                  Primary AI brain
+
+  OpenAI           lib/ai/openai.ts                        Embeddings, some generation
+
+  HeyGen           lib/heygen.ts                           Avatar video rendering
+                   lib/heygen-personas.ts                  Persona → avatar mapping
+
+  Runway           lib/runway.ts                           AI video generation
+                                                           (text-to-video, img-to-video)
+
+  Shotstack        lib/shotstack.ts                        Video composition
+                   lib/shotstack-compose-v2.ts
+
+  Replicate        lib/replicate.ts                        Additional AI models
+
+  Stripe           lib/billing.ts                          Payments & subscriptions
+                   lib/subscription.ts
+
+  Supabase         lib/supabaseAdmin.ts                    Database + Auth + Storage
+                   lib/supabaseClient.ts
+
+  Telegram         lib/telegram.ts                         Bot alerts & digests
+                   lib/telegram-intent.ts                  Intent parsing for bot
+
+  SendGrid         lib/email.ts                            Transactional email (legacy)
+
+  Resend           lib/email/resend.ts                     Transactional email (primary)
+
+  TikTok           lib/tiktok-content.ts                   Content posting
+                   lib/tiktok-partner.ts                   Shop/partner API
+                   lib/tiktok-login.ts                     Browser sessions
+
+  Late.dev         (configured, not yet active)            Social media scheduling
+
+  GitHub           lib/brain-feed/github.ts                Decision source files
+
+  Playwright       (dev dependency)                        Browser automation
+                                                           (TikTok scraping)
+
+  HP Windows PC    SSH via Tailscale (100.104.2.123)       Remote browser service
+                                                           (headless:false desktop)
+
+================================================================================
+12. DATABASE SCHEMA (196 MIGRATIONS)
+================================================================================
+
+  Total migration files: 196 under supabase/migrations/
+
+  Major table groups:
+
+  ── Core ──
+  users, profiles, accounts, organizations, org_members
+
+  ── Videos ──
+  videos, video_events, video_renders, video_scores, video_lifecycle
+
+  ── Scripts ──
+  scripts, script_scores, script_templates, hook_bank, hooks
+
+  ── Pipeline ──
+  pipeline_runs, pipeline_stages, content_packages, content_pack_items
+
+  ── Revenue Intelligence ──
+  ri_creator_accounts, ri_videos, ri_comments, ri_comment_analysis,
+  ri_reply_drafts, ri_comment_status, ri_actions_queue, ri_run_state,
+  ri_agent_logs
+
+  ── Trending ──
+  ff_trending_items
+
+  ── TikTok ──
+  tiktok_accounts, tiktok_videos, tiktok_products, tiktok_sessions
+
+  ── Billing ──
+  subscriptions, stripe_events, webhook_events, invoices
+
+  ── Support ──
+  support_threads, support_messages, support_issues
+
+  ── Affiliate ──
+  affiliate_accounts, affiliate_commissions, affiliate_statements
+
+  ── Analytics ──
+  video_analytics, script_analytics, user_activity
+
+  ── FinOps ──
+  finops_daily, finops_cost_events
+
+  ── Marketplace ──
+  marketplace_listings, marketplace_orders
+
+  ── Misc ──
+  notifications, email_templates, discord_roles, feature_flags,
+  creator_styles, brain_feed_decisions
+
+================================================================================
+13. CRON JOBS & SCHEDULED TASKS (20 JOBS)
+================================================================================
+
+  Schedule          Endpoint                         Purpose
+  ─────────────────────────────────────────────────────────────────────────
+  */2 * * * *       /api/cron/check-renders          Poll HeyGen/Shotstack render
+                                                     status (every 2 min)
+  */2 * * * *       /api/cron/orchestrator            Pipeline orchestration
+                                                     (every 2 min)
+  */15 * * * *      /api/cron/auto-post              Post ready videos to TikTok
+                                                     (every 15 min)
+  */15 * * * *      /api/cron/triage-issues           Triage support issues
+                                                     (every 15 min)
+  15 * * * *        /api/cron/clip-analyze            Analyze discovered clips
+                                                     (hourly at :15)
+  0 */6 * * *       /api/cron/process-emails          Process inbound emails
+                                                     (every 6 hours)
+  0 */6 * * *       /api/cron/discord-role-sync       Sync Discord roles
+                                                     (every 6 hours)
+  0 */6 * * *       /api/cron/clip-discover            Discover new clips
+                                                     (every 6 hours)
+  5 5 * * *         /api/cron/nightly-reset           Reset daily counters
+                                                     (5:05 AM daily)
+  0 6 * * *         /api/cron/sync-tiktok-videos      Sync TikTok video data
+                                                     (6 AM daily)
+  0 6 * * *         /api/cron/finops-daily             Daily cost rollup
+                                                     (6 AM daily)
+  30 13 * * *       /api/cron/daily-virals             Scrape trending TikTok
+                                                     products (1:30 PM daily)
+  0 14 * * *        /api/cron/daily-digest             Telegram daily summary
+                                                     (2 PM daily)
+  0 15 * * *        /api/cron/script-of-the-day        Generate featured script
+                                                     (3 PM daily)
+  0 13 * * *        /api/cron/retainer-check           Check retainer balances
+                                                     (1 PM daily)
+  0 16 * * 1        /api/cron/weekly-digest            Weekly summary
+                                                     (Monday 4 PM)
+  0 17 * * 1        /api/cron/weekly-trainer           Weekly AI training
+                                                     (Monday 5 PM)
+  30 17 * * 1       /api/cron/weekly-support-report    Weekly support report
+                                                     (Monday 5:30 PM)
+  30 6 * * 1        /api/cron/finops-weekly             Weekly cost report
+                                                     (Monday 6:30 AM)
+  0 4 * * 0         /api/cron/cleanup-webhook-events   Cleanup old webhook events
+                                                     (Sunday 4 AM)
+
+── Local/External Crons (Not Vercel) ───────────────────────────────────────────
+
+  Revenue Intelligence daemon:  pnpm ri:ingest:daemon (every 10-15 min)
+  MC Watchdog:                  ~/ops/watchdog/openclaw_watchdog.sh (every 2 min)
+  TikTok session healthcheck:   pnpm tiktok:healthcheck
+
+================================================================================
+14. INTELLIGENCE AGENTS & AUTOMATION
+================================================================================
+
+── Agent System ────────────────────────────────────────────────────────────────
+
+  scripts/agents/run-agent-task.ts     Run an agent task
+  scripts/agents/execute-task.ts       Execute a specific task
+
+  Agent types span:
+    - Script generation agents
+    - Content intelligence agents (cycling, zebby, weekly digest)
+    - Revenue intelligence (comment classification, reply drafting)
+    - Trending analysis agents
+
+── Autonomy Preflight ──────────────────────────────────────────────────────────
+
+  scripts/autonomy/preflight-selector.ts
+  Pre-flight checks before autonomous operations
+  Validates session, credentials, rate limits before running
+
+── Creator Style System ────────────────────────────────────────────────────────
+
+  scripts/creator-style/ingest.ts      Ingest creator style data
+  scripts/creator-style/build.ts       Build creator style profiles
+  Used to personalize script generation based on creator's existing content style
+
+── Nightly Job ─────────────────────────────────────────────────────────────────
+
+  scripts/job-nightly.ts
+  Comprehensive nightly batch processing
+  Dry run: pnpm job:nightly:dry
+
+================================================================================
+15. FINOPS (COST TRACKING)
+================================================================================
+
+  scripts/finops/rollup-daily.ts       Daily cost rollup
+  scripts/finops/daily-report.ts       Daily cost report
+  scripts/finops/weekly-report.ts      Weekly cost report
+  scripts/test-finops/smoke.ts         FinOps smoke tests
+
+  Tracks costs across:
+    - HeyGen API credits
+    - Runway API credits
+    - Anthropic Claude tokens
+    - OpenAI tokens
+    - Supabase usage
+
+  Crons:
+    /api/cron/finops-daily    Daily at 6 AM
+    /api/cron/finops-weekly   Monday at 6:30 AM
+
+================================================================================
+16. SUPPORT, AFFILIATE & MARKETPLACE
+================================================================================
+
+── Support System ──────────────────────────────────────────────────────────────
+
+  Live chat + ticket system
+  Support threads cross-posted to Mission Control
+  Weekly support report: /api/cron/weekly-support-report (Monday 5:30 PM)
+  Issue triage: /api/cron/triage-issues (every 15 min)
+
+── Affiliate Program ───────────────────────────────────────────────────────────
+
+  scripts/affiliate-monthly-statement.ts
+  Monthly commission statements for affiliates
+  Tracks referrals, conversions, payouts
+
+── Marketplace ─────────────────────────────────────────────────────────────────
+
+  Marketplace listings for scripts, templates, hooks
+  Orders and fulfillment tracking
+
+── Email Campaigns ─────────────────────────────────────────────────────────────
+
+  Resend (primary) + SendGrid (legacy)
+  Process emails cron: every 6 hours
+  Email verification flow
+  Free scripts lead magnet capture
+
+================================================================================
+17. AUTH & SECURITY
+================================================================================
+
+  Auth Provider:    Supabase Auth (SSR via @supabase/ssr)
+  Session:          Cookie-based (httpOnly, secure)
+  RLS:              Row Level Security on all user-facing tables
+  Service Role:     SUPABASE_SERVICE_ROLE_KEY for admin/cron operations
+
+  API Auth patterns:
+    - User session (cookie-based) for app routes
+    - CRON_SECRET Bearer token for cron routes
+    - MISSION_CONTROL_TOKEN for MC bridge
+    - BROWSER_SERVICE_KEY for HP Windows browser service
+    - Stripe webhook signature verification
+
+  Cron auth:
+    vercel.json crons send CRON_SECRET in Authorization header
+    Routes verify: Authorization === `Bearer ${CRON_SECRET}`
+
+  Admin auth:
+    Session-based with admin role check
+    95 admin sub-pages behind auth gate
+
+================================================================================
+18. FULL FILE INVENTORY
+================================================================================
+
+  Directory              Count    Description
+  ─────────────────────────────────────────────────────────────────────────
+  app/api/               569      API route files (route.ts)
+  app/ (pages)           100+     Page components
+  lib/                   273      Library modules
+  components/            67+      React components
+  scripts/               80+      CLI scripts and jobs
+  supabase/migrations/   196      SQL migrations
+  hooks/                 ~10      Custom React hooks
+
+  Key lib subdirectories:
+    lib/ai/                        AI client wrappers
+    lib/revenue-intelligence/      RI pipeline (18 files)
+    lib/flashflow/                 Core platform logic
+    lib/brain-feed/                GitHub decision source
+    lib/zebby/                     Character scene builder
+    lib/email/                     Email services
+    lib/mc/                        Mission Control utilities
+
+  Key script directories:
+    scripts/revenue-intelligence/  RI ingestion, bootstrap, smoke tests
+    scripts/daily-intel/           Daily intel pipelines + agents
+    scripts/trending/              Trending/virals scraper
+    scripts/tiktok-studio/         TikTok session management (12 scripts)
+    scripts/finops/                Cost tracking reports
+    scripts/publish/               Publishing workflows
+    scripts/agents/                Agent task runners
+    scripts/autonomy/              Autonomous operation preflight
+
+================================================================================
+END OF AUDIT
+================================================================================

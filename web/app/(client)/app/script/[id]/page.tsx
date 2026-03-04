@@ -271,6 +271,7 @@ export default function ScriptDetailPage() {
               {script.broll_suggestions && (
                 <Button size="sm" variant="secondary" onClick={handleGenerateBroll} loading={generatingBroll}>
                   <Sparkles className="w-4 h-4 mr-1" /> Generate B-roll Pack
+                  <span className="ml-1 text-[10px] bg-amber-900/40 text-amber-400 px-1.5 py-0.5 rounded-full leading-none">Soon</span>
                 </Button>
               )}
             </div>

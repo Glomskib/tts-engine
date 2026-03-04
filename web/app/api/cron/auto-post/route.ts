@@ -245,6 +245,10 @@ async function submitNewPosts(
         publishId: publishResult.publish_id,
       });
     } catch (err) {
+      const { captureRouteException } = await import('@/lib/errorTracking');
+      captureRouteException(err instanceof Error ? err : new Error(String(err)), {
+        route: '/api/cron/auto-post', jobId: video.id, phase: 'submit',
+      });
       console.error(`[auto-post] Submit error for ${video.id}:`, err);
       const errorMsg = err instanceof Error ? err.message : String(err);
 

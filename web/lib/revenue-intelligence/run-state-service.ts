@@ -12,18 +12,38 @@ const TAG = '[ri:run-state]';
 
 export interface RunState {
   last_ingested_at: string;
+  last_alert_sent_at: string | null;
 }
 
 /** Get the run state for a user, or null if first run. */
 export async function getRunState(userId: string): Promise<RunState | null> {
   const { data, error } = await supabaseAdmin
     .from('ri_run_state')
-    .select('last_ingested_at')
+    .select('last_ingested_at, last_alert_sent_at')
     .eq('user_id', userId)
     .single();
 
-  if (error || !data) return null;
-  return { last_ingested_at: data.last_ingested_at };
+  if (error) {
+    // Schema cache stale — fall back to base columns only
+    if (isSchemaCache(error)) {
+      console.warn(`${TAG} Schema cache stale for last_alert_sent_at — falling back to base query`);
+      const { data: fallback } = await supabaseAdmin
+        .from('ri_run_state')
+        .select('last_ingested_at')
+        .eq('user_id', userId)
+        .single();
+      if (fallback) {
+        return { last_ingested_at: fallback.last_ingested_at, last_alert_sent_at: null };
+      }
+    }
+    return null;
+  }
+
+  if (!data) return null;
+  return {
+    last_ingested_at: data.last_ingested_at,
+    last_alert_sent_at: data.last_alert_sent_at ?? null,
+  };
 }
 
 /** Upsert run state — sets last_ingested_at = NOW(). */
@@ -38,6 +58,26 @@ export async function updateRunState(userId: string): Promise<void> {
 
   if (error) {
     console.error(`${TAG} Failed to upsert run state for ${userId}:`, error.message);
+  }
+}
+
+/** Persist alert state after sending a digest. */
+export async function updateAlertState(
+  userId: string,
+  summary: Record<string, unknown>,
+): Promise<void> {
+  const now = new Date().toISOString();
+  const { error } = await supabaseAdmin
+    .from('ri_run_state')
+    .update({ last_alert_sent_at: now, last_alert_summary: summary })
+    .eq('user_id', userId);
+
+  if (error) {
+    if (isSchemaCache(error)) {
+      console.warn(`${TAG} Schema cache stale — cannot persist alert state. Run: npx tsx scripts/revenue-intelligence/fix-schema-cache.ts`);
+    } else {
+      console.error(`${TAG} Failed to update alert state for ${userId}:`, error.message);
+    }
   }
 }
 
@@ -56,4 +96,15 @@ export async function countNewSince(userId: string, since: string): Promise<numb
   }
 
   return count ?? 0;
+}
+
+// ── Helpers ─────────────────────────────────────────────────────
+
+/** Detect PostgREST schema cache errors (column not in cache). */
+function isSchemaCache(error: { message?: string; code?: string }): boolean {
+  return (
+    error.code === 'PGRST204' ||
+    !!error.message?.includes('schema cache') ||
+    !!(error.message?.includes('column') && error.message?.includes('does not exist'))
+  );
 }

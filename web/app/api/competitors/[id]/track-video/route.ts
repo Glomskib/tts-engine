@@ -3,6 +3,7 @@ import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors'
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { z } from 'zod';
+import { assertFeature } from '@/lib/openclaw-gate';
 
 export const runtime = 'nodejs';
 
@@ -21,6 +22,14 @@ export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const gate = assertFeature('external_research');
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   try {
     const { id } = await params;

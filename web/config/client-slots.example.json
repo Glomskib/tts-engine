@@ -1,0 +1,18 @@
+{
+  "slots": [
+    {
+      "slot": "brandon",
+      "client_id": "YOUR_SUPABASE_USER_UUID",
+      "chrome_profile_dir": "/Users/brandonglomski/tts-engine/web/data/sessions/tiktok-studio-profile",
+      "tiktok_username": "holisticlifestyle32",
+      "ri_browser_profile_dir": null
+    },
+    {
+      "slot": "wife",
+      "client_id": "WIFE_SUPABASE_USER_UUID_OR_SLUG",
+      "chrome_profile_dir": "/Users/brandonglomski/flashflow/profiles/wife_tiktok",
+      "tiktok_username": "",
+      "ri_browser_profile_dir": "/Users/brandonglomski/.openclaw/browser-profiles/ri-tiktok-wife"
+    }
+  ]
+}

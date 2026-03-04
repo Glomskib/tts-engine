@@ -5,18 +5,19 @@
  * Combines the DB-backed ff_session_status with local lockfile/profile checks.
  *
  * Response:
- *   { valid: boolean, expires_in_hours: number, cooldown_active: boolean }
+ *   { valid: boolean, expires_in_hours: number, cooldown_active: boolean, alert_state: string }
  *
  * No auth required (read-only health check, same pattern as /api/session-status).
  */
 
 import { NextResponse } from 'next/server';
-import * as os from 'os';
 import { getSessionIfWithinTTL } from '@/lib/session-logger';
 import { getLocalSessionHealth } from '@/lib/tiktok/session';
+import { computeAlertState } from '@/lib/tiktok/session-alert-service';
+import { getNodeId } from '@/lib/node-id';
 
 export async function GET() {
-  const nodeName = os.hostname();
+  const nodeName = getNodeId();
   const platform = 'tiktok_studio';
 
   // 1. Check DB-backed session status
@@ -35,9 +36,13 @@ export async function GET() {
   // 4. valid = DB row says valid AND within TTL AND no cooldown
   const valid = !!(dbRow?.is_valid) && !local.cooldown_active;
 
+  // 5. Compute alert state for consumers (nightly-draft preflight)
+  const alertState = computeAlertState(valid, expiresInHours);
+
   return NextResponse.json({
     valid,
     expires_in_hours: expiresInHours,
     cooldown_active: local.cooldown_active,
+    alert_state: alertState,
   });
 }

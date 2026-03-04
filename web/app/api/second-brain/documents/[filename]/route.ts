@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { assertFeature } from '@/lib/openclaw-gate';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -19,6 +20,14 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ filename: string }> }
 ) {
+  const gate = assertFeature('second_brain');
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   const authContext = await getApiAuthContext(request);

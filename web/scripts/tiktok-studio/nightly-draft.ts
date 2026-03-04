@@ -37,7 +37,10 @@ import {
   EXIT_SESSION_INVALID,
   isSessionCooldownActive,
 } from '../../lib/tiktok/session.js';
+import { evaluateSessionAlerts } from '../../lib/tiktok/session-alert-service.js';
 import { logUploadStep } from '../../lib/uploader-status.js';
+import { getNodeId } from '../../lib/node-id.js';
+import { detectRunSource, detectRequestedBy, type RunSource } from '../../lib/ops/run-source.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -52,8 +55,11 @@ const DRY_RUN = process.env.DRY_RUN === '1';
 const WEB_DIR = process.cwd();
 const LOG_DIR = path.join(WEB_DIR, 'data', 'sessions', 'logs');
 
-const ACTOR = `nightly_draft_job/${os.hostname()}`;
+const NODE_ID = getNodeId();
+const ACTOR = `nightly_draft_job/${NODE_ID}`;
 const CLAIM_TTL_MINUTES = 30; // 5-min upload timeout + buffer
+const RUN_SOURCE: RunSource = detectRunSource();
+const REQUESTED_BY = detectRequestedBy();
 
 // ─── Supabase client ────────────────────────────────────────────────────────
 
@@ -78,7 +84,13 @@ async function preflightSessionCheck(): Promise<boolean> {
       const health = await res.json();
       if (!health.valid) {
         console.error(`${TAG} [preflight] Session unhealthy: valid=${health.valid}, cooldown=${health.cooldown_active}`);
+        await evaluateSessionAlerts(NODE_ID).catch(() => {});
         return false;
+      }
+      if (health.alert_state === 'expiring_soon') {
+        console.log(`${TAG} [preflight] Session expiring soon (${health.expires_in_hours}h) — continuing, firing alert`);
+        await evaluateSessionAlerts(NODE_ID).catch(() => {});
+        return true;
       }
       console.log(`${TAG} [preflight] Session healthy (expires in ${health.expires_in_hours}h)`);
     }
@@ -194,11 +206,30 @@ async function main() {
   const startedAt = new Date();
   const correlationId = `nightly-draft-${startedAt.toISOString()}`;
 
+  // ── Start run tracking (best-effort) ──
+  let cronRunId: string | null = null;
+  try {
+    const { data } = await supabase
+      .from('ff_cron_runs')
+      .insert({
+        job: 'nightly_draft',
+        status: 'running',
+        run_source: RUN_SOURCE,
+        requested_by: REQUESTED_BY,
+        meta: { actor: ACTOR, max_uploads: MAX_UPLOADS, dry_run: DRY_RUN },
+      })
+      .select('id')
+      .single();
+    cronRunId = data?.id ?? null;
+  } catch { /* non-fatal */ }
+
   console.log(`\n${'='.repeat(60)}`);
   console.log(`  TikTok Nightly Draft — ${startedAt.toISOString().slice(0, 10)}`);
   console.log(`${'='.repeat(60)}\n`);
   log.info('run_started', { actor: ACTOR, max_uploads: MAX_UPLOADS, dry_run: DRY_RUN });
   console.log(`${TAG} Actor:       ${ACTOR}`);
+  console.log(`${TAG} Source:      ${RUN_SOURCE}`);
+  if (REQUESTED_BY) console.log(`${TAG} Requested:   ${REQUESTED_BY}`);
   console.log(`${TAG} Max uploads: ${MAX_UPLOADS}`);
   console.log(`${TAG} Dry run:     ${DRY_RUN}`);
   console.log('');
@@ -505,6 +536,29 @@ async function main() {
   console.log(`  Exit code:     ${finalExitCode}`);
   console.log(`${'='.repeat(60)}\n`);
 
+  // ── Finish run tracking (best-effort) ──
+  if (cronRunId) {
+    try {
+      await supabase
+        .from('ff_cron_runs')
+        .update({
+          status: finalExitCode === EXIT_OK ? 'ok' : 'error',
+          finished_at: new Date().toISOString(),
+          meta: {
+            eligible: videos.length,
+            claimed: claimedVideoIds.length,
+            drafted,
+            failed,
+            skipped,
+            exit_code: finalExitCode,
+            duration_ms: report.duration_ms,
+            node_id: NODE_ID,
+          },
+        })
+        .eq('id', cronRunId);
+    } catch { /* non-fatal */ }
+  }
+
   process.exit(finalExitCode);
 }
 
@@ -520,7 +574,21 @@ function writeReport(report: NightlyReport): void {
 
 // ─── Entry ──────────────────────────────────────────────────────────────────
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error(`${TAG} Fatal error:`, err);
+  // Best-effort: record fatal error in ff_cron_runs
+  try {
+    await supabase
+      .from('ff_cron_runs')
+      .insert({
+        job: 'nightly_draft',
+        status: 'error',
+        finished_at: new Date().toISOString(),
+        error: err instanceof Error ? err.message : String(err),
+        run_source: RUN_SOURCE,
+        requested_by: REQUESTED_BY,
+        meta: { fatal: true, node_id: NODE_ID },
+      });
+  } catch { /* never block exit */ }
   process.exit(EXIT_ERROR);
 });

@@ -16,6 +16,8 @@
  * and sends a Telegram alert if still failing.
  */
 
+import { isOpenClawEnabled, openclawSkipLog } from '../openclaw-gate';
+
 const MC_BASE_URL_DEFAULT = 'https://mc.flashflowai.com';
 
 /** Which headers mcFetch sends on every request. */
@@ -220,6 +222,10 @@ const EMPTY_HEALTH: MCPipelineHealth = {
 };
 
 export async function fetchMCPipelineHealth(): Promise<MCPipelineHealth> {
+  if (!isOpenClawEnabled()) {
+    openclawSkipLog('fetchMCPipelineHealth');
+    return { ...EMPTY_HEALTH, error: 'OpenClaw is disabled' };
+  }
   try {
     const res = await mcFetch('GET', '/api/pipeline/health', { timeoutMs: 5000 });
 
@@ -243,6 +249,10 @@ export async function fetchMCPipelineHealth(): Promise<MCPipelineHealth> {
 }
 
 export async function postMCDoc(input: MCDocInput): Promise<MCDocResponse> {
+  if (!isOpenClawEnabled()) {
+    openclawSkipLog('postMCDoc');
+    return { ok: false, error: 'OpenClaw is disabled' };
+  }
   try {
     const res = await mcFetch('POST', '/api/documents', {
       body: JSON.stringify({

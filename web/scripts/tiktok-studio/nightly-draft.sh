@@ -33,9 +33,15 @@ fi
 
 mkdir -p "$LOG_DIR"
 
+# Stamp run source for observability
+export FF_RUN_SOURCE="launchd"
+
 echo ""
-echo "$(date '+%Y-%m-%d %H:%M:%S') $TAG Starting nightly draft job..."
+echo "$(date '+%Y-%m-%d %H:%M:%S') $TAG Starting nightly draft job... (source=$FF_RUN_SOURCE)"
 echo "$TAG Working directory: $WEB_DIR"
+echo "$TAG FF_NODE_ID:       ${FF_NODE_ID:-<not set>}"
+echo "$TAG hostname:         $(hostname)"
+echo "$TAG effective node_id: ${FF_NODE_ID:-$(hostname)}"
 
 # ── 1. Preflight: profile dir + cooldown ─────────────────────────────────────
 
@@ -109,7 +115,7 @@ if [ -f "$COOLDOWN_LOCK" ]; then
 fi
 
 if [ $should_alert -eq 1 ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ] && [ -n "${TELEGRAM_CHAT_ID:-}" ]; then
-  node_name="$(hostname)"
+  node_name="${FF_NODE_ID:-$(hostname)}"
   detected_at="$(date -u '+%Y-%m-%d %H:%M UTC')"
 
   alert_message="<b>TikTok Nightly Draft — Session Invalid</b>

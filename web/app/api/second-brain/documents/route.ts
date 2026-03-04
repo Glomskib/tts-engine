@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { assertFeature } from '@/lib/openclaw-gate';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -83,6 +84,14 @@ async function scanDocuments(dir: string, baseDir: string): Promise<DocumentMeta
  * List all documents with metadata.
  */
 export async function GET(request: NextRequest) {
+  const gate = assertFeature('second_brain');
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code, documents: [], total: 0 },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   const authContext = await getApiAuthContext(request);
@@ -133,6 +142,14 @@ export async function GET(request: NextRequest) {
  * Create a new document.
  */
 export async function POST(request: NextRequest) {
+  const gate = assertFeature('second_brain');
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   const authContext = await getApiAuthContext(request);

@@ -57,6 +57,7 @@ import {
 } from '../../../skills/tiktok-studio-uploader/index.js';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { type UploaderStatus, mapResultToUploaderStatus, logUploadStep } from '../../lib/uploader-status.js';
+import { getNodeId } from '../../lib/node-id.js';
 
 // ─── Constants ──────────────────────────────────────────────────────────────
 
@@ -65,7 +66,7 @@ const EXIT_OK = 0;
 const EXIT_ERROR = 1;
 const EXIT_SESSION_INVALID = 42;
 
-const ACTOR = `nightly_upload/${os.hostname()}`;
+const ACTOR = `nightly_upload/${getNodeId()}`;
 
 const BETWEEN_VIDEO_DELAY_MS = 3_000;
 const DEFAULT_LIMIT = 10;

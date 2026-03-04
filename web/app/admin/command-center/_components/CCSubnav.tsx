@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Activity, BarChart, ListTodo, Briefcase, Lightbulb,
-  DollarSign, Zap, Gauge, Handshake, MessageSquare,
+  DollarSign, Zap, Gauge, Handshake, MessageSquare, Shield, Search,
 } from 'lucide-react';
 
 const TABS = [
@@ -18,6 +18,8 @@ const TABS = [
   { label: 'FinOps', href: '/admin/command-center/finops', icon: Gauge },
   { label: 'CRM', href: '/admin/command-center/crm', icon: Handshake },
   { label: 'Feedback', href: '/admin/command-center/feedback', icon: MessageSquare },
+  { label: 'Research', href: '/admin/command-center/research', icon: Search },
+  { label: 'Ops Health', href: '/admin/command-center/ops-health', icon: Shield },
 ];
 
 export default function CCSubnav() {

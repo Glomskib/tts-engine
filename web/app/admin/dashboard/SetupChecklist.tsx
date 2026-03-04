@@ -62,8 +62,26 @@ export default function SetupChecklist({ scriptsCount, totalVideos }: SetupCheck
   const completedRef = useRef(false);
 
   useEffect(() => {
-    const wasDismissed = localStorage.getItem(DISMISSED_KEY) === 'true';
-    setDismissed(wasDismissed);
+    // Check localStorage first (fast), then server-side for cross-device persistence
+    const localDismissed = localStorage.getItem(DISMISSED_KEY) === 'true';
+    if (localDismissed) {
+      setDismissed(true);
+      return;
+    }
+    // Check server-side onboarding status
+    fetch('/api/onboarding/status')
+      .then(res => res.ok ? res.json() : null)
+      .then(data => {
+        if (data?.dismissed || data?.onboarding_complete) {
+          localStorage.setItem(DISMISSED_KEY, 'true');
+          setDismissed(true);
+        } else {
+          setDismissed(false);
+        }
+      })
+      .catch(() => {
+        setDismissed(false);
+      });
   }, []);
 
   const fetchCounts = useCallback(async () => {
@@ -111,10 +129,11 @@ export default function SetupChecklist({ scriptsCount, totalVideos }: SetupCheck
   const completedCount = completedSteps.size;
   const allDone = completedCount === STEPS.length;
 
-  // Auto-mark onboarding complete when all 3 steps are done
+  // Auto-mark onboarding complete when all steps are done
   useEffect(() => {
     if (allDone && !completedRef.current) {
       completedRef.current = true;
+      localStorage.setItem(DISMISSED_KEY, 'true');
       fetch('/api/onboarding/complete', { method: 'POST' }).catch(() => {});
     }
   }, [allDone]);

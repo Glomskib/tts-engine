@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { assertFeature } from '@/lib/openclaw-gate';
 import { promises as fs } from 'fs';
 import path from 'path';
 
@@ -16,6 +17,14 @@ const SECOND_BRAIN_ROOT = path.join(
  * List all tags derived from folder structure and file patterns.
  */
 export async function GET(request: NextRequest) {
+  const gate = assertFeature('second_brain');
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code, tags: [], folders: [] },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   const authContext = await getApiAuthContext(request);

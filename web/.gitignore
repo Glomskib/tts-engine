@@ -33,6 +33,9 @@ yarn-error.log*
 # env files (can opt-in for committing if needed)
 .env*
 
+# marketing brand account config (contains Late.dev account IDs)
+brand-accounts.local.json
+
 # vercel
 .vercel
 
@@ -57,3 +60,9 @@ bin/
 
 # Regression test reports
 /var/run-reports/**
+
+# RI ingestion run lock
+.ri-ingestion.lock
+
+# Client slot config (contains UUIDs — never commit)
+config/client-slots.json

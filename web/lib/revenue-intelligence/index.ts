@@ -24,7 +24,6 @@ export { generateReplyDrafts } from './reply-draft-service';
 
 export {
   flagUrgentComments,
-  sendUrgentAlerts,
 } from './urgency-scoring-service';
 
 export {

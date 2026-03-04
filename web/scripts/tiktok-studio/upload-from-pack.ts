@@ -69,8 +69,9 @@ const ERROR_DIR = path.join(process.cwd(), 'data', 'tiktok-errors');
 // ─── Optional Supabase client (for upload-step event logging) ───────────────
 
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { getNodeId } from '../../lib/node-id.js';
 
-const ACTOR = `upload_from_pack/${os.hostname()}`;
+const ACTOR = `upload_from_pack/${getNodeId()}`;
 
 function getOptionalSupabase(): SupabaseClient | null {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;

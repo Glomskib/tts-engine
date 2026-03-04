@@ -8,8 +8,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logUsageEvent } from '@/lib/finops/log-usage';
 import { costFromUsage } from '@/lib/finops/cost';
+import { assertFeature } from '@/lib/openclaw-gate';
 
 export async function POST(request: NextRequest) {
+  const gate = assertFeature('finops_openclaw_usage');
+  if (!gate.ok) {
+    return NextResponse.json(
+      { error: gate.message, code: gate.code },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   // Auth: simple shared secret
   const authHeader = request.headers.get('authorization');
   const ingestKey = process.env.FINOPS_INGEST_KEY || process.env.CRON_SECRET;

@@ -10,3 +10,7 @@ export { logUsageEvent, logUsageEventAsync, estimateTokens } from './log-usage';
 export type { LogUsageEventInput, UsageEventRow } from './log-usage';
 export { logToolUsageEvent, logToolUsageEventAsync } from './log-tool-usage';
 export type { LogToolUsageEventInput, ToolUsageEventRow } from './log-tool-usage';
+export { estimateHeyGenCost } from './heygen-cost';
+export type { HeyGenCostEstimate, HeyGenEngine } from './heygen-cost';
+export { estimateIntakeCost } from './intake-cost';
+export type { IntakeCostEstimate } from './intake-cost';

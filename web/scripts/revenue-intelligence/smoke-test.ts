@@ -35,6 +35,12 @@ import { getInboxComments, getInboxStats, getRevenueModeInbox } from '../../lib/
 import { enqueueActions, getQueueItems } from '../../lib/revenue-intelligence/actions-queue-service';
 import { generateSimulationData } from '../../lib/revenue-intelligence/simulation-data';
 import { isSimulationComment } from '../../lib/revenue-intelligence/simulation-filter';
+import { evaluateAlertPolicy, loadAlertConfigFromEnv } from '../../lib/revenue-intelligence/alert-policy';
+import type { AlertPolicyConfig, AlertPolicyInput } from '../../lib/revenue-intelligence/alert-policy';
+import { formatDigestMessage } from '../../lib/revenue-intelligence/telegram-digest';
+import type { DigestAlertPayload } from '../../lib/revenue-intelligence/telegram-digest';
+import { isAutoDraftEnabled, loadAutoDraftConfig, runAutoDrafts } from '../../lib/revenue-intelligence/auto-draft-service';
+import type { AutoDraftConfig } from '../../lib/revenue-intelligence/auto-draft-service';
 import type { RiCreatorAccount } from '../../lib/revenue-intelligence/types';
 
 const TAG = '[ri:smoke]';
@@ -321,6 +327,170 @@ async function main() {
     assert('Queue excludes sim_ comments', !queueHasSim, `${queueItems.length} items`);
   } else if (skipAI) {
     console.log('\n12-14. Skipping queue tests (--skip-ai)\n');
+  }
+
+  // Test 15: Alert Policy (pure logic, no network)
+  console.log('\n15. Alert Policy');
+  {
+    const base: AlertPolicyInput = { newCount: 5, urgentCount: 0, lastAlertSentAt: null, forceAlert: false };
+    const cfg = (mode: string, batchMin = 10, digestMinutes = 120): AlertPolicyConfig =>
+      ({ mode: mode as AlertPolicyConfig['mode'], batchMin, digestMinutes });
+
+    // off suppresses everything
+    const offResult = evaluateAlertPolicy(base, cfg('off'));
+    assert('mode=off suppresses', !offResult.shouldSend);
+
+    // force-alert overrides off
+    const forceResult = evaluateAlertPolicy({ ...base, forceAlert: true }, cfg('off'));
+    assert('--force-alert overrides off', forceResult.shouldSend);
+
+    // all sends on any activity
+    const allResult = evaluateAlertPolicy(base, cfg('all'));
+    assert('mode=all sends on activity', allResult.shouldSend);
+
+    // all no-ops on zero
+    const allZero = evaluateAlertPolicy({ ...base, newCount: 0 }, cfg('all'));
+    assert('mode=all no-ops on zero', !allZero.shouldSend);
+
+    // urgent only fires on urgent
+    const urgentNo = evaluateAlertPolicy(base, cfg('urgent'));
+    assert('mode=urgent suppresses non-urgent', !urgentNo.shouldSend);
+
+    const urgentYes = evaluateAlertPolicy({ ...base, urgentCount: 2 }, cfg('urgent'));
+    assert('mode=urgent fires on urgent', urgentYes.shouldSend);
+
+    // batch respects threshold
+    const batchBelow = evaluateAlertPolicy({ ...base, newCount: 3 }, cfg('batch', 10));
+    assert('mode=batch below threshold', !batchBelow.shouldSend);
+
+    const batchAbove = evaluateAlertPolicy({ ...base, newCount: 10 }, cfg('batch', 10));
+    assert('mode=batch at threshold', batchAbove.shouldSend);
+
+    // digest respects time window + threshold
+    const recentAlert = new Date(Date.now() - 30 * 60 * 1000).toISOString(); // 30min ago
+    const digestRecent = evaluateAlertPolicy(
+      { ...base, newCount: 3, lastAlertSentAt: recentAlert },
+      cfg('digest', 10, 120),
+    );
+    assert('mode=digest suppresses within window', !digestRecent.shouldSend);
+
+    const oldAlert = new Date(Date.now() - 150 * 60 * 1000).toISOString(); // 150min ago
+    const digestOld = evaluateAlertPolicy(
+      { ...base, newCount: 3, lastAlertSentAt: oldAlert },
+      cfg('digest', 10, 120),
+    );
+    assert('mode=digest fires after window', digestOld.shouldSend);
+
+    // First run (null lastAlertSentAt) with new items sends
+    const digestFirst = evaluateAlertPolicy(
+      { ...base, newCount: 2, lastAlertSentAt: null },
+      cfg('digest', 10, 120),
+    );
+    assert('mode=digest first run sends', digestFirst.shouldSend);
+  }
+
+  // Test 16: Digest Message Format (pure function)
+  console.log('\n16. Digest Message Format');
+  {
+    const payload: DigestAlertPayload = {
+      username: 'test_creator',
+      newCount: 5,
+      urgentCount: 2,
+      topItems: [
+        {
+          commentId: 'test-id-1',
+          commenterUsername: 'buyer123',
+          commentText: 'Where can I buy this product? I need it ASAP!',
+          category: 'buying_intent',
+          leadScore: 85,
+          urgencyScore: 90,
+          status: 'unread',
+          drafts: { neutral: 'Thanks', friendly: 'Hi!', conversion: 'Buy now' },
+        },
+      ],
+      policyReason: '2 urgent item(s)',
+    };
+
+    const msg = formatDigestMessage(payload);
+    assert('Contains username', msg.includes('@test_creator'));
+    assert('Contains score labels', msg.includes('lead=85/100') && msg.includes('urgency=90/100'));
+    assert('Contains self-check link', msg.includes('/admin/ri/status'));
+    assert('Contains review link', msg.includes('/admin/revenue-mode'));
+    assert('Contains trigger reason', msg.includes('2 urgent item(s)'));
+    assert('Contains category', msg.includes('buying_intent'));
+    assert('Uses HTML bold', msg.includes('<b>'));
+  }
+
+  // Test 17: Auto-Draft Config + Filtering (pure logic + DB)
+  console.log('\n17. Auto-Draft Config & Filtering');
+  {
+    // Config loading
+    const cfg = loadAutoDraftConfig();
+    assert('Default leadScoreMin is 70', cfg.leadScoreMin === 70);
+    assert('Default maxPerRun is 10', cfg.maxPerRun === 10);
+
+    // isAutoDraftEnabled reads env
+    const wasEnabled = process.env.RI_AUTO_DRAFT;
+    process.env.RI_AUTO_DRAFT = 'true';
+    assert('RI_AUTO_DRAFT=true enables', isAutoDraftEnabled());
+    process.env.RI_AUTO_DRAFT = 'false';
+    assert('RI_AUTO_DRAFT=false disables', !isAutoDraftEnabled());
+    delete process.env.RI_AUTO_DRAFT;
+    assert('RI_AUTO_DRAFT unset disables', !isAutoDraftEnabled());
+    // Restore
+    if (wasEnabled !== undefined) process.env.RI_AUTO_DRAFT = wasEnabled;
+
+    // runAutoDrafts with empty IDs returns immediately
+    const emptyResult = await runAutoDrafts([], { leadScoreMin: 70, maxPerRun: 10 });
+    assert('Empty IDs returns 0 qualified', emptyResult.qualified === 0);
+    assert('Empty IDs returns 0 generated', emptyResult.generated === 0);
+
+    // runAutoDrafts with non-existent IDs returns 0 qualified
+    const fakeResult = await runAutoDrafts(
+      ['00000000-0000-0000-0000-000000000001'],
+      { leadScoreMin: 70, maxPerRun: 10 },
+    );
+    assert('Fake IDs returns 0 qualified', fakeResult.qualified === 0);
+  }
+
+  // Test 18: Auto-Draft DB Integration (needs existing analysis rows)
+  console.log('\n18. Auto-Draft DB Integration');
+  {
+    // Find comments with analysis that have lead_score >= 70 (from sim data)
+    const { data: highScoreAnalyses } = await supabaseAdmin
+      .from('ri_comment_analysis')
+      .select('comment_id, lead_score')
+      .gte('lead_score', 70)
+      .limit(3);
+
+    if ((highScoreAnalyses?.length ?? 0) > 0) {
+      const ids = highScoreAnalyses!.map((a) => a.comment_id);
+
+      // Run auto-draft with high threshold to test filtering
+      const highThresholdResult = await runAutoDrafts(ids, { leadScoreMin: 99, maxPerRun: 5 });
+      // May or may not qualify depending on scores
+      assert('High threshold filters correctly',
+        highThresholdResult.qualified <= ids.length,
+        `qualified=${highThresholdResult.qualified} of ${ids.length}`);
+
+      // Run auto-draft with normal threshold
+      const normalResult = await runAutoDrafts(ids, { leadScoreMin: 70, maxPerRun: 5 });
+      assert('Normal threshold qualifies items', normalResult.qualified > 0,
+        `qualified=${normalResult.qualified}`);
+
+      // Check that draft rows were marked with needs_review and source
+      const { data: markedDrafts } = await supabaseAdmin
+        .from('ri_reply_drafts')
+        .select('comment_id, needs_review, source')
+        .in('comment_id', ids)
+        .eq('needs_review', true)
+        .eq('source', 'ri');
+      assert('Drafts marked with needs_review=true, source=ri',
+        (markedDrafts?.length ?? 0) > 0,
+        `found ${markedDrafts?.length ?? 0} marked drafts`);
+    } else {
+      console.log('  (No high-score analysis rows found — skipping DB integration test)');
+    }
   }
 
   // Summary

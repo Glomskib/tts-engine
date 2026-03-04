@@ -1,0 +1,38 @@
+[
+  {
+    "brand": "Making Miles Matter",
+    "platform": "facebook",
+    "account_id": "YOUR_LATE_FACEBOOK_ACCOUNT_ID",
+    "page_id": "YOUR_FACEBOOK_PAGE_ID"
+  },
+  {
+    "brand": "Making Miles Matter",
+    "platform": "twitter",
+    "account_id": "YOUR_LATE_TWITTER_ACCOUNT_ID",
+    "page_id": null
+  },
+  {
+    "brand": "Making Miles Matter",
+    "platform": "linkedin",
+    "account_id": "YOUR_LATE_LINKEDIN_ACCOUNT_ID",
+    "page_id": null
+  },
+  {
+    "brand": "Making Miles Matter",
+    "platform": "tiktok",
+    "account_id": "YOUR_LATE_TIKTOK_ACCOUNT_ID",
+    "page_id": null
+  },
+  {
+    "brand": "Making Miles Matter",
+    "platform": "youtube",
+    "account_id": "YOUR_LATE_YOUTUBE_ACCOUNT_ID",
+    "page_id": null
+  },
+  {
+    "brand": "Making Miles Matter",
+    "platform": "pinterest",
+    "account_id": "YOUR_LATE_PINTEREST_ACCOUNT_ID",
+    "page_id": null
+  }
+]

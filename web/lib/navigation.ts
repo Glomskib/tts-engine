@@ -122,6 +122,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, minPlan: 'creator_pro', tourId: 'nav-content-planner' },
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, minPlan: 'creator_pro', tourId: 'nav-pipeline' },
+      { name: 'Drive Intake', href: '/admin/intake', icon: Download, minPlan: 'creator_pro' },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, minPlan: 'creator_pro', tourId: 'nav-posting-queue' },
     ],
   },
@@ -208,6 +209,9 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Agent Scoreboard', href: '/admin/command-center/agents', icon: Zap, ownerOnly: true },
       { name: 'FinOps', href: '/admin/command-center/finops', icon: Gauge, ownerOnly: true },
       { name: 'Feedback Inbox', href: '/admin/command-center/feedback', icon: MessageSquare, ownerOnly: true },
+      { name: 'Research', href: '/admin/command-center/research', icon: Search, ownerOnly: true },
+      { name: 'Ops Health', href: '/admin/command-center/ops-health', icon: Shield, ownerOnly: true },
+      { name: 'Marketing', href: '/admin/marketing', icon: Send, ownerOnly: true },
     ],
   },
 ];

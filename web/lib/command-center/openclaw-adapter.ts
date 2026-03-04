@@ -36,6 +36,7 @@ import { trackUsage } from './ingest';
 import type { TrackUsageParams } from './ingest';
 import { recordAgentRunStart, recordAgentRunFinish } from './agent-runs';
 import type { AgentRunStartParams, AgentRunFinishParams } from './agent-runs';
+import { isOpenClawEnabled, openclawSkipLog } from '../openclaw-gate';
 
 /**
  * Ingest a single LLM usage event into Command Center.
@@ -46,6 +47,10 @@ import type { AgentRunStartParams, AgentRunFinishParams } from './agent-runs';
 export async function ingestUsageEvent(
   params: TrackUsageParams,
 ): Promise<{ id: string } | null> {
+  if (!isOpenClawEnabled()) {
+    openclawSkipLog('ingestUsageEvent');
+    return null;
+  }
   try {
     return await trackUsage(params);
   } catch (err) {
@@ -60,6 +65,10 @@ export async function ingestUsageEvent(
 export async function ingestAgentRunStart(
   params: AgentRunStartParams,
 ): Promise<{ id: string }> {
+  if (!isOpenClawEnabled()) {
+    openclawSkipLog('ingestAgentRunStart');
+    return { id: '00000000-0000-0000-0000-000000000000' };
+  }
   try {
     return await recordAgentRunStart(params);
   } catch (err) {
@@ -74,6 +83,10 @@ export async function ingestAgentRunStart(
 export async function ingestAgentRunFinish(
   params: AgentRunFinishParams,
 ): Promise<void> {
+  if (!isOpenClawEnabled()) {
+    openclawSkipLog('ingestAgentRunFinish');
+    return;
+  }
   try {
     await recordAgentRunFinish(params);
   } catch (err) {

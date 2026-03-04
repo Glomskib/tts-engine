@@ -6,7 +6,8 @@ import {
   ArrowLeft, Mail, Phone, Video,
   Edit, Trash2, TrendingUp,
   ExternalLink, Globe, User, Loader2, X,
-  Download, BarChart3, Timer, CheckCircle2, RefreshCw
+  Download, BarChart3, Timer, CheckCircle2, RefreshCw,
+  CreditCard, FileText, HardDrive
 } from 'lucide-react';
 import Link from 'next/link';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
@@ -26,6 +27,31 @@ interface Client {
   notes?: string;
   created_at: string;
   updated_at: string;
+}
+
+interface ClientBillingInvoice {
+  id: string;
+  amount: number;
+  status: string;
+  date: string;
+  invoice_url: string | null;
+}
+
+interface ClientBilling {
+  plan: string;
+  plan_display_name: string;
+  billing_cycle: 'monthly' | 'annual' | 'none';
+  next_invoice_date: string | null;
+  payment_method_last4: string | null;
+  payment_method_brand: string | null;
+  monthly_price: number;
+  usage_summary: {
+    videos_used: number;
+    videos_quota: number;
+    storage_bytes: number;
+  };
+  invoices: ClientBillingInvoice[];
+  has_stripe: boolean;
 }
 
 interface VideoRequest {
@@ -68,6 +94,8 @@ export default function ClientDetailPage() {
   const [report, setReport] = useState<ClientReport | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
   const [reportPeriod, setReportPeriod] = useState(90);
+  const [billing, setBilling] = useState<ClientBilling | null>(null);
+  const [billingLoading, setBillingLoading] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editData, setEditData] = useState<Partial<Client>>({});
@@ -150,10 +178,28 @@ export default function ClientDetailPage() {
     }
   };
 
+  const fetchBilling = async () => {
+    setBillingLoading(true);
+    try {
+      const response = await fetch(`/api/billing/client/${id}`);
+      if (response.ok) {
+        const data = await response.json();
+        setBilling(data.billing);
+      }
+    } catch (error) {
+      console.error('Failed to fetch billing:', error);
+    } finally {
+      setBillingLoading(false);
+    }
+  };
+
   // Fetch report when tab changes to reports
   useEffect(() => {
     if (activeTab === 'reports' && !report) {
       fetchReport(reportPeriod);
+    }
+    if (activeTab === 'billing' && !billing) {
+      fetchBilling();
     }
   }, [activeTab]);
 
@@ -162,6 +208,17 @@ export default function ClientDetailPage() {
     const days = Math.floor(hours / 24);
     const remainingHours = hours % 24;
     return remainingHours > 0 ? `${days}d ${remainingHours}h` : `${days}d`;
+  };
+
+  const formatCents = (cents: number): string => {
+    return `$${(cents / 100).toFixed(2)}`;
+  };
+
+  const formatBytes = (bytes: number): string => {
+    if (bytes === 0) return '0 B';
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(1024));
+    return `${(bytes / Math.pow(1024, i)).toFixed(1)} ${units[i]}`;
   };
 
   const exportToPdf = () => {
@@ -746,9 +803,172 @@ export default function ClientDetailPage() {
         )}
 
         {activeTab === 'billing' && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
-            <h2 className="text-lg font-semibold text-white mb-4">Billing Information</h2>
-            <p className="text-zinc-500 text-center py-8">Billing details coming soon</p>
+          <div className="space-y-6">
+            {billingLoading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-zinc-500" />
+              </div>
+            )}
+
+            {!billingLoading && !billing && (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-12 text-center">
+                <CreditCard className="w-12 h-12 text-zinc-600 mx-auto mb-4" />
+                <p className="text-zinc-400">Billing details unavailable</p>
+                <button type="button"
+                  onClick={fetchBilling}
+                  className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
+
+            {!billingLoading && billing && (
+              <>
+                {/* Plan & Pricing */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <CreditCard className="w-5 h-5 text-teal-400" />
+                    <h2 className="text-lg font-semibold text-white">Plan</h2>
+                  </div>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="bg-zinc-800/50 rounded-xl p-4">
+                      <p className="text-sm text-zinc-400">Current Plan</p>
+                      <p className="text-xl font-bold text-white mt-1">{billing.plan_display_name}</p>
+                    </div>
+                    <div className="bg-zinc-800/50 rounded-xl p-4">
+                      <p className="text-sm text-zinc-400">Monthly Price</p>
+                      <p className="text-xl font-bold text-white mt-1">{formatCents(billing.monthly_price)}<span className="text-sm text-zinc-500">/mo</span></p>
+                    </div>
+                    <div className="bg-zinc-800/50 rounded-xl p-4">
+                      <p className="text-sm text-zinc-400">Billing Cycle</p>
+                      <p className="text-xl font-bold text-white mt-1 capitalize">{billing.billing_cycle}</p>
+                      {billing.next_invoice_date && (
+                        <p className="text-xs text-zinc-500 mt-1">
+                          Next invoice: {new Date(billing.next_invoice_date).toLocaleDateString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Payment Method */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <CreditCard className="w-5 h-5 text-amber-400" />
+                    <h2 className="text-lg font-semibold text-white">Payment Method</h2>
+                  </div>
+                  {billing.payment_method_last4 ? (
+                    <div className="flex items-center gap-4 bg-zinc-800/50 rounded-xl p-4">
+                      <div className="w-12 h-8 bg-zinc-700 rounded flex items-center justify-center">
+                        <CreditCard className="w-5 h-5 text-zinc-400" />
+                      </div>
+                      <div>
+                        <p className="text-white font-medium capitalize">
+                          {billing.payment_method_brand || 'Card'} ending in {billing.payment_method_last4}
+                        </p>
+                        {billing.has_stripe && (
+                          <p className="text-xs text-zinc-500">Managed via Stripe</p>
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-zinc-500 text-sm">No payment method on file</p>
+                  )}
+                </div>
+
+                {/* Usage */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <BarChart3 className="w-5 h-5 text-teal-400" />
+                    <h2 className="text-lg font-semibold text-white">Usage</h2>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm text-zinc-400 flex items-center gap-1">
+                          <Video className="w-4 h-4" /> Videos Generated
+                        </span>
+                        <span className="text-sm text-zinc-300">
+                          {billing.usage_summary.videos_used} / {billing.usage_summary.videos_quota}
+                        </span>
+                      </div>
+                      <Progress
+                        value={billing.usage_summary.videos_quota > 0
+                          ? billing.usage_summary.videos_used / billing.usage_summary.videos_quota
+                          : 0}
+                        intent="gradient-teal"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between bg-zinc-800/50 rounded-xl p-4">
+                      <span className="text-sm text-zinc-400 flex items-center gap-1">
+                        <HardDrive className="w-4 h-4" /> Storage Used
+                      </span>
+                      <span className="text-white font-medium">{formatBytes(billing.usage_summary.storage_bytes)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Invoices */}
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <FileText className="w-5 h-5 text-teal-400" />
+                    <h2 className="text-lg font-semibold text-white">Invoices</h2>
+                  </div>
+                  {billing.invoices.length === 0 ? (
+                    <p className="text-zinc-500 text-sm text-center py-4">No invoices yet</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="text-left text-xs text-zinc-500 border-b border-zinc-800">
+                            <th className="pb-2">Date</th>
+                            <th className="pb-2 text-right">Amount</th>
+                            <th className="pb-2 text-right">Status</th>
+                            <th className="pb-2 text-right">Invoice</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {billing.invoices.map((inv) => (
+                            <tr key={inv.id} className="border-b border-zinc-800/50">
+                              <td className="py-3 text-white">
+                                {new Date(inv.date).toLocaleDateString()}
+                              </td>
+                              <td className="py-3 text-right text-zinc-300">
+                                {formatCents(inv.amount)}
+                              </td>
+                              <td className="py-3 text-right">
+                                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                                  inv.status === 'paid' ? 'bg-green-500/20 text-green-400' :
+                                  inv.status === 'open' ? 'bg-amber-500/20 text-amber-400' :
+                                  'bg-zinc-700 text-zinc-400'
+                                }`}>
+                                  {inv.status}
+                                </span>
+                              </td>
+                              <td className="py-3 text-right">
+                                {inv.invoice_url ? (
+                                  <a
+                                    href={inv.invoice_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-teal-400 hover:text-teal-300 text-sm flex items-center justify-end gap-1"
+                                  >
+                                    View <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                ) : (
+                                  <span className="text-zinc-600 text-sm">—</span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         )}
 

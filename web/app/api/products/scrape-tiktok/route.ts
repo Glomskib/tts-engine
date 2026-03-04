@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
+import { assertFeature } from "@/lib/openclaw-gate";
 
 export const runtime = "nodejs";
 
@@ -118,6 +119,14 @@ function extractImageUrls(images: ScrapeCreatorsImageObj[] | undefined): string[
  * Returns: Structured product data ready for preview/save
  */
 export async function POST(request: Request) {
+  const gate = assertFeature("external_research");
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   const correlationId =
     request.headers.get("x-correlation-id") || generateCorrelationId();
 

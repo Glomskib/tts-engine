@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { assertFeature } from "@/lib/openclaw-gate";
 
 export const runtime = "nodejs";
 
@@ -66,6 +67,14 @@ async function fetchOEmbedData(url: string): Promise<OEmbedResponse | null> {
  * - If only URL → set status=needs_file
  */
 export async function POST(request: Request) {
+  const gate = assertFeature("external_research");
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   // Auth check - user must be logged in

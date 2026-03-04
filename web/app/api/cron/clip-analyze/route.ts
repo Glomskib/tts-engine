@@ -59,6 +59,10 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ ok: true, ...result });
   } catch (err) {
+    const { captureRouteException } = await import('@/lib/errorTracking');
+    captureRouteException(err instanceof Error ? err : new Error(String(err)), {
+      route: '/api/cron/clip-analyze', runId,
+    });
     console.error('[cron/clip-analyze] Fatal:', err);
 
     if (runId) {

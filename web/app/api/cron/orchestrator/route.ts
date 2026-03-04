@@ -14,6 +14,7 @@
 import { NextResponse } from 'next/server';
 import { runOrchestrator } from '@/lib/command-center/orchestrator';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { detectRunSourceFromRequest } from '@/lib/ops/run-source';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -27,6 +28,8 @@ export async function GET(request: Request) {
 
   // Insert heartbeat row (status=running)
   const requestId = request.headers.get('x-vercel-id') || crypto.randomUUID();
+  const runSource = detectRunSourceFromRequest(request);
+  const requestedBy = request.headers.get('x-requested-by');
   const { data: cronRun } = await supabaseAdmin
     .from('ff_cron_runs')
     .insert({
@@ -34,6 +37,8 @@ export async function GET(request: Request) {
       status: 'running',
       http_method: request.method,
       request_id: requestId,
+      run_source: runSource,
+      requested_by: requestedBy,
     })
     .select('id')
     .single();
@@ -69,6 +74,10 @@ export async function GET(request: Request) {
       ...report,
     });
   } catch (err) {
+    const { captureRouteException } = await import('@/lib/errorTracking');
+    captureRouteException(err instanceof Error ? err : new Error(String(err)), {
+      route: '/api/cron/orchestrator', runId,
+    });
     console.error('[cron/orchestrator] Fatal:', err);
 
     // Update heartbeat row (status=error)

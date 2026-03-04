@@ -11,11 +11,11 @@
 import { config } from 'dotenv';
 config({ path: '.env.local' });
 
-import type { CyclingDraft, SocialDraft } from '../lib/types';
+import type { CyclingDraft } from '../lib/types';
 import { getTodayIntelDoc } from '../lib/mc-reader';
 import { callHaikuJSON } from '../lib/haiku-client';
 import { postToMC } from '../lib/mc-poster';
-import { pushToBuffer } from '../lib/buffer-client';
+import { enqueueBatch, generateRunId } from '../../../lib/marketing/queue';
 
 const TAG = '[cycling-agent]';
 const LANE = 'Making Miles Matter';
@@ -102,15 +102,25 @@ async function main() {
     console.error(`${TAG} MC post failed: ${mcResult.error}`);
   }
 
-  // 5. Optional: push to Buffer
-  if (process.env.BUFFER_ACCESS_TOKEN) {
-    console.log(`${TAG} Pushing to Buffer...`);
-    const socialDrafts: SocialDraft[] = drafts.map(d => ({
-      platform: d.platform,
-      content: `${d.caption}\n\n${d.hashtags.map(h => `#${h}`).join(' ')}`,
-    }));
-    const bufResult = await pushToBuffer(socialDrafts);
-    console.log(`${TAG} Buffer: ${bufResult.pushed} posts queued`);
+  // 5. Queue drafts for marketing scheduler
+  const runId = generateRunId('cycling-agent');
+  console.log(`${TAG} Queueing ${drafts.length} drafts for marketing scheduler [run_id=${runId}]...`);
+  const socialDrafts = drafts.map(d => ({
+    platform: d.platform,
+    content: `${d.caption}\n\n${d.hashtags.map(h => `#${h}`).join(' ')}`,
+  }));
+  try {
+    const queueResult = await enqueueBatch(socialDrafts, {
+      brand: LANE,
+      source: 'cycling-agent',
+      run_id: runId,
+    });
+    console.log(`${TAG} Marketing queue: ${queueResult.queued} queued, ${queueResult.skipped} skipped [run_id=${runId}]`);
+    if (queueResult.errors.length > 0) {
+      for (const e of queueResult.errors) console.warn(`${TAG}   WARN: ${e}`);
+    }
+  } catch (err) {
+    console.warn(`${TAG} Marketing queue failed (non-fatal):`, err instanceof Error ? err.message : err);
   }
 
   console.log(`${TAG} Done.`);

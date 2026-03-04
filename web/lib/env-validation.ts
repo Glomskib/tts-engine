@@ -37,6 +37,7 @@ const OPTIONAL_ENV_KEYS: { key: string; notes?: string }[] = [
   { key: "OPS_EMAIL_TO", notes: "Ops team email for alerts" },
   { key: "DEFAULT_ADMIN_EMAIL", notes: "Default admin email for bootstrapping" },
   { key: "SCRAPECREATORS_API_KEY", notes: "Required for TikTok Shop product scraping" },
+  { key: "LATE_API_KEY", notes: "Late.dev API key for social media scheduling" },
 ];
 
 /**

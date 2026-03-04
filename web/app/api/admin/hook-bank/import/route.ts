@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
+import { assertFeature } from "@/lib/openclaw-gate";
 
 export const runtime = "nodejs";
 
@@ -96,6 +97,14 @@ function parseHookBankMarkdown(content: string, docId: string): ParsedHook[] {
  * Body: { doc_id: string }
  */
 export async function POST(request: Request) {
+  const gate = assertFeature("hook_bank_import");
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   const authContext = await getApiAuthContext(request);

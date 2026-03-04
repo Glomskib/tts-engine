@@ -53,6 +53,9 @@ sanitize_message() {
 
 echo ""
 echo "$(date '+%Y-%m-%d %H:%M:%S') $TAG Starting scheduled healthcheck..."
+echo "$TAG FF_NODE_ID:       ${FF_NODE_ID:-<not set>}"
+echo "$TAG hostname:         $(hostname)"
+echo "$TAG effective node_id: ${FF_NODE_ID:-$(hostname)}"
 
 # ── Run healthcheck ──────────────────────────────────────────────────────────
 
@@ -119,7 +122,7 @@ cooldown_clears_at=$(date -u -v+"${COOLDOWN_HOURS}H" '+%Y-%m-%d %H:%M UTC' 2>/de
 
 # ── Gather enriched context ──────────────────────────────────────────────────
 
-node_name="$(hostname)"
+node_name="${FF_NODE_ID:-$(hostname)}"
 platform="tiktok_studio"
 detected_at="$(date -u '+%Y-%m-%d %H:%M UTC')"
 

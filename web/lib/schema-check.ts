@@ -62,6 +62,11 @@ const REQUIRED_TABLES: TableRequirement[] = [
     columns: ["user_id", "role"],
     critical: false, // Optional - app handles missing gracefully
   },
+  {
+    name: "ri_run_state",
+    columns: ["user_id", "last_ingested_at", "last_alert_sent_at", "last_alert_summary", "updated_at"],
+    critical: false, // RI module — non-blocking for main app
+  },
 ];
 
 // ============================================================================

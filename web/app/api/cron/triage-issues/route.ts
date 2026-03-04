@@ -116,6 +116,10 @@ Respond with JSON only:
         );
       }
     } catch (err) {
+      const { captureRouteException } = await import('@/lib/errorTracking');
+      captureRouteException(err instanceof Error ? err : new Error(String(err)), {
+        route: '/api/cron/triage-issues', jobId: issue.id,
+      });
       console.error(`[cron/triage-issues] Failed for ${issue.id}:`, err);
     }
   }

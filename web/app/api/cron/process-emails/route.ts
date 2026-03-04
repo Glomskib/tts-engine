@@ -35,6 +35,10 @@ export async function GET(request: Request) {
       processedAt: new Date().toISOString(),
     });
   } catch (error) {
+    const { captureRouteException } = await import('@/lib/errorTracking');
+    captureRouteException(error instanceof Error ? error : new Error(String(error)), {
+      route: '/api/cron/process-emails',
+    });
     console.error('[cron/process-emails] Failed:', error);
     return NextResponse.json({ ok: false, error: 'Processing failed' }, { status: 500 });
   }

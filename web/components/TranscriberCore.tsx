@@ -564,16 +564,28 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
     setRewriteError('');
 
     try {
+      // When regenerating (rewriteResult exists), pass the previous rewrite
+      // so the API produces a variant of the same talk track
+      const payload: Record<string, unknown> = {
+        transcript: result.transcript,
+        analysis: result.analysis,
+        persona: selectedPersona,
+        tone: selectedTone,
+        custom_persona: selectedPersona === 'custom' ? customPersona : undefined,
+      };
+
+      if (rewriteResult) {
+        payload.previous_rewrite = {
+          rewritten_hook: rewriteResult.rewritten_hook,
+          rewritten_script: rewriteResult.rewritten_script,
+          cta: rewriteResult.cta,
+        };
+      }
+
       const res = await fetch('/api/transcribe/rewrite', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          transcript: result.transcript,
-          analysis: result.analysis,
-          persona: selectedPersona,
-          tone: selectedTone,
-          custom_persona: selectedPersona === 'custom' ? customPersona : undefined,
-        }),
+        body: JSON.stringify(payload),
       });
 
       const data = await res.json();
@@ -1582,7 +1594,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                           ) : (
                             <>
                               <Pen size={18} />
-                              {rewriteResult ? 'Regenerate' : 'Rewrite Script'}
+                              {rewriteResult ? 'Regenerate (same talk track)' : 'Rewrite Script'}
                               <span className="text-xs text-violet-400/60 ml-1">(1 AI use)</span>
                             </>
                           )}
@@ -1705,7 +1717,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                           className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm rounded-lg transition-colors disabled:opacity-50"
                         >
                           <RefreshCw size={14} />
-                          Regenerate
+                          Regenerate (same talk track)
                         </button>
                         {isLoggedIn && isPaid && (
                           <button

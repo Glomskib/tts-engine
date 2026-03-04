@@ -28,8 +28,8 @@ import { fetchAllSources } from './lib/feed-fetcher';
 import { generateIntelReport } from './lib/intel-generator';
 import { generateSocialDrafts } from './lib/social-drafter';
 import { postToMC } from './lib/mc-poster';
-import { pushToBuffer } from './lib/buffer-client';
 import { exportDrafts } from './lib/draft-exporter';
+import { enqueueBatch, generateRunId } from '../../lib/marketing/queue';
 import { cyclingPipeline } from './pipelines/cycling';
 import { edsPipeline } from './pipelines/eds';
 
@@ -183,18 +183,27 @@ async function runPipeline(cfg: PipelineConfig, dryRun: boolean): Promise<Pipeli
     }
   }
 
-  // 6. Optional: push to Buffer
-  if (process.env.BUFFER_ACCESS_TOKEN && drafts.length > 0) {
-    log('Pushing drafts to Buffer...');
-    const bufferResult = await pushToBuffer(drafts);
-    result.bufferPushed = bufferResult.ok;
-    if (bufferResult.errors.length > 0) {
-      result.errors.push(...bufferResult.errors);
-      for (const e of bufferResult.errors) log(`  WARN: ${e}`);
+  // 6. Queue drafts for marketing scheduler (replaces Buffer)
+  if (drafts.length > 0) {
+    const runId = generateRunId(`daily-intel-${cfg.id}`);
+    log(`Queueing ${drafts.length} drafts for marketing scheduler [run_id=${runId}]...`);
+    try {
+      const queueResult = await enqueueBatch(drafts, {
+        brand: cfg.lane,
+        source: `daily-intel-${cfg.id}`,
+        run_id: runId,
+      });
+      result.bufferPushed = queueResult.ok;
+      if (queueResult.errors.length > 0) {
+        result.errors.push(...queueResult.errors);
+        for (const e of queueResult.errors) log(`  WARN: ${e}`);
+      }
+      log(`  Marketing queue: ${queueResult.queued} posts queued, ${queueResult.skipped} skipped [run_id=${runId}]`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      log(`  WARN: Marketing queue failed (non-fatal): ${msg}`);
+      result.warnings.push(`Marketing queue failed: ${msg}`);
     }
-    log(`  Buffer: ${bufferResult.pushed} posts queued`);
-  } else if (!process.env.BUFFER_ACCESS_TOKEN) {
-    log('Buffer not configured — skipping');
   }
 
   return result;
@@ -222,6 +231,14 @@ async function main() {
       totalErrors += result.errors.length;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
+      try {
+        const { captureRouteError } = await import('@/lib/errorTracking');
+        captureRouteError(err instanceof Error ? err : new Error(msg), {
+          route: 'scripts/daily-intel/run',
+          feature: 'daily-intel',
+          pipeline: cfg.id,
+        });
+      } catch { /* Sentry unavailable — non-fatal */ }
       console.error(`${TAG}[${cfg.id}] Fatal error: ${msg}`);
       totalErrors++;
     }
@@ -244,7 +261,15 @@ async function main() {
   process.exit(totalErrors > 0 && !anyArticles ? 1 : 0);
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
+  try {
+    const { captureRouteError } = await import('@/lib/errorTracking');
+    captureRouteError(err instanceof Error ? err : new Error(String(err)), {
+      route: 'scripts/daily-intel/run',
+      feature: 'daily-intel',
+      severity: 'fatal',
+    });
+  } catch { /* Sentry unavailable — non-fatal */ }
   console.error(`${TAG} Fatal error:`, err);
   process.exit(1);
 });

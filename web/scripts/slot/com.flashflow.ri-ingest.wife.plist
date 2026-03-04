@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+ "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<!--
+  RI Ingestion — Wife Slot
+
+  Install:
+    cp scripts/slot/com.flashflow.ri-ingest.wife.plist ~/Library/LaunchAgents/
+    launchctl load ~/Library/LaunchAgents/com.flashflow.ri-ingest.wife.plist
+
+  Unload:
+    launchctl unload ~/Library/LaunchAgents/com.flashflow.ri-ingest.wife.plist
+-->
+<dict>
+    <key>Label</key>
+    <string>com.flashflow.ri-ingest.wife</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>/Users/brandonglomski/tts-engine/web/scripts/slot/cron-ri-ingest.sh</string>
+        <string>--slot</string>
+        <string>wife</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>/Users/brandonglomski/tts-engine/web</string>
+
+    <!-- Run every 10 minutes -->
+    <key>StartInterval</key>
+    <integer>600</integer>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StandardOutPath</key>
+    <string>/Users/brandonglomski/tts-engine/web/data/ri-logs/cron-wife-stdout.log</string>
+
+    <key>StandardErrorPath</key>
+    <string>/Users/brandonglomski/tts-engine/web/data/ri-logs/cron-wife-stderr.log</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+        <key>HOME</key>
+        <string>/Users/brandonglomski</string>
+        <key>FF_SLOT</key>
+        <string>wife</string>
+    </dict>
+
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>ThrottleInterval</key>
+    <integer>300</integer>
+</dict>
+</plist>

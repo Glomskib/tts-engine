@@ -12,6 +12,7 @@ import {
   extractYouTubeCaptions,
   downloadYouTubeAudio,
 } from '@/lib/youtube-transcript';
+import { assertFeature } from '@/lib/openclaw-gate';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -85,6 +86,14 @@ async function checkRateLimit(
 // ============================================================================
 
 export async function POST(request: Request) {
+  const gate = assertFeature('external_research');
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
 

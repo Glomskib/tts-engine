@@ -17,6 +17,7 @@ import type { ZebbyDraft } from '../lib/types';
 import { getTodayIntelDoc } from '../lib/mc-reader';
 import { callHaikuJSON } from '../lib/haiku-client';
 import { postToMC } from '../lib/mc-poster';
+import { enqueueBatch, generateRunId } from '../../../lib/marketing/queue';
 
 const TAG = '[zebby-agent]';
 const LANE = "Zebby's World";
@@ -131,6 +132,27 @@ ${d.educational_note}
     console.log(`${TAG} MC doc posted: ${mcResult.id}`);
   } else {
     console.error(`${TAG} MC post failed: ${mcResult.error}`);
+  }
+
+  // 6. Queue drafts for marketing scheduler
+  const runId = generateRunId('zebby-agent');
+  console.log(`${TAG} Queueing ${drafts.length} drafts for marketing scheduler [run_id=${runId}]...`);
+  const socialDrafts = drafts.map(d => ({
+    platform: 'facebook',
+    content: `${d.caption}\n\n${d.educational_note}\n\n${d.disclaimer}`,
+  }));
+  try {
+    const queueResult = await enqueueBatch(socialDrafts, {
+      brand: LANE,
+      source: 'zebby-agent',
+      run_id: runId,
+    });
+    console.log(`${TAG} Marketing queue: ${queueResult.queued} queued, ${queueResult.skipped} skipped [run_id=${runId}]`);
+    if (queueResult.errors.length > 0) {
+      for (const e of queueResult.errors) console.warn(`${TAG}   WARN: ${e}`);
+    }
+  } catch (err) {
+    console.warn(`${TAG} Marketing queue failed (non-fatal):`, err instanceof Error ? err.message : err);
   }
 
   console.log(`${TAG} Done.`);

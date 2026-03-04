@@ -7,10 +7,19 @@
 import { NextResponse } from 'next/server';
 import { requireOwner } from '@/lib/command-center/owner-guard';
 import { fetchMCPipelineHealth } from '@/lib/flashflow/mission-control';
+import { assertFeature } from '@/lib/openclaw-gate';
 
 export const runtime = 'nodejs';
 
 export async function GET(request: Request) {
+  const gate = assertFeature('mc_pipeline_health_proxy');
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   const denied = await requireOwner(request);
   if (denied) return denied;
 

@@ -20,6 +20,7 @@ import { promisify } from 'util';
 import OpenAI from 'openai';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { downloadTikTokVideo } from '@/lib/tiktok-downloader';
+import { assertFeature } from '@/lib/openclaw-gate';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120; // 2 min — spy reports are heavier than basic transcripts
@@ -278,6 +279,14 @@ function parseJSON<T>(text: string): T {
 // ============================================================================
 
 export async function POST(request: Request) {
+  const gate = assertFeature('external_research');
+  if (!gate.ok) {
+    return NextResponse.json(
+      { ok: false, error: gate.message, code: gate.code },
+      { status: gate.status ?? 200 },
+    );
+  }
+
   // Auth check
   if (!validateAuth(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

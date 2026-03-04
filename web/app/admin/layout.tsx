@@ -71,7 +71,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // Set page title based on pathname
   useEffect(() => {
     const PAGE_TITLES: Record<string, string> = {
-      '/admin': 'Dashboard',
+      '/admin': 'Command Center',
       '/admin/content-studio': 'Content Studio',
       '/admin/script-library': 'Script Library',
       '/admin/pipeline': 'Production Board',
@@ -106,6 +106,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/command-center/agents': 'Agent Scoreboard',
       '/admin/command-center/finops': 'FinOps',
       '/admin/video-editing': 'Editing Pipeline',
+      '/admin/hooks': 'Hook Library',
       '/admin/revenue-mode': 'Revenue Mode',
     };
     let title = PAGE_TITLES[pathname];

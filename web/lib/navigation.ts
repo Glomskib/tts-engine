@@ -102,7 +102,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'HOME',
     subscriptionType: 'saas',
     items: [
-      { name: 'Command Center', href: '/admin/dashboard', icon: Gauge },
+      { name: 'Command Center', href: '/admin', icon: Gauge },
     ],
   },
   {

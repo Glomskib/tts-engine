@@ -3,8 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors } from 'lucide-react';
-import type { ContentItem, ContentItemStatus, CowTier, ProcessingStatus } from '@/lib/content-items/types';
+import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, FolderPlus, Loader2, Film, Scissors, BarChart3, Plus } from 'lucide-react';
+import type { ContentItem, ContentItemStatus, CowTier, ProcessingStatus, ContentItemPost, MetricsSnapshot, PostPlatform } from '@/lib/content-items/types';
 import type { EditorNotesJSON } from '@/lib/content-items/editor-notes-schema';
 import type { CreatorBriefData, PurpleCowTier } from '@/lib/briefs/creator-brief-types';
 
@@ -14,7 +14,7 @@ interface ContentItemPanelProps {
   onOpenRecordingKit: (item: ContentItem, brief: CreatorBriefData | null) => void;
 }
 
-type PanelTab = 'brief' | 'script' | 'purple_cow' | 'upload' | 'editor_notes' | 'meta' | 'history';
+type PanelTab = 'brief' | 'script' | 'purple_cow' | 'upload' | 'editor_notes' | 'performance' | 'meta' | 'history';
 
 const STATUS_LABELS: Record<ContentItemStatus, string> = {
   briefing: 'Briefing',
@@ -193,6 +193,388 @@ function UploadTab({ item, assetCounts, onItemUpdate }: { item: ContentItem; ass
         <span className="text-xs text-gray-500">Filename token:</span>
         <CopyButton text={`[${item.short_id}]`} label={`[${item.short_id}]`} />
       </div>
+    </div>
+  );
+}
+
+// ─── Platform badge colors ───────────────────────────────────
+
+const PLATFORM_COLORS: Record<string, string> = {
+  tiktok: 'bg-black text-white',
+  instagram: 'bg-gradient-to-r from-purple-500 to-pink-500 text-white',
+  youtube: 'bg-red-600 text-white',
+  facebook: 'bg-blue-600 text-white',
+  other: 'bg-gray-500 text-white',
+};
+
+function PlatformBadge({ platform }: { platform: string }) {
+  return (
+    <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${PLATFORM_COLORS[platform] || PLATFORM_COLORS.other}`}>
+      {platform}
+    </span>
+  );
+}
+
+// ─── Add Post Modal ──────────────────────────────────────────
+
+function AddPostModal({ contentItemId, onClose, onCreated }: {
+  contentItemId: string;
+  onClose: () => void;
+  onCreated: (post: ContentItemPost) => void;
+}) {
+  const { showSuccess, showError } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [postUrl, setPostUrl] = useState('');
+  const [platform, setPlatform] = useState<PostPlatform | ''>('');
+  const [postedAt, setPostedAt] = useState('');
+  const [captionUsed, setCaptionUsed] = useState('');
+  const [hashtagsUsed, setHashtagsUsed] = useState('');
+
+  // Auto-infer platform from URL
+  useEffect(() => {
+    if (!postUrl || platform) return;
+    const patterns: Array<[PostPlatform, RegExp]> = [
+      ['tiktok', /tiktok\.com/i],
+      ['instagram', /instagram\.com/i],
+      ['youtube', /youtube\.com|youtu\.be/i],
+      ['facebook', /facebook\.com|fb\.watch/i],
+    ];
+    for (const [p, re] of patterns) {
+      if (re.test(postUrl)) { setPlatform(p); break; }
+    }
+  }, [postUrl, platform]);
+
+  const handleSave = async () => {
+    if (!postUrl.trim()) return;
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/content-items/${contentItemId}/posts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          post_url: postUrl.trim(),
+          platform: platform || undefined,
+          posted_at: postedAt || undefined,
+          caption_used: captionUsed || undefined,
+          hashtags_used: hashtagsUsed || undefined,
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        showSuccess('Post added');
+        onCreated(json.data);
+        onClose();
+      } else {
+        showError(json.error || 'Failed to add post');
+      }
+    } catch {
+      showError('Failed to add post');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-md p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-sm">Add Post</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></button>
+        </div>
+        <div className="space-y-3">
+          <div>
+            <label className="text-xs font-medium text-gray-500">Post URL *</label>
+            <input
+              type="url"
+              value={postUrl}
+              onChange={e => setPostUrl(e.target.value)}
+              placeholder="https://www.tiktok.com/@user/video/..."
+              className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:ring-2 focus:ring-indigo-500 outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500">Platform</label>
+            <select
+              value={platform}
+              onChange={e => setPlatform(e.target.value as PostPlatform)}
+              className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+            >
+              <option value="">Auto-detect from URL</option>
+              <option value="tiktok">TikTok</option>
+              <option value="instagram">Instagram</option>
+              <option value="youtube">YouTube</option>
+              <option value="facebook">Facebook</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500">Posted At</label>
+            <input
+              type="datetime-local"
+              value={postedAt}
+              onChange={e => setPostedAt(e.target.value)}
+              className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500">Caption Used</label>
+            <textarea
+              value={captionUsed}
+              onChange={e => setCaptionUsed(e.target.value)}
+              rows={2}
+              className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 resize-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-medium text-gray-500">Hashtags Used</label>
+            <input
+              type="text"
+              value={hashtagsUsed}
+              onChange={e => setHashtagsUsed(e.target.value)}
+              placeholder="#viral #fyp #product"
+              className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+            />
+          </div>
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving || !postUrl.trim()}
+          className="w-full px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Add Post'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Add Metrics Modal ──────────────────────────────────────
+
+function AddMetricsModal({ contentItemId, postId, onClose, onCreated }: {
+  contentItemId: string;
+  postId: string;
+  onClose: () => void;
+  onCreated: (snapshot: MetricsSnapshot) => void;
+}) {
+  const { showSuccess, showError } = useToast();
+  const [saving, setSaving] = useState(false);
+  const [views, setViews] = useState('');
+  const [likes, setLikes] = useState('');
+  const [comments, setComments] = useState('');
+  const [shares, setShares] = useState('');
+  const [saves, setSaves] = useState('');
+
+  const parseNum = (v: string) => v ? parseInt(v, 10) : undefined;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/content-items/${contentItemId}/metrics`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content_item_post_id: postId,
+          views: parseNum(views),
+          likes: parseNum(likes),
+          comments: parseNum(comments),
+          shares: parseNum(shares),
+          saves: parseNum(saves),
+        }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        showSuccess('Metrics saved');
+        onCreated(json.data);
+        onClose();
+      } else {
+        showError(json.error || 'Failed to save metrics');
+      }
+    } catch {
+      showError('Failed to save metrics');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4">
+      <div className="bg-white dark:bg-gray-900 rounded-xl shadow-2xl w-full max-w-sm p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="font-semibold text-sm">Add Metrics</h3>
+          <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"><X size={16} /></button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          {[
+            ['Views', views, setViews],
+            ['Likes', likes, setLikes],
+            ['Comments', comments, setComments],
+            ['Shares', shares, setShares],
+            ['Saves', saves, setSaves],
+          ].map(([label, val, setter]) => (
+            <div key={label as string}>
+              <label className="text-xs font-medium text-gray-500">{label as string}</label>
+              <input
+                type="number"
+                min="0"
+                value={val as string}
+                onChange={e => (setter as (v: string) => void)(e.target.value)}
+                className="w-full mt-1 px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+              />
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="w-full px-4 py-2 text-sm font-medium bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition disabled:opacity-50"
+        >
+          {saving ? 'Saving...' : 'Save Metrics'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Performance Tab ─────────────────────────────────────────
+
+function PerformanceTab({ contentItemId }: { contentItemId: string }) {
+  const [posts, setPosts] = useState<ContentItemPost[]>([]);
+  const [metrics, setMetrics] = useState<Record<string, MetricsSnapshot>>({});
+  const [loading, setLoading] = useState(true);
+  const [showAddPost, setShowAddPost] = useState(false);
+  const [metricsPostId, setMetricsPostId] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const [postsRes, metricsRes] = await Promise.all([
+        fetch(`/api/content-items/${contentItemId}/posts`),
+        fetch(`/api/content-items/${contentItemId}/metrics`),
+      ]);
+      const [postsJson, metricsJson] = await Promise.all([postsRes.json(), metricsRes.json()]);
+
+      if (postsJson.ok) setPosts(postsJson.data || []);
+      if (metricsJson.ok) {
+        const map: Record<string, MetricsSnapshot> = {};
+        for (const s of (metricsJson.data || []) as MetricsSnapshot[]) {
+          map[s.content_item_post_id] = s;
+        }
+        setMetrics(map);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoading(false);
+    }
+  }, [contentItemId]);
+
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  if (loading) {
+    return (
+      <div className="text-center py-8 text-gray-500">
+        <Loader2 size={24} className="mx-auto mb-2 animate-spin opacity-30" />
+        <p className="text-sm">Loading performance data...</p>
+      </div>
+    );
+  }
+
+  const formatNum = (n: number | null | undefined) => {
+    if (n == null) return '-';
+    if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+    if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+    return String(n);
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Posts Section */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="font-semibold text-sm">Posts</h3>
+          <button
+            onClick={() => setShowAddPost(true)}
+            className="flex items-center gap-1 px-2 py-1 text-xs bg-indigo-600 text-white rounded hover:bg-indigo-700 transition"
+          >
+            <Plus size={12} /> Add Post
+          </button>
+        </div>
+
+        {posts.length === 0 ? (
+          <div className="text-center py-6 text-gray-500">
+            <BarChart3 size={24} className="mx-auto mb-2 opacity-30" />
+            <p className="text-sm">No posts linked yet.</p>
+            <p className="text-xs text-gray-400 mt-1">Add a post URL after publishing to track performance.</p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {posts.map(post => {
+              const snapshot = metrics[post.id];
+              return (
+                <div key={post.id} className="bg-gray-50 dark:bg-gray-800 p-3 rounded-lg space-y-2">
+                  <div className="flex items-center gap-2">
+                    <PlatformBadge platform={post.platform} />
+                    <a href={post.post_url} target="_blank" rel="noopener noreferrer"
+                      className="text-xs text-blue-600 hover:underline truncate flex-1 flex items-center gap-1">
+                      <ExternalLink size={10} /> {post.post_url.replace(/^https?:\/\/(www\.)?/, '').slice(0, 40)}...
+                    </a>
+                  </div>
+
+                  {post.posted_at && (
+                    <div className="text-[10px] text-gray-400">
+                      Posted {new Date(post.posted_at).toLocaleDateString()} {new Date(post.posted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
+
+                  {/* Metrics row */}
+                  {snapshot ? (
+                    <div className="flex items-center gap-3 text-xs">
+                      {snapshot.views != null && <span title="Views">{formatNum(snapshot.views)} views</span>}
+                      {snapshot.likes != null && <span title="Likes">{formatNum(snapshot.likes)} likes</span>}
+                      {snapshot.comments != null && <span title="Comments">{formatNum(snapshot.comments)} comments</span>}
+                      {snapshot.shares != null && <span title="Shares">{formatNum(snapshot.shares)} shares</span>}
+                      {snapshot.saves != null && <span title="Saves">{formatNum(snapshot.saves)} saves</span>}
+                    </div>
+                  ) : null}
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setMetricsPostId(post.id)}
+                      className="text-[10px] text-indigo-600 hover:underline"
+                    >
+                      {snapshot ? 'Update Metrics' : 'Add Metrics'}
+                    </button>
+                    {snapshot && (
+                      <span className="text-[10px] text-gray-400">
+                        Updated {new Date(snapshot.captured_at).toLocaleDateString()}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Modals */}
+      {showAddPost && (
+        <AddPostModal
+          contentItemId={contentItemId}
+          onClose={() => setShowAddPost(false)}
+          onCreated={(post) => { setPosts(prev => [post, ...prev]); }}
+        />
+      )}
+      {metricsPostId && (
+        <AddMetricsModal
+          contentItemId={contentItemId}
+          postId={metricsPostId}
+          onClose={() => setMetricsPostId(null)}
+          onCreated={(snapshot) => {
+            setMetrics(prev => ({ ...prev, [snapshot.content_item_post_id]: snapshot }));
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -562,6 +944,7 @@ export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordi
     { key: 'purple_cow', label: 'Purple Cow', icon: <Palette size={14} /> },
     { key: 'upload', label: 'Upload', icon: <Upload size={14} /> },
     { key: 'editor_notes', label: 'Edit Notes', icon: <Scissors size={14} /> },
+    { key: 'performance', label: 'Performance', icon: <BarChart3 size={14} /> },
     { key: 'meta', label: 'Meta', icon: <Hash size={14} /> },
     { key: 'history', label: 'History', icon: <Clock size={14} /> },
   ];
@@ -836,6 +1219,11 @@ export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordi
               </div>
             </div>
           </div>
+        )}
+
+        {/* Performance Tab */}
+        {activeTab === 'performance' && item && (
+          <PerformanceTab contentItemId={item.id} />
         )}
 
         {/* History Tab */}

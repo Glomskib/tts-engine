@@ -8,7 +8,12 @@ import { formatReplyHeader } from '@/lib/tools/tok-comment';
 // TikTok On-Screen Comment Reply Sticker Generator
 // ============================================================================
 
-export default function TokCommentTool() {
+interface TokCommentToolProps {
+  /** When true, renders without the standalone page wrapper (for admin layout embedding) */
+  embedded?: boolean;
+}
+
+export default function TokCommentTool({ embedded = false }: TokCommentToolProps) {
   const [replyTo, setReplyTo] = useState('');
   const [comment, setComment] = useState('');
   const [downloading, setDownloading] = useState(false);
@@ -48,17 +53,8 @@ export default function TokCommentTool() {
 
   const hasContent = replyTo.trim() || comment.trim();
 
-  return (
-    <div className="min-h-screen bg-[#09090b] text-white">
-      <div className="max-w-2xl mx-auto px-4 py-12 space-y-8">
-
-        {/* Header */}
-        <div className="space-y-1">
-          <h1 className="text-2xl font-bold text-zinc-100">TikTok Comment Reply Sticker</h1>
-          <p className="text-sm text-zinc-500">
-            Generate a transparent PNG overlay of a TikTok on-screen comment reply bubble.
-          </p>
-        </div>
+  const content = (
+    <div className="space-y-6">
 
         {/* Inputs */}
         <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-5 space-y-4">
@@ -169,6 +165,21 @@ export default function TokCommentTool() {
         <p className="text-center text-xs text-zinc-600">
           Exports at 2× pixel ratio — crisp in any video editor timeline.
         </p>
+    </div>
+  );
+
+  if (embedded) return content;
+
+  return (
+    <div className="min-h-screen bg-[#09090b] text-white">
+      <div className="max-w-2xl mx-auto px-4 py-12 space-y-8">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-zinc-100">TikTok Comment Reply Sticker</h1>
+          <p className="text-sm text-zinc-500">
+            Generate a transparent PNG overlay of a TikTok on-screen comment reply bubble.
+          </p>
+        </div>
+        {content}
       </div>
     </div>
   );

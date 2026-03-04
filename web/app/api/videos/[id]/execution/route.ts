@@ -242,8 +242,8 @@ export async function PUT(request: Request, { params }: RouteParams) {
       currentVideo.claim_expires_at &&
       currentVideo.claim_expires_at > now;
 
-    // Admin users with force can bypass claim ownership check
-    if (!isClaimedByUser && !(forceRequested && isAdmin)) {
+    // Admin users always bypass claim ownership check
+    if (!isClaimedByUser && !isAdmin) {
       return createApiErrorResponse(
         "CLAIM_NOT_OWNED",
         `You must claim this video before updating execution status. Current claimant: ${currentVideo.claimed_by || "none"}`,

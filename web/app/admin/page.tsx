@@ -4,8 +4,9 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   Loader2, RefreshCw, Mic, Scissors, Send, Flame, Trophy, Zap,
-  ChevronRight, ExternalLink,
+  ChevronRight, ExternalLink, Lightbulb, Plus, Sparkles, Check,
 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import AdminPageLayout, { AdminCard, EmptyState } from '@/app/admin/components/AdminPageLayout';
 
 // ─── Types ────────────────────────────────────────────────────
@@ -53,6 +54,20 @@ interface CommandCenterData {
   recent_winners: WinnerEntry[];
   top_hooks: HookPattern[];
 }
+
+interface GeneratedIdea {
+  title: string;
+  hook: string;
+  angle: string;
+  product_opportunity: string | null;
+  estimated_difficulty: 'easy' | 'medium' | 'hard';
+}
+
+const DIFFICULTY_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+  easy: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', label: 'Easy' },
+  medium: { bg: 'bg-amber-500/15', text: 'text-amber-400', label: 'Medium' },
+  hard: { bg: 'bg-red-500/15', text: 'text-red-400', label: 'Hard' },
+};
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -130,9 +145,13 @@ function QueueSection({
 // ─── Page ─────────────────────────────────────────────────────
 
 export default function CommandCenter() {
+  const router = useRouter();
   const [data, setData] = useState<CommandCenterData | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [ideas, setIdeas] = useState<GeneratedIdea[]>([]);
+  const [generating, setGenerating] = useState(false);
+  const [createdIds, setCreatedIds] = useState<Set<number>>(new Set());
 
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -145,6 +164,38 @@ export default function CommandCenter() {
     } finally {
       setLoading(false);
       setRefreshing(false);
+    }
+  };
+
+  const generateIdeas = async () => {
+    setGenerating(true);
+    try {
+      const res = await fetch('/api/ideas/generate', { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        setIdeas(json.data.ideas);
+        setCreatedIds(new Set());
+      }
+    } catch {
+      // silent
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const createFromIdea = async (idea: GeneratedIdea, index: number) => {
+    try {
+      const res = await fetch('/api/content-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: idea.title }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setCreatedIds(prev => new Set(prev).add(index));
+      }
+    } catch {
+      // silent
     }
   };
 
@@ -180,15 +231,30 @@ export default function CommandCenter() {
       subtitle={totalActionable > 0 ? `${totalActionable} items need action` : 'All clear'}
       maxWidth="2xl"
       headerActions={
-        <button
-          type="button"
-          onClick={() => fetchData(true)}
-          disabled={refreshing}
-          className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors disabled:opacity-50 text-sm"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={generateIdeas}
+            disabled={generating}
+            className="flex items-center gap-2 px-3 py-1.5 bg-violet-600 text-white rounded-lg hover:bg-violet-700 transition-colors disabled:opacity-50 text-sm font-medium"
+          >
+            {generating ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Sparkles className="w-3.5 h-3.5" />
+            )}
+            Generate Ideas
+          </button>
+          <button
+            type="button"
+            onClick={() => fetchData(true)}
+            disabled={refreshing}
+            className="flex items-center gap-2 px-3 py-1.5 bg-zinc-800 text-zinc-300 rounded-lg hover:bg-zinc-700 transition-colors disabled:opacity-50 text-sm"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
+        </div>
       }
     >
       {/* Action Queues */}
@@ -318,6 +384,66 @@ export default function CommandCenter() {
           )}
         </AdminCard>
       </div>
+
+      {/* Generated Ideas */}
+      {ideas.length > 0 && (
+        <AdminCard title="AI-Generated Ideas" subtitle="Click to create a content item">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {ideas.map((idea, i) => {
+              const diff = DIFFICULTY_STYLES[idea.estimated_difficulty] || DIFFICULTY_STYLES.medium;
+              const created = createdIds.has(i);
+              return (
+                <div
+                  key={i}
+                  className="p-4 rounded-lg border border-white/5 bg-white/[0.02] hover:bg-white/[0.04] transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <h3 className="text-sm font-medium text-zinc-100 leading-snug">{idea.title}</h3>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${diff.bg} ${diff.text} flex-shrink-0`}>
+                      {diff.label}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 italic mb-1.5">&ldquo;{idea.hook}&rdquo;</p>
+                  <p className="text-xs text-zinc-500 mb-2">{idea.angle}</p>
+                  {idea.product_opportunity && (
+                    <p className="text-[11px] text-teal-500 mb-3">Product: {idea.product_opportunity}</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => createFromIdea(idea, i)}
+                    disabled={created}
+                    className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md transition-colors ${
+                      created
+                        ? 'bg-emerald-500/15 text-emerald-400 cursor-default'
+                        : 'bg-violet-600/20 text-violet-400 hover:bg-violet-600/30'
+                    }`}
+                  >
+                    {created ? (
+                      <>
+                        <Check size={12} />
+                        Created
+                      </>
+                    ) : (
+                      <>
+                        <Plus size={12} />
+                        Create Content Item
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </AdminCard>
+      )}
+
+      {/* Generating spinner */}
+      {generating && ideas.length === 0 && (
+        <div className="flex items-center justify-center gap-3 py-12">
+          <Loader2 size={20} className="animate-spin text-violet-400" />
+          <span className="text-sm text-zinc-400">Generating ideas...</span>
+        </div>
+      )}
     </AdminPageLayout>
   );
 }

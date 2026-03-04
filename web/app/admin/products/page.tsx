@@ -129,6 +129,14 @@ export default function ProductsPage() {
   const [quickBrandName, setQuickBrandName] = useState('');
   const [creatingBrand, setCreatingBrand] = useState(false);
 
+  // Create Content Item modal state
+  const [createCIProductId, setCreateCIProductId] = useState<string | null>(null);
+  const [createCIProductName, setCreateCIProductName] = useState('');
+  const [createCIBrandId, setCreateCIBrandId] = useState<string | null>(null);
+  const [createCITitle, setCreateCITitle] = useState('');
+  const [createCIDueAt, setCreateCIDueAt] = useState('');
+  const [createCISaving, setCreateCISaving] = useState(false);
+
   // Income dashboard state
   const [incomeExpanded, setIncomeExpanded] = useState(false);
 
@@ -726,6 +734,46 @@ export default function ProductsPage() {
     );
   }
 
+  const openCreateCI = (product: ProductStats) => {
+    setCreateCIProductId(product.id);
+    setCreateCIProductName(product.name);
+    setCreateCIBrandId(product.brand_id || null);
+    setCreateCITitle('');
+    setCreateCIDueAt('');
+    setCreateCISaving(false);
+  };
+
+  const handleCreateCI = async () => {
+    if (!createCITitle.trim() || !createCIProductId) return;
+    setCreateCISaving(true);
+    try {
+      const body: Record<string, unknown> = {
+        title: createCITitle.trim(),
+        product_id: createCIProductId,
+      };
+      if (createCIBrandId) body.brand_id = createCIBrandId;
+      if (createCIDueAt) body.due_at = new Date(createCIDueAt).toISOString();
+
+      const res = await fetch('/api/content-items', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        showError(json.error || 'Failed to create content item');
+        return;
+      }
+      showSuccess(`Content item created for ${createCIProductName}`);
+      setCreateCIProductId(null);
+      router.push(`/admin/record/${json.data.id}`);
+    } catch {
+      showError('Network error creating content item');
+    } finally {
+      setCreateCISaving(false);
+    }
+  };
+
   const isAdmin = authUser.role === 'admin';
 
   // Get unique categories for filters
@@ -1010,6 +1058,12 @@ export default function ProductsPage() {
                           Edit
                         </button>
                       )}
+                      <button type="button"
+                        onClick={() => openCreateCI(product)}
+                        className="text-xs text-violet-400 hover:text-violet-300 hover:underline"
+                      >
+                        + Content
+                      </button>
                       <Link
                         href={`/admin/pipeline?product=${encodeURIComponent(product.id)}`}
                         className="text-xs text-teal-600 hover:underline"
@@ -1190,6 +1244,12 @@ export default function ProductsPage() {
                                 Edit
                               </button>
                             )}
+                            <button type="button"
+                              onClick={() => openCreateCI(product)}
+                              className="text-xs text-violet-400 hover:text-violet-300 hover:underline"
+                            >
+                              + Content
+                            </button>
                             <Link
                               href={`/admin/pipeline?product=${encodeURIComponent(product.id)}`}
                               className="text-xs text-teal-600 hover:underline"
@@ -1916,6 +1976,56 @@ export default function ProductsPage() {
               alt="Product image"
               className="max-w-full max-h-[90vh] object-contain"
             />
+          </div>
+        </div>
+      )}
+      {/* Create Content Item Modal */}
+      {createCIProductId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl max-w-md w-full">
+            <div className="p-5 border-b border-zinc-800">
+              <h3 className="text-lg font-semibold text-white">New Content Item</h3>
+              <p className="text-sm text-zinc-400 mt-0.5">Product: {createCIProductName}</p>
+            </div>
+            <div className="p-5 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">Title</label>
+                <input
+                  type="text"
+                  value={createCITitle}
+                  onChange={(e) => setCreateCITitle(e.target.value)}
+                  placeholder="e.g. Gym reveal hook"
+                  autoFocus
+                  className="w-full min-h-[48px] bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white px-3 py-3 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-zinc-300 mb-1">Due Date (optional)</label>
+                <input
+                  type="date"
+                  value={createCIDueAt}
+                  onChange={(e) => setCreateCIDueAt(e.target.value)}
+                  className="w-full min-h-[48px] bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white px-3 py-3 focus:outline-none focus:border-teal-500"
+                />
+              </div>
+            </div>
+            <div className="p-5 border-t border-zinc-800 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setCreateCIProductId(null)}
+                className="flex-1 min-h-[48px] rounded-xl text-sm font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 active:bg-zinc-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateCI}
+                disabled={!createCITitle.trim() || createCISaving}
+                className="flex-1 min-h-[48px] rounded-xl text-sm font-semibold bg-teal-600 text-white active:bg-teal-700 disabled:opacity-50"
+              >
+                {createCISaving ? 'Creating...' : 'Create & Record'}
+              </button>
+            </div>
           </div>
         </div>
       )}

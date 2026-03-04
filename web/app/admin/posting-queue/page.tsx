@@ -4,10 +4,11 @@ import { useState, useEffect, useCallback } from 'react';
 import { useToast } from '@/contexts/ToastContext';
 import AdminPageLayout, { StatCard } from '../components/AdminPageLayout';
 import PlanGate from '@/components/PlanGate';
+import Link from 'next/link';
 import {
   Send, Copy, CheckCircle, Loader2, RefreshCw,
   Calendar, Clock, ArrowUpDown, ExternalLink, Play,
-  ChevronDown, ChevronUp,
+  ChevronDown, ChevronUp, FileText,
 } from 'lucide-react';
 
 interface QueueVideo {
@@ -26,6 +27,17 @@ interface QueueVideo {
   created_at: string;
 }
 
+interface ReadyContentItem {
+  id: string;
+  title: string;
+  short_id: string;
+  due_at: string | null;
+  product_name: string | null;
+  brand_name: string | null;
+  caption: string | null;
+  final_video_url: string | null;
+}
+
 type SortMode = 'oldest' | 'newest' | 'brand';
 
 export default function PostingQueuePage() {
@@ -33,6 +45,7 @@ export default function PostingQueuePage() {
 
   const [videos, setVideos] = useState<QueueVideo[]>([]);
   const [postedVideos, setPostedVideos] = useState<QueueVideo[]>([]);
+  const [contentItems, setContentItems] = useState<ReadyContentItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>('oldest');
@@ -48,9 +61,10 @@ export default function PostingQueuePage() {
   const fetchVideos = useCallback(async () => {
     setLoading(true);
     try {
-      const [readyRes, postedRes] = await Promise.all([
+      const [readyRes, postedRes, ciRes] = await Promise.all([
         fetch('/api/videos/queue?recording_status=READY_TO_POST&claimed=any&limit=100&sort=oldest'),
         fetch('/api/videos/queue?recording_status=POSTED&claimed=any&limit=20'),
+        fetch('/api/content-items?status=ready_to_post&view=board&limit=20'),
       ]);
       if (readyRes.ok) {
         const data = await readyRes.json();
@@ -59,6 +73,20 @@ export default function PostingQueuePage() {
       if (postedRes.ok) {
         const data = await postedRes.json();
         setPostedVideos(data.data || []);
+      }
+      if (ciRes.ok) {
+        const ciData = await ciRes.json();
+        const items = (ciData.data || []).map((ci: any) => ({
+          id: ci.id,
+          title: ci.title,
+          short_id: ci.short_id,
+          due_at: ci.due_at,
+          product_name: ci.products?.name || null,
+          brand_name: ci.brands?.name || null,
+          caption: ci.caption,
+          final_video_url: ci.final_video_url,
+        }));
+        setContentItems(items);
       }
     } catch {
       showError('Failed to load posting queue');
@@ -193,8 +221,8 @@ export default function PostingQueuePage() {
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
         <StatCard
           label="Ready to Post"
-          value={videos.length}
-          variant={videos.length > 0 ? 'warning' : 'default'}
+          value={videos.length + contentItems.length}
+          variant={videos.length + contentItems.length > 0 ? 'warning' : 'default'}
         />
         <StatCard
           label="Posted (recent)"
@@ -373,6 +401,86 @@ export default function PostingQueuePage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Ready to Post — Content Items */}
+      {!loading && contentItems.length > 0 && (
+        <div className="space-y-3">
+          <h2 className="text-base font-semibold text-zinc-300 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-teal-400" />
+            Ready to Post (Content Items)
+            <span className="ml-1 text-sm font-normal text-zinc-500">
+              {contentItems.length}
+            </span>
+          </h2>
+          <div className="space-y-3">
+            {contentItems.map(ci => (
+              <div
+                key={ci.id}
+                className="bg-zinc-900 border border-teal-500/20 rounded-xl p-4 space-y-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <h4 className="text-sm font-semibold text-zinc-200 truncate">{ci.title}</h4>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {ci.product_name && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 border border-teal-500/20">
+                          {ci.product_name}
+                        </span>
+                      )}
+                      {ci.brand_name && (
+                        <span className="text-xs text-zinc-500">{ci.brand_name}</span>
+                      )}
+                      {ci.due_at && (
+                        <span className="text-xs text-zinc-500 flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          Due {new Date(ci.due_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <span className="text-[10px] text-zinc-600 font-mono flex-shrink-0">{ci.short_id}</span>
+                </div>
+
+                {ci.caption && (
+                  <p className="text-xs text-zinc-400 line-clamp-2">{ci.caption}</p>
+                )}
+
+                <div className="space-y-2">
+                  {ci.caption && (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await navigator.clipboard.writeText(ci.caption!);
+                          showSuccess('Caption copied');
+                        } catch { showError('Failed to copy'); }
+                      }}
+                      className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-sm font-medium transition-colors bg-zinc-800 text-zinc-200 active:bg-zinc-700"
+                    >
+                      <Copy className="w-4 h-4" /> Copy Caption
+                    </button>
+                  )}
+                  {ci.final_video_url && (
+                    <a
+                      href={ci.final_video_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-sm font-medium transition-colors bg-zinc-800 text-zinc-200 active:bg-zinc-700"
+                    >
+                      <ExternalLink className="w-4 h-4" /> Open Video
+                    </a>
+                  )}
+                  <Link
+                    href={`/admin/post/${ci.id}`}
+                    className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-sm font-semibold transition-colors bg-green-600 text-white active:bg-green-700"
+                  >
+                    <Send className="w-4 h-4" /> Post Now
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

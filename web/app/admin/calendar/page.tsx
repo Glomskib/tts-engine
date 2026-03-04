@@ -9,7 +9,9 @@ import {
   LayoutGrid, Zap, Loader2, Star, Trash2,
   SlidersHorizontal, ChevronDown, ChevronRight as ChevronRightIcon,
   Package, Clock, ExternalLink, Upload, Copy, FileText, Scissors,
+  Mic, ArrowRight, CalendarDays,
 } from 'lucide-react';
+import { CONTENT_ITEM_STATUSES } from '@/lib/content-items/types';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import PlanGate from '@/components/PlanGate';
 import { SkeletonVideoList } from '@/components/ui/Skeleton';
@@ -54,6 +56,7 @@ interface CalendarContentItem {
   hashtags: string[] | null;
   caption: string | null;
   editor_notes_status: string | null;
+  product_name: string | null;
 }
 
 type CalendarEntry = (CalendarVideo & { type?: 'video' }) | CalendarContentItem;
@@ -266,6 +269,11 @@ export default function ContentPlannerPage() {
   const [ideasOpen, setIdeasOpen] = useState(true);
   const [dragIdea, setDragIdea] = useState<PackageItem | null>(null);
   const [schedulingIdea, setSchedulingIdea] = useState<string | null>(null);
+
+  // Content item interaction state
+  const [dragContentItem, setDragContentItem] = useState<CalendarContentItem | null>(null);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [editingDueDate, setEditingDueDate] = useState<string | null>(null);
 
   // Time picker state
   const [editingTimeVideoId, setEditingTimeVideoId] = useState<string | null>(null);
@@ -480,6 +488,8 @@ export default function ContentPlannerPage() {
     e.dataTransfer.dropEffect = dragIdea ? 'copy' : 'move';
   };
 
+  const isAnyDragging = dragVideo !== null || dragIdea !== null || dragContentItem !== null;
+
   // Drop handler — reschedule existing video
   const handleDropVideo = async (e: React.DragEvent, dateKey: string) => {
     e.preventDefault();
@@ -537,6 +547,140 @@ export default function ContentPlannerPage() {
     } finally {
       setRescheduling(false);
     }
+  };
+
+  // =====================
+  // DRAG & DROP — CONTENT ITEMS (reschedule due_at)
+  // =====================
+
+  const handleContentItemDragStart = (e: React.DragEvent, ci: CalendarContentItem) => {
+    setDragContentItem(ci);
+    setDragVideo(null);
+    setDragIdea(null);
+    setSelectedDay(null);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ci.id);
+    e.dataTransfer.setData('application/x-type', 'content_item');
+  };
+
+  const handleDropContentItem = async (dateKey: string, ci: CalendarContentItem) => {
+    const oldDate = ci.due_at.slice(0, 10);
+    if (oldDate === dateKey) return;
+
+    const newDueAt = `${dateKey}T${ci.due_at.slice(11) || '12:00:00Z'}`;
+    const movedItem = { ...ci, due_at: newDueAt };
+
+    // Optimistic update
+    setData(prev => {
+      if (!prev) return prev;
+      const cal = { ...prev.calendar };
+      cal[oldDate] = (cal[oldDate] || []).filter(v => v.id !== ci.id);
+      if (cal[oldDate].length === 0) delete cal[oldDate];
+      cal[dateKey] = [...(cal[dateKey] || []), movedItem];
+      return { ...prev, calendar: cal };
+    });
+
+    try {
+      const res = await fetch(`/api/content-items/${ci.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ due_at: newDueAt }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        // Revert
+        setData(prev => {
+          if (!prev) return prev;
+          const cal = { ...prev.calendar };
+          cal[dateKey] = (cal[dateKey] || []).filter(v => v.id !== ci.id);
+          if (cal[dateKey].length === 0) delete cal[dateKey];
+          cal[oldDate] = [...(cal[oldDate] || []), ci];
+          return { ...prev, calendar: cal };
+        });
+        showError('Failed to reschedule content item');
+      } else {
+        showSuccess(`Moved to ${dateKey}`);
+      }
+    } catch {
+      setData(prev => {
+        if (!prev) return prev;
+        const cal = { ...prev.calendar };
+        cal[dateKey] = (cal[dateKey] || []).filter(v => v.id !== ci.id);
+        if (cal[dateKey].length === 0) delete cal[dateKey];
+        cal[oldDate] = [...(cal[oldDate] || []), ci];
+        return { ...prev, calendar: cal };
+      });
+      showError('Network error rescheduling');
+    }
+  };
+
+  // =====================
+  // CONTENT ITEM STATUS UPDATE
+  // =====================
+
+  const handleContentItemStatusChange = async (ci: CalendarContentItem, newStatus: string) => {
+    if (ci.status === newStatus) return;
+    setUpdatingStatus(ci.id);
+    const oldStatus = ci.status;
+
+    // Optimistic update in calendar data
+    setData(prev => {
+      if (!prev) return prev;
+      const cal = { ...prev.calendar };
+      const dateKey = ci.due_at.slice(0, 10);
+      cal[dateKey] = (cal[dateKey] || []).map(v =>
+        v.id === ci.id ? { ...v, status: newStatus } : v
+      );
+      return { ...prev, calendar: cal };
+    });
+
+    try {
+      const res = await fetch(`/api/content-items/${ci.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: newStatus }),
+      });
+      const json = await res.json();
+      if (!json.ok) {
+        // Revert
+        setData(prev => {
+          if (!prev) return prev;
+          const cal = { ...prev.calendar };
+          const dateKey = ci.due_at.slice(0, 10);
+          cal[dateKey] = (cal[dateKey] || []).map(v =>
+            v.id === ci.id ? { ...v, status: oldStatus } : v
+          );
+          return { ...prev, calendar: cal };
+        });
+        showError(json.error || 'Failed to update status');
+      } else {
+        showSuccess(`Status updated to ${newStatus.replace(/_/g, ' ')}`);
+      }
+    } catch {
+      setData(prev => {
+        if (!prev) return prev;
+        const cal = { ...prev.calendar };
+        const dateKey = ci.due_at.slice(0, 10);
+        cal[dateKey] = (cal[dateKey] || []).map(v =>
+          v.id === ci.id ? { ...v, status: oldStatus } : v
+        );
+        return { ...prev, calendar: cal };
+      });
+      showError('Network error updating status');
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  // =====================
+  // CONTENT ITEM DUE DATE UPDATE (mobile picker)
+  // =====================
+
+  const handleContentItemDueDateChange = async (ci: CalendarContentItem, newDate: string) => {
+    setEditingDueDate(null);
+    const oldDateKey = ci.due_at.slice(0, 10);
+    if (oldDateKey === newDate) return;
+    await handleDropContentItem(newDate, ci);
   };
 
   // =====================
@@ -624,7 +768,11 @@ export default function ContentPlannerPage() {
 
     const itemType = e.dataTransfer.getData('application/x-type');
 
-    if (itemType === 'idea' && dragIdea) {
+    if (itemType === 'content_item' && dragContentItem) {
+      const ciToMove = dragContentItem;
+      setDragContentItem(null);
+      await handleDropContentItem(dateKey, ciToMove);
+    } else if (itemType === 'idea' && dragIdea) {
       const ideaToSchedule = dragIdea;
       setDragIdea(null);
       await handleDropIdea(dateKey, ideaToSchedule);
@@ -633,12 +781,14 @@ export default function ContentPlannerPage() {
     } else {
       setDragVideo(null);
       setDragIdea(null);
+      setDragContentItem(null);
     }
   };
 
   const handleDragEnd = () => {
     setDragVideo(null);
     setDragIdea(null);
+    setDragContentItem(null);
     setDropTarget(null);
     dragCounterRef.current = {};
   };
@@ -778,6 +928,24 @@ export default function ContentPlannerPage() {
     });
   }, [selectedDay, data]);
 
+  const CI_STATUS_COLORS: Record<string, string> = {
+    briefing: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
+    ready_to_record: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
+    recorded: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
+    editing: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400',
+    ready_to_post: 'bg-teal-500/10 border-teal-500/30 text-teal-400',
+    posted: 'bg-green-500/10 border-green-500/30 text-green-400',
+  };
+
+  const CI_PILL_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+    briefing: { bg: 'bg-purple-400/10', border: 'border-purple-400/30', text: 'text-purple-400' },
+    ready_to_record: { bg: 'bg-amber-400/10', border: 'border-amber-400/30', text: 'text-amber-400' },
+    recorded: { bg: 'bg-blue-400/10', border: 'border-blue-400/30', text: 'text-blue-400' },
+    editing: { bg: 'bg-yellow-400/10', border: 'border-yellow-400/30', text: 'text-yellow-400' },
+    ready_to_post: { bg: 'bg-teal-400/10', border: 'border-teal-400/30', text: 'text-teal-400' },
+    posted: { bg: 'bg-green-400/10', border: 'border-green-400/30', text: 'text-green-400' },
+  };
+
   const renderVideoPill = (video: CalendarVideo, compact = false) => {
     const group = getStatusGroup(video.recording_status);
     const colors = STATUS_COLORS[group];
@@ -805,13 +973,44 @@ export default function ContentPlannerPage() {
     );
   };
 
+  const renderContentItemPill = (ci: CalendarContentItem) => {
+    const pillColors = CI_PILL_COLORS[ci.status] || CI_PILL_COLORS.briefing;
+    return (
+      <div
+        key={ci.id}
+        draggable
+        onDragStart={(e) => {
+          e.stopPropagation();
+          handleContentItemDragStart(e, ci);
+        }}
+        onDragEnd={handleDragEnd}
+        className={`
+          ${pillColors.bg} ${pillColors.border} border rounded-md px-1.5 py-0.5
+          text-[10px] truncate cursor-grab active:cursor-grabbing
+          hover:brightness-125 transition-all flex items-center gap-1
+        `}
+        onClick={(e) => e.stopPropagation()}
+        title={`${ci.title} (${ci.status.replace(/_/g, ' ')})`}
+      >
+        <FileText className="w-2.5 h-2.5 flex-shrink-0" />
+        <span className={`${pillColors.text} truncate block`}>
+          {ci.product_name ? `${ci.product_name} · ` : ''}{ci.title}
+        </span>
+      </div>
+    );
+  };
+
   const renderDayCell = (day: Date, dayIdx: number, compact = false) => {
     const dateKey = formatDateKey(day);
-    const videos = data?.calendar[dateKey] || [];
+    const allEntries = data?.calendar[dateKey] || [];
+    const videoEntries = allEntries.filter((v): v is CalendarVideo & { type?: 'video' } => (v as CalendarContentItem).type !== 'content_item');
+    const ciEntries = allEntries.filter((v): v is CalendarContentItem => (v as CalendarContentItem).type === 'content_item');
     const today = isToday(day);
     const past = isPast(day) && !today;
-    const isDropping = dropTarget === dateKey && (dragIdea !== null || (dragVideo !== null && dragVideo.scheduled_date !== dateKey));
+    const isDropping = dropTarget === dateKey && isAnyDragging;
     const isCurrentMonth = calendarMode === 'month' ? day.getMonth() === monthDate.getMonth() : true;
+    const maxPills = compact ? 2 : 4;
+    const totalEntries = videoEntries.length + ciEntries.length;
 
     return (
       <div
@@ -829,7 +1028,7 @@ export default function ContentPlannerPage() {
                 : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
           }
         `}
-        onClick={() => { if (!dragVideo && !dragIdea) setSelectedDay(dateKey); }}
+        onClick={() => { if (!isAnyDragging) setSelectedDay(dateKey); }}
         onDragEnter={(e) => handleDragEnter(e, dateKey)}
         onDragLeave={(e) => handleDragLeave(e, dateKey)}
         onDragOver={handleDragOver}
@@ -852,10 +1051,11 @@ export default function ContentPlannerPage() {
           </span>
         </div>
         <div className="space-y-0.5">
-          {videos.filter((v): v is CalendarVideo & { type?: 'video' } => (v as CalendarContentItem).type !== 'content_item').slice(0, compact ? 2 : 4).map(video => renderVideoPill(video, compact))}
-          {videos.length > (compact ? 2 : 4) && (
+          {videoEntries.slice(0, maxPills).map(video => renderVideoPill(video, compact))}
+          {ciEntries.slice(0, Math.max(0, maxPills - videoEntries.length)).map(ci => renderContentItemPill(ci))}
+          {totalEntries > maxPills && (
             <div className="text-[10px] text-zinc-500 text-center">
-              +{videos.length - (compact ? 2 : 4)} more
+              +{totalEntries - maxPills} more
             </div>
           )}
         </div>
@@ -1563,75 +1763,141 @@ export default function ContentPlannerPage() {
                   </div>
                 ) : (
                   selectedDayVideos.map((entry) => {
-                    // Content Item rendering
+                    // Content Item rendering — interactive
                     if ((entry as CalendarContentItem).type === 'content_item') {
                       const ci = entry as CalendarContentItem;
-                      const CI_STATUS_COLORS: Record<string, string> = {
-                        briefing: 'bg-purple-500/10 border-purple-500/30 text-purple-400',
-                        ready_to_record: 'bg-amber-500/10 border-amber-500/30 text-amber-400',
-                        recorded: 'bg-blue-500/10 border-blue-500/30 text-blue-400',
-                        editing: 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400',
-                        ready_to_post: 'bg-teal-500/10 border-teal-500/30 text-teal-400',
-                        posted: 'bg-green-500/10 border-green-500/30 text-green-400',
-                      };
                       const statusColor = CI_STATUS_COLORS[ci.status] || 'bg-zinc-500/10 border-zinc-500/30 text-zinc-400';
+                      const isUpdating = updatingStatus === ci.id;
                       return (
-                        <div key={ci.id} className={`border rounded-xl p-4 ${statusColor}`}>
+                        <div key={ci.id} className={`border rounded-xl p-4 space-y-3 ${statusColor}`}>
+                          {/* Header */}
                           <div className="flex items-start gap-3">
                             <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" />
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2 mb-1">
-                                <span className="text-xs font-medium capitalize">{ci.status.replace(/_/g, ' ')}</span>
                                 <span className="text-[10px] text-zinc-600 font-mono ml-auto">{ci.short_id}</span>
                               </div>
-                              <p className="text-sm font-medium text-white truncate">{ci.title}</p>
+                              <p className="text-sm font-medium text-white">{ci.title}</p>
+                              {ci.product_name && (
+                                <p className="text-xs text-zinc-400 mt-0.5">{ci.product_name}</p>
+                              )}
                               {ci.ai_description && (
                                 <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{ci.ai_description}</p>
                               )}
-                              {ci.caption && (
-                                <div className="flex items-center gap-1 mt-2">
-                                  <span className="text-[10px] text-zinc-500">Caption:</span>
-                                  <span className="text-[10px] text-zinc-400 truncate flex-1">{ci.caption}</span>
-                                  <button onClick={() => navigator.clipboard.writeText(ci.caption!)} className="p-0.5 text-zinc-600 hover:text-zinc-300">
-                                    <Copy className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              )}
-                              {ci.hashtags?.length ? (
-                                <div className="flex items-center gap-1 mt-1">
-                                  <span className="text-[10px] text-zinc-500">Tags:</span>
-                                  <span className="text-[10px] text-zinc-400 truncate flex-1">{ci.hashtags.join(' ')}</span>
-                                  <button onClick={() => navigator.clipboard.writeText(ci.hashtags!.join(' '))} className="p-0.5 text-zinc-600 hover:text-zinc-300">
-                                    <Copy className="w-3 h-3" />
-                                  </button>
-                                </div>
-                              ) : null}
-                              <div className="flex items-center gap-2 mt-2 flex-wrap">
-                                {ci.drive_folder_url && (
-                                  <a href={ci.drive_folder_url} target="_blank" rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-400 hover:text-blue-300">
-                                    <ExternalLink className="w-3 h-3" /> Upload Folder
-                                  </a>
-                                )}
-                                {ci.brief_doc_url && (
-                                  <a href={ci.brief_doc_url} target="_blank" rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[10px] font-medium text-green-400 hover:text-green-300">
-                                    <FileText className="w-3 h-3" /> Brief Doc
-                                  </a>
-                                )}
-                                {ci.final_video_url && (
-                                  <a href={ci.final_video_url} target="_blank" rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-1 text-[10px] font-medium text-green-400 hover:text-green-300">
-                                    <ExternalLink className="w-3 h-3" /> Final Video
-                                  </a>
-                                )}
-                                {ci.editor_notes_status === 'completed' && (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-                                    <Scissors className="w-3 h-3" /> Editor Notes Ready
-                                  </span>
-                                )}
-                              </div>
                             </div>
+                          </div>
+
+                          {/* Status Dropdown */}
+                          <div>
+                            <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-1">Status</label>
+                            <select
+                              value={ci.status}
+                              disabled={isUpdating}
+                              onChange={(e) => handleContentItemStatusChange(ci, e.target.value)}
+                              className="w-full min-h-[44px] bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white px-3 py-2 focus:outline-none focus:border-teal-500 disabled:opacity-50"
+                            >
+                              {CONTENT_ITEM_STATUSES.map(s => (
+                                <option key={s} value={s}>{s.replace(/_/g, ' ')}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          {/* Due Date Picker (mobile-friendly) */}
+                          <div>
+                            <label className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider block mb-1">Due Date</label>
+                            {editingDueDate === ci.id ? (
+                              <input
+                                type="date"
+                                autoFocus
+                                defaultValue={ci.due_at.slice(0, 10)}
+                                onChange={(e) => {
+                                  if (e.target.value) handleContentItemDueDateChange(ci, e.target.value);
+                                }}
+                                onBlur={() => setEditingDueDate(null)}
+                                className="w-full min-h-[44px] bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white px-3 py-2 focus:outline-none focus:border-teal-500"
+                              />
+                            ) : (
+                              <button
+                                onClick={() => setEditingDueDate(ci.id)}
+                                className="w-full min-h-[44px] flex items-center gap-2 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-zinc-300 px-3 py-2 hover:border-zinc-600 transition-colors text-left"
+                              >
+                                <CalendarDays className="w-4 h-4 text-zinc-500" />
+                                {new Date(ci.due_at).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Caption + Tags */}
+                          {ci.caption && (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-zinc-500">Caption:</span>
+                              <span className="text-[10px] text-zinc-400 truncate flex-1">{ci.caption}</span>
+                              <button onClick={() => navigator.clipboard.writeText(ci.caption!)} className="p-1 text-zinc-600 hover:text-zinc-300">
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </div>
+                          )}
+                          {ci.hashtags?.length ? (
+                            <div className="flex items-center gap-1">
+                              <span className="text-[10px] text-zinc-500">Tags:</span>
+                              <span className="text-[10px] text-zinc-400 truncate flex-1">{ci.hashtags.join(' ')}</span>
+                              <button onClick={() => navigator.clipboard.writeText(ci.hashtags!.join(' '))} className="p-1 text-zinc-600 hover:text-zinc-300">
+                                <Copy className="w-3 h-3" />
+                              </button>
+                            </div>
+                          ) : null}
+
+                          {/* Links row */}
+                          <div className="flex items-center gap-2 flex-wrap">
+                            {ci.drive_folder_url && (
+                              <a href={ci.drive_folder_url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-medium text-blue-400 hover:text-blue-300">
+                                <ExternalLink className="w-3 h-3" /> Upload Folder
+                              </a>
+                            )}
+                            {ci.brief_doc_url && (
+                              <a href={ci.brief_doc_url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-medium text-green-400 hover:text-green-300">
+                                <FileText className="w-3 h-3" /> Brief Doc
+                              </a>
+                            )}
+                            {ci.final_video_url && (
+                              <a href={ci.final_video_url} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[10px] font-medium text-green-400 hover:text-green-300">
+                                <ExternalLink className="w-3 h-3" /> Final Video
+                              </a>
+                            )}
+                            {ci.editor_notes_status === 'completed' && (
+                              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400">
+                                <Scissors className="w-3 h-3" /> Editor Notes Ready
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Action Buttons — full-width, big tap targets */}
+                          <div className="space-y-2 pt-1">
+                            {(ci.status === 'briefing' || ci.status === 'ready_to_record') && (
+                              <Link
+                                href={`/admin/record/${ci.id}`}
+                                className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-sm font-semibold transition-colors bg-teal-600 text-white active:bg-teal-700"
+                              >
+                                <Mic size={16} /> Open Recording Kit
+                              </Link>
+                            )}
+                            {ci.status === 'ready_to_post' && (
+                              <Link
+                                href={`/admin/post/${ci.id}`}
+                                className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-sm font-semibold transition-colors bg-green-600 text-white active:bg-green-700"
+                              >
+                                <Send size={16} /> Post Now
+                              </Link>
+                            )}
+                            <Link
+                              href={`/admin/pipeline?highlight=${ci.id}`}
+                              className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-sm font-medium transition-colors bg-zinc-800 text-zinc-200 border border-zinc-700 active:bg-zinc-700"
+                            >
+                              <ArrowRight size={16} /> Open in Board
+                            </Link>
                           </div>
                         </div>
                       );

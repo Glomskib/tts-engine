@@ -77,7 +77,8 @@ export async function GET(request: NextRequest) {
         hashtags,
         caption,
         editor_notes_status,
-        created_at
+        created_at,
+        product:product_id(name)
       `)
       .eq('workspace_id', authContext.user.id)
       .gte('due_at', `${startDate}T00:00:00Z`)
@@ -133,6 +134,7 @@ export async function GET(request: NextRequest) {
         hashtags: ci.hashtags,
         caption: ci.caption,
         editor_notes_status: ci.editor_notes_status,
+        product_name: (ci.product as any)?.name || null,
       });
 
       statusCounts[`ci_${ci.status}`] = (statusCounts[`ci_${ci.status}`] || 0) + 1;

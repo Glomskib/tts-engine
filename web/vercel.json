@@ -99,6 +99,10 @@
     {
       "path": "/api/cron/content-item-processing",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/metrics-sync",
+      "schedule": "*/30 * * * *"
     }
   ]
 }

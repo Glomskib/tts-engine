@@ -29,12 +29,18 @@ const STATUS_COLORS: Record<ContentItemStatus, string> = {
   posted: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
 };
 
+interface ExperimentTag {
+  variable_type: 'hook' | 'format' | 'product' | 'length';
+  variant: string;
+}
+
 interface CreateModalState {
   open: boolean;
   title: string;
   brandId: string;
   productId: string;
   dueAt: string;
+  experiments: ExperimentTag[];
 }
 
 export default function ContentItemsPage() {
@@ -64,7 +70,7 @@ export default function ContentItemsPage() {
 
   // Create modal
   const [createModal, setCreateModal] = useState<CreateModalState>({
-    open: false, title: '', brandId: '', productId: '', dueAt: '',
+    open: false, title: '', brandId: '', productId: '', dueAt: '', experiments: [],
   });
   const [creating, setCreating] = useState(false);
 
@@ -114,12 +120,13 @@ export default function ContentItemsPage() {
           brand_id: createModal.brandId || undefined,
           product_id: createModal.productId || undefined,
           due_at: createModal.dueAt || undefined,
+          experiments: createModal.experiments.length > 0 ? createModal.experiments : undefined,
         }),
       });
       const json = await res.json();
       if (json.ok) {
         showSuccess('Content item created');
-        setCreateModal({ open: false, title: '', brandId: '', productId: '', dueAt: '' });
+        setCreateModal({ open: false, title: '', brandId: '', productId: '', dueAt: '', experiments: [] });
         fetchItems();
         setSelectedItemId(json.data.id);
       } else {
@@ -151,7 +158,7 @@ export default function ContentItemsPage() {
           </p>
         </div>
         <button
-          onClick={() => setCreateModal({ open: true, title: '', brandId: '', productId: '', dueAt: '' })}
+          onClick={() => setCreateModal({ open: true, title: '', brandId: '', productId: '', dueAt: '', experiments: [] })}
           className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
           style={{ backgroundColor: colors.accent }}
         >
@@ -317,6 +324,59 @@ export default function ContentItemsPage() {
               <label className="block text-xs font-medium text-gray-500 mb-1">Due Date</label>
               <input type="date" value={createModal.dueAt} onChange={(e) => setCreateModal({ ...createModal, dueAt: e.target.value })}
                 className="w-full px-3 py-2 text-sm rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800" />
+            </div>
+            {/* Experiment Tags */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500 mb-1">Experiment Tags</label>
+              {createModal.experiments.map((exp, i) => (
+                <div key={i} className="flex items-center gap-2 mb-1.5">
+                  <select
+                    value={exp.variable_type}
+                    onChange={(e) => {
+                      const exps = [...createModal.experiments];
+                      exps[i] = { ...exps[i], variable_type: e.target.value as ExperimentTag['variable_type'] };
+                      setCreateModal({ ...createModal, experiments: exps });
+                    }}
+                    className="px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                  >
+                    <option value="hook">Hook</option>
+                    <option value="format">Format</option>
+                    <option value="product">Product</option>
+                    <option value="length">Length</option>
+                  </select>
+                  <input
+                    type="text"
+                    value={exp.variant}
+                    onChange={(e) => {
+                      const exps = [...createModal.experiments];
+                      exps[i] = { ...exps[i], variant: e.target.value };
+                      setCreateModal({ ...createModal, experiments: exps });
+                    }}
+                    className="flex-1 px-2 py-1.5 text-xs rounded border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800"
+                    placeholder="e.g. pocket_reveal"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const exps = createModal.experiments.filter((_, j) => j !== i);
+                      setCreateModal({ ...createModal, experiments: exps });
+                    }}
+                    className="p-1 text-gray-400 hover:text-red-400"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setCreateModal({
+                  ...createModal,
+                  experiments: [...createModal.experiments, { variable_type: 'hook', variant: '' }],
+                })}
+                className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-400 mt-1"
+              >
+                <Plus size={12} /> Add experiment tag
+              </button>
             </div>
             <button
               onClick={handleCreate}

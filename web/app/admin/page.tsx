@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   Loader2, RefreshCw, Mic, Scissors, Send, Flame, Trophy, Zap,
   ChevronRight, ExternalLink, Lightbulb, Plus, Sparkles, Check,
-  BarChart3,
+  BarChart3, FlaskConical,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import AdminPageLayout, { AdminCard, EmptyState } from '@/app/admin/components/AdminPageLayout';
@@ -55,6 +55,12 @@ interface ProductPerf {
   products: { name: string } | null;
 }
 
+interface ExperimentSummary {
+  variable_type: string;
+  variant: string;
+  count: number;
+}
+
 interface CommandCenterData {
   record_queue: ContentItem[];
   editing_queue: ContentItem[];
@@ -63,6 +69,7 @@ interface CommandCenterData {
   recent_winners: WinnerEntry[];
   top_hooks: HookPattern[];
   product_performance: ProductPerf[];
+  experiments: ExperimentSummary[];
 }
 
 interface GeneratedIdea {
@@ -435,6 +442,33 @@ export default function CommandCenter() {
           <p className="text-sm text-zinc-600 py-4 text-center">No product data yet</p>
         )}
       </AdminCard>
+
+      {/* Experiments */}
+      {data.experiments.length > 0 && (
+        <AdminCard title="Experiments" subtitle="Active A/B tests">
+          <div className="space-y-1">
+            {data.experiments.map((exp) => (
+              <div
+                key={`${exp.variable_type}-${exp.variant}`}
+                className="flex items-center gap-3 py-2 px-2 -mx-2 rounded-lg hover:bg-white/5 transition-colors"
+              >
+                <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-violet-500/10 flex-shrink-0">
+                  <FlaskConical size={14} className="text-violet-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm text-zinc-200">
+                    <span className="text-zinc-500 text-xs uppercase">{exp.variable_type}:</span>{' '}
+                    {exp.variant}
+                  </div>
+                </div>
+                <div className="text-right flex-shrink-0">
+                  <div className="text-xs text-zinc-400">{exp.count} item{exp.count !== 1 ? 's' : ''}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </AdminCard>
+      )}
 
       {/* Generated Ideas */}
       {ideas.length > 0 && (

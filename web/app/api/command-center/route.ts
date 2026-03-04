@@ -29,6 +29,7 @@ export const GET = withErrorCapture(async (request: Request) => {
     winnersResult,
     hooksResult,
     productPerfResult,
+    experimentsResult,
   ] = await Promise.all([
     // 1. Record Queue
     supabaseAdmin
@@ -89,7 +90,27 @@ export const GET = withErrorCapture(async (request: Request) => {
       .eq('workspace_id', workspaceId)
       .order('avg_engagement', { ascending: false })
       .limit(5),
+
+    // 8. Active experiments (distinct variable_type + variant combos)
+    supabaseAdmin
+      .from('content_experiments')
+      .select('variable_type, variant, content_item_id')
+      .eq('workspace_id', workspaceId),
   ]);
+
+  // Compute experiment summary: count per (variable_type, variant)
+  const experimentRows = experimentsResult.data || [];
+  const expMap = new Map<string, { variable_type: string; variant: string; count: number }>();
+  for (const row of experimentRows) {
+    const key = `${row.variable_type}::${row.variant}`;
+    const entry = expMap.get(key);
+    if (entry) {
+      entry.count++;
+    } else {
+      expMap.set(key, { variable_type: row.variable_type, variant: row.variant, count: 1 });
+    }
+  }
+  const experimentSummary = Array.from(expMap.values()).sort((a, b) => b.count - a.count);
 
   const response = NextResponse.json({
     ok: true,
@@ -101,6 +122,7 @@ export const GET = withErrorCapture(async (request: Request) => {
       recent_winners: winnersResult.data || [],
       top_hooks: hooksResult.data || [],
       product_performance: productPerfResult.data || [],
+      experiments: experimentSummary,
     },
     correlation_id: correlationId,
   });

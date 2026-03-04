@@ -60,6 +60,11 @@ export const GET = withErrorCapture(async (request: Request) => {
 
 // ── POST /api/content-items ──────────────────────────────────────
 
+const ExperimentSchema = z.object({
+  variable_type: z.enum(['hook', 'format', 'product', 'length']),
+  variant: z.string().min(1),
+});
+
 const CreateSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   brand_id: z.string().uuid().optional().nullable(),
@@ -69,6 +74,7 @@ const CreateSchema = z.object({
   assigned_creator_id: z.string().uuid().optional().nullable(),
   assigned_editor_id: z.string().uuid().optional().nullable(),
   brief_selected_cow_tier: z.enum(['safe', 'edgy', 'unhinged']).optional(),
+  experiments: z.array(ExperimentSchema).optional(),
 });
 
 export const POST = withErrorCapture(async (request: Request) => {
@@ -112,6 +118,22 @@ export const POST = withErrorCapture(async (request: Request) => {
   if (error) {
     console.error(`[${correlationId}] content_items insert error:`, error);
     return createApiErrorResponse('DB_ERROR', 'Failed to create content item', 500, correlationId);
+  }
+
+  // Insert experiment tags if provided
+  if (parsed.data.experiments?.length && item) {
+    const rows = parsed.data.experiments.map(exp => ({
+      workspace_id: user.id,
+      variable_type: exp.variable_type,
+      variant: exp.variant,
+      content_item_id: item.id,
+    }));
+    const { error: expError } = await supabaseAdmin
+      .from('content_experiments')
+      .insert(rows);
+    if (expError) {
+      console.error(`[${correlationId}] experiment insert error:`, expError);
+    }
   }
 
   const response = NextResponse.json({

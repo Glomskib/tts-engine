@@ -8,6 +8,7 @@ import type { ContentItem, ContentItemStatus, CowTier, ProcessingStatus, Content
 import type { EditorNotesJSON } from '@/lib/content-items/editor-notes-schema';
 import type { PostmortemJSON } from '@/lib/ai/postmortem/generatePostmortem';
 import type { ViralPlaybook } from '@/lib/ai/viral/generatePlaybook';
+import type { ContentVariation } from '@/lib/ai/replicate/generateVariations';
 import type { CreatorBriefData, PurpleCowTier } from '@/lib/briefs/creator-brief-types';
 
 interface ContentMemoryEntry {
@@ -614,11 +615,13 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
   const [metrics, setMetrics] = useState<Record<string, MetricsSnapshot>>({});
   const [insights, setInsights] = useState<Record<string, ContentItemAIInsight>>({});
   const [playbooks, setPlaybooks] = useState<Record<string, ViralPlaybook>>({});
+  const [variations, setVariations] = useState<Record<string, ContentVariation[]>>({});
   const [memories, setMemories] = useState<ContentMemoryEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddPost, setShowAddPost] = useState(false);
   const [metricsPostId, setMetricsPostId] = useState<string | null>(null);
   const [generatingPostmortem, setGeneratingPostmortem] = useState<string | null>(null);
+  const [generatingVariations, setGeneratingVariations] = useState<string | null>(null);
   const [expandedInsight, setExpandedInsight] = useState<string | null>(null);
   const { showToast } = useToast();
 
@@ -690,6 +693,24 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
       showToast({ message: 'Failed to generate postmortem', type: 'error' });
     } finally {
       setGeneratingPostmortem(null);
+    }
+  };
+
+  const handleGenerateVariations = async (postId: string) => {
+    setGeneratingVariations(postId);
+    try {
+      const res = await fetch(`/api/content-items/posts/${postId}/replicate`, { method: 'POST' });
+      const json = await res.json();
+      if (json.ok && json.data?.variations) {
+        setVariations(prev => ({ ...prev, [postId]: json.data.variations }));
+        showToast({ message: '5 variations generated', type: 'success' });
+      } else {
+        showToast({ message: json.error || 'Failed to generate variations', type: 'error' });
+      }
+    } catch {
+      showToast({ message: 'Failed to generate variations', type: 'error' });
+    } finally {
+      setGeneratingVariations(null);
     }
   };
 
@@ -808,6 +829,41 @@ function PerformanceTab({ contentItemId }: { contentItemId: string }) {
                       />
                       {playbooks[post.id] && (
                         <ViralPlaybookCard playbook={playbooks[post.id]} />
+                      )}
+
+                      {/* Generate Variations button */}
+                      <div className="flex items-center gap-2 mt-2">
+                        <button
+                          onClick={() => handleGenerateVariations(post.id)}
+                          disabled={generatingVariations === post.id}
+                          className="text-[10px] text-teal-600 hover:underline flex items-center gap-0.5 disabled:opacity-50"
+                        >
+                          {generatingVariations === post.id ? (
+                            <><Loader2 size={10} className="animate-spin" /> Generating Variations...</>
+                          ) : (
+                            <><Repeat2 size={10} /> Generate Variations</>
+                          )}
+                        </button>
+                      </div>
+
+                      {/* Variations display */}
+                      {variations[post.id] && variations[post.id].length > 0 && (
+                        <div className="mt-2 space-y-2">
+                          <h4 className="text-xs font-semibold flex items-center gap-1 text-teal-700 dark:text-teal-400">
+                            <Repeat2 size={12} /> Content Variations
+                          </h4>
+                          {variations[post.id].map((v, i) => (
+                            <div key={i} className="bg-teal-50 dark:bg-teal-900/20 border border-teal-200 dark:border-teal-800 rounded-lg p-2.5 space-y-1">
+                              <div className="flex items-start justify-between gap-2">
+                                <span className="text-xs font-medium text-teal-800 dark:text-teal-300">{i + 1}. {v.title}</span>
+                              </div>
+                              <p className="text-[11px] text-teal-700 dark:text-teal-400 font-medium">&ldquo;{v.hook}&rdquo;</p>
+                              <p className="text-[10px] text-gray-600 dark:text-gray-400">{v.concept}</p>
+                              <p className="text-[10px] text-gray-500"><span className="font-medium">Angle:</span> {v.angle}</p>
+                              <p className="text-[10px] text-gray-500 italic">{v.why_it_works}</p>
+                            </div>
+                          ))}
+                        </div>
                       )}
                     </>
                   )}

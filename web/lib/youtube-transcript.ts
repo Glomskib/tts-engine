@@ -5,7 +5,7 @@ import { randomUUID } from 'crypto';
 import { getSubtitles } from 'youtube-caption-extractor';
 
 const UA =
-  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36';
 
 // ============================================================================
 // Supadata transcript API (works from cloud/serverless IPs)
@@ -368,20 +368,54 @@ interface PlayerResponse {
 async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | null> {
   const errors: string[] = [];
 
-  // Strategy 1: ANDROID client (YouTube blocks unauthenticated WEB client requests)
+  // Strategy 1: WEB client (most reliable for captions — no PO token needed for transcript data)
   try {
-    const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
+    const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': 'com.google.android.youtube/19.02.39 (Linux; U; Android 14) gzip',
+        'User-Agent': UA,
+        'Cookie': 'CONSENT=PENDING+999',
+      },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: {
+            clientName: 'WEB',
+            clientVersion: '2.20241126.01.00',
+            hl: 'en',
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const status = data.playabilityStatus?.status;
+      if (data.videoDetails && status === 'OK') return data as PlayerResponse;
+      errors.push(`WEB: status=${status} reason=${data.playabilityStatus?.reason || 'none'}`);
+    } else {
+      errors.push(`WEB: HTTP ${res.status}`);
+    }
+  } catch (err) {
+    errors.push(`WEB: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  // Strategy 2: ANDROID client (newer version — may require PO token for streams but captions can still work)
+  try {
+    const res = await fetch('https://www.youtube.com/youtubei/v1/player?prettyPrint=false', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'com.google.android.youtube/20.10.38 (Linux; U; Android 14) gzip',
       },
       body: JSON.stringify({
         videoId,
         context: {
           client: {
             clientName: 'ANDROID',
-            clientVersion: '19.02.39',
+            clientVersion: '20.10.38',
             androidSdkVersion: 34,
             hl: 'en',
           },
@@ -402,40 +436,6 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
     errors.push(`ANDROID: ${err instanceof Error ? err.message : String(err)}`);
   }
 
-  // Strategy 2: WEB client with consent cookie
-  try {
-    const res = await fetch('https://www.youtube.com/youtubei/v1/player', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'User-Agent': UA,
-        'Cookie': 'CONSENT=PENDING+999',
-      },
-      body: JSON.stringify({
-        videoId,
-        context: {
-          client: {
-            clientName: 'WEB',
-            clientVersion: '2.20250101.00.00',
-            hl: 'en',
-          },
-        },
-      }),
-      signal: AbortSignal.timeout(10000),
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      const status = data.playabilityStatus?.status;
-      if (data.videoDetails && status === 'OK') return data as PlayerResponse;
-      errors.push(`WEB: status=${status}`);
-    } else {
-      errors.push(`WEB: HTTP ${res.status}`);
-    }
-  } catch (err) {
-    errors.push(`WEB: ${err instanceof Error ? err.message : String(err)}`);
-  }
-
   // Strategy 3: Scrape watch page with consent cookie
   try {
     const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
@@ -451,15 +451,42 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
     if (pageRes.ok) {
       const html = await pageRes.text();
       // Try multiple patterns for extracting player response
-      const match = html.match(/var\s+ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/) ||
-        html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\})\s*;/);
+      // Use a greedy match then find the balanced closing brace
+      const match = html.match(/var\s+ytInitialPlayerResponse\s*=\s*(\{.+?\});\s*(?:var|let|const|\<)/) ||
+        html.match(/ytInitialPlayerResponse\s*=\s*(\{.+?\});\s*(?:var|let|const|\<)/);
       if (match) {
-        const data = JSON.parse(match[1]);
-        if (data.playabilityStatus?.status === 'OK') return data as PlayerResponse;
-        errors.push(`Scrape: status=${data.playabilityStatus?.status}`);
+        try {
+          const data = JSON.parse(match[1]);
+          if (data.playabilityStatus?.status === 'OK') return data as PlayerResponse;
+          errors.push(`Scrape: status=${data.playabilityStatus?.status}`);
+        } catch {
+          errors.push('Scrape: failed to parse player response JSON');
+        }
       } else {
-        const isConsent = html.includes('consent.youtube.com') || html.includes('CONSENT');
-        errors.push(`Scrape: no player response found${isConsent ? ' (consent page)' : ''} html=${html.length}chars`);
+        // Fallback: try to extract from the raw string with a more permissive approach
+        const idx = html.indexOf('ytInitialPlayerResponse');
+        if (idx !== -1) {
+          const start = html.indexOf('{', idx);
+          if (start !== -1) {
+            try {
+              // Find matching brace by parsing
+              let depth = 0;
+              let end = start;
+              for (let c = start; c < html.length && c < start + 500000; c++) {
+                if (html[c] === '{') depth++;
+                else if (html[c] === '}') { depth--; if (depth === 0) { end = c + 1; break; } }
+              }
+              const data = JSON.parse(html.slice(start, end));
+              if (data.playabilityStatus?.status === 'OK') return data as PlayerResponse;
+              errors.push(`Scrape-v2: status=${data.playabilityStatus?.status}`);
+            } catch {
+              errors.push('Scrape-v2: failed to parse');
+            }
+          }
+        } else {
+          const isConsent = html.includes('consent.youtube.com') || html.includes('CONSENT');
+          errors.push(`Scrape: no player response found${isConsent ? ' (consent page)' : ''} html=${html.length}chars`);
+        }
       }
     } else {
       errors.push(`Scrape: HTTP ${pageRes.status}`);
@@ -473,16 +500,100 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
   throw new Error(`YouTube player response failed: ${errorSummary}`);
 }
 
-// ============================================================================
-// Caption extraction via YouTube API (replaces yt-dlp)
-// ============================================================================
-
 interface CaptionResult {
   transcript: string;
   segments: Segment[];
   duration: number;
   language: string;
 }
+
+// ============================================================================
+// Watch page transcript scraping (engagement panel approach)
+// ============================================================================
+
+async function scrapeTranscriptFromWatchPage(videoId: string): Promise<CaptionResult | null> {
+  const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
+    headers: {
+      'User-Agent': UA,
+      'Accept-Language': 'en-US,en;q=0.9',
+      Accept: 'text/html,application/xhtml+xml',
+      'Cookie': 'CONSENT=PENDING+999',
+    },
+    signal: AbortSignal.timeout(15000),
+  });
+
+  if (!pageRes.ok) return null;
+
+  const html = await pageRes.text();
+
+  // Extract ytInitialPlayerResponse for caption track URLs
+  let playerResponse: PlayerResponse | null = null;
+  const playerMatch = html.match(/ytInitialPlayerResponse\s*=\s*/);
+  if (playerMatch && playerMatch.index !== undefined) {
+    const start = html.indexOf('{', playerMatch.index);
+    if (start !== -1) {
+      try {
+        let depth = 0;
+        let end = start;
+        for (let c = start; c < html.length && c < start + 500000; c++) {
+          if (html[c] === '{') depth++;
+          else if (html[c] === '}') { depth--; if (depth === 0) { end = c + 1; break; } }
+        }
+        playerResponse = JSON.parse(html.slice(start, end)) as PlayerResponse;
+      } catch { /* ignore parse errors */ }
+    }
+  }
+
+  if (!playerResponse) return null;
+
+  const duration = parseInt(playerResponse.videoDetails?.lengthSeconds || '0', 10);
+  const captionTracks = playerResponse.captions?.playerCaptionsTracklistRenderer?.captionTracks;
+
+  if (!captionTracks || captionTracks.length === 0) return null;
+
+  // Pick best track (prefer manual English, then any English, then first available)
+  const manualEn = captionTracks.find(t => t.languageCode === 'en' && t.kind !== 'asr');
+  const autoEn = captionTracks.find(t => t.languageCode === 'en');
+  const track = manualEn || autoEn || captionTracks[0];
+  if (!track?.baseUrl) return null;
+
+  const language = track.languageCode || 'en';
+
+  // Fetch captions as json3
+  const separator = track.baseUrl.includes('?') ? '&' : '?';
+  const captionRes = await fetch(track.baseUrl + separator + 'fmt=json3', {
+    headers: { 'User-Agent': UA },
+    signal: AbortSignal.timeout(10000),
+  });
+
+  if (!captionRes.ok) return null;
+
+  const content = await captionRes.text();
+  let segments: Segment[] = [];
+
+  try {
+    const json3Data = JSON.parse(content);
+    segments = parseJson3ToSegments(json3Data);
+  } catch {
+    // Try XML or VTT fallback
+    if (content.includes('<timedtext') || content.includes('<p t="')) {
+      segments = parseTimedtextXmlToSegments(content);
+    } else if (content.includes('WEBVTT')) {
+      segments = parseVttToSegments(content);
+    }
+  }
+
+  if (segments.length === 0) return null;
+
+  const transcript = segments.map(s => s.text).join(' ');
+  if (!transcript.trim()) return null;
+
+  return { transcript, segments, duration, language };
+}
+
+// ============================================================================
+// Caption extraction via YouTube API (replaces yt-dlp)
+// ============================================================================
 
 export async function extractYouTubeCaptions(url: string): Promise<CaptionResult | null> {
   const videoId = extractVideoId(url);
@@ -533,7 +644,22 @@ export async function extractYouTubeCaptions(url: string): Promise<CaptionResult
     console.warn('[youtube-transcript] npm package failed:', msg);
   }
 
-  // Strategy 2-4: Direct YouTube Innertube API (works locally, blocked from cloud IPs)
+  // Strategy 2: Scrape transcript from watch page engagement panel (no API needed)
+  try {
+    console.log('[youtube-transcript] Trying watch page transcript scrape...');
+    const result = await scrapeTranscriptFromWatchPage(videoId);
+    if (result) {
+      console.log('[youtube-transcript] Watch page scrape succeeded:', result.transcript.length, 'chars');
+      return result;
+    }
+    errors.push('WatchPageScrape: returned null');
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    errors.push(`WatchPageScrape: ${msg}`);
+    console.warn('[youtube-transcript] Watch page scrape failed:', msg);
+  }
+
+  // Strategy 3-5: Direct YouTube Innertube API (works locally, blocked from cloud IPs)
   try {
     const player = await fetchPlayerResponse(videoId);
     if (!player) {
@@ -567,40 +693,67 @@ export async function extractYouTubeCaptions(url: string): Promise<CaptionResult
 
     const language = track.languageCode || 'en';
 
-    // Fetch captions — YouTube may return XML, VTT, or JSON3 regardless of fmt param
+    // Fetch captions — prefer json3 for structured data, fall back to other formats
     let segments: Segment[] = [];
 
-    // Attempt 1: Fetch raw (no fmt param — let YouTube choose, then detect format)
+    // Attempt 1: JSON3 format (most reliable structured output)
     try {
-      const captionRes = await fetch(track.baseUrl, {
+      const separator = track.baseUrl.includes('?') ? '&' : '?';
+      const json3Url = track.baseUrl + separator + 'fmt=json3';
+      const captionRes = await fetch(json3Url, {
         headers: { 'User-Agent': UA },
         signal: AbortSignal.timeout(10000),
       });
       if (captionRes.ok) {
         const content = await captionRes.text();
-        if (content.includes('<timedtext') || content.includes('<p t="')) {
-          // XML timedtext format (common with ANDROID client)
-          segments = parseTimedtextXmlToSegments(content);
-        } else if (content.includes('WEBVTT')) {
-          segments = parseVttToSegments(content);
-        } else {
-          // Try JSON3
-          try {
-            const json3Data = JSON.parse(content);
-            segments = parseJson3ToSegments(json3Data);
-          } catch {
-            console.warn('[youtube-transcript] Unknown caption format, length:', content.length);
+        try {
+          const json3Data = JSON.parse(content);
+          segments = parseJson3ToSegments(json3Data);
+        } catch {
+          // Not JSON — detect other formats
+          if (content.includes('<timedtext') || content.includes('<p t="')) {
+            segments = parseTimedtextXmlToSegments(content);
+          } else if (content.includes('WEBVTT')) {
+            segments = parseVttToSegments(content);
           }
         }
       }
     } catch (err) {
-      console.warn('[youtube-transcript] Caption fetch failed:', err);
+      console.warn('[youtube-transcript] JSON3 caption fetch failed:', err);
     }
 
-    // Attempt 2: Explicit VTT format request as fallback
+    // Attempt 2: Raw format (let YouTube choose)
     if (segments.length === 0) {
       try {
-        const vttUrl = track.baseUrl + '&fmt=vtt';
+        const captionRes = await fetch(track.baseUrl, {
+          headers: { 'User-Agent': UA },
+          signal: AbortSignal.timeout(10000),
+        });
+        if (captionRes.ok) {
+          const content = await captionRes.text();
+          if (content.includes('<timedtext') || content.includes('<p t="')) {
+            segments = parseTimedtextXmlToSegments(content);
+          } else if (content.includes('WEBVTT')) {
+            segments = parseVttToSegments(content);
+          } else {
+            try {
+              const json3Data = JSON.parse(content);
+              segments = parseJson3ToSegments(json3Data);
+            } catch {
+              console.warn('[youtube-transcript] Unknown caption format, length:', content.length);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[youtube-transcript] Raw caption fetch failed:', err);
+      }
+    }
+
+    // Attempt 3: Explicit VTT format request as fallback
+    if (segments.length === 0) {
+      try {
+        const separator = track.baseUrl.includes('?') ? '&' : '?';
+        const vttUrl = track.baseUrl + separator + 'fmt=vtt';
         const vttRes = await fetch(vttUrl, {
           headers: { 'User-Agent': UA },
           signal: AbortSignal.timeout(10000),

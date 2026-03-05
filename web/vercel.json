@@ -103,6 +103,14 @@
     {
       "path": "/api/cron/metrics-sync",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/cron/detect-winners",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/process-jobs",
+      "schedule": "* * * * *"
     }
   ]
 }

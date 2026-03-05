@@ -19,7 +19,7 @@ export const GET = withErrorCapture(async (request: Request) => {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
 
-  const [bestResult, worstResult, allResult] = await Promise.all([
+  const [bestResult, worstResult, allResult, winnerHooksResult] = await Promise.all([
     // Best hooks — high performance_score, at least 1 use
     supabaseAdmin
       .from('hook_patterns')
@@ -45,6 +45,16 @@ export const GET = withErrorCapture(async (request: Request) => {
       .eq('workspace_id', user.id)
       .order('created_at', { ascending: false })
       .limit(50),
+
+    // Winner pattern hooks — from winner_patterns_v2
+    supabaseAdmin
+      .from('winner_patterns_v2')
+      .select('id, hook_text, format_tag, length_bucket, score, sample_size, platform')
+      .eq('workspace_id', user.id)
+      .not('hook_text', 'is', null)
+      .gte('sample_size', 2)
+      .order('score', { ascending: false })
+      .limit(20),
   ]);
 
   const bestHooks = (bestResult.data || []).map((h: any) => ({
@@ -82,12 +92,24 @@ export const GET = withErrorCapture(async (request: Request) => {
         : 0,
     }));
 
+  // Winner pattern hooks — proven hooks from winner detection
+  const winnerHooks = (winnerHooksResult.data || []).map((h: any) => ({
+    id: h.id,
+    hook: h.hook_text,
+    format_tag: h.format_tag,
+    length_bucket: h.length_bucket,
+    score: h.score,
+    sample_size: h.sample_size,
+    platform: h.platform,
+  }));
+
   const response = NextResponse.json({
     ok: true,
     data: {
       best_hooks: bestHooks,
       worst_hooks: worstHooks,
       trending_hooks: trendingHooks,
+      winner_hooks: winnerHooks,
     },
     correlation_id: correlationId,
   });

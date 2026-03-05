@@ -104,6 +104,7 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Command Center', href: '/admin', icon: Gauge },
+      { name: 'Creator Dashboard', href: '/admin/creator', icon: Clapperboard, tourId: 'nav-creator' },
     ],
   },
   {
@@ -138,6 +139,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Winner Patterns', href: '/admin/intelligence/winners-bank', icon: Activity, minPlan: 'creator_pro' },
       { name: 'Clip Index', href: '/admin/clip-index', icon: Film },
       { name: 'Hook Library', href: '/admin/hooks', icon: Anchor, minPlan: 'creator_pro' },
+      { name: 'Hook Performance', href: '/admin/intelligence/hooks', icon: Zap, minPlan: 'creator_pro' },
       { name: 'Performance', href: '/admin/performance', icon: BarChart3, minPlan: 'creator_pro' },
     ],
   },

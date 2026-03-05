@@ -7,6 +7,7 @@ import {
   ArrowLeft, ChevronDown, ChevronUp, Check, AlertTriangle,
   Video, FileText, Package, Scissors, Send, BarChart3,
   Lightbulb, Copy, ExternalLink, FolderOpen, Trophy, Sparkles,
+  Loader2, Wand2,
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { getNextAction } from '@/lib/videos/nextAction';
@@ -205,6 +206,8 @@ export default function VideoWorkflowPage() {
   const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [winnerPatterns, setWinnerPatterns] = useState<RelevantPattern[]>([]);
+  const [editingSuggestions, setEditingSuggestions] = useState<Array<{ timestamp_start: number | null; timestamp_end: number | null; suggestion: string; type: string }>>([]);
+  const [analyzingEdits, setAnalyzingEdits] = useState(false);
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -643,6 +646,75 @@ export default function VideoWorkflowPage() {
             )}
             {video.status !== 'draft' && video.status !== 'needs_edit' && (
               <p className="text-zinc-500 text-sm">Editing complete.</p>
+            )}
+          </div>
+        </AccordionSection>
+
+        {/* 6b. Editing Suggestions */}
+        <AccordionSection
+          title="Editing Suggestions"
+          icon={Wand2}
+          isComplete={editingSuggestions.length > 0}
+          defaultOpen={false}
+        >
+          <div className="space-y-3">
+            {editingSuggestions.length === 0 ? (
+              <button
+                type="button"
+                onClick={async () => {
+                  setAnalyzingEdits(true);
+                  try {
+                    const res = await fetch('/api/intelligence/analyze-edit', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ content_item_id: videoId }),
+                    });
+                    const json = await res.json();
+                    if (json.ok) setEditingSuggestions(json.data.suggestions);
+                  } catch {
+                    showError('Failed to analyze transcript');
+                  } finally {
+                    setAnalyzingEdits(false);
+                  }
+                }}
+                disabled={analyzingEdits}
+                className="w-full py-3 min-h-[48px] bg-violet-500/10 text-violet-400 border border-violet-500/20 rounded-xl text-sm font-medium hover:bg-violet-500/20 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {analyzingEdits ? <Loader2 className="w-4 h-4 animate-spin" /> : <Wand2 className="w-4 h-4" />}
+                {analyzingEdits ? 'Analyzing...' : 'Analyze Transcript for Edits'}
+              </button>
+            ) : (
+              <div className="space-y-2">
+                {editingSuggestions.map((s, i) => {
+                  const typeColors: Record<string, string> = {
+                    cut_pause: 'text-red-400 bg-red-400/10',
+                    remove_mistake: 'text-orange-400 bg-orange-400/10',
+                    add_broll: 'text-blue-400 bg-blue-400/10',
+                    add_text_overlay: 'text-teal-400 bg-teal-400/10',
+                    highlight_hook: 'text-amber-400 bg-amber-400/10',
+                  };
+                  const formatTime = (t: number | null) => {
+                    if (t == null) return '';
+                    const m = Math.floor(t / 60);
+                    const sec = Math.floor(t % 60);
+                    return `${m}:${String(sec).padStart(2, '0')}`;
+                  };
+                  return (
+                    <div key={i} className="flex items-start gap-3 bg-zinc-800/50 rounded-lg p-3">
+                      <span className="text-xs text-zinc-500 font-mono w-16 flex-shrink-0 pt-0.5">
+                        {formatTime(s.timestamp_start)}
+                        {s.timestamp_end != null ? `–${formatTime(s.timestamp_end)}` : ''}
+                      </span>
+                      <div className="flex-1">
+                        <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-bold uppercase mb-1 ${typeColors[s.type] || 'text-zinc-400 bg-zinc-700'}`}>
+                          {s.type.replace(/_/g, ' ')}
+                        </span>
+                        <p className="text-sm text-zinc-300">{s.suggestion}</p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
         </AccordionSection>

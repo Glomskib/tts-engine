@@ -24,10 +24,21 @@ interface TrendingHook {
   growth_rate: number;
 }
 
+interface WinnerHook {
+  id: string;
+  hook: string;
+  format_tag: string | null;
+  length_bucket: string | null;
+  score: number;
+  sample_size: number;
+  platform: string;
+}
+
 interface HookData {
   best_hooks: HookEntry[];
   worst_hooks: HookEntry[];
   trending_hooks: TrendingHook[];
+  winner_hooks: WinnerHook[];
 }
 
 function ScoreBadge({ score }: { score: number }) {
@@ -86,6 +97,13 @@ export default function HookPerformancePage() {
 
   const generateLink = (hook: string) => {
     const params = new URLSearchParams({ inspiration: hook });
+    return `/admin/content-studio?${params.toString()}`;
+  };
+
+  const useHookLink = (hook: string, format?: string | null, length?: string | null) => {
+    const params = new URLSearchParams({ hook });
+    if (format) params.set('format', format);
+    if (length) params.set('length', length);
     return `/admin/content-studio?${params.toString()}`;
   };
 
@@ -170,6 +188,38 @@ export default function HookPerformancePage() {
                   <Zap className="w-4 h-4" /> Double Down
                 </Link>
               } />
+            ))}
+          </div>
+        </AdminCard>
+      )}
+      {/* Winner Pattern Hooks */}
+      {data?.winner_hooks && data.winner_hooks.length > 0 && (
+        <AdminCard title="Proven Winner Hooks" subtitle="Hooks from auto-detected winning patterns">
+          <div className="space-y-3">
+            {data.winner_hooks.map(hook => (
+              <div key={hook.id} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-3">
+                <p className="text-sm font-medium text-white leading-relaxed">
+                  &ldquo;{hook.hook}&rdquo;
+                </p>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold border ${
+                    hook.score >= 70 ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30'
+                    : hook.score >= 40 ? 'text-amber-400 bg-amber-400/10 border-amber-400/30'
+                    : 'text-red-400 bg-red-400/10 border-red-400/30'
+                  }`}>
+                    {hook.score}
+                  </span>
+                  <span className="text-xs text-zinc-500">{hook.sample_size} videos</span>
+                  {hook.format_tag && <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded">{hook.format_tag}</span>}
+                  {hook.platform && <span className="text-xs text-zinc-500">{hook.platform}</span>}
+                </div>
+                <Link
+                  href={useHookLink(hook.hook, hook.format_tag, hook.length_bucket)}
+                  className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-sm font-medium transition-colors bg-teal-600 text-white active:bg-teal-700"
+                >
+                  <Sparkles className="w-4 h-4" /> Use in Script
+                </Link>
+              </div>
             ))}
           </div>
         </AdminCard>

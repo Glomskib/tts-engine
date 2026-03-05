@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import {
   Trophy, Loader2, RefreshCw, Sparkles, Filter,
-  TrendingUp, Users, Eye, MessageCircle,
+  TrendingUp, Users, Eye, MessageCircle, Copy, X, Check,
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -91,6 +91,11 @@ export default function WinnersBankPage() {
   const [detecting, setDetecting] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Replication
+  const [replicatePatternId, setReplicatePatternId] = useState<string | null>(null);
+  const [replicateCount, setReplicateCount] = useState(5);
+  const [replicating, setReplicating] = useState(false);
+
   // Filters
   const [platform, setPlatform] = useState('');
   const [formatTag, setFormatTag] = useState('');
@@ -138,8 +143,78 @@ export default function WinnersBankPage() {
     }
   };
 
+  const handleReplicate = async () => {
+    if (!replicatePatternId) return;
+    setReplicating(true);
+    try {
+      const res = await fetch('/api/intelligence/replicate-pattern', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pattern_id: replicatePatternId, count: replicateCount }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        showSuccess(`Queued ${replicateCount} script variations. Check your Content Items shortly.`);
+        setReplicatePatternId(null);
+      } else {
+        showError(json.message || 'Replication failed');
+      }
+    } catch {
+      showError('Network error');
+    } finally {
+      setReplicating(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#09090b]">
+      {/* Replicate Modal */}
+      {replicatePatternId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm px-4">
+          <div className="bg-zinc-900 border border-zinc-700 rounded-2xl p-6 w-full max-w-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold text-white">Replicate Pattern</h3>
+              <button onClick={() => setReplicatePatternId(null)} className="p-1 text-zinc-500 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-zinc-400">
+              Generate multiple new scripts based on this winning pattern. They'll appear as new content items in &ldquo;Briefing&rdquo; status.
+            </p>
+            <div>
+              <label className="text-xs font-medium text-zinc-500 uppercase tracking-wider">How many videos?</label>
+              <div className="flex items-center gap-3 mt-2">
+                {[3, 5, 7, 10].map(n => (
+                  <button
+                    key={n}
+                    onClick={() => setReplicateCount(n)}
+                    className={`px-4 py-2.5 min-h-[44px] rounded-xl text-sm font-semibold border transition-colors ${
+                      replicateCount === n
+                        ? 'bg-teal-500/20 text-teal-400 border-teal-500/30'
+                        : 'bg-zinc-800 text-zinc-400 border-zinc-700 hover:bg-zinc-700'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <button
+              onClick={handleReplicate}
+              disabled={replicating}
+              className="w-full py-3 min-h-[48px] bg-teal-600 text-white rounded-xl text-sm font-semibold hover:bg-teal-500 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+            >
+              {replicating ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Copy className="w-4 h-4" />
+              )}
+              {replicating ? 'Queuing...' : `Generate ${replicateCount} Variations`}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="sticky top-0 z-30 bg-[#09090b]/95 backdrop-blur-sm border-b border-white/10">
         <div className="max-w-3xl mx-auto px-4 py-3">
@@ -265,18 +340,27 @@ export default function WinnersBankPage() {
                 </span>
               </div>
 
-              {/* Use This button */}
-              <Link
-                href={`/admin/content-studio?${new URLSearchParams({
-                  ...(pattern.hook_text ? { inspiration: pattern.hook_text } : {}),
-                  ...(pattern.format_tag ? { format: pattern.format_tag } : {}),
-                  ...(pattern.length_bucket ? { length: pattern.length_bucket } : {}),
-                }).toString()}`}
-                className="flex items-center justify-center gap-2 w-full py-3 min-h-[48px] bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded-xl text-sm font-medium hover:bg-teal-500/20 active:bg-teal-500/30 transition-colors"
-              >
-                <Sparkles className="w-4 h-4" />
-                Use This Pattern
-              </Link>
+              {/* Action buttons */}
+              <div className="flex gap-2">
+                <Link
+                  href={`/admin/content-studio?${new URLSearchParams({
+                    ...(pattern.hook_text ? { inspiration: pattern.hook_text } : {}),
+                    ...(pattern.format_tag ? { format: pattern.format_tag } : {}),
+                    ...(pattern.length_bucket ? { length: pattern.length_bucket } : {}),
+                  }).toString()}`}
+                  className="flex-1 flex items-center justify-center gap-2 py-3 min-h-[48px] bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded-xl text-sm font-medium hover:bg-teal-500/20 active:bg-teal-500/30 transition-colors"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  Use Pattern
+                </Link>
+                <button
+                  onClick={() => { setReplicatePatternId(pattern.id); setReplicateCount(5); }}
+                  className="flex items-center justify-center gap-2 px-4 py-3 min-h-[48px] bg-violet-500/10 text-violet-400 border border-violet-500/20 rounded-xl text-sm font-medium hover:bg-violet-500/20 active:bg-violet-500/30 transition-colors"
+                >
+                  <Copy className="w-4 h-4" />
+                  Replicate
+                </button>
+              </div>
             </div>
           ))
         )}

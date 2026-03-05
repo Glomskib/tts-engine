@@ -19,7 +19,7 @@ import type {
 } from './types';
 
 const MIN_SAMPLE_SIZE = 5;
-const LOOKBACK_DAYS = 30;
+const DEFAULT_LOOKBACK_DAYS = 30;
 
 interface ScoredPost {
   post: PostWithMetrics;
@@ -30,8 +30,12 @@ interface ScoredPost {
 /**
  * Run winner detection for a single workspace.
  */
-export async function detectWinners(workspaceId: string): Promise<DetectWinnersResult> {
-  const cutoff = new Date(Date.now() - LOOKBACK_DAYS * 86400000).toISOString();
+export async function detectWinners(
+  workspaceId: string,
+  options?: { daysBack?: number },
+): Promise<DetectWinnersResult> {
+  const lookbackDays = options?.daysBack ?? DEFAULT_LOOKBACK_DAYS;
+  const cutoff = new Date(Date.now() - lookbackDays * 86400000).toISOString();
 
   // 1. Fetch recent posts with latest metrics
   const posts = await fetchPostsWithMetrics(workspaceId, cutoff);

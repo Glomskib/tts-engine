@@ -362,6 +362,8 @@ export default function ContentStudioPage() {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [referenceScript, setReferenceScript] = useState<string>('');
   const [winnerPatternApplied, setWinnerPatternApplied] = useState(false);
+  const [viralScore, setViralScore] = useState<{ score: number; reason: string } | null>(null);
+  const [viralScoreLoading, setViralScoreLoading] = useState(false);
   const [specificHooks, setSpecificHooks] = useState<string>('');
   const [thingsToAvoid, setThingsToAvoid] = useState<string>('');
   const [ctaPreference, setCtaPreference] = useState<string>('');
@@ -855,6 +857,13 @@ export default function ContentStudioPage() {
     if (lengthParam && TARGET_LENGTHS.find(tl => tl.id === lengthParam)) {
       setSelectedLengthId(lengthParam);
     }
+    // Hook param from Hook Library — pre-fill specific hooks field
+    const hookParam = searchParams.get('hook');
+    if (hookParam) {
+      setSpecificHooks(decodeURIComponent(hookParam));
+      setShowAdvanced(true);
+      setWinnerPatternApplied(true);
+    }
   }, [searchParams]);
 
   // Reset subtype when content type changes
@@ -895,6 +904,36 @@ export default function ContentStudioPage() {
       fetchOrGeneratePainPoints();
     }
   }, [selectedProductId]);
+
+  // Viral score prediction — debounced fetch when key inputs change
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (!selectedProductId && !specificHooks.trim()) {
+        setViralScore(null);
+        return;
+      }
+      setViralScoreLoading(true);
+      try {
+        const res = await fetch('/api/intelligence/predict-score', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            hook: specificHooks.trim() || null,
+            format: selectedPresentationStyleId || null,
+            length: selectedLengthId || null,
+            product_id: selectedProductId || null,
+          }),
+        });
+        const json = await res.json();
+        if (json.ok) setViralScore({ score: json.data.score, reason: json.data.reason });
+      } catch {
+        // silently fail
+      } finally {
+        setViralScoreLoading(false);
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [specificHooks, selectedPresentationStyleId, selectedLengthId, selectedProductId]);
 
   // --- Handlers ---
 
@@ -1930,6 +1969,18 @@ export default function ContentStudioPage() {
               >
                 <X size={14} />
               </button>
+            </div>
+          )}
+          {/* Viral Score Predictor */}
+          {viralScore && !viralScoreLoading && (
+            <div className={`w-full sm:w-auto flex items-center gap-2 px-3 py-2 rounded-xl text-xs border ${
+              viralScore.score >= 80 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+              : viralScore.score >= 60 ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+              : 'bg-red-500/10 border-red-500/20 text-red-400'
+            }`}>
+              <Target size={14} className="flex-shrink-0" />
+              <span className="font-medium">Viral Potential: {viralScore.score}</span>
+              <span className="text-[10px] opacity-70 truncate max-w-[200px]">{viralScore.reason}</span>
             </div>
           )}
           {/* Action buttons - wrap on mobile */}

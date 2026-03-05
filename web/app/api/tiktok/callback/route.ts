@@ -50,9 +50,17 @@ export async function GET(request: Request) {
       );
     }
 
-    const clientKey = requireEnv('TIKTOK_PARTNER_CLIENT_KEY');
-    const clientSecret = requireEnv('TIKTOK_PARTNER_CLIENT_SECRET');
+    // Resolve client key: prefer PARTNER variant, fall back to standard
+    const clientKey = (process.env.TIKTOK_PARTNER_CLIENT_KEY?.trim() || process.env.TIKTOK_CLIENT_KEY?.trim() || '');
+    const clientSecret = (process.env.TIKTOK_PARTNER_CLIENT_SECRET?.trim() || process.env.TIKTOK_CLIENT_SECRET?.trim() || '');
     const redirectUri = requireEnv('TIKTOK_REDIRECT_URI');
+
+    if (!clientKey || !clientSecret) {
+      console.error('[tiktok/callback] Missing TikTok client credentials');
+      return NextResponse.redirect(
+        new URL('/admin/settings/tiktok?partner_error=missing_credentials', request.url)
+      );
+    }
 
     // Exchange code for access token
     const tokenResponse = await fetch('https://open.tiktokapis.com/v2/oauth/token/', {

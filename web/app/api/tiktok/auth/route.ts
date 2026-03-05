@@ -5,14 +5,43 @@ import { randomBytes } from 'crypto';
 
 export const runtime = 'nodejs';
 
-/** Read and trim an env var; throw if empty. */
-function requireEnv(name: string): string {
-  const raw = process.env[name];
-  const value = raw?.trim() ?? '';
-  if (!value) {
-    throw new Error(`Missing required env var: ${name}`);
+/**
+ * Resolve TikTok client key from environment.
+ * Checks TIKTOK_PARTNER_CLIENT_KEY first, falls back to TIKTOK_CLIENT_KEY.
+ */
+function resolveTikTokClientKey(): string {
+  const partner = process.env.TIKTOK_PARTNER_CLIENT_KEY?.trim();
+  const standard = process.env.TIKTOK_CLIENT_KEY?.trim();
+
+  if (partner) return partner;
+  if (standard) {
+    console.log('[tiktok/auth] Using TIKTOK_CLIENT_KEY (TIKTOK_PARTNER_CLIENT_KEY not set)');
+    return standard;
   }
-  return value;
+
+  throw new Error(
+    'TikTok client key missing. Set TIKTOK_PARTNER_CLIENT_KEY or TIKTOK_CLIENT_KEY in your environment.'
+  );
+}
+
+/**
+ * Resolve TikTok redirect URI.
+ * Uses TIKTOK_REDIRECT_URI env var, or falls back to constructing from NEXT_PUBLIC_APP_URL.
+ */
+function resolveTikTokRedirectUri(requestUrl: string): string {
+  const envUri = process.env.TIKTOK_REDIRECT_URI?.trim();
+  if (envUri) return envUri;
+
+  // Fallback: derive from app URL or request origin
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.trim();
+  if (appUrl) {
+    return `${appUrl.replace(/\/$/, '')}/api/tiktok/callback`;
+  }
+
+  // Last resort: use request origin
+  const origin = new URL(requestUrl).origin;
+  console.warn(`[tiktok/auth] TIKTOK_REDIRECT_URI not set, deriving from request origin: ${origin}`);
+  return `${origin}/api/tiktok/callback`;
 }
 
 export async function GET(request: Request) {
@@ -24,8 +53,19 @@ export async function GET(request: Request) {
       return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
     }
 
-    const clientKey = requireEnv('TIKTOK_PARTNER_CLIENT_KEY');
-    const redirectUri = requireEnv('TIKTOK_REDIRECT_URI');
+    const clientKey = resolveTikTokClientKey();
+    const redirectUri = resolveTikTokRedirectUri(request.url);
+
+    // Validate client key format (should be alphanumeric, typically 15-30 chars)
+    if (!/^[A-Za-z0-9_-]+$/.test(clientKey)) {
+      console.error(`[tiktok/auth] client_key contains invalid characters (length=${clientKey.length})`);
+      return createApiErrorResponse(
+        'CONFIG_ERROR',
+        'TikTok client key has invalid format. Check env vars for trailing whitespace or special characters.',
+        500,
+        correlationId
+      );
+    }
 
     // Generate random state for CSRF protection
     const state = randomBytes(16).toString('hex');
@@ -45,9 +85,14 @@ export async function GET(request: Request) {
 
     // Log masked diagnostics for debugging in production
     const maskedKey = clientKey.length > 6
-      ? clientKey.slice(0, 2) + '***' + clientKey.slice(-4)
+      ? clientKey.slice(0, 6) + '***'
       : '***';
-    console.log(`[tiktok/auth] Redirecting to TikTok OAuth (client_key=${maskedKey}, redirect_uri=${redirectUri}, scope=${scope}, cid=${correlationId})`);
+    console.log(
+      `[tiktok/auth] Redirecting to TikTok OAuth ` +
+      `(client_key=${maskedKey}, len=${clientKey.length}, ` +
+      `redirect_uri=${redirectUri}, scope=${scope}, ` +
+      `cid=${correlationId})`
+    );
 
     // Store state in cookie for verification in callback
     const response = NextResponse.redirect(authUrl);

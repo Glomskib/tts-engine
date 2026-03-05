@@ -34,8 +34,11 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Admin access required' }, { status: 403 });
   }
 
-  const rawClientKey = process.env.TIKTOK_PARTNER_CLIENT_KEY;
-  const rawClientSecret = process.env.TIKTOK_PARTNER_CLIENT_SECRET;
+  const rawPartnerKey = process.env.TIKTOK_PARTNER_CLIENT_KEY;
+  const rawStandardKey = process.env.TIKTOK_CLIENT_KEY;
+  const rawClientKey = rawPartnerKey || rawStandardKey;
+  const usingKeySource = rawPartnerKey ? 'TIKTOK_PARTNER_CLIENT_KEY' : rawStandardKey ? 'TIKTOK_CLIENT_KEY' : 'NONE';
+  const rawClientSecret = process.env.TIKTOK_PARTNER_CLIENT_SECRET || process.env.TIKTOK_CLIENT_SECRET;
   const rawRedirectUri = process.env.TIKTOK_REDIRECT_URI;
 
   const clientKey = rawClientKey?.trim() ?? '';
@@ -62,12 +65,11 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     env_vars_read: {
-      client_key: 'TIKTOK_PARTNER_CLIENT_KEY',
-      client_secret: 'TIKTOK_PARTNER_CLIENT_SECRET',
+      client_key_source: usingKeySource,
+      partner_key_set: !!rawPartnerKey,
+      standard_key_set: !!rawStandardKey,
       redirect_uri: 'TIKTOK_REDIRECT_URI',
     },
-    using_TIKTOK_PARTNER_CLIENT_KEY: true,
-    using_NEXT_PUBLIC_variant: false,
     client_key_raw: {
       length: clientKeyInfo.length,
       preview: clientKeyInfo.preview,

@@ -7,6 +7,7 @@ import {
   Users, CreditCard, Timer, AlertCircle,
 } from 'lucide-react';
 import { SkeletonStats, SkeletonCard } from '@/components/ui/Skeleton';
+import { StatChip } from '@/components/ui/StatChip';
 
 type ServiceStatus = 'healthy' | 'degraded' | 'unhealthy' | 'not_configured';
 
@@ -294,20 +295,23 @@ export default function SystemStatusPage() {
           {/* Usage Stats */}
           <h2 className="text-lg font-semibold text-white mb-4">Usage Stats</h2>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            <StatCard
+            <StatChip
               label="Total Users"
-              value={data.usage.totalUsers}
-              icon={<Users className="w-5 h-5 text-teal-400" />}
+              value={data.usage.totalUsers.toLocaleString()}
+              icon={<Users className="w-3 h-3 text-teal-400" />}
+              size="md"
             />
-            <StatCard
+            <StatChip
               label="Active (7 days)"
-              value={data.usage.activeThisWeek}
-              icon={<Activity className="w-5 h-5 text-green-400" />}
+              value={data.usage.activeThisWeek.toLocaleString()}
+              icon={<Activity className="w-3 h-3 text-green-400" />}
+              size="md"
             />
-            <StatCard
+            <StatChip
               label="Credits Today"
-              value={data.usage.creditsConsumedToday}
-              icon={<CreditCard className="w-5 h-5 text-amber-400" />}
+              value={data.usage.creditsConsumedToday.toLocaleString()}
+              icon={<CreditCard className="w-3 h-3 text-amber-400" />}
+              size="md"
             />
           </div>
 
@@ -377,22 +381,3 @@ function PipelineCard({
   );
 }
 
-function StatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: number;
-  icon: React.ReactNode;
-}) {
-  return (
-    <div className="p-4 rounded-xl border border-white/10 bg-zinc-900/50">
-      <div className="flex items-center gap-3 mb-2">
-        {icon}
-        <p className="text-sm font-medium text-zinc-400">{label}</p>
-      </div>
-      <p className="text-2xl font-bold text-white">{value.toLocaleString()}</p>
-    </div>
-  );
-}

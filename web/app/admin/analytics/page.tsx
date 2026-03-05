@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
-import AdminPageLayout, { AdminCard, StatCard, AdminButton } from '../components/AdminPageLayout';
+import AdminPageLayout, { AdminCard, AdminButton } from '../components/AdminPageLayout';
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
-import { Download } from 'lucide-react';
+import { Download, Film, Send, Star, TrendingUp } from 'lucide-react';
+import { StatChip } from '@/components/ui/StatChip';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 
 const PIE_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#ec4899', '#84cc16', '#64748b', '#f97316'];
 
@@ -181,25 +183,17 @@ export default function AnalyticsPage() {
 
   const dateButtons = (
     <div className="flex items-center gap-2 flex-wrap">
-      {[
-        { label: '7d', value: 7 },
-        { label: '30d', value: 30 },
-        { label: '90d', value: 90 },
-        { label: 'All', value: 0 },
-      ].map((opt) => (
-        <button
-          key={opt.value}
-          type="button"
-          onClick={() => setDays(opt.value)}
-          className={`px-4 py-2 text-sm rounded-lg transition-colors min-h-[44px] ${
-            days === opt.value
-              ? 'bg-violet-600 text-white'
-              : 'bg-zinc-800 text-zinc-400 border border-white/10 hover:bg-zinc-700'
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
+      <SegmentedControl
+        options={[
+          { value: '7', label: '7d' },
+          { value: '30', label: '30d' },
+          { value: '90', label: '90d' },
+          { value: '0', label: 'All' },
+        ]}
+        value={String(days)}
+        onChange={(v) => setDays(Number(v))}
+        fullWidth={false}
+      />
       <AdminButton variant="secondary" size="sm" onClick={exportCsv} disabled={exporting || !data}>
         <Download size={14} className="mr-1.5" />
         {exporting ? 'Exporting...' : 'Export'}
@@ -233,24 +227,29 @@ export default function AnalyticsPage() {
         <>
           {/* Top Metrics Row */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <StatCard
+            <StatChip
               label="Total Videos"
               value={data.metrics.total_videos}
+              icon={<Film className="w-3 h-3 text-blue-400" />}
+              size="md"
             />
-            <StatCard
+            <StatChip
               label="Posted This Week"
               value={data.metrics.posted_this_week}
-              variant="success"
+              icon={<Send className="w-3 h-3 text-green-400" />}
+              size="md"
             />
-            <StatCard
+            <StatChip
               label="Avg Script Score"
-              value={data.metrics.avg_script_score}
-              trend={`out of 10`}
+              value={`${data.metrics.avg_script_score} / 10`}
+              icon={<Star className="w-3 h-3 text-amber-400" />}
+              size="md"
             />
-            <StatCard
+            <StatChip
               label="Pipeline Throughput"
               value={`${data.metrics.throughput_pct}%`}
-              trend={`${data.metrics.videos_posted} of ${data.metrics.scripts_generated} scripts`}
+              icon={<TrendingUp className="w-3 h-3 text-violet-400" />}
+              size="md"
             />
           </div>
 

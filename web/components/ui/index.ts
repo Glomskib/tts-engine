@@ -84,3 +84,13 @@ export { LazyImage, LazyThumbnail } from './LazyImage';
 // Progress
 export { Progress } from './Progress';
 export type { ProgressProps, ProgressSize, ProgressIntent } from './Progress';
+
+// Mobile-safe controls
+export { SegmentedControl } from './SegmentedControl';
+export type { SegmentedControlProps, SegmentedControlOption } from './SegmentedControl';
+export { StatChip } from './StatChip';
+export type { StatChipProps } from './StatChip';
+export { ProgressInline } from './ProgressInline';
+export type { ProgressInlineProps, ProgressInlineIntent } from './ProgressInline';
+export { IconAction } from './IconAction';
+export type { IconActionProps } from './IconAction';

@@ -70,6 +70,7 @@ import TalkThroughItModal, { type VoiceBriefParams } from '@/components/TalkThro
 import ScriptAssistantChat from './_components/ScriptAssistantChat';
 import { BottomSheet } from '@/components/BottomSheet';
 import { MobileTextarea } from '@/components/ui/MobileInput';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
 
 // Icon mapping for content types
 const CONTENT_TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -2177,75 +2178,36 @@ export default function ContentStudioPage() {
         {/* Left Column: Configuration */}
         <div className={`${isMobile ? '' : 'bg-zinc-900/50 border border-white/10 rounded-2xl'} p-3 lg:p-6`}>
           {/* AI Generate / Write Manually Toggle */}
-          <div className="flex items-center gap-2 mb-4 pb-4 border-b border-zinc-800">
-            <div className="flex rounded-lg overflow-hidden border border-white/10">
-              <button
-                type="button"
-                onClick={() => setManualWriteMode(false)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
-                  !manualWriteMode
-                    ? 'bg-blue-600 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Sparkles size={14} />
-                AI Generate
-              </button>
-              <button
-                type="button"
-                onClick={() => setManualWriteMode(true)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium transition-colors ${
-                  manualWriteMode
-                    ? 'bg-violet-600 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:text-zinc-200'
-                }`}
-              >
-                <Pencil size={14} />
-                Write Manually
-              </button>
-            </div>
+          <div className="mb-4 pb-4 border-b border-zinc-800">
+            <SegmentedControl
+              options={[
+                { value: 'ai', label: 'AI Generate', icon: <Sparkles size={14} /> },
+                { value: 'manual', label: 'Write Manually', icon: <Pencil size={14} /> },
+              ]}
+              value={manualWriteMode ? 'manual' : 'ai'}
+              onChange={(v) => setManualWriteMode(v === 'manual')}
+              size="md"
+            />
           </div>
           {/* Simple/Advanced toggle — own row below mode bar, only in AI mode */}
           {!manualWriteMode && (
-            <div className="mb-4" style={{
-              padding: '10px 14px',
-              borderRadius: '10px',
-              border: `1px solid ${simpleMode ? 'rgba(20, 184, 166, 0.25)' : 'rgba(99, 102, 241, 0.25)'}`,
-              backgroundColor: simpleMode ? 'rgba(20, 184, 166, 0.05)' : 'rgba(99, 102, 241, 0.05)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px',
-              transition: 'all 0.2s ease',
-            }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '13px', fontWeight: 600, color: simpleMode ? '#2dd4bf' : '#a5b4fc' }}>
-                  {simpleMode ? 'Simple Mode' : 'Advanced Mode'}
-                </div>
-                <div style={{ fontSize: '12px', color: '#71717a', marginTop: '1px' }}>
-                  {simpleMode ? (
-                    <>Pick a product, choose a style, and generate. <button type="button" onClick={() => { setSimpleMode(false); localStorage.setItem('ff-simple-mode', 'false'); }} style={{ color: '#6366f1', background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', padding: 0, textDecoration: 'underline' }}>Switch to Advanced</button></>
-                  ) : (
-                    'Full control over every parameter'
-                  )}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => {
-                  const next = !simpleMode;
+            <div className="mb-4">
+              <SegmentedControl
+                options={[
+                  { value: 'simple', label: 'Simple' },
+                  { value: 'advanced', label: 'Advanced' },
+                ]}
+                value={simpleMode ? 'simple' : 'advanced'}
+                onChange={(v) => {
+                  const next = v === 'simple';
                   setSimpleMode(next);
                   localStorage.setItem('ff-simple-mode', String(next));
                 }}
-                className={`relative inline-flex h-7 w-12 items-center rounded-full transition-colors flex-shrink-0 ${
-                  simpleMode ? 'bg-teal-600' : 'bg-indigo-600'
-                }`}
-                title={simpleMode ? 'Switch to Advanced Mode for more options' : 'Switch to Simple Mode'}
-              >
-                <span className={`inline-block h-5 w-5 transform rounded-full bg-white transition-transform shadow-sm ${
-                  simpleMode ? 'translate-x-6' : 'translate-x-1'
-                }`} />
-              </button>
+                size="sm"
+              />
+              <p className="text-xs text-zinc-500 mt-1.5">
+                {simpleMode ? 'Pick a product, choose a style, and generate.' : 'Full control over every parameter.'}
+              </p>
             </div>
           )}
           {/* === Manual Write Mode === */}
@@ -5075,11 +5037,11 @@ export default function ContentStudioPage() {
       {/* Mobile Fixed Bottom Generate Bar */}
       {isMobile && !result && !manualWriteMode && (
         <div className="fixed inset-x-0 z-40 lg:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}>
-          <div className="px-4 py-3">
+          <div className="px-4 py-2.5">
             <button type="button"
               onClick={handleGenerate}
               disabled={generating || (!selectedProductId && !manualProductName.trim())}
-              className={`w-full h-14 rounded-xl text-white font-semibold text-base flex items-center justify-center gap-2 transition-all shadow-lg ${
+              className={`w-full h-12 rounded-lg text-white font-semibold text-sm flex items-center justify-center gap-2 transition-all shadow-lg ${
                 generating
                   ? 'bg-zinc-700 cursor-wait'
                   : generating || (!selectedProductId && !manualProductName.trim())
@@ -5088,11 +5050,11 @@ export default function ContentStudioPage() {
               }`}
             >
               {generating ? (
-                <><Loader2 className="animate-spin" size={20} /> Generating...</>
+                <><Loader2 className="animate-spin" size={18} /> Generating...</>
               ) : !selectedProductId && !manualProductName.trim() ? (
                 <>Select a product to generate</>
               ) : (
-                <><Zap size={20} /> Generate ({creditCost} credit{creditCost !== 1 ? 's' : ''})</>
+                <><Zap size={18} /> Generate ({creditCost} credit{creditCost !== 1 ? 's' : ''})</>
               )}
             </button>
           </div>

@@ -17,6 +17,8 @@ import {
   FlaskConical,
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { IconAction } from '@/components/ui/IconAction';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -295,34 +297,23 @@ export default function UsersPage() {
             )}
           </p>
         </div>
-        <button
+        <IconAction
+          icon={<RefreshCw className="w-4 h-4" />}
+          aria-label="Refresh users"
           onClick={() => { setLoading(true); fetchUsers(); }}
-          className="px-3 py-2 bg-zinc-800 text-zinc-300 rounded-lg text-sm hover:bg-zinc-700 flex items-center gap-1.5"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
-        </button>
+        />
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 bg-zinc-900 p-1 rounded-lg w-fit">
-        {TABS.map((tab) => (
-          <button
-            key={tab}
-            onClick={() => setActiveTab(tab)}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === tab
-                ? 'bg-zinc-700 text-white'
-                : 'text-zinc-400 hover:text-zinc-300'
-            }`}
-          >
-            {tab}
-            {tab === 'Test Accounts' && testUsers.length > 0 && (
-              <span className="ml-1.5 text-xs text-zinc-500">({testUsers.length})</span>
-            )}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl
+        options={[
+          { value: 'All Users', label: 'All Users' },
+          { value: 'Test Accounts', label: testUsers.length > 0 ? `Test Accounts (${testUsers.length})` : 'Test Accounts' },
+        ]}
+        value={activeTab}
+        onChange={(v) => setActiveTab(v as Tab)}
+        fullWidth={false}
+      />
 
       {/* Test Accounts tab actions */}
       {activeTab === 'Test Accounts' && (

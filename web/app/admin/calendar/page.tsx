@@ -16,6 +16,9 @@ import { PullToRefresh } from '@/components/ui/PullToRefresh';
 import PlanGate from '@/components/PlanGate';
 import { SkeletonVideoList } from '@/components/ui/Skeleton';
 import { PageErrorState } from '@/components/ui/PageErrorState';
+import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { StatChip } from '@/components/ui/StatChip';
+import { IconAction } from '@/components/ui/IconAction';
 import { useToast } from '@/contexts/ToastContext';
 import { CONTENT_TYPES } from '@/lib/content-types';
 
@@ -1088,35 +1091,22 @@ export default function ContentPlannerPage() {
               <h1 className="text-xl md:text-2xl font-bold text-white">Content Planner</h1>
               <p className="text-zinc-400 text-xs md:text-sm hidden md:block">Plan, schedule, and manage your content pipeline</p>
             </div>
-            <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+            <div className="flex items-center gap-1.5 flex-shrink-0">
               {/* View Toggle: Calendar / Grid */}
-              <div className="flex items-center bg-zinc-800 rounded-lg border border-zinc-700 p-0.5">
-                <button
-                  onClick={() => setViewMode('calendar')}
-                  className={`flex items-center gap-1 px-2.5 md:px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-md transition-colors ${
-                    viewMode === 'calendar'
-                      ? 'bg-teal-500/20 text-teal-400'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Calendar</span>
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`flex items-center gap-1 px-2.5 md:px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-md transition-colors ${
-                    viewMode === 'grid'
-                      ? 'bg-teal-500/20 text-teal-400'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  <LayoutGrid className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Ideas</span>
-                </button>
-              </div>
-              <button onClick={() => { fetchCalendar(); fetchPackage(); }} className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800">
-                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              </button>
+              <SegmentedControl
+                options={[
+                  { value: 'calendar', label: 'Calendar', icon: <Calendar className="w-3.5 h-3.5" /> },
+                  { value: 'grid', label: 'Ideas', icon: <LayoutGrid className="w-3.5 h-3.5" /> },
+                ]}
+                value={viewMode}
+                onChange={(v) => setViewMode(v as 'calendar' | 'grid')}
+                fullWidth={false}
+              />
+              <IconAction
+                icon={<RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />}
+                aria-label="Refresh"
+                onClick={() => { fetchCalendar(); fetchPackage(); }}
+              />
             </div>
           </div>
 
@@ -1124,43 +1114,26 @@ export default function ContentPlannerPage() {
           {viewMode === 'calendar' && (
             <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
               {/* Week / Month Toggle */}
-              <div className="flex items-center bg-zinc-800 rounded-lg border border-zinc-700 p-0.5">
-                <button
-                  onClick={() => setCalendarMode('week')}
-                  className={`px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-md transition-colors ${
-                    calendarMode === 'week'
-                      ? 'bg-zinc-700 text-white'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  Week
-                </button>
-                <button
-                  onClick={() => setCalendarMode('month')}
-                  className={`px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-md transition-colors ${
-                    calendarMode === 'month'
-                      ? 'bg-zinc-700 text-white'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  Month
-                </button>
-              </div>
+              <SegmentedControl
+                options={[
+                  { value: 'week', label: 'Week' },
+                  { value: 'month', label: 'Month' },
+                ]}
+                value={calendarMode}
+                onChange={(v) => setCalendarMode(v as 'week' | 'month')}
+                fullWidth={false}
+              />
 
               {/* Navigation */}
               <div className="flex items-center gap-1">
-                <button onClick={goBack} className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800">
-                  <ChevronLeft className="w-4 h-4" />
-                </button>
+                <IconAction icon={<ChevronLeft className="w-4 h-4" />} aria-label="Previous" onClick={goBack} />
                 <button
                   onClick={goToToday}
-                  className="px-3 py-1.5 min-h-[36px] text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-lg hover:bg-zinc-700 transition-colors"
+                  className="px-3 py-1.5 min-h-[44px] text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-lg hover:bg-zinc-700 active:bg-zinc-600 transition-colors"
                 >
                   Today
                 </button>
-                <button onClick={goForward} className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800">
-                  <ChevronRight className="w-4 h-4" />
-                </button>
+                <IconAction icon={<ChevronRight className="w-4 h-4" />} aria-label="Next" onClick={goForward} />
               </div>
 
               <button
@@ -1189,25 +1162,10 @@ export default function ContentPlannerPage() {
             {/* Calendar Grid */}
             <div className={`flex-1 min-w-0 space-y-4 md:space-y-5 ${ideasOpen ? 'lg:max-w-[calc(100%-340px)]' : ''}`}>
               {/* This Week Summary */}
-              <div className="grid grid-cols-3 gap-2 md:gap-3">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 md:p-4 text-center">
-                  <div className="flex items-center justify-center gap-1 text-[10px] md:text-xs text-green-400 mb-1">
-                    <Send className="w-3 h-3" /> To Post
-                  </div>
-                  <div className="text-xl md:text-2xl font-bold text-white">{toPost}</div>
-                </div>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 md:p-4 text-center">
-                  <div className="flex items-center justify-center gap-1 text-[10px] md:text-xs text-amber-400 mb-1">
-                    <Eye className="w-3 h-3" /> To Review
-                  </div>
-                  <div className="text-xl md:text-2xl font-bold text-white">{toReview}</div>
-                </div>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 md:p-4 text-center">
-                  <div className="flex items-center justify-center gap-1 text-[10px] md:text-xs text-teal-400 mb-1">
-                    <Video className="w-3 h-3" /> In Production
-                  </div>
-                  <div className="text-xl md:text-2xl font-bold text-white">{inProduction}</div>
-                </div>
+              <div className="grid grid-cols-3 gap-2">
+                <StatChip label="To Post" value={toPost} icon={<Send className="w-3 h-3 text-green-400" />} />
+                <StatChip label="To Review" value={toReview} icon={<Eye className="w-3 h-3 text-amber-400" />} />
+                <StatChip label="In Production" value={inProduction} icon={<Video className="w-3 h-3 text-teal-400" />} />
               </div>
 
               {/* Legend */}

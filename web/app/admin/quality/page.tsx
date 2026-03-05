@@ -8,6 +8,8 @@ import {
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/Skeleton';
 import { PullToRefresh } from '@/components/ui/PullToRefresh';
+import { ProgressInline } from '@/components/ui/ProgressInline';
+import type { ProgressInlineIntent } from '@/components/ui/ProgressInline';
 
 interface ScoreResult {
   hook_strength: number;
@@ -59,6 +61,12 @@ function getScoreBg(score: number): string {
   if (score >= 6) return 'bg-teal-500';
   if (score >= 4) return 'bg-amber-500';
   return 'bg-red-500';
+}
+
+function getScoreIntent(score: number): ProgressInlineIntent {
+  if (score >= 6) return 'teal';
+  if (score >= 4) return 'amber';
+  return 'red';
 }
 
 // SVG Radar Chart component (no external dependency)
@@ -370,12 +378,11 @@ export default function QualityPage() {
                             return (
                               <div key={d.key} className="flex items-center gap-2">
                                 <span className="text-[11px] text-zinc-500 w-16 shrink-0">{d.label}</span>
-                                <div className="flex-1 h-3 bg-zinc-800 rounded-full overflow-hidden">
-                                  <div
-                                    className={`h-full rounded-full ${getScoreBg(val)}`}
-                                    style={{ width: `${val * 10}%` }}
-                                  />
-                                </div>
+                                <ProgressInline
+                                  value={val * 10}
+                                  intent={getScoreIntent(val)}
+                                  className="flex-1"
+                                />
                                 <span className={`text-xs font-medium w-5 text-right ${getScoreColor(val)}`}>{val}</span>
                               </div>
                             );

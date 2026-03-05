@@ -7,6 +7,8 @@ import {
   Check, Minus, Zap, CreditCard, ExternalLink, Loader2, CheckCircle2, XCircle,
   Plus, Coins, TrendingUp, Package, Clock, PieChart, Sparkles, Infinity,
 } from 'lucide-react';
+import { StatChip } from '@/components/ui/StatChip';
+import { ProgressInline } from '@/components/ui/ProgressInline';
 import { PLANS_LIST } from '@/lib/plans';
 import type { PlanLimitKey } from '@/lib/plans';
 import UpsellBanner from '@/components/UpsellBanner';
@@ -430,18 +432,12 @@ export default function BillingPage() {
         {/* Usage bar */}
         {!isUnlimited && subscription?.creditsPerMonth && subscription.creditsPerMonth > 0 && (
           <div className="mt-4">
-            <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-teal-500 rounded-full transition-all"
-                style={{
-                  width: `${Math.min(100, ((credits?.usedThisPeriod ?? 0) / subscription.creditsPerMonth) * 100)}%`,
-                }}
-              />
-            </div>
-            <div className="flex justify-between mt-1">
-              <span className="text-xs text-zinc-600">{credits?.usedThisPeriod ?? 0} used</span>
-              <span className="text-xs text-zinc-600">{subscription.creditsPerMonth} total</span>
-            </div>
+            <ProgressInline
+              value={Math.min(100, ((credits?.usedThisPeriod ?? 0) / subscription.creditsPerMonth) * 100)}
+              label={`${credits?.usedThisPeriod ?? 0} used`}
+              sublabel={`${subscription.creditsPerMonth} total`}
+              intent="teal"
+            />
           </div>
         )}
 
@@ -599,15 +595,13 @@ export default function BillingPage() {
         {/* Balance + Billing Cycle + Credit Costs */}
         <div className="grid md:grid-cols-3 gap-4 mb-6">
           {/* Available Credits */}
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
-            <div className="text-sm text-zinc-400 mb-2">Available</div>
-            <div className={`text-3xl font-bold ${isUnlimited ? 'text-teal-400' : 'text-white'}`}>
-              {isUnlimited ? 'Unlimited' : credits?.remaining ?? 0}
-            </div>
-            {!isUnlimited && subscription?.creditsPerMonth && (
-              <div className="text-xs text-zinc-600 mt-1">{subscription.creditsPerMonth} credits/month</div>
-            )}
-          </div>
+          <StatChip
+            label={!isUnlimited && subscription?.creditsPerMonth ? `Available · ${subscription.creditsPerMonth}/mo` : 'Available'}
+            value={isUnlimited ? 'Unlimited' : credits?.remaining ?? 0}
+            icon={<Coins className="w-3 h-3 text-teal-400" />}
+            size="md"
+            className="rounded-xl"
+          />
 
           {/* Billing Cycle */}
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
@@ -617,14 +611,13 @@ export default function BillingPage() {
             </div>
             {daysUntilReset !== null ? (
               <>
-                <div className="text-3xl font-bold text-teal-400">{daysUntilReset}</div>
+                <div className="text-xl md:text-2xl font-bold text-teal-400 tabular-nums">{daysUntilReset}</div>
                 <div className="text-xs text-zinc-500 mt-1">days until credits reset</div>
-                <div className="w-full h-1.5 bg-zinc-800 rounded-full mt-2 overflow-hidden">
-                  <div
-                    className="h-full bg-teal-500 rounded-full transition-all"
-                    style={{ width: `${Math.max(100 - (daysUntilReset / 30) * 100, 5)}%` }}
-                  />
-                </div>
+                <ProgressInline
+                  value={Math.max(100 - (daysUntilReset / 30) * 100, 5)}
+                  intent="teal"
+                  className="mt-2"
+                />
               </>
             ) : (
               <div className="text-sm text-zinc-500 mt-1">
@@ -639,14 +632,18 @@ export default function BillingPage() {
           <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
             <div className="text-sm text-zinc-400 mb-3">Usage Stats</div>
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <div className="text-xl font-bold text-white">{credits?.usedThisPeriod ?? 0}</div>
-                <div className="text-xs text-zinc-500">This Period</div>
-              </div>
-              <div>
-                <div className="text-xl font-bold text-white">{credits?.lifetimeUsed ?? 0}</div>
-                <div className="text-xs text-zinc-500">Lifetime</div>
-              </div>
+              <StatChip
+                label="This Period"
+                value={credits?.usedThisPeriod ?? 0}
+                icon={<TrendingUp className="w-3 h-3 text-teal-400" />}
+                size="sm"
+              />
+              <StatChip
+                label="Lifetime"
+                value={credits?.lifetimeUsed ?? 0}
+                icon={<Sparkles className="w-3 h-3 text-teal-400" />}
+                size="sm"
+              />
             </div>
           </div>
         </div>

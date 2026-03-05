@@ -5,6 +5,7 @@ import {
   Users, TrendingUp, Clock, CheckCircle, AlertTriangle,
   Award, BarChart3, Target, ChevronDown, Activity,
 } from 'lucide-react';
+import { StatChip } from '@/components/ui/StatChip';
 
 interface VAMetric {
   va_id: string;
@@ -179,10 +180,10 @@ export default function VAScorecard() {
 
       {/* Team Summary Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <SummaryCard icon={Target} label="Total Assigned" value={teamTotals.assigned} />
-        <SummaryCard icon={CheckCircle} label="Completed" value={teamTotals.completed} color="text-green-400" />
-        <SummaryCard icon={AlertTriangle} label="Overdue" value={teamTotals.overdue} color="text-red-400" />
-        <SummaryCard icon={TrendingUp} label="Avg Completion" value={`${teamTotals.avgRate}%`} color={getRatingColor(teamTotals.avgRate)} />
+        <StatChip label="Total Assigned" value={teamTotals.assigned} icon={<Target className="w-3 h-3 text-zinc-500" />} size="sm" />
+        <StatChip label="Completed" value={teamTotals.completed} icon={<CheckCircle className="w-3 h-3 text-green-400" />} size="sm" />
+        <StatChip label="Overdue" value={teamTotals.overdue} icon={<AlertTriangle className="w-3 h-3 text-red-400" />} size="sm" />
+        <StatChip label="Avg Completion" value={`${teamTotals.avgRate}%`} icon={<TrendingUp className="w-3 h-3 text-teal-400" />} size="sm" />
       </div>
 
       {/* Workload Balance */}
@@ -226,27 +227,6 @@ export default function VAScorecard() {
   );
 }
 
-function SummaryCard({
-  icon: Icon,
-  label,
-  value,
-  color = 'text-white',
-}: {
-  icon: typeof Target;
-  label: string;
-  value: string | number;
-  color?: string;
-}) {
-  return (
-    <div className="p-4 bg-zinc-900/50 border border-zinc-800 rounded-xl">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className="w-4 h-4 text-zinc-500" />
-        <span className="text-[10px] font-bold text-zinc-500 uppercase">{label}</span>
-      </div>
-      <div className={`text-2xl font-bold ${color}`}>{value}</div>
-    </div>
-  );
-}
 
 function VACard({ metric, rank }: { metric: VAMetric; rank: number }) {
   const [expanded, setExpanded] = useState(false);
@@ -315,12 +295,12 @@ function VACard({ metric, rank }: { metric: VAMetric; rank: number }) {
         <div className="px-4 pb-4 border-t border-zinc-800/50">
           {/* Expanded metrics for mobile + additional detail */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-3">
-            <MetricBox label="Videos Assigned" value={metric.assigned} icon={Target} />
-            <MetricBox label="Completed" value={metric.completed} icon={CheckCircle} color="text-green-400" />
-            <MetricBox label="In Progress" value={metric.in_progress} icon={Activity} color="text-teal-400" />
-            <MetricBox label="Overdue" value={metric.overdue_count} icon={AlertTriangle} color={metric.overdue_count > 0 ? 'text-red-400' : 'text-zinc-500'} />
-            <MetricBox label="Completion Rate" value={`${metric.completion_rate}%`} icon={BarChart3} color={getRatingColor(metric.completion_rate)} />
-            <MetricBox label="Avg Turnaround" value={`${metric.avg_turnaround_hours}h`} icon={Clock} />
+            <StatChip label="Videos Assigned" value={metric.assigned} icon={<Target className="w-3 h-3 text-zinc-500" />} size="sm" />
+            <StatChip label="Completed" value={metric.completed} icon={<CheckCircle className="w-3 h-3 text-green-400" />} size="sm" />
+            <StatChip label="In Progress" value={metric.in_progress} icon={<Activity className="w-3 h-3 text-teal-400" />} size="sm" />
+            <StatChip label="Overdue" value={metric.overdue_count} icon={<AlertTriangle className={`w-3 h-3 ${metric.overdue_count > 0 ? 'text-red-400' : 'text-zinc-500'}`} />} size="sm" />
+            <StatChip label="Completion Rate" value={`${metric.completion_rate}%`} icon={<BarChart3 className="w-3 h-3 text-teal-400" />} size="sm" />
+            <StatChip label="Avg Turnaround" value={`${metric.avg_turnaround_hours}h`} icon={<Clock className="w-3 h-3 text-zinc-500" />} size="sm" />
           </div>
 
           {/* SLA compliance estimate */}
@@ -347,19 +327,3 @@ function VACard({ metric, rank }: { metric: VAMetric; rank: number }) {
   );
 }
 
-function MetricBox({ label, value, icon: Icon, color = 'text-white' }: {
-  label: string;
-  value: string | number;
-  icon: typeof Target;
-  color?: string;
-}) {
-  return (
-    <div className="p-3 bg-zinc-800/30 rounded-lg">
-      <div className="flex items-center gap-1.5 mb-1">
-        <Icon className="w-3 h-3 text-zinc-500" />
-        <span className="text-[10px] text-zinc-500 uppercase">{label}</span>
-      </div>
-      <div className={`text-lg font-bold ${color}`}>{value}</div>
-    </div>
-  );
-}

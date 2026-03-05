@@ -18,7 +18,7 @@ import type {
   DetectWinnersResult,
 } from './types';
 
-const MIN_SAMPLE_SIZE = 3;
+const MIN_SAMPLE_SIZE = 5;
 const LOOKBACK_DAYS = 30;
 
 interface ScoredPost {

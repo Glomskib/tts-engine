@@ -55,6 +55,7 @@ import {
   Clapperboard,
   Camera,
   MoreHorizontal,
+  Trophy,
 } from 'lucide-react';
 
 // Import from content-types.ts
@@ -360,6 +361,7 @@ export default function ContentStudioPage() {
   // STEP 7: Advanced Options
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [referenceScript, setReferenceScript] = useState<string>('');
+  const [winnerPatternApplied, setWinnerPatternApplied] = useState(false);
   const [specificHooks, setSpecificHooks] = useState<string>('');
   const [thingsToAvoid, setThingsToAvoid] = useState<string>('');
   const [ctaPreference, setCtaPreference] = useState<string>('');
@@ -831,6 +833,27 @@ export default function ContentStudioPage() {
           setSelectedMainTabId(matchingTab.id);
         }
       }
+    }
+    // Winner pattern prefills: format → presentation style, length → target length
+    const formatParam = searchParams.get('format');
+    const hasWinnerParams = !!(formatParam || searchParams.get('length'));
+    if (hasWinnerParams) setWinnerPatternApplied(true);
+    if (formatParam) {
+      // Map format_tag to presentation style IDs
+      const FORMAT_TO_STYLE: Record<string, string> = {
+        ugc: 'ugc_style', voiceover: 'voiceover', skit: 'human_actor',
+        tutorial: 'talking_head', review: 'talking_head', slideshow: 'text_overlay',
+        story: 'talking_head', comparison: 'talking_head', transformation: 'ugc_style',
+        unboxing: 'ugc_style', trend: 'ugc_style',
+      };
+      const styleId = FORMAT_TO_STYLE[formatParam] || formatParam;
+      if (PRESENTATION_STYLES.find(ps => ps.id === styleId)) {
+        setSelectedPresentationStyleId(styleId);
+      }
+    }
+    const lengthParam = searchParams.get('length');
+    if (lengthParam && TARGET_LENGTHS.find(tl => tl.id === lengthParam)) {
+      setSelectedLengthId(lengthParam);
     }
   }, [searchParams]);
 
@@ -1895,6 +1918,20 @@ export default function ContentStudioPage() {
               Generate viral short-form video scripts
             </p>
           </div>
+          {/* Winner Pattern Banner */}
+          {winnerPatternApplied && (
+            <div className="w-full sm:w-auto flex items-center gap-2 px-3 py-2 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-400">
+              <Trophy size={14} className="flex-shrink-0" />
+              <span className="font-medium">Using Winner Pattern</span>
+              <button
+                type="button"
+                onClick={() => setWinnerPatternApplied(false)}
+                className="ml-auto text-amber-500/60 hover:text-amber-400 transition-colors"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
           {/* Action buttons - wrap on mobile */}
           <div className="flex gap-2 flex-wrap">
             {!simpleMode && (

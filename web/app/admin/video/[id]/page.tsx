@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, ChevronDown, ChevronUp, Check, AlertTriangle,
   Video, FileText, Package, Scissors, Send, BarChart3,
-  Lightbulb, Copy, ExternalLink, FolderOpen,
+  Lightbulb, Copy, ExternalLink, FolderOpen, Trophy, Sparkles,
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import { getNextAction } from '@/lib/videos/nextAction';
@@ -84,6 +84,16 @@ interface VideoEvent {
   to_status: string | null;
   actor: string;
   created_at: string;
+}
+
+interface RelevantPattern {
+  id: string;
+  hook_text: string | null;
+  format_tag: string | null;
+  length_bucket: string | null;
+  score: number;
+  sample_size: number;
+  product_name: string | null;
 }
 
 // --- Status Pill ---
@@ -194,6 +204,7 @@ export default function VideoWorkflowPage() {
   const [postingMeta, setPostingMeta] = useState<PostingMeta | null>(null);
   const [transitioning, setTransitioning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [winnerPatterns, setWinnerPatterns] = useState<RelevantPattern[]>([]);
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -220,6 +231,17 @@ export default function VideoWorkflowPage() {
   useEffect(() => {
     fetchDetail();
   }, [fetchDetail]);
+
+  // Fetch relevant winner patterns
+  useEffect(() => {
+    if (!videoId) return;
+    fetch(`/api/intelligence/winner-patterns/relevant?content_item_id=${videoId}`)
+      .then(r => r.json())
+      .then(json => {
+        if (json.ok) setWinnerPatterns(json.data || []);
+      })
+      .catch(() => {});
+  }, [videoId]);
 
   const handleTransition = async (targetStatus: string) => {
     if (!video) return;
@@ -687,7 +709,58 @@ export default function VideoWorkflowPage() {
           )}
         </AccordionSection>
 
-        {/* 8. Posts + Metrics */}
+        {/* 8. Winning Patterns */}
+        {winnerPatterns.length > 0 && (
+          <AccordionSection
+            title="Winning Patterns"
+            icon={Trophy}
+            isComplete={null}
+            defaultOpen={video.status === 'draft' || video.status === 'ready_to_post'}
+          >
+            <div className="space-y-2">
+              <p className="text-xs text-zinc-500 mb-3">
+                Top patterns for this product/platform based on your past performance.
+              </p>
+              {winnerPatterns.slice(0, 3).map((pat) => (
+                <div key={pat.id} className="bg-zinc-800/50 rounded-lg p-3 space-y-2">
+                  {pat.hook_text && (
+                    <p className="text-sm text-white font-medium leading-relaxed">
+                      &ldquo;{pat.hook_text}&rdquo;
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                      Score {pat.score}
+                    </span>
+                    {pat.format_tag && (
+                      <span className="px-2 py-0.5 rounded-md font-medium uppercase tracking-wider bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                        {pat.format_tag}
+                      </span>
+                    )}
+                    {pat.length_bucket && (
+                      <span className="px-2 py-0.5 rounded-md font-medium bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                        {pat.length_bucket}
+                      </span>
+                    )}
+                    <span className="text-zinc-600">{pat.sample_size} posts</span>
+                  </div>
+                  <Link
+                    href={`/admin/content-studio?${new URLSearchParams({
+                      ...(pat.hook_text ? { inspiration: pat.hook_text } : {}),
+                      ...(pat.format_tag ? { format: pat.format_tag } : {}),
+                    }).toString()}`}
+                    className="flex items-center justify-center gap-1.5 w-full py-2 min-h-[40px] text-xs font-medium text-teal-400 bg-teal-500/10 border border-teal-500/20 rounded-lg hover:bg-teal-500/20 transition-colors"
+                  >
+                    <Sparkles className="w-3 h-3" />
+                    Apply to Script
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </AccordionSection>
+        )}
+
+        {/* 9. Posts + Metrics */}
         <AccordionSection
           title="Posts + Metrics"
           icon={BarChart3}

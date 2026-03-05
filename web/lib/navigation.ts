@@ -135,7 +135,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Speak To Your Audience', href: '/admin/audience', icon: UserCheck },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro', tourId: 'nav-winners' },
-      { name: 'Patterns', href: '/admin/winners/patterns', icon: Activity, minPlan: 'creator_pro' },
+      { name: 'Winner Patterns', href: '/admin/intelligence/winners-bank', icon: Activity, minPlan: 'creator_pro' },
       { name: 'Clip Index', href: '/admin/clip-index', icon: Film },
       { name: 'Hook Library', href: '/admin/hooks', icon: Anchor, minPlan: 'creator_pro' },
       { name: 'Performance', href: '/admin/performance', icon: BarChart3, minPlan: 'creator_pro' },

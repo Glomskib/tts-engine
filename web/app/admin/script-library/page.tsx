@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Trophy, SlidersHorizontal } from "lucide-react";
 import { BottomSheet } from "@/components/BottomSheet";
@@ -139,14 +140,16 @@ function formatDate(dateStr: string): string {
 export default function SkitLibraryPage() {
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
+  const searchParams = useSearchParams();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [skits, setSkits] = useState<SavedSkit[]>([]);
   const [pagination, setPagination] = useState<Pagination | null>(null);
 
-  // Tab state
-  const [activeTab, setActiveTab] = useState<'scripts' | 'hooks'>('scripts');
+  // Tab state — default from URL ?tab=hooks
+  const initialTab = searchParams.get('tab') === 'hooks' ? 'hooks' : 'scripts';
+  const [activeTab, setActiveTab] = useState<'scripts' | 'hooks'>(initialTab);
 
   // Saved hooks state
   const [hooks, setHooks] = useState<SavedHook[]>([]);

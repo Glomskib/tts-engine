@@ -8,6 +8,7 @@ import type { Job, JobHandler, JobType } from './types';
 import { detectWinners } from '@/lib/content-intelligence/winners';
 import { analyzeAndStoreSuggestions } from '@/lib/editing/analyzeTranscript';
 import { replicatePattern } from '@/lib/content-intelligence/replicatePattern';
+import { generateEditorNotesForItem } from '@/lib/editing/generateEditorNotesJob';
 
 const handlers: Record<JobType, JobHandler> = {
   detect_winners: async (job: Job) => {
@@ -41,6 +42,13 @@ const handlers: Record<JobType, JobHandler> = {
     if (!patternId) throw new Error('pattern_id required');
     const result = await replicatePattern(job.workspace_id, patternId, count);
     return result as unknown as Record<string, unknown>;
+  },
+
+  generate_editor_notes: async (job: Job) => {
+    const contentItemId = job.payload.content_item_id as string;
+    if (!contentItemId) throw new Error('content_item_id required');
+    const result = await generateEditorNotesForItem(contentItemId, job.workspace_id);
+    return result as Record<string, unknown>;
   },
 };
 

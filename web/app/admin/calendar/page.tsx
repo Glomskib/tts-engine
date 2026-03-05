@@ -1017,7 +1017,7 @@ export default function ContentPlannerPage() {
         key={dateKey}
         className={`
           rounded-xl border transition-all cursor-pointer select-none
-          ${compact ? 'min-h-[80px] p-1.5' : 'min-h-[80px] md:min-h-[120px] p-1.5 md:p-2'}
+          ${compact ? 'min-h-[60px] md:min-h-[80px] p-1 md:p-1.5' : 'min-h-[60px] md:min-h-[120px] p-1 md:p-2'}
           ${!isCurrentMonth ? 'opacity-40' : ''}
           ${today
             ? 'bg-teal-500/5 border-teal-500/30'
@@ -1080,128 +1080,133 @@ export default function ContentPlannerPage() {
   return (
     <PlanGate minPlan="creator_pro" feature="Content Planner">
     <PullToRefresh onRefresh={async () => { await Promise.all([fetchCalendar(), fetchPackage()]); }}>
-      <div className="px-4 py-6 pb-24 lg:pb-8 max-w-full mx-auto">
+      <div className="px-4 py-6 pb-24 lg:pb-8 max-w-full mx-auto overflow-x-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between flex-wrap gap-3 mb-5 max-w-7xl mx-auto">
-          <div>
-            <h1 className="text-2xl font-bold text-white">Content Planner</h1>
-            <p className="text-zinc-400 text-sm">Plan, schedule, and manage your content pipeline</p>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* View Toggle: Calendar / Grid */}
-            <div className="flex items-center bg-zinc-800 rounded-lg border border-zinc-700 p-0.5">
-              <button
-                onClick={() => setViewMode('calendar')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  viewMode === 'calendar'
-                    ? 'bg-teal-500/20 text-teal-400'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <Calendar className="w-3.5 h-3.5" />
-                Calendar
-              </button>
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                  viewMode === 'grid'
-                    ? 'bg-teal-500/20 text-teal-400'
-                    : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                <LayoutGrid className="w-3.5 h-3.5" />
-                Ideas
+        <div className="mb-5 max-w-7xl mx-auto space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl md:text-2xl font-bold text-white">Content Planner</h1>
+              <p className="text-zinc-400 text-xs md:text-sm hidden md:block">Plan, schedule, and manage your content pipeline</p>
+            </div>
+            <div className="flex items-center gap-1.5 md:gap-2 flex-shrink-0">
+              {/* View Toggle: Calendar / Grid */}
+              <div className="flex items-center bg-zinc-800 rounded-lg border border-zinc-700 p-0.5">
+                <button
+                  onClick={() => setViewMode('calendar')}
+                  className={`flex items-center gap-1 px-2.5 md:px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-md transition-colors ${
+                    viewMode === 'calendar'
+                      ? 'bg-teal-500/20 text-teal-400'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <Calendar className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Calendar</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`flex items-center gap-1 px-2.5 md:px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-md transition-colors ${
+                    viewMode === 'grid'
+                      ? 'bg-teal-500/20 text-teal-400'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  <LayoutGrid className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Ideas</span>
+                </button>
+              </div>
+              <button onClick={() => { fetchCalendar(); fetchPackage(); }} className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800">
+                <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
               </button>
             </div>
+          </div>
 
-            {/* Calendar-specific controls */}
-            {viewMode === 'calendar' && (
-              <>
-                {/* Week / Month Toggle */}
-                <div className="flex items-center bg-zinc-800 rounded-lg border border-zinc-700 p-0.5">
-                  <button
-                    onClick={() => setCalendarMode('week')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                      calendarMode === 'week'
-                        ? 'bg-zinc-700 text-white'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Week
-                  </button>
-                  <button
-                    onClick={() => setCalendarMode('month')}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-                      calendarMode === 'month'
-                        ? 'bg-zinc-700 text-white'
-                        : 'text-zinc-400 hover:text-white'
-                    }`}
-                  >
-                    Month
-                  </button>
-                </div>
+          {/* Calendar-specific controls — second row on mobile */}
+          {viewMode === 'calendar' && (
+            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
+              {/* Week / Month Toggle */}
+              <div className="flex items-center bg-zinc-800 rounded-lg border border-zinc-700 p-0.5">
+                <button
+                  onClick={() => setCalendarMode('week')}
+                  className={`px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-md transition-colors ${
+                    calendarMode === 'week'
+                      ? 'bg-zinc-700 text-white'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Week
+                </button>
+                <button
+                  onClick={() => setCalendarMode('month')}
+                  className={`px-3 py-1.5 min-h-[36px] text-xs font-medium rounded-md transition-colors ${
+                    calendarMode === 'month'
+                      ? 'bg-zinc-700 text-white'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  Month
+                </button>
+              </div>
 
-                {/* Navigation */}
-                <button onClick={goBack} className="p-2 text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800">
+              {/* Navigation */}
+              <div className="flex items-center gap-1">
+                <button onClick={goBack} className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800">
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <button
                   onClick={goToToday}
-                  className="px-3 py-1.5 text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-lg hover:bg-zinc-700 transition-colors"
+                  className="px-3 py-1.5 min-h-[36px] text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-lg hover:bg-zinc-700 transition-colors"
                 >
                   Today
                 </button>
-                <button onClick={goForward} className="p-2 text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800">
+                <button onClick={goForward} className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800">
                   <ChevronRight className="w-4 h-4" />
                 </button>
-                <button onClick={() => { fetchCalendar(); fetchPackage(); }} className="p-2 text-zinc-400 hover:text-white transition-colors">
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                </button>
-                <button
-                  onClick={async () => {
-                    try {
-                      const res = await fetch('/api/ai/schedule-suggest');
-                      const json = await res.json();
-                      if (json.ok && json.data) {
-                        showSuccess(json.data.message);
-                      }
-                    } catch {
-                      showError('Failed to get schedule suggestion');
+              </div>
+
+              <button
+                onClick={async () => {
+                  try {
+                    const res = await fetch('/api/ai/schedule-suggest');
+                    const json = await res.json();
+                    if (json.ok && json.data) {
+                      showSuccess(json.data.message);
                     }
-                  }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-500 transition-colors"
-                >
-                  <Zap className="w-3.5 h-3.5" /> Smart Schedule
-                </button>
-              </>
-            )}
-          </div>
+                  } catch {
+                    showError('Failed to get schedule suggestion');
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-500 transition-colors ml-auto"
+              >
+                <Zap className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Smart</span> Schedule
+              </button>
+            </div>
+          )}
         </div>
 
         {/* ===== CALENDAR VIEW ===== */}
         {viewMode === 'calendar' && (
           <div className="flex gap-4 max-w-full">
             {/* Calendar Grid */}
-            <div className={`flex-1 min-w-0 space-y-5 ${ideasOpen ? 'max-w-[calc(100%-340px)]' : ''}`}>
+            <div className={`flex-1 min-w-0 space-y-4 md:space-y-5 ${ideasOpen ? 'lg:max-w-[calc(100%-340px)]' : ''}`}>
               {/* This Week Summary */}
-              <div className="grid grid-cols-3 gap-3">
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-center">
-                  <div className="flex items-center justify-center gap-1 text-xs text-green-400 mb-1">
+              <div className="grid grid-cols-3 gap-2 md:gap-3">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 md:p-4 text-center">
+                  <div className="flex items-center justify-center gap-1 text-[10px] md:text-xs text-green-400 mb-1">
                     <Send className="w-3 h-3" /> To Post
                   </div>
-                  <div className="text-2xl font-bold text-white">{toPost}</div>
+                  <div className="text-xl md:text-2xl font-bold text-white">{toPost}</div>
                 </div>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-center">
-                  <div className="flex items-center justify-center gap-1 text-xs text-amber-400 mb-1">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 md:p-4 text-center">
+                  <div className="flex items-center justify-center gap-1 text-[10px] md:text-xs text-amber-400 mb-1">
                     <Eye className="w-3 h-3" /> To Review
                   </div>
-                  <div className="text-2xl font-bold text-white">{toReview}</div>
+                  <div className="text-xl md:text-2xl font-bold text-white">{toReview}</div>
                 </div>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-center">
-                  <div className="flex items-center justify-center gap-1 text-xs text-teal-400 mb-1">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-2.5 md:p-4 text-center">
+                  <div className="flex items-center justify-center gap-1 text-[10px] md:text-xs text-teal-400 mb-1">
                     <Video className="w-3 h-3" /> In Production
                   </div>
-                  <div className="text-2xl font-bold text-white">{inProduction}</div>
+                  <div className="text-xl md:text-2xl font-bold text-white">{inProduction}</div>
                 </div>
               </div>
 
@@ -1764,7 +1769,7 @@ export default function ContentPlannerPage() {
                 </div>
                 <button
                   onClick={() => setSelectedDay(null)}
-                  className="p-2 text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800"
+                  className="p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-zinc-400 hover:text-white transition-colors rounded-lg hover:bg-zinc-800"
                 >
                   <X className="w-5 h-5" />
                 </button>

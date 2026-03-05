@@ -5074,8 +5074,8 @@ export default function ContentStudioPage() {
 
       {/* Mobile Fixed Bottom Generate Bar */}
       {isMobile && !result && !manualWriteMode && (
-        <div className="fixed inset-x-0 bottom-0 z-40 lg:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
-          <div className="px-4 pt-3">
+        <div className="fixed inset-x-0 z-40 lg:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}>
+          <div className="px-4 py-3">
             <button type="button"
               onClick={handleGenerate}
               disabled={generating || (!selectedProductId && !manualProductName.trim())}
@@ -5089,6 +5089,8 @@ export default function ContentStudioPage() {
             >
               {generating ? (
                 <><Loader2 className="animate-spin" size={20} /> Generating...</>
+              ) : !selectedProductId && !manualProductName.trim() ? (
+                <>Select a product to generate</>
               ) : (
                 <><Zap size={20} /> Generate ({creditCost} credit{creditCost !== 1 ? 's' : ''})</>
               )}
@@ -5099,8 +5101,8 @@ export default function ContentStudioPage() {
 
       {/* Mobile Fixed Bottom Action Bar (when results are showing) */}
       {isMobile && result && currentSkit && (
-        <div className="fixed inset-x-0 bottom-0 z-40 lg:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ paddingBottom: 'max(12px, env(safe-area-inset-bottom))' }}>
-          <div className="flex items-center gap-2 px-4 pt-3">
+        <div className="fixed inset-x-0 z-40 lg:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}>
+          <div className="flex items-center gap-2 px-4 py-3">
             {/* Approve — primary, takes flex space */}
             <button type="button"
               onClick={() => handleApproveVariation(selectedVariationIndex)}

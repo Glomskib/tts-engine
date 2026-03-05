@@ -2,7 +2,7 @@
  * Job Queue Types
  */
 
-export type JobType = 'detect_winners' | 'analyze_transcript' | 'generate_script' | 'refresh_metrics' | 'replicate_pattern';
+export type JobType = 'detect_winners' | 'analyze_transcript' | 'generate_script' | 'refresh_metrics' | 'replicate_pattern' | 'generate_editor_notes';
 export type JobStatus = 'pending' | 'running' | 'completed' | 'failed';
 
 export interface Job {

@@ -2,10 +2,14 @@
 
 import { useState, useEffect, useCallback, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { Copy, Check, ExternalLink, FolderPlus, Loader2, Sparkles, ArrowLeft, FileText, Save } from 'lucide-react';
+import {
+  Copy, Check, ExternalLink, FolderPlus, Loader2, Sparkles, ArrowLeft, FileText, Save,
+  Wand2, ChevronDown, ChevronUp, Scissors, Image as ImageIcon, Type, Hash, MessageCircle,
+} from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 import type { ContentItem } from '@/lib/content-items/types';
 import type { CreatorBriefData, BriefScene } from '@/lib/briefs/creator-brief-types';
+import type { EditorNotesJSON } from '@/lib/content-items/editor-notes-schema';
 
 function CopyBtn({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -17,6 +21,31 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
       {copied ? <Check size={16} /> : <Copy size={16} />}
       {copied ? 'Copied!' : (label || 'Copy')}
     </button>
+  );
+}
+
+function CollapsibleSection({
+  title, icon, expanded, onToggle, children,
+}: {
+  title: string;
+  icon: React.ReactNode;
+  expanded: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="bg-[var(--surface)] border border-[var(--border)] rounded-xl overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="flex items-center justify-between w-full px-4 py-3 min-h-[48px] text-left"
+      >
+        <span className="flex items-center gap-2 text-sm font-semibold text-[var(--text)]">
+          {icon} {title}
+        </span>
+        {expanded ? <ChevronUp size={16} className="text-zinc-500" /> : <ChevronDown size={16} className="text-zinc-500" />}
+      </button>
+      {expanded && <div className="px-4 pb-4">{children}</div>}
+    </div>
   );
 }
 
@@ -36,6 +65,27 @@ export default function RecordPage({ params }: { params: Promise<{ contentItemId
   const [rawDriveFileUrl, setRawDriveFileUrl] = useState('');
   const [transcriptSaved, setTranscriptSaved] = useState(false);
   const [savingTranscript, setSavingTranscript] = useState(false);
+
+  // Editor Notes
+  const [editorNotes, setEditorNotes] = useState<EditorNotesJSON | null>(null);
+  const [editorNotesStatus, setEditorNotesStatus] = useState<string>('none');
+  const [editorNotesError, setEditorNotesError] = useState<string | null>(null);
+  const [generatingNotes, setGeneratingNotes] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState<Record<string, boolean>>({
+    summary: true, timeline: false, broll: false, caption: false, comments: false,
+  });
+
+  const fetchEditorNotes = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/content-items/${contentItemId}/editor-notes`);
+      const json = await res.json();
+      if (json.ok) {
+        setEditorNotesStatus(json.data.status || 'none');
+        if (json.data.json) setEditorNotes(json.data.json);
+        if (json.data.error) setEditorNotesError(json.data.error);
+      }
+    } catch { /* silent */ }
+  }, [contentItemId]);
 
   const fetchData = useCallback(async () => {
     try {
@@ -58,12 +108,42 @@ export default function RecordPage({ params }: { params: Promise<{ contentItemId
       if (briefJson.ok && briefJson.data?.data) {
         setBrief(briefJson.data.data as CreatorBriefData);
       }
+      await fetchEditorNotes();
     } catch { /* silent */ } finally {
       setLoading(false);
     }
-  }, [contentItemId]);
+  }, [contentItemId, fetchEditorNotes]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Poll for editor notes when pending/processing
+  useEffect(() => {
+    if (editorNotesStatus !== 'pending' && editorNotesStatus !== 'processing') return;
+    const interval = setInterval(fetchEditorNotes, 4000);
+    return () => clearInterval(interval);
+  }, [editorNotesStatus, fetchEditorNotes]);
+
+  const handleGenerateEditorNotes = async () => {
+    setGeneratingNotes(true);
+    try {
+      const res = await fetch(`/api/content-items/${contentItemId}/editor-notes`, { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        setEditorNotesStatus('pending');
+        showToast({ message: 'Generating editor notes...', type: 'success' });
+      } else {
+        showToast({ message: json.error || 'Failed', type: 'error' });
+      }
+    } catch {
+      showToast({ message: 'Network error', type: 'error' });
+    } finally {
+      setGeneratingNotes(false);
+    }
+  };
+
+  const toggleSection = (key: string) => {
+    setNotesExpanded(prev => ({ ...prev, [key]: !prev[key] }));
+  };
 
   const handleGenerateBrief = async () => {
     setGeneratingBrief(true);
@@ -334,6 +414,217 @@ export default function RecordPage({ params }: { params: Promise<{ contentItemId
               {savingTranscript ? <><Loader2 size={18} className="animate-spin" /> Saving...</> : <><Save size={18} /> Save Transcript</>}
             </button>
           </div>
+        </section>
+
+        {/* AI Edit Recommendations */}
+        <section>
+          <h2 className="text-lg font-semibold text-[var(--text)] mb-2 flex items-center gap-2">
+            <Wand2 size={20} className="text-teal-400" /> AI Edit Recommendations
+          </h2>
+
+          {editorNotesStatus === 'none' && !editorNotes && (
+            <div className="bg-zinc-900/50 border border-[var(--border)] rounded-xl p-5 text-center space-y-3">
+              <p className="text-sm text-[var(--text-muted)]">
+                {transcriptSaved
+                  ? 'Generate AI-powered editing recommendations from your transcript.'
+                  : 'Save a transcript first, then generate edit recommendations.'}
+              </p>
+              <button
+                onClick={handleGenerateEditorNotes}
+                disabled={generatingNotes || !transcriptSaved}
+                className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-semibold bg-teal-600 text-white active:bg-teal-700 disabled:opacity-50"
+              >
+                {generatingNotes ? <><Loader2 size={18} className="animate-spin" /> Queuing...</> : <><Wand2 size={18} /> Generate Edit Notes</>}
+              </button>
+            </div>
+          )}
+
+          {(editorNotesStatus === 'pending' || editorNotesStatus === 'processing') && (
+            <div className="bg-teal-500/10 border border-teal-500/20 rounded-xl p-5 text-center space-y-2">
+              <Loader2 size={24} className="animate-spin text-teal-400 mx-auto" />
+              <p className="text-sm text-teal-300 font-medium">Analyzing your transcript...</p>
+              <p className="text-xs text-zinc-500">This usually takes 15-30 seconds</p>
+            </div>
+          )}
+
+          {editorNotesStatus === 'failed' && (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5 space-y-3">
+              <p className="text-sm text-red-300">{editorNotesError || 'Generation failed'}</p>
+              <button
+                onClick={handleGenerateEditorNotes}
+                disabled={generatingNotes}
+                className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-medium bg-red-500/20 text-red-300 border border-red-500/30 active:bg-red-500/30 disabled:opacity-50"
+              >
+                <Wand2 size={18} /> Retry
+              </button>
+            </div>
+          )}
+
+          {editorNotes && editorNotesStatus === 'completed' && (
+            <div className="space-y-3">
+              {/* Regenerate */}
+              <button
+                onClick={handleGenerateEditorNotes}
+                disabled={generatingNotes}
+                className="flex items-center justify-center gap-2 w-full min-h-[44px] rounded-xl text-sm font-medium bg-zinc-800 text-zinc-300 border border-[var(--border)] active:bg-zinc-700 disabled:opacity-50"
+              >
+                <Wand2 size={16} /> Regenerate Notes
+              </button>
+
+              {/* Summary */}
+              {editorNotes.summary && (
+                <CollapsibleSection
+                  title="Summary"
+                  icon={<FileText size={16} className="text-teal-400" />}
+                  expanded={notesExpanded.summary}
+                  onToggle={() => toggleSection('summary')}
+                >
+                  <p className="text-sm text-[var(--text-muted)] leading-relaxed">{editorNotes.summary}</p>
+                  {editorNotes.editing_style && (
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <span className="px-2 py-1 rounded-md text-xs bg-violet-500/10 text-violet-400 border border-violet-500/20">
+                        Pace: {editorNotes.editing_style.pace}
+                      </span>
+                    </div>
+                  )}
+                </CollapsibleSection>
+              )}
+
+              {/* Timeline / Cuts */}
+              {editorNotes.timeline && editorNotes.timeline.length > 0 && (
+                <CollapsibleSection
+                  title={`Cuts & Timeline (${editorNotes.timeline.length})`}
+                  icon={<Scissors size={16} className="text-amber-400" />}
+                  expanded={notesExpanded.timeline}
+                  onToggle={() => toggleSection('timeline')}
+                >
+                  <div className="space-y-2">
+                    {editorNotes.timeline.map((seg, i) => {
+                      const labelColors: Record<string, string> = {
+                        keep: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+                        cut: 'bg-red-500/10 text-red-400 border-red-500/20',
+                        tighten: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+                        broll: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+                        text: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
+                        retake: 'bg-red-500/10 text-red-400 border-red-500/20',
+                      };
+                      return (
+                        <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/50 border border-zinc-700/50">
+                          <span className="text-xs font-mono text-zinc-500 pt-0.5 whitespace-nowrap">
+                            {Math.floor(seg.start_sec / 60)}:{String(Math.floor(seg.start_sec % 60)).padStart(2, '0')}
+                          </span>
+                          <div className="flex-1 min-w-0 space-y-1">
+                            <span className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase border ${labelColors[seg.label] || 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20'}`}>
+                              {seg.label}
+                            </span>
+                            <p className="text-sm text-[var(--text-muted)]">{seg.note}</p>
+                            {seg.on_screen_text && (
+                              <p className="text-xs text-violet-400 flex items-center gap-1">
+                                <Type size={12} /> {seg.on_screen_text}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CollapsibleSection>
+              )}
+
+              {/* B-roll Pack */}
+              {editorNotes.broll_pack && editorNotes.broll_pack.length > 0 && (
+                <CollapsibleSection
+                  title={`B-Roll Ideas (${editorNotes.broll_pack.length})`}
+                  icon={<ImageIcon size={16} className="text-blue-400" />}
+                  expanded={notesExpanded.broll}
+                  onToggle={() => toggleSection('broll')}
+                >
+                  <div className="space-y-2">
+                    {editorNotes.broll_pack.map((b, i) => (
+                      <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-blue-500/5 border border-blue-500/10">
+                        <span className="text-xs font-mono text-zinc-500 pt-0.5">
+                          {Math.floor(b.at_sec / 60)}:{String(Math.floor(b.at_sec % 60)).padStart(2, '0')}
+                        </span>
+                        <div className="flex-1">
+                          <span className="text-[10px] font-medium uppercase text-blue-400">{b.type}</span>
+                          <p className="text-sm text-[var(--text-muted)]">{b.prompt}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CollapsibleSection>
+              )}
+
+              {/* Caption Pack */}
+              {editorNotes.caption && (
+                <CollapsibleSection
+                  title="Caption & Hashtags"
+                  icon={<Hash size={16} className="text-emerald-400" />}
+                  expanded={notesExpanded.caption}
+                  onToggle={() => toggleSection('caption')}
+                >
+                  <div className="space-y-3">
+                    <div className="space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm text-[var(--text)] flex-1">{editorNotes.caption.primary}</p>
+                        <CopyBtn text={editorNotes.caption.primary} label="Copy" />
+                      </div>
+                      {editorNotes.caption.alt && (
+                        <div className="flex items-start justify-between gap-2 opacity-70">
+                          <p className="text-sm text-[var(--text-muted)] flex-1 italic">{editorNotes.caption.alt}</p>
+                          <CopyBtn text={editorNotes.caption.alt} label="Copy" />
+                        </div>
+                      )}
+                    </div>
+                    {editorNotes.hashtags && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {editorNotes.hashtags.map((tag, i) => (
+                          <span key={i} className="px-2 py-0.5 rounded-full text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleSection>
+              )}
+
+              {/* Comment Bait */}
+              {editorNotes.comment_bait && (
+                <CollapsibleSection
+                  title="Comment Bait"
+                  icon={<MessageCircle size={16} className="text-purple-400" />}
+                  expanded={notesExpanded.comments}
+                  onToggle={() => toggleSection('comments')}
+                >
+                  <div className="space-y-3">
+                    {(['safe', 'spicy', 'chaotic'] as const).map(tier => {
+                      const items = editorNotes.comment_bait?.[tier];
+                      if (!items?.length) return null;
+                      const tierColors = {
+                        safe: 'text-emerald-400',
+                        spicy: 'text-amber-400',
+                        chaotic: 'text-red-400',
+                      };
+                      return (
+                        <div key={tier}>
+                          <p className={`text-xs font-bold uppercase tracking-wider mb-1.5 ${tierColors[tier]}`}>{tier}</p>
+                          <div className="space-y-1.5">
+                            {items.map((bait, i) => (
+                              <div key={i} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-zinc-800/50">
+                                <p className="text-sm text-[var(--text-muted)] flex-1">{bait}</p>
+                                <CopyBtn text={bait} />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </CollapsibleSection>
+              )}
+            </div>
+          )}
         </section>
       </div>
 

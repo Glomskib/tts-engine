@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS jobs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   workspace_id UUID NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('detect_winners', 'analyze_transcript', 'generate_script', 'refresh_metrics', 'replicate_pattern')),
+  type TEXT NOT NULL CHECK (type IN ('detect_winners', 'analyze_transcript', 'generate_script', 'refresh_metrics', 'replicate_pattern', 'generate_editor_notes')),
   payload JSONB NOT NULL DEFAULT '{}',
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'running', 'completed', 'failed')),
   attempts INT NOT NULL DEFAULT 0,

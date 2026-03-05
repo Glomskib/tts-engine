@@ -123,7 +123,8 @@ export const POST = withErrorCapture(async (request: Request) => {
 
   if (error) {
     console.error(`[${correlationId}] content_items insert error:`, error);
-    return createApiErrorResponse('DB_ERROR', 'Failed to create content item', 500, correlationId);
+    const detail = error.message || error.details || 'Unknown database error';
+    return createApiErrorResponse('DB_ERROR', `Failed to create content item: ${detail}`, 500, correlationId);
   }
 
   // Insert experiment tags if provided

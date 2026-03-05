@@ -224,7 +224,7 @@ export default function JobTrackerPage() {
       )}
 
       {/* Jobs table */}
-      <div className="border border-zinc-800 rounded-lg overflow-hidden">
+      <div className="border border-zinc-800 rounded-lg overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-zinc-800 bg-zinc-900/50">

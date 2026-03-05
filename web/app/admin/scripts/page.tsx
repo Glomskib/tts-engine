@@ -422,6 +422,7 @@ export default function ScriptsLibraryPage() {
                 )}
               </div>
             ) : (
+              <div className="overflow-x-auto -mx-4 px-4">
               <table style={tableStyle}>
                 <thead>
                   <tr>
@@ -457,6 +458,7 @@ export default function ScriptsLibraryPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </>
         )}
@@ -589,6 +591,7 @@ export default function ScriptsLibraryPage() {
                 )}
               </div>
             ) : (
+              <div className="overflow-x-auto -mx-4 px-4">
               <table style={tableStyle}>
                 <thead>
                   <tr>
@@ -634,6 +637,7 @@ export default function ScriptsLibraryPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </>
         )}

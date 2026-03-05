@@ -106,7 +106,7 @@ export default function ReferralsPage() {
             Share your link and you both get 1 month of free credits
           </p>
         </div>
-        <button onClick={loadData} className="p-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 transition-colors">
+        <button onClick={loadData} className="p-2.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 active:bg-zinc-600 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center">
           <RefreshCw className="w-4 h-4 text-zinc-400" />
         </button>
       </div>

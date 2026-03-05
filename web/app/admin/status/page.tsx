@@ -202,7 +202,7 @@ export default function AdminStatusPage() {
         </h2>
 
         {healthData?.env_report && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
             <div style={{ padding: '10px', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: '4px' }}>
               <div style={{ fontSize: '12px', color: '#6c757d' }}>Required Env Vars</div>
               <div style={{ fontSize: '18px', fontWeight: 'bold', color: healthData.env_report.env_ok ? '#2b8a3e' : '#c92a2a' }}>
@@ -228,7 +228,7 @@ export default function AdminStatusPage() {
         border: '1px solid #dee2e6',
       }}>
         <h2 style={{ margin: '0 0 15px 0', fontSize: '18px' }}>Notification Channels</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div style={{
             padding: '12px',
             backgroundColor: runtimeConfig?.email_enabled ? '#d3f9d8' : '#fff',
@@ -269,7 +269,7 @@ export default function AdminStatusPage() {
         border: `1px solid ${runtimeConfig?.incident_mode_enabled ? '#ffe066' : '#dee2e6'}`,
       }}>
         <h2 style={{ margin: '0 0 15px 0', fontSize: '18px' }}>Incident Mode</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
           <div style={{ padding: '10px', backgroundColor: 'rgba(255,255,255,0.7)', borderRadius: '4px' }}>
             <div style={{ fontSize: '12px', color: '#6c757d' }}>Status</div>
             <div style={{
@@ -314,7 +314,7 @@ export default function AdminStatusPage() {
         border: '1px solid #dee2e6',
       }}>
         <h2 style={{ margin: '0 0 15px 0', fontSize: '18px' }}>System Configuration</h2>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '10px' }}>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
           <div style={{ padding: '10px', backgroundColor: '#fff', borderRadius: '4px', border: '1px solid #dee2e6' }}>
             <div style={{ fontSize: '12px', color: '#6c757d' }}>Subscription Gating</div>
             <div style={{
@@ -361,6 +361,7 @@ export default function AdminStatusPage() {
           {settings.length === 0 ? (
             <div style={{ color: '#6c757d' }}>Loading settings...</div>
           ) : (
+            <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ borderBottom: '1px solid #dee2e6' }}>
@@ -399,6 +400,7 @@ export default function AdminStatusPage() {
                 ))}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </div>

@@ -185,7 +185,7 @@ export default function AdminEventsPage() {
             <select
               value={typeFilter}
               onChange={(e) => setTypeFilter(e.target.value)}
-              style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #dee2e6', fontSize: '14px', minWidth: '200px' }}
+              style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #dee2e6', fontSize: '14px', width: '100%' }}
             >
               <option value="">All Types</option>
               {eventTypes.map((t) => (
@@ -201,7 +201,7 @@ export default function AdminEventsPage() {
               value={videoIdFilter}
               onChange={(e) => setVideoIdFilter(e.target.value)}
               placeholder="Filter by video ID..."
-              style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #dee2e6', fontSize: '14px', minWidth: '280px' }}
+              style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #dee2e6', fontSize: '14px', width: '100%' }}
             />
           </div>
 
@@ -212,7 +212,7 @@ export default function AdminEventsPage() {
               value={userIdFilter}
               onChange={(e) => setUserIdFilter(e.target.value)}
               placeholder="Filter by actor..."
-              style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #dee2e6', fontSize: '14px', minWidth: '280px' }}
+              style={{ padding: '8px 12px', borderRadius: '4px', border: '1px solid #dee2e6', fontSize: '14px', width: '100%' }}
             />
           </div>
 

@@ -649,7 +649,8 @@ export default function AssignmentsPage() {
             backgroundColor: 'white',
             padding: '20px',
             borderRadius: '8px',
-            minWidth: '300px',
+            width: '100%',
+            maxWidth: 'calc(100vw - 2rem)',
           }}>
             <h3 style={{ margin: '0 0 15px 0' }}>Extend Assignment</h3>
             <p style={{ fontSize: '13px', color: '#6c757d', marginBottom: '15px' }}>
@@ -717,7 +718,8 @@ export default function AssignmentsPage() {
             backgroundColor: 'white',
             padding: '20px',
             borderRadius: '8px',
-            minWidth: '350px',
+            width: '100%',
+            maxWidth: 'calc(100vw - 2rem)',
           }}>
             <h3 style={{ margin: '0 0 15px 0' }}>Reassign Video</h3>
             <p style={{ fontSize: '13px', color: '#6c757d', marginBottom: '15px' }}>

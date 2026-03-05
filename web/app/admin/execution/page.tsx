@@ -131,7 +131,7 @@ export default function ExecutionDashboardPage() {
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '180px' }}
+            style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', width: '100%' }}
           >
             <option value="">All Statuses</option>
             {RECORDING_STATUSES.filter(s => s).map(status => (

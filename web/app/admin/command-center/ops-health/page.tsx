@@ -296,7 +296,7 @@ export default function OpsHealthPage() {
 
                 {/* Expanded: recent runs with source column */}
                 {expandedJob === job.job && (
-                  <div className="bg-zinc-950/50 border-t border-zinc-800">
+                  <div className="bg-zinc-950/50 border-t border-zinc-800 overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="text-zinc-600 border-b border-zinc-800">
@@ -356,7 +356,7 @@ export default function OpsHealthPage() {
             <Send className="w-3.5 h-3.5 text-zinc-500" />
             <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Recent Dispatches</h3>
           </div>
-          <div className="max-h-60 overflow-y-auto">
+          <div className="max-h-60 overflow-y-auto overflow-x-auto">
             <table className="w-full text-xs">
               <tbody className="divide-y divide-zinc-800">
                 {data.dispatches.map((d) => (
@@ -381,7 +381,7 @@ export default function OpsHealthPage() {
         <div className="p-3 border-b border-zinc-800">
           <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Recent Failure Alerts</h3>
         </div>
-        <div className="max-h-60 overflow-y-auto">
+        <div className="max-h-60 overflow-y-auto overflow-x-auto">
           <table className="w-full text-xs">
             <tbody className="divide-y divide-zinc-800">
               {(!data || data.failure_alerts.length === 0) && (

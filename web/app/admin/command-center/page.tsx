@@ -409,6 +409,7 @@ export default function CommandCenterDashboard() {
             <div className="p-3 border-b border-zinc-800">
               <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Top Spend Agents (7d)</h3>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-zinc-800">
                 {telemetry.spend_by_agent_7d.length === 0 && (
@@ -423,6 +424,7 @@ export default function CommandCenterDashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Top spend models */}
@@ -430,6 +432,7 @@ export default function CommandCenterDashboard() {
             <div className="p-3 border-b border-zinc-800">
               <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Top Spend Models (7d)</h3>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-zinc-800">
                 {telemetry.spend_by_model_7d.length === 0 && (
@@ -444,6 +447,7 @@ export default function CommandCenterDashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Slowest models (p95 latency) */}
@@ -451,6 +455,7 @@ export default function CommandCenterDashboard() {
             <div className="p-3 border-b border-zinc-800">
               <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Slowest Models p95 (7d)</h3>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-zinc-800">
                 {telemetry.latency_p95_by_model_7d.length === 0 && (
@@ -465,6 +470,7 @@ export default function CommandCenterDashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Failures by agent */}
@@ -472,6 +478,7 @@ export default function CommandCenterDashboard() {
             <div className="p-3 border-b border-zinc-800">
               <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Failures by Agent (7d)</h3>
             </div>
+            <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-zinc-800">
                 {telemetry.failures_by_agent_7d.length === 0 && (
@@ -485,6 +492,7 @@ export default function CommandCenterDashboard() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
         </div>
       )}

@@ -232,6 +232,7 @@ export default function AdminUpgradeRequestsPage() {
               overflow: 'hidden',
               marginBottom: '30px',
             }}>
+              <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f8f9fa' }}>
@@ -351,6 +352,7 @@ export default function AdminUpgradeRequestsPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 
@@ -365,6 +367,7 @@ export default function AdminUpgradeRequestsPage() {
                 borderRadius: '8px',
                 overflow: 'hidden',
               }}>
+                <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f8f9fa' }}>
@@ -403,6 +406,7 @@ export default function AdminUpgradeRequestsPage() {
                     ))}
                   </tbody>
                 </table>
+                </div>
               </div>
             </>
           )}

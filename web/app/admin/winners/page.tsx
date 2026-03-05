@@ -874,6 +874,7 @@ export default function WinnersPage() {
 
             {/* Desktop Table View */}
             <div className="hidden lg:block" style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}`, borderRadius: "10px", overflow: "hidden" }}>
+            <div style={{ overflowX: 'auto' }}>
             <table style={tableStyle}>
               <thead>
                 <tr>
@@ -1017,6 +1018,7 @@ export default function WinnersPage() {
                 })}
               </tbody>
             </table>
+            </div>
             </div>
           </>
         )}

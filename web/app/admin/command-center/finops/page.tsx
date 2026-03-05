@@ -157,7 +157,7 @@ export default function FinOpsPage() {
           <div className="p-3 border-b border-zinc-800">
             <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Top Models (30d)</h3>
           </div>
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-zinc-800">
                 {(!data || data.top_models.length === 0) && (
@@ -180,7 +180,7 @@ export default function FinOpsPage() {
           <div className="p-3 border-b border-zinc-800">
             <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Top Endpoints (7d)</h3>
           </div>
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-zinc-800">
                 {(!data || data.top_endpoints.length === 0) && (
@@ -203,7 +203,7 @@ export default function FinOpsPage() {
           <div className="p-3 border-b border-zinc-800">
             <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Cost by Lane (30d)</h3>
           </div>
-          <div className="max-h-80 overflow-y-auto">
+          <div className="max-h-80 overflow-y-auto overflow-x-auto">
             <table className="w-full text-sm">
               <tbody className="divide-y divide-zinc-800">
                 {(!data || data.by_lane.length === 0) && (

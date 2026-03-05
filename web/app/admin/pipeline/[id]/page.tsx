@@ -701,6 +701,7 @@ export default function VideoDetailPage() {
       {/* Video Overview */}
       <section style={sectionStyle}>
         <h2 style={{ marginTop: 0 }}>Video Overview</h2>
+        <div style={{ overflowX: 'auto' }}>
         <table style={{ borderCollapse: 'collapse' }}>
           <tbody>
             <tr>
@@ -739,6 +740,7 @@ export default function VideoDetailPage() {
             )}
           </tbody>
         </table>
+        </div>
       </section>
 
       {/* Actions */}
@@ -843,7 +845,7 @@ export default function VideoDetailPage() {
                   <select
                     value={forceStatusTarget}
                     onChange={(e) => setForceStatusTarget(e.target.value)}
-                    style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '150px' }}
+                    style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', width: '100%' }}
                   >
                     <option value="">Select...</option>
                     <option value="NOT_RECORDED">NOT_RECORDED</option>
@@ -853,7 +855,7 @@ export default function VideoDetailPage() {
                     <option value="POSTED">POSTED</option>
                   </select>
                 </div>
-                <div style={{ flex: 1, minWidth: '200px' }}>
+                <div style={{ flex: 1, minWidth: '0' }}>
                   <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>Reason *</label>
                   <input
                     type="text"
@@ -888,7 +890,7 @@ export default function VideoDetailPage() {
                       value={forceStatusPostedUrl}
                       onChange={(e) => setForceStatusPostedUrl(e.target.value)}
                       placeholder="https://..."
-                      style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '250px' }}
+                      style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', width: '100%' }}
                     />
                   </div>
                   <div>
@@ -913,7 +915,7 @@ export default function VideoDetailPage() {
             <div style={{ padding: '15px', backgroundColor: '#fff', border: '1px solid #dee2e6', borderRadius: '4px' }}>
               <h3 style={{ marginTop: 0, marginBottom: '10px', fontSize: '14px' }}>Clear Claim</h3>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'flex-end' }}>
-                <div style={{ flex: 1, minWidth: '200px' }}>
+                <div style={{ flex: 1, minWidth: '0' }}>
                   <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>Reason *</label>
                   <input
                     type="text"
@@ -956,7 +958,7 @@ export default function VideoDetailPage() {
                     <option value="unassign">Unassign (clear all)</option>
                   </select>
                 </div>
-                <div style={{ flex: 1, minWidth: '200px' }}>
+                <div style={{ flex: 1, minWidth: '0' }}>
                   <label style={{ display: 'block', fontSize: '12px', color: '#666', marginBottom: '4px' }}>Reason *</label>
                   <input
                     type="text"
@@ -1068,7 +1070,7 @@ export default function VideoDetailPage() {
                 <select
                   value={selectedScriptId}
                   onChange={(e) => setSelectedScriptId(e.target.value)}
-                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '300px' }}
+                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', width: '100%' }}
                 >
                   <option value="">-- Select a script --</option>
                   {availableScripts.map((script) => (
@@ -1188,7 +1190,7 @@ export default function VideoDetailPage() {
           <select
             value={executionForm.recording_status}
             onChange={(e) => setExecutionForm(prev => ({ ...prev, recording_status: e.target.value }))}
-            style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', minWidth: '200px' }}
+            style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', width: '100%' }}
           >
             {RECORDING_STATUSES.map(status => (
               <option key={status} value={status}>{status.replace(/_/g, ' ')}</option>
@@ -1473,6 +1475,7 @@ export default function VideoDetailPage() {
       <section style={{ ...sectionStyle, borderColor: '#6c757d' }}>
         <h2 style={{ marginTop: 0 }}>Events / Audit Log ({events.length})</h2>
         {events.length > 0 ? (
+          <div style={{ overflowX: 'auto' }}>
           <table style={tableStyle}>
             <thead>
               <tr>
@@ -1504,6 +1507,7 @@ export default function VideoDetailPage() {
               ))}
             </tbody>
           </table>
+          </div>
         ) : (
           <p style={{ color: '#666' }}>No events found for this video</p>
         )}
@@ -1578,16 +1582,17 @@ export default function VideoDetailPage() {
                   key={`${item.ts}-${idx}`}
                   style={{
                     display: 'flex',
+                    flexWrap: 'wrap',
                     gap: '12px',
                     padding: '10px 12px',
                     borderBottom: '1px solid #e9ecef',
                     backgroundColor: idx % 2 === 0 ? '#fafafa' : '#fff',
                   }}
                 >
-                  <div style={{ minWidth: '140px', fontSize: '12px', color: '#666' }} title={item.ts}>
+                  <div style={{ minWidth: '0', flexShrink: 0, width: '140px', fontSize: '12px', color: '#666' }} title={item.ts}>
                     {hydrated ? new Date(item.ts).toLocaleString() : formatDateString(item.ts)}
                   </div>
-                  <div style={{ minWidth: '90px' }}>
+                  <div style={{ minWidth: '0', flexShrink: 0, width: '90px' }}>
                     <span
                       style={{
                         padding: '2px 8px',

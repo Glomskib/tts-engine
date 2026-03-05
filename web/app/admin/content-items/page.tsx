@@ -174,7 +174,7 @@ export default function ContentItemsPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="px-3 py-1.5 text-sm rounded-lg border"
-          style={{ backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, minWidth: '200px' }}
+          style={{ backgroundColor: colors.surface, borderColor: colors.border, color: colors.text, width: '100%', maxWidth: 'calc(100vw - 2rem)' }}
         />
         <select
           value={statusFilter}
@@ -223,7 +223,7 @@ export default function ContentItemsPage() {
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border overflow-hidden" style={{ borderColor: colors.border }}>
+        <div className="rounded-xl border overflow-x-auto" style={{ borderColor: colors.border }}>
           <table className="w-full text-sm" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ borderBottom: `1px solid ${colors.border}`, backgroundColor: colors.surface }}>

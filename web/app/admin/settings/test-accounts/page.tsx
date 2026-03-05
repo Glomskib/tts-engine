@@ -261,7 +261,7 @@ export default function TestAccountsPage() {
           <p className="text-xs text-zinc-500 mt-1">Click &quot;Create Quick Set&quot; to create all 5 preset accounts</p>
         </div>
       ) : (
-        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+        <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-zinc-800">

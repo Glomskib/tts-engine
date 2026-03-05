@@ -329,7 +329,7 @@ export default function JobDetailPage() {
               subtitle="Successfully created videos"
               noPadding
             >
-              <div className="max-h-64 overflow-y-auto">
+              <div className="max-h-64 overflow-y-auto overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-slate-50">
                     <tr className="border-b border-slate-200">
@@ -373,7 +373,7 @@ export default function JobDetailPage() {
               }
               noPadding
             >
-              <div className="max-h-64 overflow-y-auto">
+              <div className="max-h-64 overflow-y-auto overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-slate-50">
                     <tr className="border-b border-slate-200">
@@ -401,7 +401,7 @@ export default function JobDetailPage() {
               subtitle="Already imported videos"
               noPadding
             >
-              <div className="max-h-64 overflow-y-auto">
+              <div className="max-h-64 overflow-y-auto overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="sticky top-0 bg-slate-50">
                     <tr className="border-b border-slate-200">

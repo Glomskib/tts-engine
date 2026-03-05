@@ -183,7 +183,7 @@ export default function IntegrationsPage() {
       {!showCreate && (
         <div className="mb-8">
           <h2 className="text-sm font-semibold text-zinc-400 mb-3">Quick Setup</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-6 gap-3">
             {INTEGRATION_TEMPLATES.map(template => (
               <button
                 key={template.name}

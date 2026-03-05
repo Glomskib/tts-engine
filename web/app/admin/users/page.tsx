@@ -186,6 +186,7 @@ export default function AdminUsersPage() {
           border: '1px solid #dee2e6',
           borderRadius: '8px',
           overflow: 'hidden',
+          overflowX: 'auto',
         }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>

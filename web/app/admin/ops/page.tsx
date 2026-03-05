@@ -178,7 +178,7 @@ export default function OpsPage() {
   return (
     <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }} className="pb-24 lg:pb-6">
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '10px' }}>
         <h1 style={{ margin: 0 }}>Ops Analytics Dashboard</h1>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <button type="button"
@@ -274,7 +274,7 @@ export default function OpsPage() {
                       backgroundColor: colors.bg,
                       border: `1px solid ${colors.border}`,
                       borderRadius: '8px',
-                      minWidth: '140px',
+                      minWidth: '120px', flex: '1 1 120px',
                       textAlign: 'center',
                     }}
                   >
@@ -293,7 +293,7 @@ export default function OpsPage() {
                   backgroundColor: '#f8f9fa',
                   border: '2px solid #495057',
                   borderRadius: '8px',
-                  minWidth: '140px',
+                  minWidth: '120px', flex: '1 1 120px',
                   textAlign: 'center',
                 }}
               >
@@ -325,7 +325,7 @@ export default function OpsPage() {
                       backgroundColor: colors.bg,
                       border: `1px solid ${colors.border}`,
                       borderRadius: '8px',
-                      minWidth: '140px',
+                      minWidth: '120px', flex: '1 1 120px',
                       textAlign: 'center',
                     }}
                   >
@@ -344,7 +344,7 @@ export default function OpsPage() {
                   backgroundColor: '#e7f5ff',
                   border: '1px solid #74c0fc',
                   borderRadius: '8px',
-                  minWidth: '140px',
+                  minWidth: '120px', flex: '1 1 120px',
                   textAlign: 'center',
                 }}
               >
@@ -361,7 +361,7 @@ export default function OpsPage() {
                   backgroundColor: '#fff3bf',
                   border: '1px solid #ffd43b',
                   borderRadius: '8px',
-                  minWidth: '140px',
+                  minWidth: '120px', flex: '1 1 120px',
                   textAlign: 'center',
                 }}
               >
@@ -380,6 +380,7 @@ export default function OpsPage() {
             <h2 style={{ fontSize: '18px', marginBottom: '15px', borderBottom: '1px solid #dee2e6', paddingBottom: '8px' }}>
               Aging by Status
             </h2>
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f5f5f5' }}>
@@ -440,6 +441,7 @@ export default function OpsPage() {
                 })}
               </tbody>
             </table>
+            </div>
           </section>
 
           {/* Throughput Section */}
@@ -455,7 +457,7 @@ export default function OpsPage() {
                 backgroundColor: '#d3f9d8',
                 border: '1px solid #69db7c',
                 borderRadius: '8px',
-                minWidth: '160px',
+                minWidth: '120px', flex: '1 1 120px',
               }}>
                 <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#2b8a3e' }}>
                   {last7Days(metrics.throughput.posted_per_day)}
@@ -467,7 +469,7 @@ export default function OpsPage() {
                 backgroundColor: '#fff3bf',
                 border: '1px solid #ffd43b',
                 borderRadius: '8px',
-                minWidth: '160px',
+                minWidth: '120px', flex: '1 1 120px',
               }}>
                 <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#e67700' }}>
                   {last7Days(metrics.throughput.recorded_per_day)}
@@ -479,7 +481,7 @@ export default function OpsPage() {
                 backgroundColor: '#e7f5ff',
                 border: '1px solid #74c0fc',
                 borderRadius: '8px',
-                minWidth: '160px',
+                minWidth: '120px', flex: '1 1 120px',
               }}>
                 <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#1971c2' }}>
                   {last7Days(metrics.throughput.edited_per_day)}
@@ -489,6 +491,7 @@ export default function OpsPage() {
             </div>
 
             {/* Throughput table - last 14 days */}
+            <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
               <thead>
                 <tr style={{ backgroundColor: '#f5f5f5' }}>
@@ -529,6 +532,7 @@ export default function OpsPage() {
                 })()}
               </tbody>
             </table>
+            </div>
           </section>
 
           {/* Blockers Section */}
@@ -547,6 +551,7 @@ export default function OpsPage() {
                 No blockers detected
               </div>
             ) : (
+              <div style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
                 <thead>
                   <tr style={{ backgroundColor: '#f5f5f5' }}>
@@ -606,6 +611,7 @@ export default function OpsPage() {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </section>
         </>

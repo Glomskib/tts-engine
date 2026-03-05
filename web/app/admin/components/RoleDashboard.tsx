@@ -504,6 +504,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
 
       {/* Video table */}
       {videos.length > 0 ? (
+        <div style={{ overflowX: 'auto' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ backgroundColor: '#f5f5f5' }}>
@@ -721,6 +722,7 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
             })}
           </tbody>
         </table>
+        </div>
       ) : (
         <div style={{
           padding: '40px',

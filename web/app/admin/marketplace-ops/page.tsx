@@ -477,7 +477,7 @@ export default function MarketplaceOpsPage() {
             Force Unclaim Job
           </h3>
           <div className="flex gap-2 items-end flex-wrap">
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-0">
               <label className="text-[10px] text-zinc-600 block mb-1">
                 Job ID
               </label>
@@ -489,7 +489,7 @@ export default function MarketplaceOpsPage() {
                 className="w-full px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded-lg text-xs text-zinc-300 placeholder:text-zinc-600 focus:outline-none focus:border-teal-500/50"
               />
             </div>
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-0">
               <label className="text-[10px] text-zinc-600 block mb-1">
                 Reason
               </label>

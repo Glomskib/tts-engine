@@ -207,6 +207,7 @@ export default function PerformanceTab({ days }: PerformanceTabProps) {
                 No performance data yet. Post videos and sync TikTok stats.
               </div>
             ) : (
+              <div style={{ overflowX: 'auto' }}>
               <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                 <thead>
                   <tr style={{ borderBottom: '1px solid #27272a' }}>
@@ -252,6 +253,7 @@ export default function PerformanceTab({ days }: PerformanceTabProps) {
                   ))}
                 </tbody>
               </table>
+              </div>
             )}
           </div>
         </div>
@@ -310,6 +312,7 @@ export default function PerformanceTab({ days }: PerformanceTabProps) {
                   No account data yet. Assign videos to TikTok accounts.
                 </div>
               ) : (
+                <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px' }}>
                   <thead>
                     <tr style={{ borderBottom: '1px solid #27272a' }}>
@@ -333,6 +336,7 @@ export default function PerformanceTab({ days }: PerformanceTabProps) {
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           </div>

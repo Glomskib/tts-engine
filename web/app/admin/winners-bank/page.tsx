@@ -592,7 +592,7 @@ export default function WinnersBankPage() {
           </div>
 
           {/* Search */}
-          <div className="relative flex-1 min-w-[200px] max-w-md">
+          <div className="relative flex-1 min-w-0 max-w-md">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
               type="text"
@@ -711,7 +711,7 @@ export default function WinnersBankPage() {
           <button type="button"
             onClick={fetchWinners}
             disabled={loading}
-            className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 transition-colors"
+            className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 active:bg-zinc-700 transition-colors min-w-[44px] min-h-[44px] flex items-center justify-center"
             aria-label="Refresh"
           >
             <RefreshCw className={`w-4 h-4 text-zinc-400 ${loading ? 'animate-spin' : ''}`} />
@@ -816,7 +816,7 @@ export default function WinnersBankPage() {
               <button
                 type="button"
                 onClick={() => setGenerateLikeModal({ open: false, winner: null })}
-                className="p-2 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800"
+                className="p-2.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 active:bg-zinc-700 min-w-[44px] min-h-[44px] flex items-center justify-center"
               >
                 <X className="w-5 h-5" />
               </button>

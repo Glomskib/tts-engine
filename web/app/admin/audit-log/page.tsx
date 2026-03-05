@@ -220,7 +220,7 @@ export default function AdminAuditLogPage() {
       {/* Filters */}
       <AdminCard>
         <div className="flex flex-wrap gap-4 items-end">
-          <div className="flex-1 min-w-[160px]">
+          <div className="flex-1 min-w-0">
             <label className="block text-xs font-medium text-zinc-500 mb-1">Event Type</label>
             <select
               value={eventTypeFilter}
@@ -234,7 +234,7 @@ export default function AdminAuditLogPage() {
             </select>
           </div>
 
-          <div className="flex-1 min-w-[140px]">
+          <div className="flex-1 min-w-0">
             <label className="block text-xs font-medium text-zinc-500 mb-1">Entity Type</label>
             <select
               value={entityTypeFilter}

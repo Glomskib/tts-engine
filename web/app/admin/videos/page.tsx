@@ -175,7 +175,7 @@ export default function VideosPage() {
 
         {/* Summary Cards */}
         {summary && (
-          <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
               <div className="text-xs text-zinc-400 mb-1">Total Videos</div>
               <div className="text-xl font-bold text-white">{summary.total}</div>
@@ -201,7 +201,7 @@ export default function VideosPage() {
 
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
-          <div className="relative flex-1 min-w-[200px] max-w-xs">
+          <div className="relative flex-1 min-w-0 max-w-xs">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-500" />
             <input
               type="text"

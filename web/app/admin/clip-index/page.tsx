@@ -154,7 +154,8 @@ export default function ClipIndexPage() {
             color: colors.text,
             fontSize: "14px",
             outline: "none",
-            minWidth: "160px",
+            minWidth: "0",
+            width: "100%",
           }}
         >
           {PRODUCT_TYPES.map((pt) => (

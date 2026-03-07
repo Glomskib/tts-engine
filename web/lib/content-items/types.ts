@@ -6,20 +6,31 @@ import type { EditorNotesJSON } from './editor-notes-schema';
 
 export type ContentItemStatus =
   | 'briefing'
+  | 'scripted'
   | 'ready_to_record'
   | 'recorded'
   | 'editing'
+  | 'scheduled'
   | 'ready_to_post'
   | 'posted';
 
 export const CONTENT_ITEM_STATUSES: ContentItemStatus[] = [
   'briefing',
+  'scripted',
   'ready_to_record',
   'recorded',
   'editing',
+  'scheduled',
   'ready_to_post',
   'posted',
 ];
+
+export type ContentItemSourceType =
+  | 'manual'
+  | 'script_generator'
+  | 'winner_import'
+  | 'product_research'
+  | 'calendar';
 
 export type CowTier = 'safe' | 'edgy' | 'unhinged';
 
@@ -71,8 +82,33 @@ export interface ContentItem {
   editor_notes_error: string | null;
   raw_footage_received_at: string | null;
   last_processed_raw_file_id: string | null;
+  // Unified model fields
+  source_type: ContentItemSourceType | null;
+  source_ref_id: string | null;
+  primary_hook: string | null;
+  script_text: string | null;
+  script_json: Record<string, unknown> | null;
+  creative_notes: string | null;
+  scheduled_at: string | null;
+  posting_account_id: string | null;
+  posted_at: string | null;
+  post_url: string | null;
+  posted_platform: string | null;
+  recording_status: string | null;
+  created_by: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface ContentItemEvent {
+  id: string;
+  content_item_id: string;
+  event_type: string;
+  actor: string | null;
+  from_value: string | null;
+  to_value: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
 }
 
 export type AssetKind = 'raw_footage' | 'transcript' | 'final_video' | 'broll' | 'editor_notes';

@@ -25,6 +25,7 @@ import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import AdminPageLayout, { AdminCard } from '@/app/admin/components/AdminPageLayout';
 import { getStatusConfig, formatStatusLabel } from '@/lib/status';
+import { VideoTimeline } from '@/components/VideoTimeline';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -974,7 +975,7 @@ export default function VideoDetailPage() {
       </AdminCard>
 
       {/* Timeline */}
-      {timelineItems.length > 0 && (
+      {(timelineItems.length > 0 || videoDetail) && (
         <AdminCard
           title={`Timeline (${timelineItems.length})`}
           accent="violet"
@@ -985,44 +986,16 @@ export default function VideoDetailPage() {
             </button>
           }
         >
-          <div className="max-h-96 overflow-y-auto -mx-5 px-5 space-y-0">
-            {timelineItems.map((item, idx) => {
-              const typeColors: Record<string, string> = {
-                event: 'bg-blue-500/10 text-blue-400',
-                assignment: 'bg-emerald-500/10 text-emerald-400',
-                video_snapshot: 'bg-amber-500/10 text-amber-400',
-              };
-              const eventType = (item.metadata?.event_type as string) || '';
-              let displayType = item.type;
-              if (eventType.includes('email')) displayType = 'event';
-              if (eventType.includes('slack')) displayType = 'event';
-              if (eventType.startsWith('admin_')) displayType = 'event';
-
-              return (
-                <div key={`${item.ts}-${idx}`} className="flex flex-col sm:flex-row gap-2 sm:gap-4 py-3 border-b border-white/5 last:border-0">
-                  <div className="text-xs text-zinc-500 sm:w-32 shrink-0" title={item.ts}>
-                    {hydrated ? new Date(item.ts).toLocaleString() : formatDateString(item.ts)}
-                  </div>
-                  <div className="shrink-0">
-                    <span className={`inline-block px-2 py-0.5 rounded text-[10px] font-medium ${typeColors[displayType] || typeColors.event}`}>
-                      {item.type}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm text-zinc-300">{item.label}</div>
-                    {item.metadata && Object.keys(item.metadata).length > 0 && (
-                      <details className="mt-1">
-                        <summary className="text-[10px] text-zinc-500 cursor-pointer hover:text-zinc-300">Details</summary>
-                        <pre className="mt-1 text-[10px] text-zinc-500 font-mono bg-zinc-800/30 rounded p-2 overflow-auto max-h-24">
-                          {JSON.stringify(item.metadata, null, 2)}
-                        </pre>
-                      </details>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
+          <VideoTimeline
+            items={timelineItems}
+            timestamps={videoDetail ? {
+              recorded_at: videoDetail.recorded_at,
+              edited_at: videoDetail.edited_at,
+              ready_to_post_at: videoDetail.ready_to_post_at,
+              posted_at: videoDetail.posted_at,
+              rejected_at: videoDetail.rejected_at,
+            } : undefined}
+          />
         </AdminCard>
       )}
 

@@ -39,9 +39,12 @@ export const GET = withErrorCapture(async (request: Request) => {
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1);
 
+  const sourceRefId = url.searchParams.get('source_ref_id');
+
   if (status) query = query.eq('status', status);
   if (brandId) query = query.eq('brand_id', brandId);
   if (productId) query = query.eq('product_id', productId);
+  if (sourceRefId) query = query.eq('source_ref_id', sourceRefId);
   if (assigned === 'creator') query = query.eq('assigned_creator_id', user.id);
   if (assigned === 'editor') query = query.eq('assigned_editor_id', user.id);
   if (dueStart) query = query.gte('due_at', dueStart);
@@ -81,6 +84,16 @@ const CreateSchema = z.object({
   assigned_editor_id: z.string().uuid().optional().nullable(),
   brief_selected_cow_tier: z.enum(['safe', 'edgy', 'unhinged']).optional(),
   experiments: z.array(ExperimentSchema).optional(),
+  // Unified model fields
+  source_type: z.string().optional().nullable(),
+  source_ref_id: z.string().optional().nullable(),
+  primary_hook: z.string().optional().nullable(),
+  script_text: z.string().optional().nullable(),
+  script_json: z.record(z.string(), z.unknown()).optional().nullable(),
+  creative_notes: z.string().optional().nullable(),
+  scheduled_at: z.string().optional().nullable(),
+  posting_account_id: z.string().uuid().optional().nullable(),
+  status: z.string().optional(),
 });
 
 export const POST = withErrorCapture(async (request: Request) => {
@@ -104,20 +117,33 @@ export const POST = withErrorCapture(async (request: Request) => {
     });
   }
 
+  const insertPayload: Record<string, unknown> = {
+    workspace_id: user.id,
+    title: parsed.data.title,
+    brand_id: parsed.data.brand_id ?? null,
+    product_id: parsed.data.product_id ?? null,
+    video_id: parsed.data.video_id ?? null,
+    due_at: parsed.data.due_at ?? null,
+    assigned_creator_id: parsed.data.assigned_creator_id ?? null,
+    assigned_editor_id: parsed.data.assigned_editor_id ?? null,
+    brief_selected_cow_tier: parsed.data.brief_selected_cow_tier ?? 'edgy',
+    short_id: 'temp', // Overridden by DB trigger
+    created_by: user.id,
+  };
+  // Add unified model fields if provided
+  if (parsed.data.source_type) insertPayload.source_type = parsed.data.source_type;
+  if (parsed.data.source_ref_id) insertPayload.source_ref_id = parsed.data.source_ref_id;
+  if (parsed.data.primary_hook) insertPayload.primary_hook = parsed.data.primary_hook;
+  if (parsed.data.script_text) insertPayload.script_text = parsed.data.script_text;
+  if (parsed.data.script_json) insertPayload.script_json = parsed.data.script_json;
+  if (parsed.data.creative_notes) insertPayload.creative_notes = parsed.data.creative_notes;
+  if (parsed.data.scheduled_at) insertPayload.scheduled_at = parsed.data.scheduled_at;
+  if (parsed.data.posting_account_id) insertPayload.posting_account_id = parsed.data.posting_account_id;
+  if (parsed.data.status) insertPayload.status = parsed.data.status;
+
   const { data: item, error } = await supabaseAdmin
     .from('content_items')
-    .insert({
-      workspace_id: user.id,
-      title: parsed.data.title,
-      brand_id: parsed.data.brand_id ?? null,
-      product_id: parsed.data.product_id ?? null,
-      video_id: parsed.data.video_id ?? null,
-      due_at: parsed.data.due_at ?? null,
-      assigned_creator_id: parsed.data.assigned_creator_id ?? null,
-      assigned_editor_id: parsed.data.assigned_editor_id ?? null,
-      brief_selected_cow_tier: parsed.data.brief_selected_cow_tier ?? 'edgy',
-      short_id: 'temp', // Overridden by DB trigger
-    })
+    .insert(insertPayload)
     .select('*')
     .single();
 

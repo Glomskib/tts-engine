@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { Filter, Plus, ExternalLink, FileText, ChevronDown, X } from 'lucide-react';
@@ -13,18 +14,22 @@ import type { CreatorBriefData } from '@/lib/briefs/creator-brief-types';
 const STATUS_OPTIONS: { value: ContentItemStatus | ''; label: string }[] = [
   { value: '', label: 'All Statuses' },
   { value: 'briefing', label: 'Briefing' },
+  { value: 'scripted', label: 'Scripted' },
   { value: 'ready_to_record', label: 'Ready to Record' },
   { value: 'recorded', label: 'Recorded' },
   { value: 'editing', label: 'Editing' },
+  { value: 'scheduled', label: 'Scheduled' },
   { value: 'ready_to_post', label: 'Ready to Post' },
   { value: 'posted', label: 'Posted' },
 ];
 
 const STATUS_COLORS: Record<ContentItemStatus, string> = {
   briefing: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+  scripted: 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300',
   ready_to_record: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
   recorded: 'bg-indigo-100 text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-300',
   editing: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300',
+  scheduled: 'bg-cyan-100 text-cyan-800 dark:bg-cyan-900/30 dark:text-cyan-300',
   ready_to_post: 'bg-teal-100 text-teal-800 dark:bg-teal-900/30 dark:text-teal-300',
   posted: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300',
 };
@@ -246,7 +251,14 @@ export default function ContentItemsPage() {
                 >
                   <td className="px-4 py-2.5 font-mono text-xs" style={{ color: colors.textMuted }}>{item.short_id}</td>
                   <td className="px-4 py-2.5">
-                    <div className="font-medium truncate max-w-[300px]" style={{ color: colors.text }}>{item.title}</div>
+                    <Link
+                      href={`/admin/content-items/${item.id}`}
+                      className="font-medium truncate max-w-[300px] block hover:underline"
+                      style={{ color: colors.text }}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {item.title}
+                    </Link>
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={`px-2 py-0.5 rounded text-xs font-medium ${STATUS_COLORS[item.status]}`}>

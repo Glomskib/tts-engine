@@ -32,6 +32,7 @@ interface PipelineResult {
   video_id: string;
   video_code: string;
   status: string;
+  content_item_id?: string | null;
 }
 
 interface Brand {
@@ -481,6 +482,14 @@ export default function WinnerImportPage() {
               >
                 <Video className="w-4 h-4" /> View Pipeline
               </a>
+              {pipelineResult.content_item_id && (
+                <a
+                  href={`/admin/content-items/${pipelineResult.content_item_id}`}
+                  className="px-4 py-2 bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-medium rounded-lg transition-colors inline-flex items-center gap-2"
+                >
+                  <ArrowRight className="w-4 h-4" /> View Content Item
+                </a>
+              )}
             </div>
           </div>
 

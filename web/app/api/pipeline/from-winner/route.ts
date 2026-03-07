@@ -4,6 +4,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { fetchWinnerById } from '@/lib/winners';
 import { z } from 'zod';
+import { createContentItemFromWinner } from '@/lib/content-items/sync';
 
 export const runtime = 'nodejs';
 
@@ -103,6 +104,23 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // 7. Create content_item from winner
+    let contentItemId: string | null = null;
+    try {
+      contentItemId = await createContentItemFromWinner({
+        workspaceId: authContext.user.id,
+        actorId: authContext.user.id,
+        winnerId: winner.id,
+        title: winner.hook || `Winner: ${winner.video_url?.slice(0, 40) || 'Unknown'}`,
+        hook: winner.hook || null,
+        transcript: transcript || winner.full_script || null,
+        productId: resolvedProductId || null,
+        videoId: video.id,
+      });
+    } catch (err) {
+      console.error('[from-winner] content_items sync failed:', err);
+    }
+
     const response = NextResponse.json({
       ok: true,
       data: {
@@ -112,6 +130,7 @@ export async function POST(request: NextRequest) {
         hook: winner.hook,
         product_id: resolvedProductId,
         winner_id: winner.id,
+        content_item_id: contentItemId,
       },
       correlation_id: correlationId,
     });

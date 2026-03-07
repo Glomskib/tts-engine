@@ -102,6 +102,39 @@ const STATUSES = ["draft", "approved", "produced", "posted", "archived"] as cons
 const ITEMS_PER_PAGE = 10;
 const LIBRARY_PREFS_KEY = "skit-library-preferences";
 
+function ContentItemLink({ skitId }: { skitId: string }) {
+  const [ciId, setCiId] = useState<string | null>(null);
+  const [checked, setChecked] = useState(false);
+  useEffect(() => {
+    fetch(`/api/content-items?source_ref_id=${skitId}&limit=1`)
+      .then(r => r.json())
+      .then(json => {
+        if (json.ok && json.data?.[0]) setCiId(json.data[0].id);
+      })
+      .catch(() => {})
+      .finally(() => setChecked(true));
+  }, [skitId]);
+  if (!checked || !ciId) return null;
+  return (
+    <Link
+      href={`/admin/content-items/${ciId}`}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        padding: "6px 12px",
+        backgroundColor: "#0d9488",
+        color: "white",
+        borderRadius: "4px",
+        fontSize: "12px",
+        fontWeight: 500,
+        textDecoration: "none",
+        marginLeft: "8px",
+      }}
+    >
+      View Content Item
+    </Link>
+  );
+}
+
 type SortOption = "newest" | "oldest" | "highest_rated" | "highest_ai_score" | "title_az" | "title_za" | "recently_modified";
 
 interface LibraryPreferences {
@@ -2100,6 +2133,22 @@ export default function SkitLibraryPage() {
                             >
                               View in Pipeline
                             </Link>
+                            <ContentItemLink skitId={expandedSkit.id} />
+                          </div>
+                        </div>
+                      )}
+                      {!expandedSkit.video_id && (
+                        <div style={{
+                          padding: "12px",
+                          backgroundColor: colors.surface,
+                          borderRadius: "6px",
+                          border: `1px solid ${colors.border}`,
+                        }}>
+                          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <span style={{ fontSize: "13px", fontWeight: 600, color: colors.text }}>
+                              Content Item
+                            </span>
+                            <ContentItemLink skitId={expandedSkit.id} />
                           </div>
                         </div>
                       )}

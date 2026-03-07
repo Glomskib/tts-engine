@@ -992,7 +992,10 @@ export default function ContentPlannerPage() {
           text-[10px] truncate cursor-grab active:cursor-grabbing
           hover:brightness-125 transition-all flex items-center gap-1
         `}
-        onClick={(e) => e.stopPropagation()}
+        onClick={(e) => {
+          e.stopPropagation();
+          window.location.href = `/admin/content-items/${ci.id}`;
+        }}
         title={`${ci.title} (${ci.status.replace(/_/g, ' ')})`}
       >
         <FileText className="w-2.5 h-2.5 flex-shrink-0" />
@@ -1872,10 +1875,10 @@ export default function ContentPlannerPage() {
                               </Link>
                             )}
                             <Link
-                              href={`/admin/pipeline?highlight=${ci.id}`}
+                              href={`/admin/content-items/${ci.id}`}
                               className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-sm font-medium transition-colors bg-zinc-800 text-zinc-200 border border-zinc-700 active:bg-zinc-700"
                             >
-                              <ArrowRight size={16} /> Open in Board
+                              <ArrowRight size={16} /> View Details
                             </Link>
                           </div>
                         </div>

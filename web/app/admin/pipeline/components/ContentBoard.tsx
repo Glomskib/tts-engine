@@ -3,45 +3,38 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
+import Link from 'next/link';
 import {
   Loader2, ExternalLink, Video, FileText, FolderOpen, ChevronDown,
   Mic, Scissors, CheckCircle2, Send, Archive,
 } from 'lucide-react';
 import type { ContentItem, ContentItemStatus } from '@/lib/content-items/types';
+import { getNextAction, getActionButtonClasses } from '@/lib/content-items/nextAction';
+import DriveFolderButton from '@/components/DriveFolderButton';
 
 // ── Status config (Monday.com-style) ─────────────────────────────
 
 const STATUS_ORDER: ContentItemStatus[] = [
   'briefing',
+  'scripted',
   'ready_to_record',
   'recorded',
   'editing',
+  'scheduled',
   'ready_to_post',
   'posted',
 ];
 
 const STATUS_CONFIG: Record<ContentItemStatus, { label: string; emoji: string; color: string; bg: string; icon: typeof FileText }> = {
   briefing:         { label: 'Briefing',         emoji: '📝', color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20', icon: FileText },
+  scripted:         { label: 'Scripted',         emoji: '📄', color: 'text-orange-400', bg: 'bg-orange-500/10 border-orange-500/20', icon: FileText },
   ready_to_record:  { label: 'Ready to Record',  emoji: '🎙️', color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20',   icon: Mic },
   recorded:         { label: 'Recorded',          emoji: '✅', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/20', icon: CheckCircle2 },
   editing:          { label: 'Editing',           emoji: '✂️', color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20', icon: Scissors },
+  scheduled:        { label: 'Scheduled',         emoji: '📅', color: 'text-cyan-400',   bg: 'bg-cyan-500/10 border-cyan-500/20',   icon: Send },
   ready_to_post:    { label: 'Ready to Post',     emoji: '🚀', color: 'text-teal-400',   bg: 'bg-teal-500/10 border-teal-500/20',   icon: Send },
   posted:           { label: 'Posted',            emoji: '🟢', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20', icon: Archive },
 };
-
-// ── Next step for each status ─────────────────────────────────────
-
-function getNextStep(status: ContentItemStatus): string {
-  switch (status) {
-    case 'briefing': return 'Generate brief';
-    case 'ready_to_record': return 'Open Recording Kit';
-    case 'recorded': return 'Review footage';
-    case 'editing': return 'Complete edits';
-    case 'ready_to_post': return 'Publish';
-    case 'posted': return 'Done';
-    default: return '—';
-  }
-}
 
 // ── Extended content item with joined names ───────────────────────
 
@@ -272,33 +265,51 @@ export default function ContentBoard({ onOpenPanel, onOpenRecordingKit }: Conten
                         <span className="text-[10px] font-mono ml-auto" style={{ color: colors.textMuted }}>{item.short_id}</span>
                       </div>
 
-                      {/* Primary CTA */}
-                      <div onClick={(e) => e.stopPropagation()}>
-                        {item.status === 'ready_to_record' ? (
-                          <button
-                            onClick={() => onOpenRecordingKit(item.id)}
-                            className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-semibold text-white active:brightness-90"
-                            style={{ backgroundColor: '#0F766E' }}
-                          >
-                            <Mic size={18} /> Open Recording Kit
-                          </button>
-                        ) : item.status === 'ready_to_post' ? (
-                          <button
-                            onClick={() => handleAdvance(item)}
-                            className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-semibold bg-green-600 text-white active:bg-green-700"
-                          >
-                            <Send size={18} /> Publish
-                          </button>
-                        ) : item.status !== 'posted' ? (
-                          <button
-                            onClick={() => handleAdvance(item)}
-                            className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-medium active:brightness-90"
-                            style={{ backgroundColor: colors.surface2, border: `1px solid ${colors.border}`, color: colors.textSecondary }}
-                          >
-                            Advance →
-                          </button>
-                        ) : null}
+                      {/* Primary CTA via getNextAction */}
+                      <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
+                        {(() => {
+                          const action = getNextAction(item);
+                          return (
+                            <>
+                              {action.href ? (
+                                <a
+                                  href={action.href}
+                                  className={`flex-1 flex items-center justify-center gap-2 min-h-[48px] rounded-xl text-base font-semibold active:brightness-90 ${getActionButtonClasses(action.variant)}`}
+                                >
+                                  {action.label}
+                                </a>
+                              ) : action.onClickType === 'generate_brief' || action.onClickType === 'generate_editor_notes' || action.onClickType === 'mark_ready_to_post' ? (
+                                <button
+                                  onClick={() => handleAdvance(item)}
+                                  className={`flex-1 flex items-center justify-center gap-2 min-h-[48px] rounded-xl text-base font-semibold active:brightness-90 ${getActionButtonClasses(action.variant)}`}
+                                >
+                                  {action.label}
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => onOpenPanel(item.id)}
+                                  className={`flex-1 flex items-center justify-center gap-2 min-h-[48px] rounded-xl text-base font-semibold active:brightness-90 ${getActionButtonClasses(action.variant)}`}
+                                >
+                                  {action.label}
+                                </button>
+                              )}
+                              <DriveFolderButton
+                                contentItemId={item.id}
+                                driveFolderUrl={item.drive_folder_url}
+                                compact
+                                className="h-12 w-12 rounded-xl border border-zinc-700"
+                              />
+                            </>
+                          );
+                        })()}
                       </div>
+                      <Link
+                        href={`/admin/content-items/${item.id}`}
+                        className="block text-center text-xs text-zinc-500 hover:text-zinc-300 transition py-1"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        View Details
+                      </Link>
                     </div>
                   );
                 })}
@@ -331,9 +342,14 @@ export default function ContentBoard({ onOpenPanel, onOpenRecordingKit }: Conten
                         onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                       >
                         <td className="px-4 py-2.5">
-                          <div className="font-medium truncate max-w-[240px]" style={{ color: colors.text }}>
+                          <Link
+                            href={`/admin/content-items/${item.id}`}
+                            className="font-medium truncate max-w-[240px] block hover:underline"
+                            style={{ color: colors.text }}
+                            onClick={(e) => e.stopPropagation()}
+                          >
                             {item.title}
-                          </div>
+                          </Link>
                           <div className="text-[10px] font-mono" style={{ color: colors.textMuted }}>{item.short_id}</div>
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: colors.textSecondary }}>
@@ -346,22 +362,17 @@ export default function ContentBoard({ onOpenPanel, onOpenRecordingKit }: Conten
                           {formatDate(item.due_at)}
                         </td>
                         <td className="px-4 py-2.5 text-xs" style={{ color: colors.textSecondary }}>
-                          {getNextStep(item.status)}
+                          {getNextAction(item).label}
                         </td>
                         <td className="px-4 py-2.5">
-                          <div className="flex items-center gap-1.5">
-                            {item.drive_folder_url && (
-                              <a href={item.drive_folder_url} target="_blank" rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-blue-400 hover:text-blue-300"
-                                title="Google Drive folder"
-                              >
-                                <FolderOpen size={14} />
-                              </a>
-                            )}
+                          <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <DriveFolderButton
+                              contentItemId={item.id}
+                              driveFolderUrl={item.drive_folder_url}
+                              compact
+                            />
                             {item.final_video_url && (
                               <a href={item.final_video_url} target="_blank" rel="noopener noreferrer"
-                                onClick={(e) => e.stopPropagation()}
                                 className="text-green-400 hover:text-green-300"
                                 title="Final video"
                               >
@@ -372,27 +383,30 @@ export default function ContentBoard({ onOpenPanel, onOpenRecordingKit }: Conten
                         </td>
                         <td className="px-4 py-2.5 text-right">
                           <div className="flex items-center justify-end gap-1.5" onClick={(e) => e.stopPropagation()}>
-                            {item.status === 'ready_to_record' ? (
-                              <button
-                                onClick={() => onOpenRecordingKit(item.id)}
-                                className="text-xs rounded px-2.5 py-1.5 font-medium text-white transition-colors"
-                                style={{ backgroundColor: '#0F766E' }}
-                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#0D6B64'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#0F766E'; }}
-                              >
-                                Open Recording Kit
-                              </button>
-                            ) : item.status !== 'posted' ? (
-                              <button
-                                onClick={() => handleAdvance(item)}
-                                className="text-xs rounded px-2.5 py-1.5 transition-colors"
-                                style={{ backgroundColor: colors.surface2, border: `1px solid ${colors.border}`, color: colors.textSecondary }}
-                                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#0F766E'; e.currentTarget.style.color = 'white'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = colors.surface2; e.currentTarget.style.color = colors.textSecondary; }}
-                              >
-                                Advance
-                              </button>
-                            ) : null}
+                            {(() => {
+                              const action = getNextAction(item);
+                              if (action.href) {
+                                return (
+                                  <a
+                                    href={action.href}
+                                    className={`text-xs rounded px-2.5 py-1.5 font-medium transition-colors ${getActionButtonClasses(action.variant)}`}
+                                  >
+                                    {action.label}
+                                  </a>
+                                );
+                              }
+                              if (action.onClickType) {
+                                return (
+                                  <button
+                                    onClick={() => handleAdvance(item)}
+                                    className={`text-xs rounded px-2.5 py-1.5 font-medium transition-colors ${getActionButtonClasses(action.variant)}`}
+                                  >
+                                    {action.label}
+                                  </button>
+                                );
+                              }
+                              return null;
+                            })()}
                             <button
                               onClick={() => onOpenPanel(item.id)}
                               className="text-xs rounded px-2 py-1.5 transition-colors"

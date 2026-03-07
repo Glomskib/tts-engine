@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import Link from 'next/link';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import { X, Copy, ExternalLink, FileText, Sparkles, Palette, Upload, Hash, Clock, ChevronDown, Lock, Loader2, Film, Scissors, BarChart3, Plus, Brain, Trophy, ChevronRight, Flame, MessageSquare, Repeat2, Lightbulb, BookOpen } from 'lucide-react';
@@ -30,9 +31,11 @@ type PanelTab = 'brief' | 'script' | 'purple_cow' | 'upload' | 'editor_notes' | 
 
 const STATUS_LABELS: Record<ContentItemStatus, string> = {
   briefing: 'Briefing',
+  scripted: 'Scripted',
   ready_to_record: 'Ready to Record',
   recorded: 'Recorded',
   editing: 'Editing',
+  scheduled: 'Scheduled',
   ready_to_post: 'Ready to Post',
   posted: 'Posted',
 };
@@ -1319,6 +1322,12 @@ export default function ContentItemPanel({ contentItemId, onClose, onOpenRecordi
             </span>
           </div>
           <h2 className="text-lg font-semibold truncate mt-1">{item.title}</h2>
+          <Link
+            href={`/admin/content-items/${contentItemId}`}
+            className="text-xs text-teal-500 hover:text-teal-400 mt-0.5 inline-block"
+          >
+            View Full Details &rarr;
+          </Link>
         </div>
         <button onClick={onClose} className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800">
           <X size={20} />

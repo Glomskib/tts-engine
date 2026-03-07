@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { EmptyState } from '../components/AdminPageLayout';
 import { getAccentColorOptions, AccentColor } from '@/lib/org-branding';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 interface ClientOrg {
   org_id: string;
@@ -893,11 +894,11 @@ export default function AdminClientOrgsPage() {
   };
 
   if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (!isAdmin) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   return (

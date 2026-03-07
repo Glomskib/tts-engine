@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
 
@@ -148,11 +149,11 @@ export default function OpsPage() {
 
   // Loading states
   if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking admin access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (!authUser) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   const displayTime = (dateStr: string) => {

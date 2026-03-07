@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
 import { EmptyState } from '../components/AdminPageLayout';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 interface QueueVideo {
   id: string;
@@ -88,7 +89,7 @@ export default function ExecutionDashboardPage() {
   };
 
   if (adminEnabled === null) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (adminEnabled === false) {

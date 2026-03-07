@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import IncidentBanner from '../components/IncidentBanner';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 interface HealthData {
   ok: boolean;
@@ -132,11 +133,11 @@ export default function AdminStatusPage() {
   }, [isAdmin]);
 
   if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (!isAdmin) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   const formatValue = (value: boolean | number | string | string[]): string => {

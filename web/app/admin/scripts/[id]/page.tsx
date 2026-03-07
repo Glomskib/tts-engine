@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 interface ScriptJson {
   hook?: string;
@@ -363,7 +364,7 @@ export default function ScriptEditorPage() {
   };
 
   if (adminEnabled === null) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (adminEnabled === false) {

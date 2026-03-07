@@ -243,6 +243,41 @@ export function SkeletonForm({ fields = 4, className = '' }: { fields?: number; 
   );
 }
 
+// Pipeline card skeleton — matches VideoQueueMobile card layout
+export function SkeletonPipelineCard({ className = '' }: { className?: string }) {
+  return (
+    <div className={`bg-zinc-900 border border-white/10 rounded-xl px-4 py-3 ${className}`}>
+      {/* Title + age */}
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <Skeleton height={16} width="65%" />
+        <Skeleton height={12} width={24} />
+      </div>
+      {/* Status + script + owner badges */}
+      <div className="flex items-center gap-1.5 mb-2.5">
+        <Skeleton height={20} width={72} className="rounded-md" />
+        <Skeleton height={20} width={20} className="rounded-md" />
+        <Skeleton height={20} width={48} className="rounded-md" />
+      </div>
+      {/* Action button */}
+      <div className="flex items-center justify-between">
+        <Skeleton height={28} width={88} className="rounded-lg" />
+        <Skeleton height={16} width={16} variant="circular" />
+      </div>
+    </div>
+  );
+}
+
+// List of pipeline cards skeleton (mobile)
+export function SkeletonPipelineList({ count = 6, className = '' }: { count?: number; className?: string }) {
+  return (
+    <div className={`flex flex-col gap-2 ${className}`}>
+      {Array.from({ length: count }).map((_, i) => (
+        <SkeletonPipelineCard key={i} />
+      ))}
+    </div>
+  );
+}
+
 // Winner card skeleton
 export function SkeletonWinnerCard({ className = '' }: { className?: string }) {
   return (

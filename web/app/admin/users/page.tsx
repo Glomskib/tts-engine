@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { EmptyState } from '../components/AdminPageLayout';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 interface User {
   user_id: string;
@@ -115,11 +116,11 @@ export default function AdminUsersPage() {
   };
 
   if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (!isAdmin) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   return (
@@ -164,7 +165,8 @@ export default function AdminUsersPage() {
 
       {/* Loading/Error */}
       {loading && (
-        <div style={{ padding: '40px', textAlign: 'center', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
+        <div className="py-10 flex items-center justify-center gap-3 text-zinc-500 text-sm">
+          <div className="w-4 h-4 border-2 border-zinc-700 border-t-zinc-400 rounded-full animate-spin" />
           Loading users...
         </div>
       )}

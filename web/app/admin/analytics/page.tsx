@@ -10,6 +10,7 @@ import {
 import { Download, Film, Send, Star, TrendingUp } from 'lucide-react';
 import { StatChip } from '@/components/ui/StatChip';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 const PIE_COLORS = ['#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#a855f7', '#06b6d4', '#ec4899', '#84cc16', '#64748b', '#f97316'];
 
@@ -166,19 +167,11 @@ export default function AnalyticsPage() {
   };
 
   if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <p className="text-zinc-500">Checking access...</p>
-      </div>
-    );
+    return <SkeletonAuthCheck />;
   }
 
   if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <p className="text-zinc-500">Redirecting...</p>
-      </div>
-    );
+    return <SkeletonAuthCheck />;
   }
 
   const dateButtons = (

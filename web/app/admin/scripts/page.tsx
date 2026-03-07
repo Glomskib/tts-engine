@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useHydrated, getTimeAgo, formatDateString } from '@/lib/useHydrated';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 interface ScriptTemplate {
   id: string;
@@ -236,7 +237,7 @@ export default function ScriptsLibraryPage() {
   const categories = [...new Set(templates.map(t => t.category).filter(Boolean))] as string[];
 
   if (adminEnabled === null) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (adminEnabled === false) {

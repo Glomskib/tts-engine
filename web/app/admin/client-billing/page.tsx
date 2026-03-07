@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { EmptyState } from '../components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 interface OrgInvoicePreview {
   org_id: string;
@@ -162,11 +163,11 @@ export default function AdminBillingPage() {
   };
 
   if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (!isAdmin) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   return (

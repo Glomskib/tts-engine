@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 interface UpgradeRequest {
   id: string;
@@ -124,11 +125,11 @@ export default function AdminUpgradeRequestsPage() {
   };
 
   if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (!isAdmin) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   const pendingRequests = requests.filter(r => r.status === 'pending');

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useHydrated } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import IncidentBanner from './IncidentBanner';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 type ClaimRole = 'recorder' | 'editor' | 'uploader' | 'admin';
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
@@ -318,11 +319,11 @@ export default function RoleDashboard({ role, title, filterFn, defaultRecordingS
 
   // Loading states
   if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (!authUser) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   const isClaimedByMe = (video: QueueVideo) => video.claimed_by === authUser.id;

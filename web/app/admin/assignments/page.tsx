@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useHydrated, formatDateString } from '@/lib/useHydrated';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { EmptyState } from '../components/AdminPageLayout';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 type SlaStatus = 'on_track' | 'due_soon' | 'overdue';
 
@@ -279,11 +280,11 @@ export default function AssignmentsPage() {
   };
 
   if (authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   if (!authUser) {
-    return <div style={{ padding: '20px' }}>Redirecting...</div>;
+    return <SkeletonAuthCheck />;
   }
 
   return (

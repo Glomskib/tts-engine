@@ -14,6 +14,7 @@ import type { ContentItem, ContentItemStatus, ContentItemEvent } from '@/lib/con
 import { CONTENT_ITEM_STATUSES } from '@/lib/content-items/types';
 import { getNextAction, getActionButtonClasses } from '@/lib/content-items/nextAction';
 import DriveFolderButton from '@/components/DriveFolderButton';
+import RawVideoUpload from '@/components/RawVideoUpload';
 
 // ── Status display config ─────────────────────────────────────────
 
@@ -384,6 +385,17 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
             onFolderReady={(url, folderId) => setItem({ ...item, drive_folder_id: folderId, drive_folder_url: url })}
             className="w-full"
           />
+
+          {/* Raw video upload */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: colors.textMuted }}>Raw Video</label>
+            <RawVideoUpload
+              contentItemId={item.id}
+              currentUrl={item.raw_video_url}
+              onUploadComplete={(url, path) => setItem({ ...item, raw_video_url: url, raw_video_storage_path: path })}
+              onRemove={() => setItem({ ...item, raw_video_url: null, raw_video_storage_path: null })}
+            />
+          </div>
 
           {/* Quick links */}
           <div className="flex flex-wrap gap-2">

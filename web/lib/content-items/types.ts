@@ -3,6 +3,7 @@
  */
 
 import type { EditorNotesJSON } from './editor-notes-schema';
+import type { EditStatus, EditPlan } from '../editing/types';
 
 export type ContentItemStatus =
   | 'briefing'
@@ -95,6 +96,16 @@ export interface ContentItem {
   post_url: string | null;
   posted_platform: string | null;
   recording_status: string | null;
+  // Editing engine fields
+  raw_video_url: string | null;
+  raw_video_storage_path: string | null;
+  editing_instructions: string | null;
+  edit_plan_json: EditPlan | null;
+  edit_status: EditStatus;
+  rendered_video_url: string | null;
+  rendered_video_storage_path: string | null;
+  render_error: string | null;
+  last_rendered_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

@@ -1,12 +1,15 @@
 'use client';
 
 import { useState } from 'react';
-import { FolderOpen, Loader2, ExternalLink } from 'lucide-react';
+import { FolderPlus, ExternalLink, Loader2 } from 'lucide-react';
+import { useToast } from '@/contexts/ToastContext';
 
 interface DriveFolderButtonProps {
   contentItemId: string;
   driveFolderUrl?: string | null;
+  /** Callback when folder is created/ensured — passes new folder URL */
   onFolderReady?: (url: string, folderId: string) => void;
+  /** Compact icon-only mode */
   compact?: boolean;
   className?: string;
 }
@@ -18,61 +21,68 @@ export default function DriveFolderButton({
   compact = false,
   className = '',
 }: DriveFolderButtonProps) {
-  const [creating, setCreating] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { showSuccess, showError } = useToast();
 
-  if (driveFolderUrl) {
-    return (
-      <a
-        href={driveFolderUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className={`inline-flex items-center gap-2 ${
-          compact
-            ? 'px-3 py-1.5 text-xs'
-            : 'px-4 py-2.5 text-sm min-h-[44px]'
-        } bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg hover:bg-blue-500/20 transition-colors font-medium ${className}`}
-      >
-        <FolderOpen className={compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
-        {compact ? 'Drive' : 'Open Drive Folder'}
-        <ExternalLink className="w-3 h-3" />
-      </a>
-    );
-  }
+  const handleClick = async () => {
+    // If folder already exists, just open it
+    if (driveFolderUrl) {
+      window.open(driveFolderUrl, '_blank', 'noopener');
+      return;
+    }
 
-  const handleCreate = async () => {
-    setCreating(true);
+    // Create folder
+    setLoading(true);
     try {
-      const res = await fetch(`/api/content-items/${contentItemId}/drive-folder`, {
+      const res = await fetch(`/api/content-items/${contentItemId}/drive/ensure`, {
         method: 'POST',
       });
       const json = await res.json();
-      if (json.ok && json.data) {
-        onFolderReady?.(json.data.url, json.data.folder_id);
+      if (json.ok) {
+        const url = json.data.drive_folder_url as string;
+        const folderId = json.data.drive_folder_id as string;
+        showSuccess(json.data.created ? 'Drive folder created' : 'Drive folder ready');
+        onFolderReady?.(url, folderId);
+        window.open(url, '_blank', 'noopener');
+      } else {
+        showError(json.error || json.message || 'Failed to create folder');
       }
     } catch {
-      // silently fail — the button will remain in "create" state
+      showError('Failed to create folder');
     } finally {
-      setCreating(false);
+      setLoading(false);
     }
   };
 
+  const hasFolder = !!driveFolderUrl;
+  const Icon = loading ? Loader2 : hasFolder ? ExternalLink : FolderPlus;
+  const label = loading ? 'Creating...' : hasFolder ? 'Open Drive' : 'Create Folder';
+
+  if (compact) {
+    return (
+      <button
+        onClick={handleClick}
+        disabled={loading}
+        title={label}
+        className={`inline-flex items-center justify-center w-8 h-8 rounded-md text-zinc-400 hover:text-blue-400 hover:bg-zinc-800 transition disabled:opacity-50 ${className}`}
+      >
+        <Icon size={16} className={loading ? 'animate-spin' : ''} />
+      </button>
+    );
+  }
+
   return (
     <button
-      type="button"
-      onClick={handleCreate}
-      disabled={creating}
-      className={`inline-flex items-center gap-2 ${
-        compact
-          ? 'px-3 py-1.5 text-xs'
-          : 'px-4 py-2.5 text-sm min-h-[44px]'
-      } bg-zinc-800 text-zinc-400 border border-white/10 rounded-lg hover:bg-zinc-700 transition-colors font-medium disabled:opacity-50 ${className}`}
+      onClick={handleClick}
+      disabled={loading}
+      className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition disabled:opacity-50 ${
+        hasFolder
+          ? 'bg-blue-900/20 text-blue-300 hover:bg-blue-900/40'
+          : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+      } ${className}`}
     >
-      {creating ? (
-        <Loader2 className={`${compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} animate-spin`} />
-      ) : (
-        <FolderOpen className={compact ? 'w-3.5 h-3.5' : 'w-4 h-4'} />
-      )}
-      {compact ? 'Create Folder' : 'Create Drive Folder'}
+      <Icon size={14} className={loading ? 'animate-spin' : ''} />
+      {label}
     </button>
   );
 }

@@ -7,7 +7,9 @@ import {
   ArrowLeft, Copy, Check, Loader2, ExternalLink,
   FileText, Clock, ChevronRight, Calendar, Send,
   Mic, Scissors, BarChart3, Package, Sparkles,
+  Film, Play, AlertTriangle, RefreshCw,
 } from 'lucide-react';
+import type { EditStatus } from '@/lib/editing/types';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
 import type { ContentItem, ContentItemStatus, ContentItemEvent } from '@/lib/content-items/types';
@@ -157,6 +159,8 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
   const [loading, setLoading] = useState(true);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
+  const [editingBusy, setEditingBusy] = useState<string | null>(null); // 'planning' | 'rendering' | null
+  const [instructions, setInstructions] = useState('');
 
   const fetchItem = useCallback(async () => {
     try {
@@ -186,6 +190,13 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
 
   useEffect(() => { fetchItem(); fetchEvents(); }, [fetchItem, fetchEvents]);
 
+  // Sync instructions textarea with loaded item
+  useEffect(() => {
+    if (item?.editing_instructions && !instructions) {
+      setInstructions(item.editing_instructions);
+    }
+  }, [item?.editing_instructions]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const handleStatusChange = async (newStatus: string) => {
     if (!item || item.status === newStatus) return;
     setUpdating(true);
@@ -208,6 +219,68 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
     } finally {
       setUpdating(false);
     }
+  };
+
+  // ── Editing engine handlers ────────────────────────────
+  const handleSaveInstructions = async () => {
+    if (!item) return;
+    setEditingBusy('saving');
+    try {
+      const res = await fetch(`/api/content-items/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ editing_instructions: instructions }),
+      });
+      const json = await res.json();
+      if (json.ok) {
+        setItem({ ...item, editing_instructions: instructions });
+        showToast({ message: 'Instructions saved', type: 'success' });
+      } else {
+        showToast({ message: json.error || 'Save failed', type: 'error' });
+      }
+    } catch { showToast({ message: 'Network error', type: 'error' }); }
+    finally { setEditingBusy(null); }
+  };
+
+  const handleGeneratePlan = async () => {
+    if (!item) return;
+    setEditingBusy('planning');
+    try {
+      const res = await fetch(`/api/content-items/${id}/edit-plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      const json = await res.json();
+      if (json.ok) {
+        setItem({ ...item, edit_plan_json: json.data.edit_plan_json, edit_status: json.data.edit_status });
+        showToast({ message: 'Edit plan generated', type: 'success' });
+        if (json.data.warnings?.length) {
+          showToast({ message: `${json.data.warnings.length} warning(s) — check plan`, type: 'info' });
+        }
+        fetchEvents();
+      } else {
+        showToast({ message: json.error || 'Plan generation failed', type: 'error' });
+      }
+    } catch { showToast({ message: 'Network error', type: 'error' }); }
+    finally { setEditingBusy(null); }
+  };
+
+  const handleRender = async () => {
+    if (!item) return;
+    setEditingBusy('rendering');
+    setItem({ ...item, edit_status: 'rendering' as EditStatus });
+    try {
+      const res = await fetch(`/api/content-items/${id}/render`, { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        setItem(prev => prev ? { ...prev, edit_status: 'rendered' as EditStatus, rendered_video_url: json.data.rendered_video_url, render_error: null } : prev);
+        showToast({ message: 'Video rendered successfully', type: 'success' });
+        fetchEvents();
+      } else {
+        setItem(prev => prev ? { ...prev, edit_status: 'failed' as EditStatus, render_error: json.error } : prev);
+        showToast({ message: json.error || 'Render failed', type: 'error' });
+      }
+    } catch {
+      setItem(prev => prev ? { ...prev, edit_status: 'failed' as EditStatus } : prev);
+      showToast({ message: 'Network error', type: 'error' });
+    } finally { setEditingBusy(null); }
   };
 
   if (loading) {
@@ -482,6 +555,144 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
           {/* No content yet */}
           {!item.primary_hook && !item.script_text && !item.caption && (
             <p className="text-sm text-zinc-500">No content written yet.</p>
+          )}
+        </div>
+      </div>
+
+      {/* ── Editing Engine Panel ────────────────────────────── */}
+      <div
+        className="rounded-xl p-4 space-y-4"
+        style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}` }}
+      >
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold flex items-center gap-2" style={{ color: colors.text }}>
+            <Scissors size={14} /> Editing Engine
+          </h2>
+          {item.edit_status && item.edit_status !== 'not_started' && (
+            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${
+              item.edit_status === 'rendered' ? 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30' :
+              item.edit_status === 'rendering' ? 'bg-blue-500/15 text-blue-400 border border-blue-500/30' :
+              item.edit_status === 'ready_to_render' ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/30' :
+              item.edit_status === 'failed' ? 'bg-red-500/15 text-red-400 border border-red-500/30' :
+              'bg-zinc-500/15 text-zinc-400 border border-zinc-500/30'
+            }`}>
+              {item.edit_status.replace(/_/g, ' ')}
+            </span>
+          )}
+        </div>
+
+        {/* Render error */}
+        {item.render_error && (
+          <div className="flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/20 p-2.5">
+            <AlertTriangle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
+            <p className="text-xs text-red-300">{item.render_error}</p>
+          </div>
+        )}
+
+        {/* Instructions */}
+        <div>
+          <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: colors.textMuted }}>Editing Instructions</label>
+          <textarea
+            value={instructions}
+            onChange={(e) => setInstructions(e.target.value)}
+            placeholder="e.g. Remove pauses, add captions, cut 5-10s, tight edit..."
+            rows={3}
+            className="w-full rounded-lg text-sm px-3 py-2 border focus:outline-none focus:border-teal-500 resize-none"
+            style={{ backgroundColor: isDark ? '#18181b' : '#fafafa', borderColor: colors.border, color: colors.text }}
+          />
+          {instructions !== (item.editing_instructions || '') && (
+            <button
+              onClick={handleSaveInstructions}
+              disabled={editingBusy === 'saving'}
+              className="mt-1 text-xs text-teal-400 hover:text-teal-300 transition disabled:opacity-50"
+            >
+              {editingBusy === 'saving' ? 'Saving...' : 'Save instructions'}
+            </button>
+          )}
+        </div>
+
+        {/* Edit Plan Preview */}
+        {item.edit_plan_json && (
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: colors.textMuted }}>Edit Plan</label>
+            <div
+              className="text-xs rounded-lg p-2.5 max-h-40 overflow-y-auto font-mono space-y-0.5"
+              style={{ backgroundColor: isDark ? '#18181b' : '#fafafa', color: colors.textMuted }}
+            >
+              {(item.edit_plan_json as { actions?: Array<{ type: string; [k: string]: unknown }> })?.actions?.map((a: { type: string; [k: string]: unknown }, i: number) => (
+                <div key={i} className="flex items-center gap-2">
+                  <span className={`inline-block w-2 h-2 rounded-full flex-shrink-0 ${
+                    a.type === 'keep' ? 'bg-emerald-500' :
+                    a.type === 'cut' ? 'bg-red-500' :
+                    a.type === 'text_overlay' ? 'bg-blue-500' :
+                    a.type === 'speed' ? 'bg-amber-500' :
+                    a.type === 'normalize_audio' ? 'bg-violet-500' :
+                    a.type === 'end_card' ? 'bg-cyan-500' :
+                    a.type === 'burn_captions' ? 'bg-pink-500' :
+                    a.type === 'remove_silence' ? 'bg-orange-500' :
+                    'bg-zinc-500'
+                  }`} />
+                  <span>{a.type.replace(/_/g, ' ')}</span>
+                  {'start_sec' in a && 'end_sec' in a && (
+                    <span className="text-zinc-600">{String(a.start_sec)}s-{String(a.end_sec)}s</span>
+                  )}
+                  {a.type === 'text_overlay' && <span className="text-zinc-500 truncate">&ldquo;{String(a.text)}&rdquo;</span>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Rendered output */}
+        {item.rendered_video_url && (
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: colors.textMuted }}>Rendered Output</label>
+            <video
+              src={item.rendered_video_url}
+              controls
+              preload="metadata"
+              className="w-full rounded-lg max-h-64 bg-black"
+            />
+            <div className="flex items-center gap-3 mt-1.5">
+              <a
+                href={item.rendered_video_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition"
+              >
+                <ExternalLink size={10} /> Open full
+              </a>
+              {item.last_rendered_at && (
+                <span className="text-[10px]" style={{ color: colors.textMuted }}>
+                  Rendered {formatDateTime(item.last_rendered_at)}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleGeneratePlan}
+            disabled={!item.raw_video_url || !!editingBusy}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-cyan-900/30 text-cyan-300 hover:bg-cyan-900/50 border border-cyan-500/20"
+          >
+            {editingBusy === 'planning' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
+            {item.edit_plan_json ? 'Rebuild Plan' : 'Generate Plan'}
+          </button>
+
+          <button
+            onClick={handleRender}
+            disabled={!item.edit_plan_json || item.edit_status === 'rendering' || !!editingBusy}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/50 border border-emerald-500/20"
+          >
+            {editingBusy === 'rendering' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+            {item.edit_status === 'rendered' ? 'Re-render' : item.edit_status === 'rendering' ? 'Rendering...' : 'Render Video'}
+          </button>
+
+          {!item.raw_video_url && (
+            <p className="text-[11px] text-zinc-500 self-center">Upload a raw video first</p>
           )}
         </div>
       </div>

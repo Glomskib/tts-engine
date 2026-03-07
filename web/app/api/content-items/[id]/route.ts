@@ -86,6 +86,7 @@ const UpdateSchema = z.object({
   caption: z.string().nullable().optional(),
   transcript_status: z.enum(PROCESSING_STATUSES).optional(),
   editor_notes_status: z.enum(PROCESSING_STATUSES).optional(),
+  editing_instructions: z.string().nullable().optional(),
 }).strict();
 
 export const PATCH = withErrorCapture(async (

@@ -37,19 +37,19 @@ interface AuthUser {
 
 // Status colors for KPI cards
 const STATUS_COLORS: Record<string, { bg: string; text: string; border: string }> = {
-  NOT_RECORDED: { bg: '#fff5f5', text: '#c92a2a', border: '#ffc9c9' },
-  RECORDED: { bg: '#fff3bf', text: '#e67700', border: '#ffd43b' },
-  EDITED: { bg: '#d3f9d8', text: '#2b8a3e', border: '#69db7c' },
-  READY_TO_POST: { bg: '#e7f5ff', text: '#1971c2', border: '#74c0fc' },
-  POSTED: { bg: '#f8f9fa', text: '#495057', border: '#dee2e6' },
-  REJECTED: { bg: '#ffe3e3', text: '#c92a2a', border: '#ffa8a8' },
+  NOT_RECORDED: { bg: 'rgba(161, 161, 170, 0.1)', text: '#a1a1aa', border: 'rgba(161, 161, 170, 0.2)' },
+  RECORDED: { bg: 'rgba(96, 165, 250, 0.1)', text: '#60a5fa', border: 'rgba(96, 165, 250, 0.2)' },
+  EDITED: { bg: 'rgba(250, 204, 21, 0.1)', text: '#facc15', border: 'rgba(250, 204, 21, 0.2)' },
+  READY_TO_POST: { bg: 'rgba(45, 212, 191, 0.1)', text: '#2dd4bf', border: 'rgba(45, 212, 191, 0.2)' },
+  POSTED: { bg: 'rgba(52, 211, 153, 0.1)', text: '#34d399', border: 'rgba(52, 211, 153, 0.2)' },
+  REJECTED: { bg: 'rgba(248, 113, 113, 0.1)', text: '#f87171', border: 'rgba(248, 113, 113, 0.2)' },
 };
 
 // SLA status colors
 const SLA_COLORS: Record<SlaStatus, { bg: string; text: string; border: string }> = {
-  overdue: { bg: '#ffe3e3', text: '#c92a2a', border: '#ffa8a8' },
-  due_soon: { bg: '#fff3bf', text: '#e67700', border: '#ffd43b' },
-  on_track: { bg: '#d3f9d8', text: '#2b8a3e', border: '#69db7c' },
+  overdue: { bg: 'rgba(248, 113, 113, 0.1)', text: '#f87171', border: 'rgba(248, 113, 113, 0.2)' },
+  due_soon: { bg: 'rgba(251, 191, 36, 0.1)', text: '#fbbf24', border: 'rgba(251, 191, 36, 0.2)' },
+  on_track: { bg: 'rgba(52, 211, 153, 0.1)', text: '#34d399', border: 'rgba(52, 211, 153, 0.2)' },
 };
 
 // Blocker labels for readability

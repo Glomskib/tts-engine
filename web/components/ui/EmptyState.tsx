@@ -1,12 +1,18 @@
 'use client';
 
-import { LucideIcon } from 'lucide-react';
+import Link from 'next/link';
+import { type LucideIcon } from 'lucide-react';
 
 interface EmptyStateProps {
   icon: LucideIcon;
   title: string;
   description: string;
   action?: {
+    label: string;
+    href?: string;
+    onClick?: () => void;
+  };
+  secondaryAction?: {
     label: string;
     onClick: () => void;
   };
@@ -18,24 +24,46 @@ export function EmptyState({
   title,
   description,
   action,
+  secondaryAction,
   className = '',
 }: EmptyStateProps) {
   return (
-    <div className={`flex flex-col items-center justify-center py-16 px-4 text-center ${className}`}>
-      <div className="w-16 h-16 rounded-full bg-zinc-800 flex items-center justify-center mb-4">
-        <Icon className="w-8 h-8 text-zinc-500" />
+    <div className={`flex flex-col items-center justify-center py-16 px-6 text-center ${className}`}>
+      <div className="w-16 h-16 rounded-2xl bg-zinc-800/50 border border-white/5 flex items-center justify-center mb-6">
+        <Icon size={28} className="text-zinc-500" />
       </div>
-      <h3 className="text-lg font-medium text-white mb-2">{title}</h3>
-      <p className="text-sm text-zinc-400 max-w-sm mb-6">{description}</p>
-      {action && (
-        <button
-          type="button"
-          onClick={action.onClick}
-          className="h-11 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 active:bg-teal-800 transition-colors"
-        >
-          {action.label}
-        </button>
-      )}
+
+      <h3 className="text-lg font-semibold text-zinc-100 mb-2">{title}</h3>
+      <p className="text-zinc-400 text-sm max-w-sm mb-6 leading-relaxed">{description}</p>
+
+      <div className="flex items-center gap-3">
+        {action && action.href && (
+          <Link
+            href={action.href}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-teal-500 text-white font-medium text-sm hover:bg-teal-600 transition-colors"
+          >
+            {action.label}
+          </Link>
+        )}
+        {action && !action.href && action.onClick && (
+          <button
+            type="button"
+            onClick={action.onClick}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-teal-500 text-white font-medium text-sm hover:bg-teal-600 transition-colors"
+          >
+            {action.label}
+          </button>
+        )}
+        {secondaryAction && (
+          <button
+            type="button"
+            onClick={secondaryAction.onClick}
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-lg border border-white/10 text-zinc-300 font-medium text-sm hover:bg-white/5 transition-colors"
+          >
+            {secondaryAction.label}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

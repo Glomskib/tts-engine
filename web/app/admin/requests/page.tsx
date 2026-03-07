@@ -40,11 +40,11 @@ interface ClientRequest {
 }
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  SUBMITTED: { bg: '#e7f5ff', text: '#1971c2' },
-  IN_REVIEW: { bg: '#fff3bf', text: '#e67700' },
-  APPROVED: { bg: '#d3f9d8', text: '#2f9e44' },
-  REJECTED: { bg: '#ffe3e3', text: '#e03131' },
-  CONVERTED: { bg: '#f3d9fa', text: '#9c36b5' },
+  SUBMITTED: { bg: 'rgba(56, 189, 248, 0.1)', text: '#38bdf8' },
+  IN_REVIEW: { bg: 'rgba(251, 191, 36, 0.1)', text: '#fbbf24' },
+  APPROVED: { bg: 'rgba(52, 211, 153, 0.1)', text: '#34d399' },
+  REJECTED: { bg: 'rgba(248, 113, 113, 0.1)', text: '#f87171' },
+  CONVERTED: { bg: 'rgba(192, 132, 252, 0.1)', text: '#c084fc' },
 };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -61,9 +61,9 @@ const TYPE_LABELS: Record<string, string> = {
 };
 
 const PRIORITY_COLORS: Record<RequestPriority, { bg: string; text: string; border: string }> = {
-  LOW: { bg: '#f8f9fa', text: '#868e96', border: '#ced4da' },
-  NORMAL: { bg: '#e7f5ff', text: '#1971c2', border: '#74c0fc' },
-  HIGH: { bg: '#ffe3e3', text: '#c92a2a', border: '#ffa8a8' },
+  LOW: { bg: 'rgba(161, 161, 170, 0.1)', text: '#a1a1aa', border: 'rgba(161, 161, 170, 0.2)' },
+  NORMAL: { bg: 'rgba(56, 189, 248, 0.1)', text: '#38bdf8', border: 'rgba(56, 189, 248, 0.2)' },
+  HIGH: { bg: 'rgba(248, 113, 113, 0.1)', text: '#f87171', border: 'rgba(248, 113, 113, 0.2)' },
 };
 
 const PRIORITY_ORDER: Record<RequestPriority, number> = {
@@ -73,9 +73,9 @@ const PRIORITY_ORDER: Record<RequestPriority, number> = {
 };
 
 const SLA_STATUS_COLORS: Record<SLAStatus, { bg: string; text: string; border: string }> = {
-  OK: { bg: '#d3f9d8', text: '#2f9e44', border: '#69db7c' },
-  WARNING: { bg: '#fff3bf', text: '#e67700', border: '#ffc078' },
-  BREACHED: { bg: '#ffe3e3', text: '#c92a2a', border: '#ff8787' },
+  OK: { bg: 'rgba(52, 211, 153, 0.1)', text: '#34d399', border: 'rgba(52, 211, 153, 0.2)' },
+  WARNING: { bg: 'rgba(251, 191, 36, 0.1)', text: '#fbbf24', border: 'rgba(251, 191, 36, 0.2)' },
+  BREACHED: { bg: 'rgba(248, 113, 113, 0.1)', text: '#f87171', border: 'rgba(248, 113, 113, 0.2)' },
 };
 
 type SortMode = 'newest' | 'oldest' | 'priority';

@@ -26,6 +26,7 @@ import { PageErrorState } from '@/components/ui/PageErrorState';
 import BoardView from './components/BoardView';
 import type { BoardFilters } from './types';
 import { getVideoDisplayTitle } from './types';
+import { getStatusConfig as getStatusConfigCentral, formatStatusLabel, RECORDING_STATUSES as RECORDING_STATUSES_CENTRAL } from '@/lib/status';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -161,18 +162,14 @@ const BOARD_STATUS_ORDER = [
   'REJECTED',
 ];
 
-const BOARD_STATUS_CONFIG: Record<string, { label: string; emoji: string; color: string; bg: string }> = {
-  NEEDS_SCRIPT:        { label: 'Needs Script',     emoji: '📝', color: 'text-red-400',    bg: 'bg-red-500/10 border-red-500/20' },
-  GENERATING_SCRIPT:   { label: 'Generating',       emoji: '🤖', color: 'text-violet-400', bg: 'bg-violet-500/10 border-violet-500/20' },
-  NOT_RECORDED:        { label: 'Scripted',          emoji: '📄', color: 'text-zinc-400',   bg: 'bg-zinc-500/10 border-zinc-500/20' },
-  AI_RENDERING:        { label: 'AI Rendering',      emoji: '🎬', color: 'text-teal-400', bg: 'bg-purple-500/10 border-purple-500/20' },
-  READY_FOR_REVIEW:    { label: 'Ready for Review',  emoji: '👀', color: 'text-emerald-400',bg: 'bg-emerald-500/10 border-emerald-500/20' },
-  RECORDED:            { label: 'Recorded',          emoji: '🎙️', color: 'text-blue-400',   bg: 'bg-blue-500/10 border-blue-500/20' },
-  APPROVED_NEEDS_EDITS:{ label: 'Needs Edits',       emoji: '✂️', color: 'text-amber-400',  bg: 'bg-amber-500/10 border-amber-500/20' },
-  READY_TO_POST:       { label: 'Ready to Post',     emoji: '✅', color: 'text-teal-400',   bg: 'bg-teal-500/10 border-teal-500/20' },
-  POSTED:              { label: 'Posted',            emoji: '🟢', color: 'text-green-400',  bg: 'bg-green-500/10 border-green-500/20' },
-  REJECTED:            { label: 'Rejected',          emoji: '❌', color: 'text-red-500',    bg: 'bg-red-500/10 border-red-500/20' },
-};
+// Board status config: uses centralized getStatusConfig() from @/lib/status
+// BOARD_STATUS_CONFIG is now derived from the centralized config
+const BOARD_STATUS_CONFIG = Object.fromEntries(
+  RECORDING_STATUSES_CENTRAL.map(s => {
+    const cfg = getStatusConfigCentral(s);
+    return [s, { label: cfg.label, emoji: cfg.emoji, color: cfg.text, bg: cfg.boardBg }];
+  })
+) as Record<string, { label: string; emoji: string; color: string; bg: string }>;
 
 // Next status map for the "▶ Next" quick-advance button
 const BOARD_NEXT_STATUS: Record<string, string> = {
@@ -1635,29 +1632,49 @@ export default function AdminPipelinePage() {
   }, [activeRecordingTab, claimedFilter, activeRoleTab, myWorkOnly, activeUser, adminEnabled, fetchQueueVideos]);
 
   if (adminEnabled === null || authLoading) {
-    return <div style={{ padding: '20px' }}>Checking access...</div>;
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-zinc-400 text-sm">
+          <div className="w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+          Checking access...
+        </div>
+      </div>
+    );
   }
 
   if (!authUser) {
-    return <div style={{ padding: '20px' }}>Redirecting to login...</div>;
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-sm text-zinc-400">Redirecting to login...</div>
+      </div>
+    );
   }
 
   if (adminEnabled === false) {
     return (
-      <div style={{ padding: '20px' }}>
-        <h1>404 - Not Found</h1>
-        <p>This page is not available.</p>
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-xl font-bold text-zinc-200 mb-2">Not Found</h1>
+          <p className="text-sm text-zinc-500">This page is not available.</p>
+        </div>
       </div>
     );
   }
 
   if (loading) {
-    return <div style={{ padding: '20px' }}>Loading observability data...</div>;
+    return (
+      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+        <div className="flex items-center gap-3 text-zinc-400 text-sm">
+          <div className="w-5 h-5 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+          Loading pipeline...
+        </div>
+      </div>
+    );
   }
 
   if (error && !loading) {
     return (
-      <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      <div className="max-w-[1400px] mx-auto p-6">
         <PageErrorState message={error} onRetry={fetchData} />
       </div>
     );
@@ -1851,31 +1868,13 @@ export default function AdminPipelinePage() {
         const reviewCount = queueVideos.filter(v => v.recording_status === 'READY_FOR_REVIEW').length;
         if (reviewCount === 0) return null;
         return (
-          <a
-            href="/admin/review"
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              padding: '12px 16px',
-              marginBottom: '16px',
-              backgroundColor: isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5',
-              border: `1px solid ${isDark ? 'rgba(52, 211, 153, 0.3)' : '#a7f3d0'}`,
-              borderRadius: '10px',
-              textDecoration: 'none',
-              cursor: 'pointer',
-              transition: 'background-color 0.15s',
-            }}
-            onMouseEnter={e => (e.currentTarget.style.backgroundColor = isDark ? 'rgba(5, 150, 105, 0.25)' : '#d1fae5')}
-            onMouseLeave={e => (e.currentTarget.style.backgroundColor = isDark ? 'rgba(5, 150, 105, 0.15)' : '#ecfdf5')}
-          >
-            <span style={{ fontSize: '20px' }}>🎬</span>
-            <span style={{ flex: 1, fontSize: '14px', fontWeight: 600, color: isDark ? '#6ee7b7' : '#059669' }}>
+          <a href="/admin/review"
+            className="flex items-center gap-3 px-4 py-3 mb-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl no-underline cursor-pointer hover:bg-emerald-500/20 transition-colors">
+            <span className="text-xl">🎬</span>
+            <span className="flex-1 text-sm font-semibold text-emerald-400">
               {reviewCount} video{reviewCount !== 1 ? 's' : ''} ready for your review
             </span>
-            <span style={{ fontSize: '13px', fontWeight: 500, color: isDark ? '#34d399' : '#059669' }}>
-              Go to Review →
-            </span>
+            <span className="text-[13px] font-medium text-emerald-500">Go to Review &rarr;</span>
           </a>
         );
       })()}
@@ -2590,21 +2589,33 @@ export default function AdminPipelinePage() {
         ) : (
           <PullToRefresh onRefresh={fetchQueueVideos} className="min-h-[calc(100vh-200px)]">
             <VideoQueueMobile
-              videos={getIntentFilteredVideos().map(v => ({
-                id: v.id,
-                title: getVideoDisplayTitle(v),
-                thumbnail: undefined,
-                brand: v.brand_name || v.product_name || undefined,
-                workflow: v.recording_status || v.status || 'Unknown',
-                assignedTo: v.claimed_by || undefined,
-                updatedAt: v.last_status_changed_at || v.created_at,
-              }))}
+              videos={getIntentFilteredVideos().map(v => {
+                const action = getPrimaryAction(v);
+                return {
+                  id: v.id,
+                  title: getVideoDisplayTitle(v),
+                  thumbnail: undefined,
+                  brand: v.brand_name || v.product_name || undefined,
+                  workflow: v.recording_status || v.status || 'Unknown',
+                  assignedTo: v.claimed_by || undefined,
+                  updatedAt: v.last_status_changed_at || v.created_at,
+                  hasScript: !!v.script_locked_text,
+                  nextAction: action.disabled ? undefined : action.label,
+                  slaStatus: v.sla_status,
+                  blockedReason: v.blocked_reason,
+                  claimedByMe: v.claimed_by === activeUser,
+                };
+              })}
               onVideoClick={(video) => {
                 const fullVideo = getIntentFilteredVideos().find(v => v.id === video.id);
                 if (fullVideo) {
                   setMobileDetailVideo(fullVideo);
                   setMobileDetailOpen(true);
                 }
+              }}
+              onPrimaryAction={(video) => {
+                const fullVideo = getIntentFilteredVideos().find(v => v.id === video.id);
+                if (fullVideo) handlePrimaryActionClick(fullVideo);
               }}
             />
           </PullToRefresh>
@@ -2803,6 +2814,7 @@ export default function AdminPipelinePage() {
               <th style={thStyle}>Video</th>
               <th style={thStyle}>Brand / Product</th>
               <th style={thStyle}>Workflow</th>
+              <th style={thStyle}>Next Action</th>
               <th style={thStyle}>Assigned To</th>
             </tr>
           </thead>
@@ -2920,6 +2932,25 @@ export default function AdminPipelinePage() {
                         }
                       })()}
                     </span>
+                  </td>
+                  {/* Next Action */}
+                  <td style={tdStyle}>
+                    {(() => {
+                      const action = getPrimaryAction(video);
+                      if (action.key === 'done') return <span style={{ fontSize: '11px', color: '#10B981' }}>Done</span>;
+                      if (action.disabled) return (
+                        <span style={{ fontSize: '11px', color: colors.textMuted, fontStyle: 'italic' }}>{action.disabledReason || 'Blocked'}</span>
+                      );
+                      return (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handlePrimaryActionClick(video); }}
+                          className="text-[11px] font-medium px-2 py-1 rounded transition-colors"
+                          style={{ backgroundColor: `${action.color}20`, color: action.color, border: `1px solid ${action.color}30` }}
+                        >
+                          {action.label}
+                        </button>
+                      );
+                    })()}
                   </td>
                   {/* Owner + CI */}
                   <td style={tdStyle}>
@@ -3060,62 +3091,34 @@ export default function AdminPipelinePage() {
 
       {/* Attach Script Modal */}
       {attachModalVideoId && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            backgroundColor: colors.card,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '12px',
-            padding: '24px',
-            maxWidth: '500px',
-            width: '90%',
-            maxHeight: '80vh',
-            overflow: 'auto',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, color: colors.text }}>Attach Script</h2>
-              <button type="button"
-                onClick={closeAttachModal}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: colors.textMuted,
-                }}
-              >
-                ×
-              </button>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] p-4" onClick={closeAttachModal}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-[500px] w-full max-h-[80vh] overflow-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-lg font-semibold text-white">Attach Script</h2>
+              <button type="button" onClick={closeAttachModal} className="text-zinc-400 hover:text-zinc-200 text-2xl leading-none">&times;</button>
             </div>
 
-            <p style={{ color: colors.textMuted, fontSize: '14px', marginBottom: '20px' }}>
-              Video: <code style={{ backgroundColor: colors.surface, padding: '2px 6px', borderRadius: '4px', color: colors.text }}>{attachModalVideoId.slice(0, 8)}...</code>
+            <p className="text-sm text-zinc-400 mb-5">
+              Video: <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300 text-xs">{attachModalVideoId.slice(0, 8)}...</code>
             </p>
 
             {scriptsLoading ? (
-              <p>Loading scripts...</p>
+              <div className="flex items-center gap-2 py-4 text-sm text-zinc-400">
+                <div className="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                Loading scripts...
+              </div>
             ) : availableScripts.length === 0 ? (
-              <p style={{ color: '#856404', backgroundColor: '#fff3cd', padding: '10px', borderRadius: '4px' }}>
+              <div className="bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg p-3 text-sm">
                 No approved scripts available. Please approve a script first.
-              </p>
+              </div>
             ) : (
               <>
-                <div style={{ marginBottom: '15px' }}>
-                  <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>Select Script</label>
+                <div className="mb-4">
+                  <label className="block text-xs font-medium text-zinc-400 mb-1.5">Select Script</label>
                   <select
                     value={selectedScriptId}
                     onChange={(e) => setSelectedScriptId(e.target.value)}
-                    style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px' }}
+                    className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500"
                   >
                     <option value="">-- Select a script --</option>
                     {availableScripts.map(script => (
@@ -3129,72 +3132,35 @@ export default function AdminPipelinePage() {
                 </div>
 
                 {attachModalVideo?.script_locked_text && (
-                  <div style={{ marginBottom: '15px', padding: '10px', backgroundColor: '#fff3cd', borderRadius: '4px', fontSize: '13px' }}>
-                    <span style={{ color: '#856404' }}>This video already has an approved script.</span>
+                  <div className="mb-4 bg-amber-500/10 border border-amber-500/20 text-amber-400 rounded-lg p-3 text-sm">
+                    This video already has an approved script.
                   </div>
                 )}
 
-                {/* Force checkbox - only visible in Admin mode */}
                 {isAdminMode && (
-                  <div style={{ marginBottom: '20px' }}>
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}>
-                      <input
-                        type="checkbox"
-                        checked={forceOverwrite}
-                        onChange={(e) => setForceOverwrite(e.target.checked)}
-                      />
-                      <span style={{ fontSize: '13px' }}>Overwrite existing / Force attach unapproved</span>
-                    </label>
-                  </div>
+                  <label className="flex items-center gap-2 mb-5 text-sm text-zinc-400 cursor-pointer">
+                    <input type="checkbox" checked={forceOverwrite} onChange={(e) => setForceOverwrite(e.target.checked)} className="rounded bg-zinc-800 border-zinc-600" />
+                    Overwrite existing / Force attach unapproved
+                  </label>
                 )}
 
                 {attachMessage && (
-                  <div style={{
-                    marginBottom: '15px',
-                    padding: '10px',
-                    borderRadius: '4px',
-                    backgroundColor: attachMessage.includes('Error') || attachMessage.includes('already') || attachMessage.includes('not approved')
-                      ? '#f8d7da'
-                      : '#d4edda',
-                    color: attachMessage.includes('Error') || attachMessage.includes('already') || attachMessage.includes('not approved')
-                      ? '#721c24'
-                      : '#155724',
-                    fontSize: '13px',
-                  }}>
+                  <div className={`mb-4 rounded-lg p-3 text-sm border ${
+                    attachMessage.includes('Error') || attachMessage.includes('already') || attachMessage.includes('not approved')
+                      ? 'bg-red-500/10 border-red-500/20 text-red-400'
+                      : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                  }`}>
                     {attachMessage}
                   </div>
                 )}
 
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button type="button"
-                    onClick={attachScript}
-                    disabled={!selectedScriptId || attaching}
-                    style={{
-                      flex: 1,
-                      padding: '12px',
-                      backgroundColor: selectedScriptId && !attaching ? '#28a745' : '#ccc',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: selectedScriptId && !attaching ? 'pointer' : 'not-allowed',
-                      fontSize: '14px',
-                      fontWeight: 'bold',
-                    }}
-                  >
+                <div className="flex gap-3">
+                  <button type="button" onClick={attachScript} disabled={!selectedScriptId || attaching}
+                    className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors">
                     {attaching ? 'Attaching...' : 'Attach Script'}
                   </button>
-                  <button type="button"
-                    onClick={closeAttachModal}
-                    style={{
-                      padding: '12px 20px',
-                      backgroundColor: '#6c757d',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '14px',
-                    }}
-                  >
+                  <button type="button" onClick={closeAttachModal}
+                    className="px-5 py-2.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm font-medium rounded-lg transition-colors">
                     Cancel
                   </button>
                 </div>
@@ -3337,107 +3303,44 @@ export default function AdminPipelinePage() {
 
       {/* Post Modal (READY_TO_POST -> POSTED) */}
       {postModalVideoId && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            backgroundColor: colors.card,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '12px',
-            padding: '24px',
-            maxWidth: '450px',
-            width: '90%',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, color: colors.text }}>Mark as Posted</h2>
-              <button type="button"
-                onClick={closePostModal}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: colors.textMuted,
-                }}
-              >
-                ×
-              </button>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] p-4" onClick={closePostModal}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-[450px] w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-lg font-semibold text-white">Mark as Posted</h2>
+              <button type="button" onClick={closePostModal} className="text-zinc-400 hover:text-zinc-200 text-2xl leading-none">&times;</button>
             </div>
 
-            <p style={{ color: colors.textMuted, fontSize: '14px', marginBottom: '20px' }}>
-              Video: <code style={{ backgroundColor: colors.surface, padding: '2px 6px', borderRadius: '4px', color: colors.text }}>{postModalVideoId.slice(0, 8)}...</code>
+            <p className="text-sm text-zinc-400 mb-5">
+              Video: <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300 text-xs">{postModalVideoId.slice(0, 8)}...</code>
             </p>
 
             {/* Auto-Post to TikTok */}
             {tiktokContentConnected && (
-              <div style={{
-                marginBottom: '20px',
-                padding: '16px',
-                borderRadius: '8px',
-                backgroundColor: isDark ? '#1a2332' : '#f0f9ff',
-                border: `1px solid ${isDark ? '#2d4a6f' : '#bae6fd'}`,
-              }}>
-                <div style={{ fontSize: '13px', fontWeight: 'bold', color: isDark ? '#7dd3fc' : '#0369a1', marginBottom: '8px' }}>
-                  Auto-Post to TikTok
-                </div>
-                <p style={{ fontSize: '12px', color: colors.textMuted, marginBottom: '12px' }}>
+              <div className="mb-5 p-4 rounded-lg bg-sky-500/10 border border-sky-500/20">
+                <div className="text-sm font-semibold text-sky-400 mb-2">Auto-Post to TikTok</div>
+                <p className="text-xs text-zinc-400 mb-3">
                   Posts directly via TikTok API. Video will appear as a private post until TikTok app audit completes.
                 </p>
-                <button type="button"
-                  onClick={submitTikTokPost}
-                  disabled={tiktokPosting}
-                  style={{
-                    width: '100%',
-                    padding: '10px',
-                    backgroundColor: tiktokPosting ? '#666' : '#000',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: tiktokPosting ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    fontWeight: 'bold',
-                  }}
-                >
+                <button type="button" onClick={submitTikTokPost} disabled={tiktokPosting}
+                  className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg border border-zinc-600 transition-colors">
                   {tiktokPosting ? 'Submitting to TikTok...' : 'Post to TikTok'}
                 </button>
               </div>
             )}
             {!tiktokContentConnected && (
-              <div style={{
-                marginBottom: '20px',
-                padding: '12px',
-                borderRadius: '8px',
-                backgroundColor: isDark ? '#2a2a1a' : '#fffbeb',
-                border: `1px solid ${isDark ? '#4a4a2a' : '#fde68a'}`,
-                fontSize: '12px',
-                color: isDark ? '#fbbf24' : '#92400e',
-              }}>
-                Connect TikTok in <a href="/admin/settings/tiktok" style={{ textDecoration: 'underline' }}>Settings</a> to enable auto-posting.
+              <div className="mb-5 p-3 rounded-lg bg-amber-500/10 border border-amber-500/20 text-xs text-amber-400">
+                Connect TikTok in <a href="/admin/settings/tiktok" className="underline hover:text-amber-300">Settings</a> to enable auto-posting.
               </div>
             )}
 
-            <div style={{ fontSize: '11px', textTransform: 'uppercase', fontWeight: 'bold', color: colors.textMuted, marginBottom: '12px', letterSpacing: '0.5px' }}>
+            <div className="text-[11px] uppercase font-semibold text-zinc-500 mb-3 tracking-wider">
               Or mark as manually posted
             </div>
 
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                Platform <span style={{ color: '#dc3545' }}>*</span>
-              </label>
-              <select
-                value={postPlatform}
-                onChange={(e) => setPostPlatform(e.target.value)}
-                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px' }}
-              >
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Platform <span className="text-red-400">*</span></label>
+              <select value={postPlatform} onChange={(e) => setPostPlatform(e.target.value)}
+                className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
                 <option value="">-- Select Platform --</option>
                 <option value="tiktok">TikTok</option>
                 <option value="instagram">Instagram</option>
@@ -3446,62 +3349,27 @@ export default function AdminPipelinePage() {
               </select>
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                Posted URL <span style={{ color: '#dc3545' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={postUrl}
-                onChange={(e) => setPostUrl(e.target.value)}
-                placeholder="https://..."
-                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
-              />
+            <div className="mb-5">
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Posted URL <span className="text-red-400">*</span></label>
+              <input type="text" value={postUrl} onChange={(e) => setPostUrl(e.target.value)} placeholder="https://..."
+                className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
 
             {postMessage && (
-              <div style={{
-                marginBottom: '15px',
-                padding: '10px',
-                borderRadius: '4px',
-                backgroundColor: postMessage.includes('Error') ? '#f8d7da' : '#d4edda',
-                color: postMessage.includes('Error') ? '#721c24' : '#155724',
-                fontSize: '13px',
-              }}>
+              <div className={`mb-4 rounded-lg p-3 text-sm border ${
+                postMessage.includes('Error') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+              }`}>
                 {postMessage}
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="button"
-                onClick={submitPost}
-                disabled={!postUrl.trim() || !postPlatform || posting}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  backgroundColor: postUrl.trim() && postPlatform && !posting ? '#1971c2' : '#ccc',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: postUrl.trim() && postPlatform && !posting ? 'pointer' : 'not-allowed',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                }}
-              >
+            <div className="flex gap-3">
+              <button type="button" onClick={submitPost} disabled={!postUrl.trim() || !postPlatform || posting}
+                className="flex-1 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors">
                 {posting ? 'Posting...' : 'Mark as Posted'}
               </button>
-              <button type="button"
-                onClick={closePostModal}
-                style={{
-                  padding: '12px 20px',
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                }}
-              >
+              <button type="button" onClick={closePostModal}
+                className="px-5 py-2.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm font-medium rounded-lg transition-colors">
                 Cancel
               </button>
             </div>
@@ -3511,100 +3379,40 @@ export default function AdminPipelinePage() {
 
       {/* Handoff Modal */}
       {handoffModalVideoId && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0,0,0,0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000,
-        }}>
-          <div style={{
-            backgroundColor: colors.card,
-            border: `1px solid ${colors.border}`,
-            borderRadius: '12px',
-            padding: '24px',
-            maxWidth: '450px',
-            width: '90%',
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-              <h2 style={{ margin: 0, color: colors.text }}>Handoff Video</h2>
-              <button type="button"
-                onClick={closeHandoffModal}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  fontSize: '24px',
-                  cursor: 'pointer',
-                  color: colors.textMuted,
-                }}
-              >
-                ×
-              </button>
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] p-4" onClick={closeHandoffModal}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-[450px] w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-lg font-semibold text-white">Handoff Video</h2>
+              <button type="button" onClick={closeHandoffModal} className="text-zinc-400 hover:text-zinc-200 text-2xl leading-none">&times;</button>
             </div>
 
-            <p style={{ color: colors.textMuted, fontSize: '14px', marginBottom: '20px' }}>
-              Video: <code style={{ backgroundColor: colors.surface, padding: '2px 6px', borderRadius: '4px', color: colors.text }}>{handoffModalVideoId.slice(0, 8)}...</code>
+            <p className="text-sm text-zinc-400 mb-5">
+              Video: <code className="bg-zinc-800 px-1.5 py-0.5 rounded text-zinc-300 text-xs">{handoffModalVideoId.slice(0, 8)}...</code>
               {handoffModalVideo?.claim_role && (
-                <span style={{
-                  marginLeft: '10px',
-                  padding: '2px 8px',
-                  backgroundColor: '#e7f5ff',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  textTransform: 'capitalize',
-                }}>
+                <span className="ml-2 px-2 py-0.5 bg-violet-500/10 text-violet-400 rounded text-xs capitalize">
                   Current role: {handoffModalVideo.claim_role}
                 </span>
               )}
             </p>
 
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                To User <span style={{ color: '#dc3545' }}>*</span>
-              </label>
-              <input
-                type="text"
-                value={handoffToUser}
-                onChange={(e) => setHandoffToUser(e.target.value)}
-                placeholder="e.g., editor1, uploader2"
-                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box' }}
-              />
-              <div style={{ marginTop: '6px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5">To User <span className="text-red-400">*</span></label>
+              <input type="text" value={handoffToUser} onChange={(e) => setHandoffToUser(e.target.value)} placeholder="e.g., editor1, uploader2"
+                className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500" />
+              <div className="mt-2 flex gap-1.5 flex-wrap">
                 {['recorder1', 'recorder2', 'editor1', 'editor2', 'uploader1', 'admin'].filter(u => u !== activeUser).map(user => (
-                  <button
-                    key={user}
-                    type="button"
-                    onClick={() => setHandoffToUser(user)}
-                    style={{
-                      padding: '4px 10px',
-                      backgroundColor: handoffToUser === user ? '#6f42c1' : '#f8f9fa',
-                      color: handoffToUser === user ? 'white' : '#333',
-                      border: '1px solid #ddd',
-                      borderRadius: '4px',
-                      cursor: 'pointer',
-                      fontSize: '12px',
-                    }}
-                  >
+                  <button key={user} type="button" onClick={() => setHandoffToUser(user)}
+                    className={`px-2.5 py-1 rounded text-xs transition-colors ${handoffToUser === user ? 'bg-violet-600 text-white' : 'bg-zinc-800 text-zinc-400 border border-zinc-700 hover:bg-zinc-700'}`}>
                     {user}
                   </button>
                 ))}
               </div>
             </div>
 
-            <div style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                New Role <span style={{ color: '#dc3545' }}>*</span>
-              </label>
-              <select
-                value={handoffToRole}
-                onChange={(e) => setHandoffToRole(e.target.value as ClaimRole | '')}
-                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px' }}
-              >
+            <div className="mb-4">
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5">New Role <span className="text-red-400">*</span></label>
+              <select value={handoffToRole} onChange={(e) => setHandoffToRole(e.target.value as ClaimRole | '')}
+                className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500">
                 <option value="">-- Select Role --</option>
                 <option value="recorder">Recorder</option>
                 <option value="editor">Editor</option>
@@ -3613,62 +3421,27 @@ export default function AdminPipelinePage() {
               </select>
             </div>
 
-            <div style={{ marginBottom: '20px' }}>
-              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>
-                Notes (optional)
-              </label>
-              <textarea
-                value={handoffNotes}
-                onChange={(e) => setHandoffNotes(e.target.value)}
-                placeholder="Any handoff instructions..."
-                rows={3}
-                style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '4px', fontSize: '14px', boxSizing: 'border-box', resize: 'vertical' }}
-              />
+            <div className="mb-5">
+              <label className="block text-xs font-medium text-zinc-400 mb-1.5">Notes (optional)</label>
+              <textarea value={handoffNotes} onChange={(e) => setHandoffNotes(e.target.value)} placeholder="Any handoff instructions..." rows={3}
+                className="w-full px-3 py-2.5 bg-zinc-800 border border-zinc-700 rounded-lg text-sm text-white focus:outline-none focus:ring-2 focus:ring-teal-500 resize-vertical min-h-[60px]" />
             </div>
 
             {handoffMessage && (
-              <div style={{
-                marginBottom: '15px',
-                padding: '10px',
-                borderRadius: '4px',
-                backgroundColor: handoffMessage.includes('Error') ? '#f8d7da' : '#d4edda',
-                color: handoffMessage.includes('Error') ? '#721c24' : '#155724',
-                fontSize: '13px',
-              }}>
+              <div className={`mb-4 rounded-lg p-3 text-sm border ${
+                handoffMessage.includes('Error') ? 'bg-red-500/10 border-red-500/20 text-red-400' : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+              }`}>
                 {handoffMessage}
               </div>
             )}
 
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <button type="button"
-                onClick={submitHandoff}
-                disabled={!handoffToUser.trim() || !handoffToRole || handingOff}
-                style={{
-                  flex: 1,
-                  padding: '12px',
-                  backgroundColor: handoffToUser.trim() && handoffToRole && !handingOff ? '#6f42c1' : '#ccc',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: handoffToUser.trim() && handoffToRole && !handingOff ? 'pointer' : 'not-allowed',
-                  fontSize: '14px',
-                  fontWeight: 'bold',
-                }}
-              >
+            <div className="flex gap-3">
+              <button type="button" onClick={submitHandoff} disabled={!handoffToUser.trim() || !handoffToRole || handingOff}
+                className="flex-1 py-2.5 bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors">
                 {handingOff ? 'Handing off...' : 'Handoff'}
               </button>
-              <button type="button"
-                onClick={closeHandoffModal}
-                style={{
-                  padding: '12px 20px',
-                  backgroundColor: '#6c757d',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                }}
-              >
+              <button type="button" onClick={closeHandoffModal}
+                className="px-5 py-2.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-200 text-sm font-medium rounded-lg transition-colors">
                 Cancel
               </button>
             </div>
@@ -3741,25 +3514,16 @@ export default function AdminPipelinePage() {
         />
       )}
 
+      {/* Mobile bottom nav spacer */}
+      <div className="h-20 lg:h-0" />
+
       {/* Toast Notification */}
       {toast && (
         <div
+          className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] lg:bottom-6 right-4 lg:right-6 z-[2000] px-5 py-3 rounded-lg shadow-lg text-sm font-medium flex items-center gap-2 animate-[slideIn_0.2s_ease-out]"
           style={{
-            position: 'fixed',
-            bottom: '24px',
-            right: '24px',
-            padding: '12px 20px',
             backgroundColor: toast.type === 'success' ? '#40c057' : '#e03131',
             color: 'white',
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-            zIndex: 2000,
-            fontSize: '14px',
-            fontWeight: 500,
-            display: 'flex',
-            alignItems: 'center',
-            gap: '8px',
-            animation: 'slideIn 0.2s ease-out',
           }}
         >
           <span>{toast.type === 'success' ? '' : ''}</span>

@@ -101,17 +101,17 @@ export default function ExecutionDashboardPage() {
   }
 
   const tableStyle = { width: '100%', borderCollapse: 'collapse' as const, marginBottom: '20px' };
-  const thStyle = { border: '1px solid #ccc', padding: '8px', textAlign: 'left' as const, backgroundColor: '#f5f5f5' };
-  const tdStyle = { border: '1px solid #ccc', padding: '8px' };
+  const thStyle = { border: '1px solid rgba(63, 63, 70, 0.5)', padding: '8px', textAlign: 'left' as const, backgroundColor: 'rgba(39, 39, 42, 0.5)' };
+  const tdStyle = { border: '1px solid rgba(63, 63, 70, 0.5)', padding: '8px' };
   const copyableCellStyle = { ...tdStyle, fontFamily: 'monospace', fontSize: '12px', cursor: 'pointer' };
 
   const statusColors: Record<string, { bg: string; text: string }> = {
-    NOT_RECORDED: { bg: '#e2e3e5', text: '#383d41' },
-    RECORDED: { bg: '#fff3cd', text: '#856404' },
-    EDITED: { bg: '#cce5ff', text: '#004085' },
-    READY_TO_POST: { bg: '#d1ecf1', text: '#0c5460' },
-    POSTED: { bg: '#d4edda', text: '#155724' },
-    REJECTED: { bg: '#f8d7da', text: '#721c24' },
+    NOT_RECORDED: { bg: 'rgba(161, 161, 170, 0.1)', text: '#a1a1aa' },
+    RECORDED: { bg: 'rgba(96, 165, 250, 0.1)', text: '#60a5fa' },
+    EDITED: { bg: 'rgba(250, 204, 21, 0.1)', text: '#facc15' },
+    READY_TO_POST: { bg: 'rgba(45, 212, 191, 0.1)', text: '#2dd4bf' },
+    POSTED: { bg: 'rgba(52, 211, 153, 0.1)', text: '#34d399' },
+    REJECTED: { bg: 'rgba(248, 113, 113, 0.1)', text: '#f87171' },
   };
 
   return (
@@ -122,16 +122,16 @@ export default function ExecutionDashboardPage() {
         <button type="button" onClick={fetchData} style={{ padding: '8px 16px' }}>Refresh</button>
       </div>
 
-      {error && <div style={{ color: 'red', marginBottom: '20px', padding: '10px', backgroundColor: '#fee', borderRadius: '4px' }}>{error}</div>}
+      {error && <div style={{ color: '#f87171', marginBottom: '20px', padding: '10px', backgroundColor: 'rgba(248, 113, 113, 0.1)', borderRadius: '8px', border: '1px solid rgba(248, 113, 113, 0.2)' }}>{error}</div>}
 
       {/* Filters */}
-      <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px', border: '1px solid #e0e0e0' }}>
+      <div style={{ marginBottom: '20px', padding: '15px', backgroundColor: 'rgba(39, 39, 42, 0.5)', borderRadius: '8px', border: '1px solid rgba(63, 63, 70, 0.5)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
           <label style={{ fontWeight: 'bold' }}>Filter by Status:</label>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '4px', width: '100%' }}
+            style={{ padding: '8px', border: '1px solid rgba(63, 63, 70, 0.5)', borderRadius: '8px', width: '100%', backgroundColor: 'rgba(39, 39, 42, 0.5)', color: '#e4e4e7' }}
           >
             <option value="">All Statuses</option>
             {RECORDING_STATUSES.filter(s => s).map(status => (

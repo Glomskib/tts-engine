@@ -27,6 +27,7 @@ import BoardView from './components/BoardView';
 import type { BoardFilters } from './types';
 import { getVideoDisplayTitle } from './types';
 import { getStatusConfig as getStatusConfigCentral, formatStatusLabel, RECORDING_STATUSES as RECORDING_STATUSES_CENTRAL } from '@/lib/status';
+import { PipelineSummaryBar } from '@/components/PipelineSummaryBar';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -1878,6 +1879,9 @@ export default function AdminPipelinePage() {
           </a>
         );
       })()}
+
+      {/* Pipeline Intelligence Header */}
+      <PipelineSummaryBar videos={queueVideos} />
 
       {/* Clean Header */}
       {/* Desktop Header - Hidden on mobile */}

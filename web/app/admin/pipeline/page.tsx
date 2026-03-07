@@ -28,6 +28,7 @@ import type { BoardFilters } from './types';
 import { getVideoDisplayTitle } from './types';
 import { getStatusConfig as getStatusConfigCentral, formatStatusLabel, RECORDING_STATUSES as RECORDING_STATUSES_CENTRAL } from '@/lib/status';
 import { PipelineSummaryBar } from '@/components/PipelineSummaryBar';
+import { getNextAction as getNextActionCentral } from '@/lib/nextAction';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -2594,7 +2595,7 @@ export default function AdminPipelinePage() {
           <PullToRefresh onRefresh={fetchQueueVideos} className="min-h-[calc(100vh-200px)]">
             <VideoQueueMobile
               videos={getIntentFilteredVideos().map(v => {
-                const action = getPrimaryAction(v);
+                const action = getNextActionCentral(v);
                 return {
                   id: v.id,
                   title: getVideoDisplayTitle(v),
@@ -2605,6 +2606,7 @@ export default function AdminPipelinePage() {
                   updatedAt: v.last_status_changed_at || v.created_at,
                   hasScript: !!v.script_locked_text,
                   nextAction: action.disabled ? undefined : action.label,
+                  nextActionClass: action.disabled ? undefined : action.buttonClass,
                   slaStatus: v.sla_status,
                   blockedReason: v.blocked_reason,
                   claimedByMe: v.claimed_by === activeUser,
@@ -2940,16 +2942,15 @@ export default function AdminPipelinePage() {
                   {/* Next Action */}
                   <td style={tdStyle}>
                     {(() => {
-                      const action = getPrimaryAction(video);
-                      if (action.key === 'done') return <span style={{ fontSize: '11px', color: '#10B981' }}>Done</span>;
+                      const action = getNextActionCentral(video);
+                      if (action.key === 'done') return <span style={{ fontSize: '11px', color: '#22c55e' }}>Done</span>;
                       if (action.disabled) return (
                         <span style={{ fontSize: '11px', color: colors.textMuted, fontStyle: 'italic' }}>{action.disabledReason || 'Blocked'}</span>
                       );
                       return (
                         <button
                           onClick={(e) => { e.stopPropagation(); handlePrimaryActionClick(video); }}
-                          className="text-[11px] font-medium px-2 py-1 rounded transition-colors"
-                          style={{ backgroundColor: `${action.color}20`, color: action.color, border: `1px solid ${action.color}30` }}
+                          className={`text-[11px] font-medium px-2 py-1 rounded transition-colors ${action.buttonClass}`}
                         >
                           {action.label}
                         </button>

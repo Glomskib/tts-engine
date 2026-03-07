@@ -14,6 +14,7 @@ interface Video {
   // Rich fields for pipeline cards
   hasScript?: boolean;
   nextAction?: string;
+  nextActionClass?: string;
   slaStatus?: 'on_track' | 'due_soon' | 'overdue' | 'no_due_date';
   blockedReason?: string | null;
   claimedByMe?: boolean;
@@ -144,7 +145,7 @@ export function VideoQueueMobile({ videos, onVideoClick, onPrimaryAction }: Vide
                         e.stopPropagation();
                         onPrimaryAction?.(video);
                       }}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium bg-teal-600/20 text-teal-400 active:bg-teal-600/30 transition-colors"
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-colors ${video.nextActionClass || 'bg-teal-600 hover:bg-teal-500 text-white'}`}
                     >
                       {video.nextAction}
                     </button>

@@ -173,6 +173,7 @@ export interface RouteErrorContext {
   feature?: string;
   workspaceId?: string;
   userId?: string;
+  contentItemId?: string;
   fingerprint?: string[];
   severity?: 'error' | 'fatal' | 'warning';
   [key: string]: unknown;
@@ -202,16 +203,18 @@ export function captureRouteError(
   if (ctx.feature) tags.feature = ctx.feature;
   if (ctx.workspaceId) tags.workspace_id = ctx.workspaceId;
   if (ctx.userId) tags.user_id = ctx.userId;
+  if (ctx.contentItemId) tags.content_item_id = ctx.contentItemId;
 
   // Extra context (non-indexed detail)
-  const { route, feature, workspaceId, userId, fingerprint, severity: _sev, ...extra } = ctx;
+  const { route, feature, workspaceId, userId, contentItemId, fingerprint, severity: _sev, ...extra } = ctx;
 
   if (sentryActive) {
     Sentry.withScope((scope) => {
       scope.setTags(tags);
       scope.setLevel(severity);
       if (fingerprint) scope.setFingerprint(fingerprint);
-      scope.setExtra('context', { route, feature, workspaceId, userId, ...extra });
+      if (ctx.userId) scope.setUser({ id: ctx.userId });
+      scope.setExtra('context', { route, feature, workspaceId, userId, contentItemId, ...extra });
       Sentry.captureException(err);
     });
   }

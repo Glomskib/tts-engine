@@ -3469,8 +3469,8 @@ export default function ContentStudioPage() {
                 </div>
               </label>}
 
-              {/* Generate Button — desktop only (mobile version is fixed at bottom) */}
-              <div className="hidden lg:block mt-6">
+              {/* Generate Button — tablet+ (mobile version is fixed at bottom) */}
+              <div className="hidden md:block mt-6">
                 <button type="button"
                   onClick={handleGenerate}
                   disabled={generating || (!selectedProductId && !manualProductName.trim())}
@@ -3496,7 +3496,7 @@ export default function ContentStudioPage() {
                 </button>
               </div>
               {/* Spacer for fixed bottom bar on mobile */}
-              {isMobile && <div className="h-20 lg:hidden" />}
+              <div className="h-20 md:hidden" />
             </>
           ) : null}
         </div>
@@ -5034,9 +5034,9 @@ export default function ContentStudioPage() {
         </div>
       </div>
 
-      {/* Mobile Fixed Bottom Generate Bar */}
-      {isMobile && !result && !manualWriteMode && (
-        <div className="fixed inset-x-0 z-40 lg:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}>
+      {/* Mobile Fixed Bottom Generate Bar — visible below md breakpoint */}
+      {!result && !manualWriteMode && (
+        <div className="fixed inset-x-0 z-40 md:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="px-4 py-2.5">
             <button type="button"
               onClick={handleGenerate}
@@ -5062,8 +5062,8 @@ export default function ContentStudioPage() {
       )}
 
       {/* Mobile Fixed Bottom Action Bar (when results are showing) */}
-      {isMobile && result && currentSkit && (
-        <div className="fixed inset-x-0 z-40 lg:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}>
+      {result && currentSkit && (
+        <div className="fixed inset-x-0 z-40 md:hidden bg-zinc-900/95 backdrop-blur-sm border-t border-white/10" style={{ bottom: 'calc(64px + env(safe-area-inset-bottom, 0px))' }}>
           <div className="flex items-center gap-2 px-4 py-3">
             {/* Approve — primary, takes flex space */}
             <button type="button"

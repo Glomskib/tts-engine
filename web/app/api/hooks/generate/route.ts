@@ -4,6 +4,8 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import OpenAI from 'openai';
 import { logGenerationAsync } from '@/lib/flashflow/generations';
 import { logUsageEventAsync } from '@/lib/finops/log-usage';
+import { selectCategories, type HookCategory } from '@/lib/hooks/hook-categories';
+import { filterHookBatch, checkHookQuality, type HookData } from '@/lib/hooks/hook-quality-filter';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -34,10 +36,60 @@ function checkRateLimit(ip: string, isAuthenticated: boolean): { allowed: boolea
 }
 
 const PLATFORM_CONTEXT = {
-  tiktok: 'TikTok Shop affiliate videos - Maximum pattern interrupt, controversy-adjacent, fast pacing. Focus on scroll-stopping moments.',
-  youtube_shorts: 'YouTube Shorts - Promise value upfront, slightly more context than TikTok, retention-focused. Build curiosity.',
-  instagram_reels: 'Instagram Reels - Aesthetic-forward visuals, aspirational tone, relatable moments. Visual appeal is critical.',
+  tiktok: 'TikTok Shop affiliate videos — maximum pattern interrupt, controversy-adjacent, fast pacing. The first 1-3 seconds decide everything.',
+  youtube_shorts: 'YouTube Shorts — promise value upfront, slightly more context than TikTok, retention-focused. Build curiosity fast.',
+  instagram_reels: 'Instagram Reels — aesthetic-forward visuals, aspirational tone, relatable moments. Visual appeal is critical.',
 };
+
+function buildCategoryBlock(categories: HookCategory[]): string {
+  return categories
+    .map((cat, i) => `Hook #${i + 1} — Category: "${cat.label}"\n  Angle: ${cat.description}\n  Visual direction example: ${cat.visualHint}\n  Verbal opener example: ${cat.verbalHint}`)
+    .join('\n\n');
+}
+
+function buildSystemPrompt(
+  platformContext: string,
+  categories: HookCategory[],
+  nicheContext: string,
+  personaContext: string,
+  toneCtx: string,
+  audienceCtx: string,
+  constraintsCtx: string,
+): string {
+  const categoryBlock = buildCategoryBlock(categories);
+
+  return `You are an elite short-form video hook strategist who has studied thousands of top-performing TikToks, Reels, and Shorts. You understand what makes a viewer stop scrolling in 0.5 seconds.
+
+YOUR JOB: Generate ${categories.length} hooks for the given product/topic. Each hook uses a DIFFERENT psychological category assigned below. Every hook must feel like something a real creator would actually film and say — not marketing copy.
+
+ASSIGNED CATEGORIES (one per hook, in order):
+${categoryBlock}
+
+RULES — READ CAREFULLY:
+1. The VISUAL HOOK must be a specific, filmable action or scene — not vague direction. Bad: "Person holding product." Good: "Close-up of hand squeezing the last drop out of an empty bottle, then tossing it in the trash."
+2. TEXT ON SCREEN must create an open loop or tension. It should be scannable in under 2 seconds (max 12 words). Bad: "Check out this amazing product!" Good: "I was mass producing 3,000 of these until..."
+3. VERBAL HOOK is the first words spoken — must sound natural, like a real person talking. No marketing speak. Bad: "This incredible product will transform your routine." Good: "Okay so my roommate just caught me doing this at 3am."
+4. Each hook must use a DIFFERENT opening word/phrase — no two hooks can start the same way.
+5. NEVER use these banned phrases: "this changed everything", "game changer", "you won't believe", "life hack", "wait for it", "changed my life", "mind blown", "best thing ever", "you need this", "trust me", "I'm obsessed", "holy grail", "must have", "hear me out".
+6. NEVER start with: "So I just...", "Okay so...", "Hey guys...", "Guys,", "OMG guys".
+7. WHY THIS WORKS must explain the specific psychological trigger in 1-2 sentences.
+
+Platform: ${platformContext}
+${nicheContext}${personaContext}${toneCtx}${audienceCtx}${constraintsCtx}
+
+Return ONLY a valid JSON array of ${categories.length} hooks in this exact format:
+[
+  {
+    "visual_hook": "...",
+    "text_on_screen": "...",
+    "verbal_hook": "...",
+    "why_this_works": "...",
+    "category": "${categories[0].id}"
+  }
+]
+
+Use the exact category id from the assignments above. Do not include any markdown formatting or additional text — only the JSON array.`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -57,7 +109,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { product, platform = 'tiktok', niche = '', audience_persona_id, tone, audience, hookStyle, constraints } = body;
+    const { product, platform = 'tiktok', niche = '', audience_persona_id, tone, audience, constraints } = body;
 
     if (!product || typeof product !== 'string' || product.trim().length === 0) {
       return NextResponse.json(
@@ -67,10 +119,9 @@ export async function POST(request: NextRequest) {
     }
 
     const platformContext = PLATFORM_CONTEXT[platform as keyof typeof PLATFORM_CONTEXT] || PLATFORM_CONTEXT.tiktok;
-    const nicheContext = niche ? `Niche/Category: ${niche}` : '';
+    const nicheContext = niche ? `\nNiche/Category: ${niche}` : '';
     const toneCtx = tone ? `\nTONE: Write in a ${tone} tone.` : '';
     const audienceCtx = audience ? `\nAUDIENCE: ${audience}` : '';
-    const styleCtx = hookStyle ? `\nHOOK STYLE: Focus on "${hookStyle}" style hooks.` : '';
     const constraintsCtx = constraints ? `\nCONSTRAINTS: ${constraints}` : '';
 
     // Fetch persona context if provided
@@ -97,107 +148,111 @@ export async function POST(request: NextRequest) {
         if (persona.phrases_they_use?.length) parts.push(`How they talk: ${persona.phrases_they_use.slice(0, 3).map((p: string) => `"${p}"`).join(', ')}`);
         if (persona.tone_preference || persona.tone) parts.push(`Preferred tone: ${persona.tone_preference || persona.tone}`);
         if (persona.emotional_triggers?.length) parts.push(`Emotional triggers: ${persona.emotional_triggers.join(', ')}`);
-        personaContext = `\n\nTARGET AUDIENCE PROFILE:\n${parts.join('\n')}\n\nIMPORTANT: Tailor every hook specifically to THIS person. Use their language, hit their pain points, and match their tone. The hooks should make this specific audience feel "OMG that's exactly me!"`;
+        personaContext = `\n\nTARGET AUDIENCE PROFILE:\n${parts.join('\n')}\n\nIMPORTANT: Tailor every hook specifically to THIS person. Use their language, hit their pain points, match their tone.`;
       }
     }
 
-    const systemPrompt = `You are an expert short-form video hook strategist.
+    // Select categories for this batch
+    const hookCount = 5;
+    const categories = selectCategories(hookCount);
 
-Generate exactly 5 scroll-stopping hooks for the given product/topic.
-
-Each hook MUST have exactly 3 parts designed to work together:
-
-1. VISUAL HOOK (Scene Direction): A specific physical action, movement, prop interaction, or visual pattern interrupt that catches the eye in the first 0.5 seconds. Be specific — not "person talking to camera" but "Close-up of hand slamming laptop shut" or "POV: walking past 6 identical products to grab the one at the end"
-
-2. TEXT ON SCREEN: Curiosity-driving overlay text that creates an open loop. Must make the viewer NEED to keep watching. Examples: "I was mass producing 3,000 of these a day until..." or "Day 1 vs Day 30 (wait for it)"
-
-3. VERBAL HOOK (Opening Line): The first spoken words that either create intrigue, challenge a belief, or start a story. Must pair with the visual. Examples: "Okay but why is nobody talking about this?" or "I got fired for saying this on camera"
-
-Platform context: ${platformContext}
-${nicheContext}${personaContext}${toneCtx}${audienceCtx}${styleCtx}${constraintsCtx}
-
-Return ONLY a valid JSON array of 5 hooks in this exact format:
-[
-  {
-    "visual_hook": "...",
-    "text_on_screen": "...",
-    "verbal_hook": "...",
-    "strategy_note": "one sentence explaining why this combination works"
-  }
-]
-
-Do not include any markdown formatting or additional text - only the JSON array.`;
+    const systemPrompt = buildSystemPrompt(
+      platformContext,
+      categories,
+      nicheContext,
+      personaContext,
+      toneCtx,
+      audienceCtx,
+      constraintsCtx,
+    );
 
     const userPrompt = `Product/Topic: ${product.trim()}`;
 
-    const completion = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: userPrompt },
-      ],
-      temperature: 0.8,
-      max_tokens: 2000,
-    });
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let allPassedHooks: HookData[] = [];
+    const maxAttempts = 2;
 
-    const responseText = completion.choices[0]?.message?.content?.trim() || '';
-    
-    // Try to parse JSON from response
-    let hooks;
-    try {
-      // Remove markdown code blocks if present
-      const jsonText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
-      hooks = JSON.parse(jsonText);
-    } catch (parseError) {
-      console.error('Failed to parse AI response:', responseText);
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        temperature: 0.85,
+        max_tokens: 2500,
+      });
+
+      totalInputTokens += completion.usage?.prompt_tokens ?? 0;
+      totalOutputTokens += completion.usage?.completion_tokens ?? 0;
+
+      const responseText = completion.choices[0]?.message?.content?.trim() || '';
+
+      let hooks: HookData[];
+      try {
+        const jsonText = responseText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        hooks = JSON.parse(jsonText);
+      } catch {
+        console.error('Failed to parse AI response on attempt', attempt + 1);
+        continue;
+      }
+
+      if (!Array.isArray(hooks) || hooks.length === 0) continue;
+
+      // Normalize: map strategy_note → why_this_works if needed
+      hooks = hooks.map(h => ({
+        visual_hook: h.visual_hook || '',
+        text_on_screen: h.text_on_screen || '',
+        verbal_hook: h.verbal_hook || '',
+        strategy_note: h.why_this_works || h.strategy_note || '',
+        category: h.category || '',
+        why_this_works: h.why_this_works || h.strategy_note || '',
+      }));
+
+      // Validate structure
+      hooks = hooks.filter(h =>
+        h.visual_hook && h.text_on_screen && h.verbal_hook && (h.why_this_works || h.strategy_note)
+      );
+
+      // Apply quality + diversity filter
+      const { passed } = filterHookBatch(hooks);
+      allPassedHooks.push(...passed);
+
+      // If we have enough good hooks, stop
+      if (allPassedHooks.length >= hookCount) break;
+    }
+
+    if (allPassedHooks.length === 0) {
       return NextResponse.json(
-        { error: 'Failed to generate valid hooks. Please try again.' },
+        { error: 'Failed to generate quality hooks. Please try again.' },
         { status: 500 }
       );
     }
 
-    if (!Array.isArray(hooks) || hooks.length === 0) {
-      return NextResponse.json(
-        { error: 'Failed to generate hooks. Please try again.' },
-        { status: 500 }
-      );
-    }
-
-    // Validate hook structure
-    const validHooks = hooks.filter(hook => 
-      hook.visual_hook && 
-      hook.text_on_screen && 
-      hook.verbal_hook && 
-      hook.strategy_note
-    );
-
-    if (validHooks.length === 0) {
-      return NextResponse.json(
-        { error: 'Generated hooks were invalid. Please try again.' },
-        { status: 500 }
-      );
-    }
+    // Take up to hookCount
+    const finalHooks = allPassedHooks.slice(0, hookCount);
 
     // Log generation for self-improvement loop (fire-and-forget)
     if (user) {
       logGenerationAsync({
         user_id: user.id,
         template_id: 'hook_generate',
-        prompt_version: '1.0.0',
-        inputs_json: { product: product.trim(), platform, niche, audience_persona_id, tone, audience, hookStyle, constraints },
-        output_text: JSON.stringify(validHooks.slice(0, 5)),
+        prompt_version: '2.0.0',
+        inputs_json: { product: product.trim(), platform, niche, audience_persona_id, tone, audience, constraints },
+        output_text: JSON.stringify(finalHooks),
         model: 'gpt-4o-mini',
       });
     }
 
-    // FinOps: log usage event with token counts from OpenAI response
+    // FinOps: log usage event with token counts
     logUsageEventAsync({
       source: 'flashflow',
       lane: 'FlashFlow',
       provider: 'openai',
       model: 'gpt-4o-mini',
-      input_tokens: completion.usage?.prompt_tokens ?? 0,
-      output_tokens: completion.usage?.completion_tokens ?? 0,
+      input_tokens: totalInputTokens,
+      output_tokens: totalOutputTokens,
       user_id: user?.id,
       endpoint: '/api/hooks/generate',
       template_key: 'hook_generate',
@@ -205,7 +260,7 @@ Do not include any markdown formatting or additional text - only the JSON array.
     });
 
     return NextResponse.json({
-      hooks: validHooks.slice(0, 5),
+      hooks: finalHooks,
       remaining: rateLimit.remaining,
     });
 

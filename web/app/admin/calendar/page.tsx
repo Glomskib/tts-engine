@@ -962,15 +962,15 @@ export default function ContentPlannerPage() {
         }}
         onDragEnd={handleDragEnd}
         className={`
-          ${colors.bg} ${colors.border} border rounded-md px-1.5 py-0.5
-          text-[10px] truncate cursor-grab active:cursor-grabbing
+          ${colors.bg} ${colors.border} border rounded px-1 sm:px-1.5 py-0.5
+          text-[9px] sm:text-[10px] truncate cursor-grab active:cursor-grabbing
           hover:brightness-125 transition-all
         `}
         onClick={(e) => e.stopPropagation()}
         title={`${video.product_name || video.video_code || 'Video'} (${colors.label})`}
       >
         <span className={`${colors.text} truncate block max-w-full`}>
-          {video.scheduled_time ? `${formatTime12h(video.scheduled_time)} · ` : ''}{video.product_name || video.video_code || 'Video'}
+          <span className="hidden sm:inline">{video.scheduled_time ? `${formatTime12h(video.scheduled_time)} · ` : ''}</span>{video.product_name || video.video_code || 'Video'}
         </span>
       </div>
     );
@@ -988,9 +988,9 @@ export default function ContentPlannerPage() {
         }}
         onDragEnd={handleDragEnd}
         className={`
-          ${pillColors.bg} ${pillColors.border} border rounded-md px-1.5 py-0.5
-          text-[10px] truncate cursor-grab active:cursor-grabbing
-          hover:brightness-125 transition-all flex items-center gap-1
+          ${pillColors.bg} ${pillColors.border} border rounded px-1 sm:px-1.5 py-0.5
+          text-[9px] sm:text-[10px] truncate cursor-grab active:cursor-grabbing
+          hover:brightness-125 transition-all flex items-center gap-0.5 sm:gap-1
         `}
         onClick={(e) => {
           e.stopPropagation();
@@ -1015,15 +1015,17 @@ export default function ContentPlannerPage() {
     const past = isPast(day) && !today;
     const isDropping = dropTarget === dateKey && isAnyDragging;
     const isCurrentMonth = calendarMode === 'month' ? day.getMonth() === monthDate.getMonth() : true;
-    const maxPills = compact ? 2 : 4;
+    // On mobile (detected via compact or context), show fewer pills
+    const isMobileCell = typeof window !== 'undefined' && window.innerWidth < 640;
+    const maxPills = compact ? (isMobileCell ? 1 : 2) : (isMobileCell ? 2 : 4);
     const totalEntries = videoEntries.length + ciEntries.length;
 
     return (
       <div
         key={dateKey}
         className={`
-          rounded-xl border transition-all cursor-pointer select-none
-          ${compact ? 'min-h-[60px] md:min-h-[80px] p-1 md:p-1.5' : 'min-h-[60px] md:min-h-[120px] p-1 md:p-2'}
+          rounded-lg sm:rounded-xl border transition-all cursor-pointer select-none
+          ${compact ? 'min-h-[48px] sm:min-h-[60px] md:min-h-[80px] p-0.5 sm:p-1 md:p-1.5' : 'min-h-[48px] sm:min-h-[60px] md:min-h-[120px] p-0.5 sm:p-1 md:p-2'}
           ${!isCurrentMonth ? 'opacity-40' : ''}
           ${today
             ? 'bg-teal-500/5 border-teal-500/30'
@@ -1040,16 +1042,16 @@ export default function ContentPlannerPage() {
         onDragOver={handleDragOver}
         onDrop={(e) => handleDrop(e, dateKey)}
       >
-        <div className="flex items-center justify-between mb-1">
+        <div className="flex items-center justify-between mb-0.5 sm:mb-1">
           {calendarMode === 'week' && (
-            <span className={`text-[10px] font-medium ${past ? 'text-zinc-600' : 'text-zinc-500'}`}>
+            <span className={`text-[9px] sm:text-[10px] font-medium ${past ? 'text-zinc-600' : 'text-zinc-500'} hidden sm:block`}>
               {DAY_NAMES[dayIdx]}
             </span>
           )}
           <span className={`
-            text-xs font-semibold ml-auto
+            text-[10px] sm:text-xs font-semibold ml-auto
             ${today
-              ? 'bg-teal-500 text-white w-5 h-5 rounded-full flex items-center justify-center text-[10px]'
+              ? 'bg-teal-500 text-white w-4 h-4 sm:w-5 sm:h-5 rounded-full flex items-center justify-center text-[9px] sm:text-[10px]'
               : past ? 'text-zinc-600' : isCurrentMonth ? 'text-zinc-300' : 'text-zinc-600'
             }
           `}>
@@ -1089,12 +1091,12 @@ export default function ContentPlannerPage() {
       <div className="px-4 py-6 pb-24 lg:pb-8 max-w-full mx-auto overflow-x-hidden">
         {/* Header */}
         <div className="mb-5 max-w-7xl mx-auto space-y-3">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <h1 className="text-xl md:text-2xl font-bold text-white">Content Planner</h1>
-              <p className="text-zinc-400 text-xs md:text-sm hidden md:block">Plan, schedule, and manage your content pipeline</p>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">Content Planner</h1>
+              <p className="text-zinc-400 text-xs md:text-sm hidden sm:block">Plan, schedule, and manage your content pipeline</p>
             </div>
-            <div className="flex items-center gap-1.5 flex-shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
               {/* View Toggle: Calendar / Grid */}
               <SegmentedControl
                 options={[
@@ -1113,30 +1115,33 @@ export default function ContentPlannerPage() {
             </div>
           </div>
 
-          {/* Calendar-specific controls — second row on mobile */}
+          {/* Calendar-specific controls — stacks on mobile */}
           {viewMode === 'calendar' && (
-            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap">
-              {/* Week / Month Toggle */}
-              <SegmentedControl
-                options={[
-                  { value: 'week', label: 'Week' },
-                  { value: 'month', label: 'Month' },
-                ]}
-                value={calendarMode}
-                onChange={(v) => setCalendarMode(v as 'week' | 'month')}
-                fullWidth={false}
-              />
+            <div className="space-y-2 sm:space-y-0 sm:flex sm:items-center sm:gap-2 sm:flex-wrap">
+              {/* Top row on mobile: Week/Month + Navigation */}
+              <div className="flex items-center gap-1.5">
+                {/* Week / Month Toggle */}
+                <SegmentedControl
+                  options={[
+                    { value: 'week', label: 'Week' },
+                    { value: 'month', label: 'Month' },
+                  ]}
+                  value={calendarMode}
+                  onChange={(v) => setCalendarMode(v as 'week' | 'month')}
+                  fullWidth={false}
+                />
 
-              {/* Navigation */}
-              <div className="flex items-center gap-1">
-                <IconAction icon={<ChevronLeft className="w-4 h-4" />} aria-label="Previous" onClick={goBack} />
-                <button
-                  onClick={goToToday}
-                  className="px-3 py-1.5 min-h-[44px] text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-lg hover:bg-zinc-700 active:bg-zinc-600 transition-colors"
-                >
-                  Today
-                </button>
-                <IconAction icon={<ChevronRight className="w-4 h-4" />} aria-label="Next" onClick={goForward} />
+                {/* Navigation */}
+                <div className="flex items-center gap-1 ml-auto sm:ml-0">
+                  <IconAction icon={<ChevronLeft className="w-4 h-4" />} aria-label="Previous" onClick={goBack} />
+                  <button
+                    onClick={goToToday}
+                    className="px-2.5 py-1.5 min-h-[36px] text-xs font-medium bg-zinc-800 text-zinc-300 border border-zinc-700 rounded-lg hover:bg-zinc-700 active:bg-zinc-600 transition-colors"
+                  >
+                    Today
+                  </button>
+                  <IconAction icon={<ChevronRight className="w-4 h-4" />} aria-label="Next" onClick={goForward} />
+                </div>
               </div>
 
               <button
@@ -1151,7 +1156,7 @@ export default function ContentPlannerPage() {
                     showError('Failed to get schedule suggestion');
                   }
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-500 transition-colors ml-auto"
+                className="flex items-center gap-1.5 px-3 py-1.5 min-h-[36px] text-xs font-medium bg-violet-600 text-white rounded-lg hover:bg-violet-500 transition-colors w-full sm:w-auto sm:ml-auto justify-center sm:justify-start"
               >
                 <Zap className="w-3.5 h-3.5" /> <span className="hidden sm:inline">Smart</span> Schedule
               </button>
@@ -1172,11 +1177,12 @@ export default function ContentPlannerPage() {
               </div>
 
               {/* Legend */}
-              <div className="flex items-center gap-1 md:gap-4 flex-wrap text-xs text-zinc-400">
+              <div className="flex items-center gap-x-3 gap-y-1 md:gap-4 flex-wrap text-[10px] sm:text-xs text-zinc-400">
                 {Object.entries(STATUS_COLORS).map(([key, cfg]) => (
-                  <div key={key} className="flex items-center gap-1.5">
-                    <span className={`w-2.5 h-2.5 rounded-full ${cfg.dot}`} />
-                    {cfg.label}
+                  <div key={key} className="flex items-center gap-1">
+                    <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full ${cfg.dot}`} />
+                    <span className="hidden sm:inline">{cfg.label}</span>
+                    <span className="sm:hidden">{cfg.label.split(' ')[0]}</span>
                   </div>
                 ))}
                 {rescheduling && (
@@ -1206,17 +1212,17 @@ export default function ContentPlannerPage() {
                         </div>
 
                         {weekIdx === 0 && (
-                          <div className="grid grid-cols-7 gap-0.5 md:gap-1 mb-1">
+                          <div className="grid grid-cols-7 gap-px sm:gap-0.5 md:gap-1 mb-1">
                             {DAY_NAMES.map(name => (
-                              <div key={name} className="text-center text-[10px] text-zinc-600 font-medium">
-                                <span className="hidden md:inline">{name}</span>
-                                <span className="md:hidden">{name.charAt(0)}</span>
+                              <div key={name} className="text-center text-[9px] sm:text-[10px] text-zinc-600 font-medium">
+                                <span className="hidden sm:inline">{name}</span>
+                                <span className="sm:hidden">{name.charAt(0)}</span>
                               </div>
                             ))}
                           </div>
                         )}
 
-                        <div className="grid grid-cols-7 gap-0.5 md:gap-1">
+                        <div className="grid grid-cols-7 gap-px sm:gap-0.5 md:gap-1">
                           {week.map((day, dayIdx) => renderDayCell(day, dayIdx))}
                         </div>
                       </div>
@@ -1231,15 +1237,15 @@ export default function ContentPlannerPage() {
                       {FULL_MONTH_NAMES[monthDate.getMonth()]} {monthDate.getFullYear()}
                     </span>
                   </div>
-                  <div className="grid grid-cols-7 gap-0.5 md:gap-1 mb-1">
+                  <div className="grid grid-cols-7 gap-px sm:gap-0.5 md:gap-1 mb-1">
                     {DAY_NAMES.map(name => (
-                      <div key={name} className="text-center text-[10px] text-zinc-600 font-medium">
-                        <span className="hidden md:inline">{name}</span>
-                        <span className="md:hidden">{name.charAt(0)}</span>
+                      <div key={name} className="text-center text-[9px] sm:text-[10px] text-zinc-600 font-medium">
+                        <span className="hidden sm:inline">{name}</span>
+                        <span className="sm:hidden">{name.charAt(0)}</span>
                       </div>
                     ))}
                   </div>
-                  <div className="grid grid-cols-7 gap-0.5 md:gap-1">
+                  <div className="grid grid-cols-7 gap-px sm:gap-0.5 md:gap-1">
                     {monthDays.map((day, idx) => renderDayCell(day, idx % 7, true))}
                   </div>
                 </div>

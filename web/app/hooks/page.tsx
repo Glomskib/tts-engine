@@ -3,13 +3,15 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Head from 'next/head';
-import { Copy, Sparkles, Loader2, Eye, MessageCircle, Mic, Lock, CheckCircle } from 'lucide-react';
+import { Copy, Sparkles, Loader2, Eye, MessageCircle, Mic, Lock, CheckCircle, Tag } from 'lucide-react';
 
 interface Hook {
   visual_hook: string;
   text_on_screen: string;
   verbal_hook: string;
   strategy_note: string;
+  category?: string;
+  why_this_works?: string;
 }
 
 export default function HookDoctorPage() {
@@ -18,7 +20,6 @@ export default function HookDoctorPage() {
   const [niche, setNiche] = useState('');
   const [tone, setTone] = useState('');
   const [audience, setAudience] = useState('');
-  const [hookStyle, setHookStyle] = useState('');
   const [constraints, setConstraints] = useState('');
   const [loading, setLoading] = useState(false);
   const [hooks, setHooks] = useState<Hook[]>([]);
@@ -49,7 +50,7 @@ export default function HookDoctorPage() {
       const res = await fetch('/api/hooks/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product, platform, niche, tone, audience, hookStyle, constraints }),
+        body: JSON.stringify({ product, platform, niche, tone, audience, constraints }),
       });
 
       if (!res.ok) {
@@ -74,7 +75,9 @@ export default function HookDoctorPage() {
   };
 
   const copyHook = async (hook: Hook, index: number) => {
-    const text = `🎬 VISUAL HOOK: ${hook.visual_hook}\n\n📝 TEXT ON SCREEN: ${hook.text_on_screen}\n\n🗣️ VERBAL HOOK: ${hook.verbal_hook}\n\n💡 WHY IT WORKS: ${hook.strategy_note}`;
+    const whyText = hook.why_this_works || hook.strategy_note;
+    const categoryLine = hook.category ? `🏷️ CATEGORY: ${hook.category.replace(/_/g, ' ')}\n\n` : '';
+    const text = `${categoryLine}🎬 VISUAL HOOK: ${hook.visual_hook}\n\n📝 TEXT ON SCREEN: ${hook.text_on_screen}\n\n🗣️ VERBAL HOOK: ${hook.verbal_hook}\n\n💡 WHY IT WORKS: ${whyText}`;
     
     try {
       await navigator.clipboard.writeText(text);
@@ -173,46 +176,24 @@ export default function HookDoctorPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Tone (optional)
-                </label>
-                <select
-                  value={tone}
-                  onChange={(e) => setTone(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  disabled={loading || showGate}
-                >
-                  <option value="">Auto</option>
-                  <option value="Funny">Funny</option>
-                  <option value="Aggressive">Aggressive</option>
-                  <option value="Clinical">Clinical</option>
-                  <option value="Luxury">Luxury</option>
-                  <option value="Sarcastic">Sarcastic</option>
-                  <option value="Hype">Hype</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Hook Style (optional)
-                </label>
-                <select
-                  value={hookStyle}
-                  onChange={(e) => setHookStyle(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-                  disabled={loading || showGate}
-                >
-                  <option value="">Mix</option>
-                  <option value="Shock/Stat">Shock / Stat</option>
-                  <option value="Story">Story</option>
-                  <option value="Contrarian">Contrarian</option>
-                  <option value="Problem-Solution">Problem-Solution</option>
-                  <option value="Before/After">Before / After</option>
-                  <option value="POV">POV</option>
-                </select>
-              </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Tone (optional)
+              </label>
+              <select
+                value={tone}
+                onChange={(e) => setTone(e.target.value)}
+                className="w-full px-4 py-3 bg-gray-900/50 border border-gray-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                disabled={loading || showGate}
+              >
+                <option value="">Auto</option>
+                <option value="Funny">Funny</option>
+                <option value="Aggressive">Aggressive</option>
+                <option value="Clinical">Clinical</option>
+                <option value="Luxury">Luxury</option>
+                <option value="Sarcastic">Sarcastic</option>
+                <option value="Hype">Hype</option>
+              </select>
             </div>
 
             <div>
@@ -301,7 +282,15 @@ export default function HookDoctorPage() {
                 className="bg-gray-800/50 rounded-2xl p-4 sm:p-6 border border-gray-700/50 hover:border-emerald-500/30 transition-all"
               >
                 <div className="flex items-start justify-between gap-3 mb-4 sm:mb-6">
-                  <span className="text-lg font-bold text-emerald-400">Hook #{index + 1}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-lg font-bold text-emerald-400">Hook #{index + 1}</span>
+                    {hook.category && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-md">
+                        <Tag className="w-3 h-3" />
+                        {hook.category.replace(/_/g, ' ')}
+                      </span>
+                    )}
+                  </div>
                   <button
                     onClick={() => copyHook(hook, index)}
                     className="flex items-center gap-2 px-3 py-2 min-h-[44px] bg-gray-700/50 hover:bg-emerald-500/10 border border-gray-600 hover:border-emerald-500/30 rounded-lg transition-all text-sm"
@@ -353,7 +342,7 @@ export default function HookDoctorPage() {
 
                   <div className="mt-4 pt-4 border-t border-gray-700/50">
                     <div className="text-xs font-medium text-gray-400 mb-2">💡 Why This Works</div>
-                    <p className="text-sm text-gray-300">{hook.strategy_note}</p>
+                    <p className="text-sm text-gray-300">{hook.why_this_works || hook.strategy_note}</p>
                   </div>
                 </div>
 

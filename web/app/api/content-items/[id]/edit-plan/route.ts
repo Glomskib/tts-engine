@@ -14,6 +14,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
+import { resolveUserId, resolveWorkspaceId, resolveContentItemId } from '@/lib/errors/sentry-resolvers';
 import { buildEditPlan } from '@/lib/editing/build-edit-plan';
 import { validateEditPlan } from '@/lib/editing/validate-edit-plan';
 import { logContentItemEvent } from '@/lib/content-items/sync';
@@ -122,7 +123,13 @@ export const POST = withErrorCapture(async (
   });
   response.headers.set('x-correlation-id', correlationId);
   return response;
-}, { routeName: '/api/content-items/[id]/edit-plan', feature: 'editing-engine' });
+}, {
+  routeName: '/api/content-items/[id]/edit-plan',
+  feature: 'editing-engine',
+  userIdResolver: resolveUserId,
+  workspaceIdResolver: resolveWorkspaceId,
+  contentItemIdResolver: resolveContentItemId,
+});
 
 export const GET = withErrorCapture(async (
   request: Request,
@@ -154,4 +161,10 @@ export const GET = withErrorCapture(async (
   });
   response.headers.set('x-correlation-id', correlationId);
   return response;
-}, { routeName: '/api/content-items/[id]/edit-plan', feature: 'editing-engine' });
+}, {
+  routeName: '/api/content-items/[id]/edit-plan',
+  feature: 'editing-engine',
+  userIdResolver: resolveUserId,
+  workspaceIdResolver: resolveWorkspaceId,
+  contentItemIdResolver: resolveContentItemId,
+});

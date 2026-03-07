@@ -2,12 +2,14 @@ import { describe, it, expect } from 'vitest';
 import { CONTENT_ITEM_STATUSES, type ContentItemStatus } from './types';
 
 describe('CONTENT_ITEM_STATUSES', () => {
-  it('contains exactly the 6 lifecycle statuses', () => {
+  it('contains exactly the 8 lifecycle statuses', () => {
     expect(CONTENT_ITEM_STATUSES).toEqual([
       'briefing',
+      'scripted',
       'ready_to_record',
       'recorded',
       'editing',
+      'scheduled',
       'ready_to_post',
       'posted',
     ]);

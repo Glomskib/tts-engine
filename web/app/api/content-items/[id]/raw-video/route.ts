@@ -13,6 +13,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
+import { resolveUserId, resolveWorkspaceId, resolveContentItemId } from '@/lib/errors/sentry-resolvers';
 import { logContentItemEvent } from '@/lib/content-items/sync';
 
 export const runtime = 'nodejs';
@@ -167,7 +168,13 @@ export const POST = withErrorCapture(async (
   }, { status: 200 });
   response.headers.set('x-correlation-id', correlationId);
   return response;
-}, { routeName: '/api/content-items/[id]/raw-video', feature: 'editing-engine' });
+}, {
+  routeName: '/api/content-items/[id]/raw-video',
+  feature: 'editing-engine',
+  userIdResolver: resolveUserId,
+  workspaceIdResolver: resolveWorkspaceId,
+  contentItemIdResolver: resolveContentItemId,
+});
 
 /**
  * DELETE /api/content-items/[id]/raw-video
@@ -216,4 +223,10 @@ export const DELETE = withErrorCapture(async (
   const response = NextResponse.json({ ok: true, correlation_id: correlationId });
   response.headers.set('x-correlation-id', correlationId);
   return response;
-}, { routeName: '/api/content-items/[id]/raw-video', feature: 'editing-engine' });
+}, {
+  routeName: '/api/content-items/[id]/raw-video',
+  feature: 'editing-engine',
+  userIdResolver: resolveUserId,
+  workspaceIdResolver: resolveWorkspaceId,
+  contentItemIdResolver: resolveContentItemId,
+});

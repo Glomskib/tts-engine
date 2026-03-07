@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Copy, Sparkles, Loader2, Eye, MessageCircle, Mic, CheckCircle } from 'lucide-react';
+import { Copy, Sparkles, Loader2, Eye, MessageCircle, Mic, CheckCircle, Tag } from 'lucide-react';
 import AdminPageLayout, { AdminCard } from '@/app/admin/components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -10,6 +10,8 @@ interface Hook {
   text_on_screen: string;
   verbal_hook: string;
   strategy_note: string;
+  category?: string;
+  why_this_works?: string;
 }
 
 export default function AdminHookGeneratorPage() {
@@ -19,7 +21,6 @@ export default function AdminHookGeneratorPage() {
   const [niche, setNiche] = useState('');
   const [tone, setTone] = useState('');
   const [audience, setAudience] = useState('');
-  const [hookStyle, setHookStyle] = useState('');
   const [constraints, setConstraints] = useState('');
   const [loading, setLoading] = useState(false);
   const [hooks, setHooks] = useState<Hook[]>([]);
@@ -35,7 +36,7 @@ export default function AdminHookGeneratorPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ product, platform, niche, tone, audience, hookStyle, constraints }),
+        body: JSON.stringify({ product, platform, niche, tone, audience, constraints }),
       });
 
       if (!res.ok) throw new Error('Failed to generate hooks');
@@ -51,7 +52,9 @@ export default function AdminHookGeneratorPage() {
   };
 
   const copyHook = async (hook: Hook, index: number) => {
-    const text = `VISUAL HOOK: ${hook.visual_hook}\n\nTEXT ON SCREEN: ${hook.text_on_screen}\n\nVERBAL HOOK: ${hook.verbal_hook}\n\nWHY IT WORKS: ${hook.strategy_note}`;
+    const whyText = hook.why_this_works || hook.strategy_note;
+    const categoryLine = hook.category ? `CATEGORY: ${hook.category.replace(/_/g, ' ')}\n\n` : '';
+    const text = `${categoryLine}VISUAL HOOK: ${hook.visual_hook}\n\nTEXT ON SCREEN: ${hook.text_on_screen}\n\nVERBAL HOOK: ${hook.verbal_hook}\n\nWHY IT WORKS: ${whyText}`;
     try {
       await navigator.clipboard.writeText(text);
       setCopiedIndex(index);
@@ -106,31 +109,17 @@ export default function AdminHookGeneratorPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Tone (optional)</label>
-              <select value={tone} onChange={(e) => setTone(e.target.value)} className={inputClass} disabled={loading}>
-                <option value="">Auto</option>
-                <option value="Funny">Funny</option>
-                <option value="Aggressive">Aggressive</option>
-                <option value="Clinical">Clinical</option>
-                <option value="Luxury">Luxury</option>
-                <option value="Sarcastic">Sarcastic</option>
-                <option value="Hype">Hype</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm text-zinc-400 mb-1">Hook Style (optional)</label>
-              <select value={hookStyle} onChange={(e) => setHookStyle(e.target.value)} className={inputClass} disabled={loading}>
-                <option value="">Mix</option>
-                <option value="Shock/Stat">Shock / Stat</option>
-                <option value="Story">Story</option>
-                <option value="Contrarian">Contrarian</option>
-                <option value="Problem-Solution">Problem-Solution</option>
-                <option value="Before/After">Before / After</option>
-                <option value="POV">POV</option>
-              </select>
-            </div>
+          <div>
+            <label className="block text-sm text-zinc-400 mb-1">Tone (optional)</label>
+            <select value={tone} onChange={(e) => setTone(e.target.value)} className={inputClass} disabled={loading}>
+              <option value="">Auto</option>
+              <option value="Funny">Funny</option>
+              <option value="Aggressive">Aggressive</option>
+              <option value="Clinical">Clinical</option>
+              <option value="Luxury">Luxury</option>
+              <option value="Sarcastic">Sarcastic</option>
+              <option value="Hype">Hype</option>
+            </select>
           </div>
 
           <div>
@@ -182,16 +171,24 @@ export default function AdminHookGeneratorPage() {
               key={index}
               title={`Hook #${index + 1}`}
               headerActions={
-                <button
-                  onClick={() => copyHook(hook, index)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded-lg transition-colors"
-                >
-                  {copiedIndex === index ? (
-                    <><CheckCircle className="w-3.5 h-3.5 text-teal-400" /> Copied</>
-                  ) : (
-                    <><Copy className="w-3.5 h-3.5" /> Copy</>
+                <div className="flex items-center gap-2">
+                  {hook.category && (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded-md">
+                      <Tag className="w-3 h-3" />
+                      {hook.category.replace(/_/g, ' ')}
+                    </span>
                   )}
-                </button>
+                  <button
+                    onClick={() => copyHook(hook, index)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded-lg transition-colors"
+                  >
+                    {copiedIndex === index ? (
+                      <><CheckCircle className="w-3.5 h-3.5 text-teal-400" /> Copied</>
+                    ) : (
+                      <><Copy className="w-3.5 h-3.5" /> Copy</>
+                    )}
+                  </button>
+                </div>
               }
             >
               <div className="space-y-4">
@@ -227,7 +224,7 @@ export default function AdminHookGeneratorPage() {
 
                 <div className="pt-3 border-t border-white/5">
                   <div className="text-xs font-medium text-zinc-500 mb-1">Why This Works</div>
-                  <p className="text-sm text-zinc-400">{hook.strategy_note}</p>
+                  <p className="text-sm text-zinc-400">{hook.why_this_works || hook.strategy_note}</p>
                 </div>
               </div>
             </AdminCard>

@@ -19,6 +19,7 @@ import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { uploadToStorage } from '@/lib/storage';
 import { logContentItemEvent } from '@/lib/content-items/sync';
+import { captureRouteError } from '@/lib/errorTracking';
 import { validateEditPlan } from './validate-edit-plan';
 import type { EditPlan, EditPlanAction } from './types';
 
@@ -119,8 +120,17 @@ export async function renderContentItem(
 
     return { output_url: uploadResult.url, storage_path: storagePath, duration_sec: durationSec };
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const error = err instanceof Error ? err : new Error(String(err));
+    const message = error.message;
     console.error(`[render-plan] Failed for ${contentItemId}:`, message);
+
+    captureRouteError(error, {
+      route: 'editing-engine/render',
+      feature: 'editing-engine',
+      contentItemId,
+      userId: actorId,
+      severity: 'error',
+    });
 
     await supabaseAdmin
       .from('content_items')

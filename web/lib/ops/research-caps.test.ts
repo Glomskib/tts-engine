@@ -26,6 +26,7 @@ import {
 describe('research-caps', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.spyOn(console, 'error').mockImplementation(() => {});
     delete process.env.FF_RESEARCH_MAX_PER_HOUR;
     delete process.env.FF_RESEARCH_MAX_RUNTIME_SECONDS;
     delete process.env.FF_RESEARCH_FAIL_COOLDOWN_MINUTES;

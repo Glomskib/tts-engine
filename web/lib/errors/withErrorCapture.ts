@@ -27,8 +27,12 @@ export interface ErrorCaptureOptions {
   routeName: string;
   /** Feature area for Sentry grouping (e.g. 'video-pipeline', 'finops') */
   feature?: string;
+  /** Optional async resolver for the authenticated user ID */
+  userIdResolver?: (request: Request) => Promise<string | undefined> | string | undefined;
   /** Optional async resolver for workspace/org ID from the request */
   workspaceIdResolver?: (request: Request) => Promise<string | undefined> | string | undefined;
+  /** Optional async resolver for content item ID (e.g. from route params) */
+  contentItemIdResolver?: (request: Request, context?: { params?: Promise<Record<string, string>> }) => Promise<string | undefined> | string | undefined;
 }
 
 type RouteHandler = (
@@ -71,9 +75,13 @@ export function withErrorCapture(
 
       // Skip if already captured upstream
       if (!isCaptured(error)) {
+        let userId: string | undefined;
         let workspaceId: string | undefined;
+        let contentItemId: string | undefined;
         try {
+          userId = await options.userIdResolver?.(request);
           workspaceId = await options.workspaceIdResolver?.(request);
+          contentItemId = await options.contentItemIdResolver?.(request, context);
         } catch {
           // Don't let resolver failure mask the original error
         }
@@ -81,7 +89,9 @@ export function withErrorCapture(
         captureRouteError(error, {
           route: options.routeName,
           feature: options.feature,
+          userId,
           workspaceId,
+          contentItemId,
         });
 
         markCaptured(error);

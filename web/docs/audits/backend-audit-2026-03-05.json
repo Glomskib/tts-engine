@@ -1,0 +1,311 @@
+{
+  "generated_at": "2026-03-05T06:45:00Z",
+  "repos": [
+    {"name": "flashflow", "path": "/Volumes/WorkSSD/01_ACTIVE/FlashFlow/web", "status": "audited", "health": {"branch": "master", "clean": true, "ts_errors": 0, "tests_pass": 207, "tests_total": 207, "node_version": "v25.6.0"}},
+    {"name": "mission-control", "path": "/Users/brandonglomski/mission-control", "status": "audited", "health": {"branch": "main", "clean": false, "modified": 10, "untracked": 17, "tech": "Next.js 16, Supabase, Turso"}},
+    {"name": "mmm-event-os", "path": "/Users/brandonglomski/mmm-event-os", "status": "audited", "health": {"branch": "feat/my-events", "clean": true, "tech": "Next.js 16, Supabase, Stripe, Resend"}},
+    {"name": "openclaw-workspace", "path": "/Users/brandonglomski/.openclaw/workspace", "status": "audited", "health": {"branch": "main", "clean": false, "all_untracked": true}},
+    {"name": "tts-engine-dup", "path": "/Users/brandonglomski/tts-engine/web", "status": "audited", "health": {"note": "Same repo as FlashFlow, behind by 3 commits"}},
+    {"name": "browser-service", "path": "/Volumes/WorkSSD/01_ACTIVE/FlashFlow/browser-service", "status": "audited", "health": {"tech": "Express.js, Playwright"}}
+  ],
+  "findings": [
+    {
+      "id": "FF-AUD-001",
+      "severity": "P0",
+      "area": "security",
+      "symptom": "API keys in plaintext files with no .gitignore in OpenClaw workspace",
+      "root_cause": "Workspace initialized without .gitignore; files are untracked but one git add . pushes to public GitHub repo",
+      "evidence": [
+        {"file": "~/.openclaw/workspace/late_api_key.txt", "line": 1, "snippet": "sk_2b557b0d86265fb8460e4dcbd94f6ce30c341734ba4ac8d4748bc3c4bdfd07b1"},
+        {"file": "~/.openclaw/workspace/service-account-key.json", "line": 1, "snippet": "Google service account key (2.3KB)"},
+        {"file": "~/.openclaw/workspace/brave_api_key.txt", "line": 1, "snippet": "Brave API key"}
+      ],
+      "impact": "Credential leak to public GitHub - Late.dev, Google SA, Brave keys all exposed",
+      "fix": "Add .gitignore with *.txt, *.json, *.key patterns. Rotate all exposed keys immediately.",
+      "effort": "S",
+      "owner": "devops"
+    },
+    {
+      "id": "FF-AUD-002",
+      "severity": "P0",
+      "area": "auth",
+      "symptom": "check-renders cron has NO CRON_SECRET authorization check",
+      "root_cause": "Route wrapped with withErrorCapture but CRON_SECRET guard never added",
+      "evidence": [{"file": "app/api/cron/check-renders/route.ts", "line": 66, "snippet": "export const GET = withErrorCapture(async () => { // no CRON_SECRET check"}],
+      "impact": "Anyone can trigger render polling against external APIs, manipulate video pipeline state",
+      "fix": "Add standard CRON_SECRET check at top of handler",
+      "effort": "S",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-003",
+      "severity": "P0",
+      "area": "auth",
+      "symptom": "Scheduled posts IDOR - any authenticated user can read/modify/delete any user's posts",
+      "root_cause": "Routes query scheduled_posts without filtering by user_id",
+      "evidence": [
+        {"file": "app/api/scheduled-posts/route.ts", "line": 23, "snippet": "GET - no user_id filter"},
+        {"file": "app/api/scheduled-posts/[id]/route.ts", "line": 21, "snippet": "GET by ID - no user_id filter"},
+        {"file": "app/api/scheduled-posts/[id]/route.ts", "line": 77, "snippet": "PATCH - no user_id filter"},
+        {"file": "app/api/scheduled-posts/[id]/route.ts", "line": 110, "snippet": "DELETE - no user_id filter"}
+      ],
+      "impact": "Cross-user data access and modification",
+      "fix": "Add .eq('user_id', user.id) to all queries",
+      "effort": "S",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-004",
+      "severity": "P0",
+      "area": "auth",
+      "symptom": "Admin routes missing admin role check - any authenticated user can trigger",
+      "root_cause": "Routes rely on UI layout gating instead of API-level auth",
+      "evidence": [
+        {"file": "app/api/admin/deploy/route.ts", "line": 12, "snippet": "No admin check - triggers Vercel deployments"},
+        {"file": "app/api/admin/export/route.ts", "line": 24, "snippet": "No admin check - exports all video data"},
+        {"file": "app/api/admin/performance/route.ts", "line": 9, "snippet": "No admin check - uses supabaseAdmin"}
+      ],
+      "impact": "Privilege escalation - non-admin users can trigger deployments and export all data",
+      "fix": "Add role !== 'admin' check returning 403",
+      "effort": "S",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-005",
+      "severity": "P0",
+      "area": "database",
+      "symptom": "23 tables have NO Row Level Security enabled",
+      "root_cause": "RLS never enabled on these tables in migrations",
+      "evidence": [
+        {"file": "supabase/migrations/", "line": 0, "snippet": "video_events (69 refs), posting_accounts (9), proven_hooks (16), audit_log (4), + 19 more"}
+      ],
+      "impact": "Any authenticated user can read/write these tables directly via client-side Supabase",
+      "fix": "Migration to enable RLS + add workspace_id/user_id scoped policies",
+      "effort": "M",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-006",
+      "severity": "P0",
+      "area": "security",
+      "symptom": "TikTok OAuth tokens stored in plain text (4 tables)",
+      "root_cause": "Encryption pattern from Drive tokens never applied to TikTok",
+      "evidence": [
+        {"file": "supabase/migrations/20260325100000_tiktok_connections.sql", "line": 9, "snippet": "access_token TEXT NOT NULL, refresh_token TEXT NOT NULL"},
+        {"file": "supabase/migrations/124_tiktok_shop_connections.sql", "line": 9, "snippet": "Same pattern"},
+        {"file": "supabase/migrations/20260213000001_tiktok_content_posting.sql", "line": 16, "snippet": "Same pattern"},
+        {"file": "supabase/migrations/20260221000001_tiktok_login_connections.sql", "line": 12, "snippet": "Same pattern"}
+      ],
+      "impact": "DB compromise exposes all TikTok tokens. Drive tokens properly encrypted via AES-256-GCM.",
+      "fix": "Apply same lib/security/crypto.ts encryption pattern. Add encrypted columns, migrate, drop plain.",
+      "effort": "M",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-007",
+      "severity": "P1",
+      "area": "plan-gates",
+      "symptom": "6 features gated in UI but API routes have no plan check",
+      "root_cause": "Plan enforcement only in frontend PlanGate component, not in API handlers",
+      "evidence": [
+        {"file": "app/admin/winners/patterns/page.tsx", "line": 128, "snippet": "UI: PlanGate minPlan=creator_pro"},
+        {"file": "app/api/winners/analyze-patterns/route.ts", "line": 1, "snippet": "API: no plan check"},
+        {"file": "app/admin/calendar/page.tsx", "line": 1084, "snippet": "UI: PlanGate minPlan=creator_pro"},
+        {"file": "app/api/calendar/route.ts", "line": 1, "snippet": "API: no plan check"}
+      ],
+      "impact": "Free-tier users bypass paid features via direct API calls",
+      "fix": "Add assertMinPlan to each API route",
+      "effort": "S",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-008",
+      "severity": "P1",
+      "area": "workers",
+      "symptom": "Job queue has no row-level locking - concurrent process-jobs invocations double-execute",
+      "root_cause": "Simple SELECT WHERE status=pending without FOR UPDATE SKIP LOCKED",
+      "evidence": [{"file": "lib/jobs/runner.ts", "line": 27, "snippet": "SELECT ... WHERE status='pending' -- no lock"}],
+      "impact": "Duplicate AI calls, duplicate DB writes",
+      "fix": "Add FOR UPDATE SKIP LOCKED to job claim query",
+      "effort": "S",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-009",
+      "severity": "P1",
+      "area": "billing",
+      "symptom": "Stripe checkout metadata key mismatch - legacy route uses wrong keys",
+      "root_cause": "/api/stripe/checkout uses userId/tier, webhook expects user_id/plan_id",
+      "evidence": [
+        {"file": "app/api/stripe/checkout/route.ts", "line": 63, "snippet": "metadata: { userId, tier }"},
+        {"file": "app/api/webhooks/stripe/route.ts", "line": 0, "snippet": "Reads user_id, plan_id from metadata"}
+      ],
+      "impact": "Checkouts via legacy route silently fail to provision subscriptions",
+      "fix": "Fix metadata keys or delete legacy route (canonical: /api/subscriptions/checkout)",
+      "effort": "S",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-010",
+      "severity": "P1",
+      "area": "security",
+      "symptom": "Google Drive service account uses full drive scope instead of drive.file",
+      "root_cause": "Broad scope specified in client initialization",
+      "evidence": [{"file": "lib/drive/client.ts", "line": 58, "snippet": "scopes: ['https://www.googleapis.com/auth/drive']"}],
+      "impact": "Service account has full read/write/delete access to all Drive files",
+      "fix": "Change to drive.file scope",
+      "effort": "S",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-011",
+      "severity": "P1",
+      "area": "crons",
+      "symptom": "Ghost cron entry - nightly-reset defined in vercel.json but route file missing",
+      "root_cause": "Route was removed but vercel.json entry remains",
+      "evidence": [{"file": "vercel.json", "line": 0, "snippet": "cron: /api/cron/nightly-reset"}],
+      "impact": "Vercel fires a 404 every day at 05:05 UTC",
+      "fix": "Remove from vercel.json or create the route",
+      "effort": "S",
+      "owner": "devops"
+    },
+    {
+      "id": "FF-AUD-012",
+      "severity": "P1",
+      "area": "database",
+      "symptom": "content_items.short_id has no UNIQUE constraint",
+      "root_cause": "Only plain index created, not unique index",
+      "evidence": [{"file": "supabase/migrations/20260330000000_content_items_system.sql", "line": 72, "snippet": "CREATE INDEX (not UNIQUE)"}],
+      "impact": "6-char hex prefix collisions silently accepted",
+      "fix": "CREATE UNIQUE INDEX",
+      "effort": "S",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-013",
+      "severity": "P1",
+      "area": "devops",
+      "symptom": "Two divergent clones of tts-engine repo",
+      "root_cause": "HTTPS clone at ~/tts-engine behind SSH clone at /Volumes/WorkSSD",
+      "evidence": [
+        {"file": "~/tts-engine", "line": 0, "snippet": "HEAD: e69c7a2 (HTTPS remote)"},
+        {"file": "/Volumes/WorkSSD/01_ACTIVE/FlashFlow", "line": 0, "snippet": "HEAD: 5ce8dc2 (SSH remote, 3 commits ahead)"}
+      ],
+      "impact": "Work in wrong clone causes merge conflicts or lost work",
+      "fix": "Delete one clone, symlink",
+      "effort": "S",
+      "owner": "devops"
+    },
+    {
+      "id": "FF-AUD-014",
+      "severity": "P1",
+      "area": "devops",
+      "symptom": "Mission Control has large uncommitted delta (10 modified + 17 untracked files)",
+      "root_cause": "New routes and pages developed but never committed",
+      "evidence": [{"file": "~/mission-control", "line": 0, "snippet": "git status shows 27 changed/new files"}],
+      "impact": "Significant functionality vulnerable to data loss",
+      "fix": "Commit and push",
+      "effort": "S",
+      "owner": "devops"
+    },
+    {
+      "id": "FF-AUD-015",
+      "severity": "P2",
+      "area": "observability",
+      "symptom": "23 of 34 cron routes lack Sentry error capture",
+      "root_cause": "withErrorCapture wrapper not applied consistently",
+      "evidence": [{"file": "app/api/cron/", "line": 0, "snippet": "Only 11 of 34 routes use error capture"}],
+      "impact": "Silent failures in 23 crons only visible in Vercel logs",
+      "fix": "Wrap remaining routes with withErrorCapture",
+      "effort": "M",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-016",
+      "severity": "P2",
+      "area": "data-integrity",
+      "symptom": "No content item status transition enforcement",
+      "root_cause": "Validates status is valid enum but allows any transition",
+      "evidence": [{"file": "app/api/content-items/[id]/route.ts", "line": 91, "snippet": "Status validated as enum, no transition check"}],
+      "impact": "Items can jump from briefing to posted or regress backwards",
+      "fix": "Add transition map and validate oldStatus -> newStatus",
+      "effort": "S",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-017",
+      "severity": "P2",
+      "area": "performance",
+      "symptom": "6 confirmed N+1 query patterns in production routes",
+      "root_cause": "Sequential DB calls inside loops instead of batched queries",
+      "evidence": [
+        {"file": "app/api/creator/dashboard/route.ts", "line": 92, "snippet": "26 sequential DB calls"},
+        {"file": "app/api/admin/retainers/route.ts", "line": 26, "snippet": "2N queries per brand"}
+      ],
+      "impact": "Linear performance degradation with data growth",
+      "fix": "Batch with .in() filters or RPC functions",
+      "effort": "M",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-018",
+      "severity": "P2",
+      "area": "content-items",
+      "symptom": "Two duplicate Drive folder endpoints with different lib imports",
+      "root_cause": "drive-folder and drive/ensure routes created independently",
+      "evidence": [
+        {"file": "app/api/content-items/[id]/drive-folder/route.ts", "line": 17, "snippet": "Uses lib/intake/ensureContentItemDriveFolder"},
+        {"file": "app/api/content-items/[id]/drive/ensure/route.ts", "line": 20, "snippet": "Uses lib/drive/ensureContentItemFolder"}
+      ],
+      "impact": "Confusion about which endpoint to use; potentially inconsistent behavior",
+      "fix": "Consolidate to one endpoint",
+      "effort": "S",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-019",
+      "severity": "P2",
+      "area": "security",
+      "symptom": "No AI spending cap or budget enforcement",
+      "root_cause": "Usage tracked but no circuit breaker when costs exceed threshold",
+      "evidence": [{"file": "lib/ai/anthropic.ts", "line": 0, "snippet": "trackUsage() is observational only"}],
+      "impact": "Single user could exhaust API credits",
+      "fix": "Add per-user daily/monthly credit limit enforcement",
+      "effort": "M",
+      "owner": "backend"
+    },
+    {
+      "id": "FF-AUD-020",
+      "severity": "P2",
+      "area": "security",
+      "symptom": "CORS allows all origins",
+      "root_cause": "Middleware sets Access-Control-Allow-Origin: *",
+      "evidence": [{"file": "middleware.ts", "line": 7, "snippet": "Access-Control-Allow-Origin: *"}],
+      "impact": "Any website can make requests if session cookie allows",
+      "fix": "Whitelist production domains",
+      "effort": "S",
+      "owner": "backend"
+    }
+  ],
+  "cron_table": [
+    {"route": "/api/cron/check-renders", "schedule": "*/2 * * * *", "cron_secret": false, "error_capture": true, "overlap_risk": "high"},
+    {"route": "/api/cron/process-jobs", "schedule": "* * * * *", "cron_secret": true, "error_capture": false, "overlap_risk": "high"},
+    {"route": "/api/cron/orchestrator", "schedule": "*/2 * * * *", "cron_secret": true, "error_capture": false, "overlap_risk": "high"},
+    {"route": "/api/cron/content-item-processing", "schedule": "*/5 * * * *", "cron_secret": true, "error_capture": true, "overlap_risk": "medium"},
+    {"route": "/api/cron/nightly-reset", "schedule": "5 5 * * *", "cron_secret": "N/A", "error_capture": "N/A", "overlap_risk": "N/A - route missing"}
+  ],
+  "schema_checks": [
+    {"table": "content_items", "rls": true, "workspace_fk": false, "short_id_unique": false, "type_column": false},
+    {"table": "video_events", "rls": false, "code_refs": 69},
+    {"table": "posting_accounts", "rls": false, "code_refs": 9},
+    {"table": "proven_hooks", "rls": false, "code_refs": 16},
+    {"table": "tiktok_connections", "rls": true, "tokens_encrypted": false},
+    {"table": "drive_oauth_tokens", "rls": true, "tokens_encrypted": true}
+  ],
+  "consolidation": [
+    {"opportunity": "Calendar + Posting Queue", "effort": "M", "risk": "Low", "recommendation": "Merge into single Content Calendar with calendar/queue toggle"},
+    {"opportunity": "Pipeline Board + Content Items", "effort": "H", "risk": "Medium", "recommendation": "Merge into Production Board with Videos/Content Items tabs"},
+    {"opportunity": "Analytics orphan pages", "effort": "L", "risk": "Low", "recommendation": "Delete 5 orphan pages, consolidate 3 nav pages into tabs"},
+    {"opportunity": "Settings pages", "effort": "L", "risk": "Low", "recommendation": "Merge Diagnostics+System Status; merge Notifications+Telegram"}
+  ]
+}

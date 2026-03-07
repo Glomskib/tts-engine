@@ -10,6 +10,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
+import { resolveUserId, resolveWorkspaceId, resolveContentItemId } from '@/lib/errors/sentry-resolvers';
 import { renderContentItem } from '@/lib/editing/render-plan';
 import { validateEditPlan } from '@/lib/editing/validate-edit-plan';
 
@@ -107,4 +108,10 @@ export const POST = withErrorCapture(async (
       correlationId,
     );
   }
-}, { routeName: '/api/content-items/[id]/render', feature: 'editing-engine' });
+}, {
+  routeName: '/api/content-items/[id]/render',
+  feature: 'editing-engine',
+  userIdResolver: resolveUserId,
+  workspaceIdResolver: resolveWorkspaceId,
+  contentItemIdResolver: resolveContentItemId,
+});

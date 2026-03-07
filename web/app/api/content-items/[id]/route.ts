@@ -3,6 +3,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
+import { resolveUserId, resolveWorkspaceId, resolveContentItemId } from '@/lib/errors/sentry-resolvers';
 import { z } from 'zod';
 import { CONTENT_ITEM_STATUSES } from '@/lib/content-items/types';
 
@@ -64,7 +65,13 @@ export const GET = withErrorCapture(async (
   });
   response.headers.set('x-correlation-id', correlationId);
   return response;
-}, { routeName: '/api/content-items/[id]', feature: 'content-items' });
+}, {
+  routeName: '/api/content-items/[id]',
+  feature: 'content-items',
+  userIdResolver: resolveUserId,
+  workspaceIdResolver: resolveWorkspaceId,
+  contentItemIdResolver: resolveContentItemId,
+});
 
 // ── PATCH /api/content-items/[id] ────────────────────────────────
 
@@ -167,7 +174,13 @@ export const PATCH = withErrorCapture(async (
   });
   response.headers.set('x-correlation-id', correlationId);
   return response;
-}, { routeName: '/api/content-items/[id]', feature: 'content-items' });
+}, {
+  routeName: '/api/content-items/[id]',
+  feature: 'content-items',
+  userIdResolver: resolveUserId,
+  workspaceIdResolver: resolveWorkspaceId,
+  contentItemIdResolver: resolveContentItemId,
+});
 
 // ── DELETE /api/content-items/[id] ───────────────────────────────
 
@@ -199,4 +212,10 @@ export const DELETE = withErrorCapture(async (
   });
   response.headers.set('x-correlation-id', correlationId);
   return response;
-}, { routeName: '/api/content-items/[id]', feature: 'content-items' });
+}, {
+  routeName: '/api/content-items/[id]',
+  feature: 'content-items',
+  userIdResolver: resolveUserId,
+  workspaceIdResolver: resolveWorkspaceId,
+  contentItemIdResolver: resolveContentItemId,
+});

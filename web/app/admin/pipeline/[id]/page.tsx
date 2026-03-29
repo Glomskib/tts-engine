@@ -518,7 +518,7 @@ export default function VideoDetailPage() {
   // ─── Render ──────────────────────────────────────────────────
 
   return (
-    <AdminPageLayout title="Video Details" subtitle={`ID: ${videoId.slice(0, 8)}...`} stage="production">
+    <AdminPageLayout title="Video Details" subtitle={`ID: ${videoId.slice(0, 8)}...`}>
       {/* Back + Refresh */}
       <div className="flex items-center gap-2 mb-4">
         <Link href="/admin/pipeline" className={btnGhost}>
@@ -581,7 +581,7 @@ export default function VideoDetailPage() {
 
       {/* Attach Script Form */}
       {showAttachScript && (
-        <AdminCard title="Attach Approved Script" accent="blue">
+        <AdminCard title="Attach Approved Script">
           {attachMessage && (
             <MessageBanner type={attachMessage.includes('successfully') ? 'success' : 'warning'}>
               {attachMessage}
@@ -632,7 +632,7 @@ export default function VideoDetailPage() {
 
       {/* Approved Script */}
       {videoDetail?.script_locked_text && (
-        <AdminCard title="Approved Script" accent="teal">
+        <AdminCard title="Approved Script">
           <MessageBanner type="info">
             This video has a locked copy of its script. Edits to the source script won&apos;t affect this video.
           </MessageBanner>
@@ -676,7 +676,7 @@ export default function VideoDetailPage() {
       )}
 
       {/* Execution Tracking */}
-      <AdminCard title="Execution Tracking" accent="emerald">
+      <AdminCard title="Execution Tracking">
         {executionMessage && (
           <MessageBanner type={executionMessage.includes('success') || executionMessage.includes('Saved') || executionMessage.startsWith('Set ') ? 'success' : 'error'}>
             {executionMessage}
@@ -802,7 +802,7 @@ export default function VideoDetailPage() {
       {/* Admin Actions */}
       <AdminCard
         title="Admin Actions"
-        accent="red"
+       
         headerActions={
           <button onClick={() => setShowAdminActions(!showAdminActions)} className={`text-xs px-3 py-1 rounded-lg transition-colors ${showAdminActions ? 'bg-zinc-700 text-zinc-300' : 'bg-red-600/20 text-red-400 hover:bg-red-600/30'}`}>
             {showAdminActions ? 'Hide' : 'Show'}
@@ -978,7 +978,7 @@ export default function VideoDetailPage() {
       {(timelineItems.length > 0 || videoDetail) && (
         <AdminCard
           title={`Timeline (${timelineItems.length})`}
-          accent="violet"
+         
           headerActions={
             <button onClick={fetchTimeline} disabled={timelineLoading} className={btnGhost}>
               {timelineLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}

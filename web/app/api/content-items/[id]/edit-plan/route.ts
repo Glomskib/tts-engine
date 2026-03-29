@@ -36,7 +36,7 @@ export const POST = withErrorCapture(async (
   // Load content item with all fields needed for plan generation
   const { data: item, error: fetchErr } = await supabaseAdmin
     .from('content_items')
-    .select('id, workspace_id, editing_instructions, editor_notes_json, primary_hook, caption, edit_status, raw_video_url, raw_video_storage_path')
+    .select('id, workspace_id, editing_instructions, editor_notes_json, primary_hook, caption, edit_status, raw_video_url, raw_video_storage_path, transcript_json')
     .eq('id', id)
     .eq('workspace_id', user.id)
     .single();
@@ -64,8 +64,16 @@ export const POST = withErrorCapture(async (
     // No body is fine
   }
 
-  // We need source_duration_sec — either from body or default estimate
-  const sourceDuration = overrides.source_duration_sec || 60; // Default; real probe happens at render time
+  // We need source_duration_sec — prefer body override, then derive from transcript, else default to 60
+  let sourceDuration = overrides.source_duration_sec;
+  if (!sourceDuration && item.transcript_json) {
+    const segs = item.transcript_json as Array<{ end?: number }>;
+    if (segs.length > 0) {
+      const last = segs[segs.length - 1];
+      if (typeof last.end === 'number' && last.end > 0) sourceDuration = last.end;
+    }
+  }
+  sourceDuration = sourceDuration || 60;
 
   const { plan, warnings } = buildEditPlan({
     source_duration_sec: sourceDuration,

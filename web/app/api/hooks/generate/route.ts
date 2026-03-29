@@ -7,9 +7,7 @@ import { logUsageEventAsync } from '@/lib/finops/log-usage';
 import { selectCategories, type HookCategory } from '@/lib/hooks/hook-categories';
 import { filterHookBatch, checkHookQuality, type HookData } from '@/lib/hooks/hook-quality-filter';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // Rate limiting by IP (simple in-memory cache)
 const ipUsage = new Map<string, { count: number; resetAt: number }>();
@@ -174,7 +172,7 @@ export async function POST(request: NextRequest) {
     const maxAttempts = 2;
 
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      const completion = await openai.chat.completions.create({
+      const completion = await getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemPrompt },

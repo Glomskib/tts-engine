@@ -159,7 +159,7 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
   const [loading, setLoading] = useState(true);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [editingBusy, setEditingBusy] = useState<string | null>(null); // 'planning' | 'rendering' | null
+  const [editingBusy, setEditingBusy] = useState<string | null>(null); // 'planning' | 'rendering' | 'analyzing' | 'saving' | null
   const [instructions, setInstructions] = useState('');
 
   const fetchItem = useCallback(async () => {
@@ -237,6 +237,27 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
         showToast({ message: 'Instructions saved', type: 'success' });
       } else {
         showToast({ message: json.error || 'Save failed', type: 'error' });
+      }
+    } catch { showToast({ message: 'Network error', type: 'error' }); }
+    finally { setEditingBusy(null); }
+  };
+
+  const handleAnalyze = async () => {
+    if (!item) return;
+    setEditingBusy('analyzing');
+    try {
+      const res = await fetch(`/api/content-items/${id}/analyze`, { method: 'POST' });
+      const json = await res.json();
+      if (json.ok) {
+        // Refresh item to pick up transcript + editor notes
+        await fetchItem();
+        await fetchEvents();
+        showToast({ message: `Analyzed: ${json.data.segment_count} segments, ${Math.round(json.data.duration_seconds)}s`, type: 'success' });
+        if (json.data.editor_notes_status === 'failed') {
+          showToast({ message: 'Transcript done but editor notes failed — you can still generate a plan', type: 'info' });
+        }
+      } else {
+        showToast({ message: json.error || 'Analysis failed', type: 'error' });
       }
     } catch { showToast({ message: 'Network error', type: 'error' }); }
     finally { setEditingBusy(null); }
@@ -673,6 +694,15 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
 
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2">
+          <button
+            onClick={handleAnalyze}
+            disabled={!item.raw_video_url || !!editingBusy}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-violet-900/30 text-violet-300 hover:bg-violet-900/50 border border-violet-500/20"
+          >
+            {editingBusy === 'analyzing' ? <Loader2 size={12} className="animate-spin" /> : <Mic size={12} />}
+            {editingBusy === 'analyzing' ? 'Analyzing...' : 'Analyze'}
+          </button>
+
           <button
             onClick={handleGeneratePlan}
             disabled={!item.raw_video_url || !!editingBusy}

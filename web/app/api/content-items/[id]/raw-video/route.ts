@@ -131,12 +131,14 @@ export const POST = withErrorCapture(async (
     .from(BUCKET_NAME)
     .getPublicUrl(uploadData.path);
 
-  // Update content item
+  // Update content item — also queue transcription so cron picks this up
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('content_items')
     .update({
       raw_video_url: publicUrl,
       raw_video_storage_path: storagePath,
+      transcript_status: 'pending',
+      transcript_error: null,
     })
     .eq('id', id)
     .select('id, raw_video_url, raw_video_storage_path, edit_status')

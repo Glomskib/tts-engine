@@ -38,6 +38,8 @@ interface ClaimableItem {
   workspace_id: string;
   raw_footage_drive_file_id: string | null;
   raw_footage_url: string | null;
+  raw_video_url: string | null;
+  raw_video_storage_path: string | null;
   transcript_status: string;
   editor_notes_status: string;
   last_processed_raw_file_id: string | null;
@@ -83,11 +85,12 @@ export const GET = withErrorCapture(async (request: Request) => {
  */
 async function processTranscriptionQueue() {
   // Atomic claim: UPDATE where status='pending' to prevent double-pickup
+  // Includes items from Drive (raw_footage_drive_file_id) AND direct web uploads (raw_video_url)
   const { data: items, error: fetchErr } = await supabaseAdmin
     .from('content_items')
-    .select('id, workspace_id, raw_footage_drive_file_id, raw_footage_url, transcript_status, editor_notes_status, last_processed_raw_file_id, brand_id, product_id, brief_selected_cow_tier, title')
+    .select('id, workspace_id, raw_footage_drive_file_id, raw_footage_url, raw_video_url, raw_video_storage_path, transcript_status, editor_notes_status, last_processed_raw_file_id, brand_id, product_id, brief_selected_cow_tier, title')
     .eq('transcript_status', 'pending')
-    .not('raw_footage_drive_file_id', 'is', null)
+    .or('raw_footage_drive_file_id.not.is.null,raw_video_url.not.is.null')
     .order('updated_at', { ascending: true })
     .limit(BATCH_SIZE) as { data: ClaimableItem[] | null; error: { message: string } | null };
 
@@ -113,12 +116,13 @@ async function processTranscriptionQueue() {
   let skipped = 0;
 
   for (const item of items) {
-    // Idempotency: skip if this file was already processed
+    // Idempotency: skip if this exact source file was already processed
+    const currentFileKey = item.raw_footage_drive_file_id || item.raw_video_storage_path || item.raw_video_url;
     if (
-      item.last_processed_raw_file_id === item.raw_footage_drive_file_id &&
-      item.last_processed_raw_file_id !== null
+      item.last_processed_raw_file_id !== null &&
+      item.last_processed_raw_file_id === currentFileKey
     ) {
-      console.log(`${LOG} Skipping ${item.id}: file ${item.raw_footage_drive_file_id} already processed`);
+      console.log(`${LOG} Skipping ${item.id}: already processed`);
       await supabaseAdmin
         .from('content_items')
         .update({ transcript_status: 'completed' })
@@ -155,18 +159,31 @@ async function processTranscriptionQueue() {
 
 /**
  * Transcribe a content item's raw footage via Whisper.
+ * Supports both Google Drive files and direct-upload URLs.
  */
 async function transcribeContentItem(item: ClaimableItem) {
-  if (!item.raw_footage_drive_file_id) {
-    throw new Error('No raw footage file ID');
+  const hasDriveFile = !!item.raw_footage_drive_file_id;
+  const hasDirectUpload = !!item.raw_video_url;
+
+  if (!hasDriveFile && !hasDirectUpload) {
+    throw new Error('No raw video source available (no Drive file ID and no raw_video_url)');
   }
 
-  console.log(`${LOG} Transcribing ${item.id} (file: ${item.raw_footage_drive_file_id})`);
+  console.log(`${LOG} Transcribing ${item.id} via ${hasDriveFile ? 'Google Drive' : 'direct URL'}`);
 
   const tmpPath = join(tmpdir(), `ci-transcribe-${randomUUID()}.mp4`);
 
   try {
-    await downloadFileStream(item.workspace_id, item.raw_footage_drive_file_id, tmpPath);
+    if (hasDriveFile) {
+      await downloadFileStream(item.workspace_id, item.raw_footage_drive_file_id!, tmpPath);
+    } else {
+      // Direct upload: download from storage URL
+      const resp = await fetch(item.raw_video_url!);
+      if (!resp.ok) throw new Error(`Failed to fetch video: ${resp.status} ${resp.statusText}`);
+      const buffer = Buffer.from(await resp.arrayBuffer());
+      const { writeFile } = await import('fs/promises');
+      await writeFile(tmpPath, buffer);
+    }
 
     // Transcribe via Whisper
     const { default: OpenAI } = await import('openai');
@@ -201,6 +218,8 @@ async function transcribeContentItem(item: ClaimableItem) {
     });
 
     // Update content item with transcript data + queue editor notes
+    // Use Drive file ID as idempotency key if available, otherwise use the storage path
+    const processedFileId = item.raw_footage_drive_file_id || item.raw_video_storage_path || item.raw_video_url || 'direct';
     await supabaseAdmin
       .from('content_items')
       .update({
@@ -208,7 +227,7 @@ async function transcribeContentItem(item: ClaimableItem) {
         transcript_text: transcript,
         transcript_json: segments,
         transcript_error: null,
-        last_processed_raw_file_id: item.raw_footage_drive_file_id,
+        last_processed_raw_file_id: processedFileId,
         editor_notes_status: 'pending',
       })
       .eq('id', item.id);

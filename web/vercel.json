@@ -1,4 +1,14 @@
 {
+  "functions": {
+    "app/api/content-items/[id]/render/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    },
+    "app/api/content-items/[id]/analyze/route.ts": {
+      "maxDuration": 300,
+      "memory": 1024
+    }
+  },
   "crons": [
     {
       "path": "/api/cron/check-renders",

@@ -36,7 +36,7 @@ export const POST = withErrorCapture(async (
   // Load content item with all fields needed for plan generation
   const { data: item, error: fetchErr } = await supabaseAdmin
     .from('content_items')
-    .select('id, workspace_id, editing_instructions, editor_notes_json, primary_hook, caption, edit_status, raw_video_url, raw_video_storage_path, transcript_json')
+    .select('id, workspace_id, editing_instructions, editor_notes_json, primary_hook, caption, edit_status, raw_video_url, raw_video_storage_path, transcript_json, transcript_status')
     .eq('id', id)
     .eq('workspace_id', user.id)
     .single();
@@ -45,7 +45,7 @@ export const POST = withErrorCapture(async (
     return createApiErrorResponse('NOT_FOUND', 'Content item not found', 404, correlationId);
   }
 
-  // Need either raw video or some instructions to build a plan
+  // Need a raw video
   if (!item.raw_video_url && !item.raw_video_storage_path) {
     return createApiErrorResponse(
       'PRECONDITION_FAILED',
@@ -53,6 +53,16 @@ export const POST = withErrorCapture(async (
       422,
       correlationId,
     );
+  }
+
+  // Transcript must be completed — edit plan quality depends on it
+  if (item.transcript_status !== 'completed') {
+    const detail = item.transcript_status === 'processing'
+      ? 'Transcription is still running — wait for it to finish, then try again.'
+      : item.transcript_status === 'failed'
+      ? 'Transcription failed. Re-run the Analyze step before generating an edit plan.'
+      : 'Transcription required. Run the Analyze step first.';
+    return createApiErrorResponse('PRECONDITION_FAILED', detail, 422, correlationId);
   }
 
   // Parse optional body for overrides

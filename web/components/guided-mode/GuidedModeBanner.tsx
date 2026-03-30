@@ -13,8 +13,11 @@ export function GuidedModeBanner() {
   if (!state.active) return null;
 
   const stepDef = GUIDED_STEPS.find(s => s.step === state.step);
+  // Use exact segment match to avoid false positives when the ID appears as a substring
   const isOnContentItem =
-    !!state.contentItemId && pathname.includes(state.contentItemId);
+    !!state.contentItemId &&
+    (pathname === `/admin/content-items/${state.contentItemId}` ||
+      pathname.startsWith(`/admin/content-items/${state.contentItemId}/`));
 
   function handleExit() {
     if (confirm('Exit guided mode? You can restart it from the dashboard anytime.')) {

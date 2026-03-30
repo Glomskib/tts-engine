@@ -34,7 +34,27 @@ const GuidedModeContext = createContext<GuidedModeContextValue | null>(null);
 function persist(next: GuidedModeState) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-  } catch { /* ignore */ }
+  } catch { /* ignore — private browsing, quota exceeded, etc. */ }
+}
+
+/** Validate and sanitize loaded state. Returns null if state is unusable. */
+function parsePersistedState(raw: string): GuidedModeState | null {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const { active, step, contentItemId, startedAt } = parsed as Record<string, unknown>;
+    if (typeof active !== 'boolean') return null;
+    const stepNum = Number(step);
+    if (!Number.isInteger(stepNum) || stepNum < 1 || stepNum > 7) return null;
+    return {
+      active,
+      step: stepNum as GuidedStep,
+      contentItemId: typeof contentItemId === 'string' ? contentItemId : null,
+      startedAt: typeof startedAt === 'string' ? startedAt : '',
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function GuidedModeProvider({ children }: { children: ReactNode }) {
@@ -45,7 +65,15 @@ export function GuidedModeProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     try {
       const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) setState(JSON.parse(saved) as GuidedModeState);
+      if (saved) {
+        const valid = parsePersistedState(saved);
+        if (valid) {
+          setState(valid);
+        } else {
+          // Corrupt or incompatible persisted state — clear it
+          localStorage.removeItem(STORAGE_KEY);
+        }
+      }
     } catch { /* ignore */ }
     setHydrated(true);
   }, []);

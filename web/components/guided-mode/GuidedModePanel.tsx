@@ -61,10 +61,24 @@ export function GuidedModePanel({
 
   function ctaDisabled(): boolean {
     if (!!editingBusy) return true;
+    // Step 5 (Analyze): needs a raw video to transcribe
     if (state.step === 5 && !item.raw_video_url) return true;
-    if (state.step === 6 && !item.raw_video_url) return true;
+    // Step 6 (Generate Plan): needs transcript to be completed (not just video uploaded)
+    if (state.step === 6 && item.transcript_status !== 'completed') return true;
+    // Step 7 (Render): needs a valid edit plan
     if (state.step === 7 && !item.edit_plan_json) return true;
     return false;
+  }
+
+  function ctaBlockedReason(): string | null {
+    if (state.step === 5 && !item.raw_video_url) return 'Upload a raw video first (Step 4).';
+    if (state.step === 6 && item.transcript_status !== 'completed') {
+      if (item.transcript_status === 'processing') return 'Analysis is still running — wait for it to finish.';
+      if (item.transcript_status === 'failed') return 'Analysis failed. Retry Step 5 before planning.';
+      return 'Run Step 5 (Analyze) before generating an edit plan.';
+    }
+    if (state.step === 7 && !item.edit_plan_json) return 'Generate an edit plan first (Step 6).';
+    return null;
   }
 
   async function handleCta() {
@@ -148,19 +162,27 @@ export function GuidedModePanel({
 
         {/* Steps 4–7: primary CTA */}
         {isActionableHere && state.step !== 3 && !isComplete && (
-          <button
-            onClick={handleCta}
-            disabled={ctaDisabled()}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
-          >
-            {editingBusy ? (
-              <>
-                <Loader2 size={14} className="animate-spin" /> Working…
-              </>
-            ) : (
-              stepDef.cta
+          <>
+            {ctaBlockedReason() && (
+              <div className="flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2">
+                <AlertTriangle size={12} className="mt-0.5 flex-shrink-0 text-red-400" />
+                <p className="text-xs text-red-300">{ctaBlockedReason()}</p>
+              </div>
             )}
-          </button>
+            <button
+              onClick={handleCta}
+              disabled={ctaDisabled()}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-teal-600 hover:bg-teal-500 text-white font-semibold text-sm transition disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              {editingBusy ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" /> Working…
+                </>
+              ) : (
+                stepDef.cta
+              )}
+            </button>
+          </>
         )}
 
         {/* Advance button once step is complete (except step 7) */}

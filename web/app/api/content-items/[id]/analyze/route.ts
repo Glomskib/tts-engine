@@ -111,6 +111,23 @@ export const POST = withErrorCapture(async (
     }));
     const duration = response.duration || 0;
 
+    // Guard: empty transcript means Whisper got nothing — fail clearly
+    if (!transcript.trim()) {
+      await supabaseAdmin
+        .from('content_items')
+        .update({
+          transcript_status: 'failed',
+          transcript_error: 'Whisper returned an empty transcript. Check that the video has audible speech and is not corrupted.',
+        })
+        .eq('id', id);
+      return createApiErrorResponse(
+        'PRECONDITION_FAILED',
+        'No speech detected in the video. Ensure the video has clear audio before analyzing.',
+        422,
+        correlationId,
+      );
+    }
+
     // Step 3: Save transcript
     const processedFileKey = item.raw_footage_drive_file_id || item.raw_video_storage_path || item.raw_video_url || 'direct';
 

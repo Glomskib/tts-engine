@@ -32,12 +32,12 @@ export interface ErrorCaptureOptions {
   /** Optional async resolver for workspace/org ID from the request */
   workspaceIdResolver?: (request: Request) => Promise<string | undefined> | string | undefined;
   /** Optional async resolver for content item ID (e.g. from route params) */
-  contentItemIdResolver?: (request: Request, context?: { params?: Promise<Record<string, string>> }) => Promise<string | undefined> | string | undefined;
+  contentItemIdResolver?: (request: Request, context: { params: Promise<Record<string, string>> }) => Promise<string | undefined> | string | undefined;
 }
 
 type RouteHandler = (
   request: Request,
-  context?: { params?: Promise<Record<string, string>> },
+  context: { params: Promise<Record<string, string>> },
 ) => Promise<Response>;
 
 /**
@@ -64,9 +64,9 @@ export function isCaptured(error: unknown): boolean {
  */
 export function withErrorCapture(
   handler: RouteHandler,
-  options: ErrorCaptureOptions,
+  options: ErrorCaptureOptions = { routeName: 'unknown' },
 ): RouteHandler {
-  return async (request: Request, context?: { params?: Promise<Record<string, string>> }) => {
+  return async (request: Request, context: { params: Promise<Record<string, string>> }) => {
     try {
       return await handler(request, context);
     } catch (thrown) {

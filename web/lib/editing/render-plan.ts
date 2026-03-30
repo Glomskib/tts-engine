@@ -9,11 +9,13 @@
 
 import { tmpdir } from 'os';
 import { join } from 'path';
-import { writeFile, readFile, mkdir } from 'fs/promises';
-import { existsSync } from 'fs';
+import { writeFile, readFile, mkdir, stat } from 'fs/promises';
+import { existsSync, createWriteStream, createReadStream } from 'fs';
 import { randomUUID } from 'crypto';
 import { execFile } from 'child_process';
 import { promisify } from 'util';
+import { pipeline } from 'stream/promises';
+import { Readable } from 'stream';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
@@ -27,7 +29,72 @@ const execFileAsync = promisify(execFile);
 const FFMPEG = ffmpegInstaller.path;
 
 const RENDER_TIMEOUT_MS = 5 * 60 * 1000;
+const DOWNLOAD_TIMEOUT_MS = 3 * 60 * 1000; // 3 min max to download source
 const RENDER_BUCKET = 'renders';
+
+// ── User-friendly error translation ────────────────────────────
+function translateFFmpegError(rawError: string): string {
+  const e = rawError.toLowerCase();
+  if (e.includes('no such file') || e.includes('enoent'))
+    return 'FFmpeg binary not found. Server configuration error — contact support.';
+  if (e.includes('invalid data found') || e.includes('invalid argument') || e.includes('moov atom not found'))
+    return 'The video file appears to be corrupt or in an unsupported format. Try re-exporting from your phone as MP4.';
+  if (e.includes('no space left'))
+    return 'Server ran out of disk space during render. Try again in a few minutes.';
+  if (e.includes('killed') || e.includes('timeout'))
+    return 'Render timed out. Your video may be too long — try trimming it to under 3 minutes.';
+  if (e.includes('permission denied'))
+    return 'Server permission error during render — contact support.';
+  if (e.includes('output file is empty') || e.includes('output file #0 does not contain any stream'))
+    return 'Render produced an empty video. Check your edit plan — all segments may have been cut.';
+  if (e.includes('encoder') || e.includes('codec'))
+    return 'Video encoding failed. Try uploading your video in MP4/H.264 format.';
+  // Return a trimmed version of the raw error (first meaningful line only)
+  const firstLine = rawError.split('\n').find(l => l.trim().length > 10 && !l.startsWith('  '));
+  return firstLine ? `Render error: ${firstLine.trim().slice(0, 200)}` : 'Render failed — unknown error. Contact support.';
+}
+
+async function safeExecFFmpeg(args: string[], timeout = RENDER_TIMEOUT_MS): Promise<void> {
+  try {
+    await execFileAsync(FFMPEG, args, { timeout });
+  } catch (err) {
+    const raw = err instanceof Error ? (err.message + '\n' + ((err as NodeJS.ErrnoException & { stderr?: string }).stderr || '')) : String(err);
+    throw new Error(translateFFmpegError(raw));
+  }
+}
+
+// ── Pre-render validation ───────────────────────────────────────
+async function preflight(sourceUrl: string, sourcePath: string): Promise<void> {
+  // 1. Check FFmpeg binary exists
+  if (!existsSync(FFMPEG)) {
+    throw new Error('FFmpeg binary not found. Server configuration error — contact support.');
+  }
+
+  // 2. Check source file downloaded and is a real video (>10KB)
+  try {
+    const info = await stat(sourcePath);
+    if (info.size < 10_000) {
+      throw new Error(`Downloaded file is too small (${info.size} bytes). The video URL may have expired — try re-uploading.`);
+    }
+  } catch (err) {
+    if (err instanceof Error && err.message.includes('bytes')) throw err;
+    throw new Error('Source video file missing after download — contact support.');
+  }
+
+  // 3. Quick FFmpeg probe to validate the file is a real video
+  try {
+    await execFileAsync(FFMPEG, ['-v', 'error', '-i', sourcePath, '-f', 'null', '-'], { timeout: 30_000 });
+  } catch (err) {
+    // FFmpeg always exits non-zero on -f null, so check stderr for actual errors
+    const stderr = err instanceof Error ? ((err as NodeJS.ErrnoException & { stderr?: string }).stderr || '') : '';
+    if (stderr.includes('Invalid data found') || stderr.includes('moov atom not found') || stderr.includes('No such file')) {
+      throw new Error(translateFFmpegError(stderr));
+    }
+    // Otherwise the probe "failed" normally (expected with -f null), file is fine
+  }
+
+  void sourceUrl; // used indirectly via sourcePath
+}
 
 // ── Timed action check ──────────────────────────────────────────
 const TIMED_ACTIONS = new Set(['cut', 'keep', 'text_overlay', 'broll', 'speed']);
@@ -84,6 +151,7 @@ export async function renderContentItem(
 
     const sourcePath = join(workDir, 'source.mp4');
     await downloadFile(sourceUrl, sourcePath);
+    await preflight(sourceUrl, sourcePath);
 
     const outputPath = join(workDir, 'output.mp4');
 
@@ -91,14 +159,14 @@ export async function renderContentItem(
       transcriptJson: item.transcript_json as TranscriptWord[] | null,
     });
 
-    const renderedBuffer = await readFile(outputPath);
-    const storagePath = `editing/${item.workspace_id}/${contentItemId}_${Date.now()}.mp4`;
-    const blob = new Blob([renderedBuffer], { type: 'video/mp4' });
+    // Validate output exists and is non-empty before uploading
+    const outputInfo = await stat(outputPath).catch(() => null);
+    if (!outputInfo || outputInfo.size < 1000) {
+      throw new Error('Render produced an empty or missing output file. Check your edit plan — all segments may have been cut.');
+    }
 
-    const uploadResult = await uploadToStorage(RENDER_BUCKET, storagePath, blob, {
-      contentType: 'video/mp4',
-      upsert: true,
-    });
+    const storagePath = `editing/${item.workspace_id}/${contentItemId}_${Date.now()}.mp4`;
+    const uploadResult = await uploadRenderStream(outputPath, storagePath);
 
     const durationSec = await probeDuration(outputPath);
 
@@ -216,7 +284,7 @@ export async function renderPlan(
   // ── Step 1: Determine kept segments ───────────────────────
   const segments = resolveSegments(keeps, cuts, plan.source_duration_sec);
   if (segments.length === 0) {
-    throw new Error('Edit plan resolves to zero segments — nothing to render');
+    throw new Error('Your edit plan has no segments to keep. All content was cut. Add a "keep" action or remove conflicting "cut" actions, then regenerate the plan.');
   }
 
   // ── Step 2: Extract & process each segment ────────────────
@@ -293,7 +361,7 @@ export async function renderPlan(
     args.push('-c:a', 'aac', '-b:a', '128k');
     args.push(segPath);
 
-    await execFileAsync(FFMPEG, args, { timeout: RENDER_TIMEOUT_MS });
+    await safeExecFFmpeg(args, RENDER_TIMEOUT_MS);
   }
 
   // ── Step 3: B-roll overlays ───────────────────────────────
@@ -328,7 +396,7 @@ export async function renderPlan(
     const relEnd = Math.min(seg.end - seg.start, broll.end_sec - seg.start);
     const brollOutputPath = join(workDir, `seg_broll_${i}.mp4`);
 
-    await execFileAsync(FFMPEG, [
+    await safeExecFFmpeg([
       '-y',
       '-i', segmentFiles[i],
       '-i', brollPath,
@@ -338,7 +406,7 @@ export async function renderPlan(
       '-c:a', 'aac', '-b:a', '128k',
       '-shortest',
       brollOutputPath,
-    ], { timeout: RENDER_TIMEOUT_MS });
+    ]);
 
     brollSegmentFiles.push(brollOutputPath);
   }
@@ -357,38 +425,34 @@ export async function renderPlan(
     : outputPath;
 
   if (brollSegmentFiles.length === 1) {
-    await execFileAsync(FFMPEG, [
-      '-y', '-i', brollSegmentFiles[0], '-c', 'copy', concatTarget,
-    ], { timeout: RENDER_TIMEOUT_MS });
+    await safeExecFFmpeg(['-y', '-i', brollSegmentFiles[0], '-c', 'copy', concatTarget]);
   } else {
     const concatListPath = join(workDir, 'concat.txt');
     const concatContent = brollSegmentFiles.map(f => `file '${f}'`).join('\n');
     await writeFile(concatListPath, concatContent);
 
-    await execFileAsync(FFMPEG, [
+    await safeExecFFmpeg([
       '-y', '-f', 'concat', '-safe', '0', '-i', concatListPath,
       '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
       '-c:a', 'aac', '-b:a', '128k',
       concatTarget,
-    ], { timeout: RENDER_TIMEOUT_MS });
+    ]);
   }
 
   // ── Step 6: Audio normalization (post-process) ────────────
   if (normalizeAudio && normalizeAudio.type === 'normalize_audio' && normalizeAudio.enabled !== false) {
     const targetLufs = normalizeAudio.target_lufs ?? -14;
     try {
-      await execFileAsync(FFMPEG, [
+      await safeExecFFmpeg([
         '-y', '-i', concatTarget,
         '-af', `loudnorm=I=${targetLufs}:TP=-1.5:LRA=11`,
         '-c:v', 'copy',
         '-c:a', 'aac', '-b:a', '128k',
         outputPath,
-      ], { timeout: RENDER_TIMEOUT_MS });
+      ]);
     } catch (err) {
       console.warn(`[render-plan] Audio normalization failed, copying raw: ${err}`);
-      await execFileAsync(FFMPEG, [
-        '-y', '-i', concatTarget, '-c', 'copy', outputPath,
-      ], { timeout: RENDER_TIMEOUT_MS });
+      await safeExecFFmpeg(['-y', '-i', concatTarget, '-c', 'copy', outputPath]);
     }
   }
 }
@@ -428,7 +492,7 @@ async function generateEndCard(
     ? `color=c=${bgColor}:s=${width}x${height}:d=${duration},${filters.join(',')}`
     : `color=c=${bgColor}:s=${width}x${height}:d=${duration}`;
 
-  await execFileAsync(FFMPEG, [
+  await safeExecFFmpeg([
     '-y',
     '-f', 'lavfi',
     '-i', filterStr,
@@ -439,7 +503,7 @@ async function generateEndCard(
     '-c:a', 'aac', '-b:a', '128k',
     '-shortest',
     outputPath,
-  ], { timeout: 30_000 });
+  ], 30_000);
 }
 
 // ── Silence Removal ─────────────────────────────────────────────
@@ -480,7 +544,7 @@ async function removeSilenceFromVideo(
 
   if (silenceStarts.length === 0) {
     // No silence detected, copy as-is
-    await execFileAsync(FFMPEG, ['-y', '-i', inputPath, '-c', 'copy', outputPath], { timeout: RENDER_TIMEOUT_MS });
+    await safeExecFFmpeg(['-y', '-i', inputPath, '-c', 'copy', outputPath]);
     return;
   }
 
@@ -505,7 +569,7 @@ async function removeSilenceFromVideo(
 
   if (speechSegments.length === 0) {
     // All silence — keep original
-    await execFileAsync(FFMPEG, ['-y', '-i', inputPath, '-c', 'copy', outputPath], { timeout: RENDER_TIMEOUT_MS });
+    await safeExecFFmpeg(['-y', '-i', inputPath, '-c', 'copy', outputPath]);
     return;
   }
 
@@ -517,26 +581,26 @@ async function removeSilenceFromVideo(
     const seg = speechSegments[i];
     const segPath = join(workDir, `speech_${i}.mp4`);
     segFiles.push(segPath);
-    await execFileAsync(FFMPEG, [
+    await safeExecFFmpeg([
       '-y', '-ss', String(seg.start), '-to', String(seg.end),
       '-i', inputPath, '-avoid_negative_ts', 'make_zero',
       '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
       '-c:a', 'aac', '-b:a', '128k',
       segPath,
-    ], { timeout: RENDER_TIMEOUT_MS });
+    ]);
   }
 
   if (segFiles.length === 1) {
-    await execFileAsync(FFMPEG, ['-y', '-i', segFiles[0], '-c', 'copy', outputPath], { timeout: RENDER_TIMEOUT_MS });
+    await safeExecFFmpeg(['-y', '-i', segFiles[0], '-c', 'copy', outputPath]);
   } else {
     const concatPath = join(workDir, 'speech_concat.txt');
     await writeFile(concatPath, segFiles.map(f => `file '${f}'`).join('\n'));
-    await execFileAsync(FFMPEG, [
+    await safeExecFFmpeg([
       '-y', '-f', 'concat', '-safe', '0', '-i', concatPath,
       '-c:v', 'libx264', '-preset', 'fast', '-crf', '23',
       '-c:a', 'aac', '-b:a', '128k',
       outputPath,
-    ], { timeout: RENDER_TIMEOUT_MS });
+    ]);
   }
 }
 
@@ -685,10 +749,56 @@ function resolveSourceUrl(
 }
 
 async function downloadFile(url: string, destPath: string): Promise<void> {
-  const resp = await fetch(url);
-  if (!resp.ok) throw new Error(`Failed to download ${url}: ${resp.status} ${resp.statusText}`);
-  const buffer = Buffer.from(await resp.arrayBuffer());
-  await writeFile(destPath, buffer);
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), DOWNLOAD_TIMEOUT_MS);
+  try {
+    const resp = await fetch(url, { signal: controller.signal });
+    if (!resp.ok) {
+      // Check if the response is an HTML error page (expired signed URL, 403, etc.)
+      const ct = resp.headers.get('content-type') || '';
+      if (ct.includes('text/html')) {
+        throw new Error(`Video URL has expired or is inaccessible (${resp.status}). Try re-uploading your video.`);
+      }
+      throw new Error(`Failed to download video (${resp.status} ${resp.statusText}). The video URL may have expired — try re-uploading.`);
+    }
+    if (!resp.body) throw new Error('Video download returned empty response. Try re-uploading your video.');
+    const writeStream = createWriteStream(destPath);
+    await pipeline(Readable.fromWeb(resp.body as import('stream/web').ReadableStream), writeStream);
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new Error(`Video download timed out after ${DOWNLOAD_TIMEOUT_MS / 1000}s. Your video file may be too large or the server is slow. Try again.`);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
+async function uploadRenderStream(filePath: string, storagePath: string): Promise<{ url: string }> {
+  // Stream directly to Supabase instead of loading entire file into RAM
+  const fileStream = createReadStream(filePath);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await supabaseAdmin.storage
+    .from(RENDER_BUCKET)
+    .upload(storagePath, fileStream as any, {
+      contentType: 'video/mp4',
+      upsert: true,
+      duplex: 'half',
+    } as any);
+
+  if (error) {
+    const msg = error.message || String(error);
+    if (msg.includes('Bucket not found') || msg.includes('bucket') || msg.includes('404')) {
+      throw new Error('Renders storage bucket not found. Contact support — server setup is incomplete.');
+    }
+    if (msg.includes('exceeded') || msg.includes('too large') || msg.includes('413')) {
+      throw new Error('Rendered video is too large to store. Try shortening your video or reducing quality.');
+    }
+    throw new Error(`Failed to save rendered video: ${msg}`);
+  }
+
+  const { data: urlData } = supabaseAdmin.storage.from(RENDER_BUCKET).getPublicUrl(storagePath);
+  return { url: urlData.publicUrl };
 }
 
 async function cleanupFiles(paths: string[]): Promise<void> {

@@ -38,6 +38,11 @@ const OPTIONAL_ENV_KEYS: { key: string; notes?: string }[] = [
   { key: "DEFAULT_ADMIN_EMAIL", notes: "Default admin email for bootstrapping" },
   { key: "SCRAPECREATORS_API_KEY", notes: "Required for TikTok Shop product scraping" },
   { key: "LATE_API_KEY", notes: "Late.dev API key for social media scheduling" },
+  // FlashFlow render billing
+  { key: "STRIPE_SECRET_KEY", notes: "Stripe secret key for checkout and webhooks" },
+  { key: "STRIPE_WEBHOOK_SECRET", notes: "Stripe webhook signing secret" },
+  { key: "STRIPE_PRICE_FF_CREATOR", notes: "Stripe price ID for FlashFlow Creator plan ($29/mo, 30 renders)" },
+  { key: "STRIPE_PRICE_FF_PRO", notes: "Stripe price ID for FlashFlow Pro plan ($79/mo, 100 renders)" },
 ];
 
 /**

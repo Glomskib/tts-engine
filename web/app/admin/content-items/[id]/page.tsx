@@ -740,7 +740,8 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
 
           <button
             onClick={handleGeneratePlan}
-            disabled={!item.raw_video_url || !!editingBusy}
+            disabled={item.transcript_status !== 'completed' || !!editingBusy}
+            title={item.transcript_status !== 'completed' ? 'Analyze the video first to enable plan generation' : undefined}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-cyan-900/30 text-cyan-300 hover:bg-cyan-900/50 border border-cyan-500/20"
           >
             {editingBusy === 'planning' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
@@ -756,8 +757,14 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
             {item.edit_status === 'rendered' ? 'Re-render' : item.edit_status === 'rendering' ? 'Rendering...' : 'Render Video'}
           </button>
 
+          {/* Inline hint — only one shown at a time based on what's blocking */}
           {!item.raw_video_url && (
             <p className="text-[11px] text-zinc-500 self-center">Upload a raw video first</p>
+          )}
+          {item.raw_video_url && item.transcript_status !== 'completed' && !item.edit_plan_json && (
+            <p className="text-[11px] text-zinc-500 self-center">
+              {item.transcript_status === 'processing' ? 'Analyzing…' : 'Analyze first to generate a plan'}
+            </p>
           )}
         </div>
       </div>

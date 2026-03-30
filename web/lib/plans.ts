@@ -506,6 +506,75 @@ export function isVideoPlan(planId: string): boolean {
   return planId.startsWith('video_');
 }
 
+// ─────────────────────────────────────────────────────
+// FlashFlow Render Plans
+// Creator: $29/mo — 30 renders/mo
+// Pro:     $79/mo — 100 renders/mo
+//
+// These plans gate the video editing engine (upload → analyze → render).
+// Price IDs come from env vars so they can differ between Stripe accounts.
+// ─────────────────────────────────────────────────────
+
+export const FLASHFLOW_PLANS = {
+  FF_CREATOR: {
+    id: 'ff_creator' as const,
+    name: 'Creator',
+    price: 29,
+    rendersPerMonth: 30,
+    stripePriceId: process.env.STRIPE_PRICE_FF_CREATOR?.trim() || null,
+    features: [
+      '30 video renders / month',
+      'Upload → Analyze → Render pipeline',
+      'AI-generated edit plans',
+      'Guided mode onboarding',
+    ],
+  },
+  FF_PRO: {
+    id: 'ff_pro' as const,
+    name: 'Pro',
+    price: 79,
+    rendersPerMonth: 100,
+    stripePriceId: process.env.STRIPE_PRICE_FF_PRO?.trim() || null,
+    popular: true,
+    features: [
+      '100 video renders / month',
+      'Upload → Analyze → Render pipeline',
+      'AI-generated edit plans',
+      'Priority processing',
+      'Guided mode onboarding',
+    ],
+  },
+} as const;
+
+export type FlashFlowPlanKey = keyof typeof FLASHFLOW_PLANS;
+export type FlashFlowPlanId = typeof FLASHFLOW_PLANS[FlashFlowPlanKey]['id'];
+
+export const FLASHFLOW_PLANS_LIST = [
+  FLASHFLOW_PLANS.FF_CREATOR,
+  FLASHFLOW_PLANS.FF_PRO,
+] as const;
+
+/** Render limit for a given FlashFlow plan ID. -1 = unlimited (admin/legacy). */
+export const FF_RENDER_LIMITS: Record<string, number> = {
+  ff_creator: 30,
+  ff_pro: 100,
+  // Legacy/admin plans — no render cap
+  creator_pro: -1,
+  business: -1,
+  brand: -1,
+  agency: -1,
+};
+
+/** True if this plan ID is a FlashFlow render plan. */
+export function isFlashFlowPlan(planId: string): boolean {
+  return planId === 'ff_creator' || planId === 'ff_pro';
+}
+
+/** Render limit for a plan. Returns -1 for unlimited, 0 for unknown/free plans. */
+export function getPlanRenderLimit(planId: string): number {
+  return FF_RENDER_LIMITS[planId] ?? 0;
+}
+
 /**
  * Get video quota for a plan.
  */

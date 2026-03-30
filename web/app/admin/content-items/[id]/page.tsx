@@ -304,13 +304,21 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
         setItem(prev => prev ? { ...prev, edit_status: 'rendered' as EditStatus, rendered_video_url: json.data.rendered_video_url, render_error: null } : prev);
         showToast({ message: 'Video rendered successfully', type: 'success' });
         fetchEvents();
+      } else if (res.status === 402 && json.error === 'RENDER_LIMIT_REACHED') {
+        // Render quota exceeded — revert optimistic status, surface upgrade CTA
+        setItem(prev => prev ? { ...prev, edit_status: 'not_started' as EditStatus } : prev);
+        showToast({
+          message: json.message || 'Render limit reached. Upgrade to continue.',
+          type: 'error',
+        });
+        setTimeout(() => { window.location.href = json.upgrade_url || '/upgrade'; }, 2500);
       } else {
         setItem(prev => prev ? { ...prev, edit_status: 'failed' as EditStatus, render_error: json.error } : prev);
-        showToast({ message: json.error || 'Render failed', type: 'error' });
+        showToast({ message: json.message || json.error || 'Render failed', type: 'error' });
       }
     } catch {
       setItem(prev => prev ? { ...prev, edit_status: 'failed' as EditStatus } : prev);
-      showToast({ message: 'Network error', type: 'error' });
+      showToast({ message: 'Network error during render', type: 'error' });
     } finally { setEditingBusy(null); }
   };
 

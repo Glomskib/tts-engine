@@ -66,10 +66,17 @@ import {
   type PlanName,
   type SubscriptionType
 } from "@/lib/subscriptions";
+import { FLASHFLOW_PLANS, isFlashFlowPlan } from "@/lib/plans";
+import { resetRenderCount } from "@/lib/render-entitlement";
 
 // Legacy aliases for backwards compatibility
 const PLAN_CREDITS = CREDIT_ALLOCATIONS;
 const PLAN_VIDEOS = VIDEO_QUOTAS;
+
+// FlashFlow render limits keyed by plan ID
+const FF_PLAN_RENDERS: Record<string, number> = Object.fromEntries(
+  Object.values(FLASHFLOW_PLANS).map(p => [p.id, p.rendersPerMonth])
+);
 
 export async function POST(request: Request) {
   const correlationId = generateCorrelationId();
@@ -262,6 +269,9 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
   const videosPerMonth = isVideoClient ? (plan?.videos || PLAN_VIDEOS[planId] || 0) : 0;
   const credits = plan?.credits || PLAN_CREDITS[planId] || 0;
 
+  // FlashFlow render plan: set render quota columns
+  const ffRendersPerMonth = isFlashFlowPlan(planId) ? (FF_PLAN_RENDERS[planId] ?? null) : undefined;
+
   // Update or create subscription record
   const { error } = await supabaseAdmin.from("user_subscriptions").upsert(
     {
@@ -274,6 +284,11 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
       videos_per_month: videosPerMonth,
       videos_remaining: videosPerMonth,
       videos_used_this_month: 0,
+      // FlashFlow render quota — only set for FF plans
+      ...(ffRendersPerMonth !== undefined && {
+        ff_renders_per_month: ffRendersPerMonth,
+        ff_renders_used_this_month: 0,
+      }),
       updated_at: new Date().toISOString(),
     },
     {
@@ -606,6 +621,12 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
     if (videoError) {
       console.error(`[${correlationId}] Failed to reset video quota:`, videoError);
     }
+  }
+
+  // Reset FlashFlow render count at start of new billing period
+  if (isFlashFlowPlan(planId)) {
+    console.info(`[${correlationId}] Resetting FF render count for user ${subscription.user_id}`);
+    await resetRenderCount(subscription.user_id);
   }
 
   // Log transaction

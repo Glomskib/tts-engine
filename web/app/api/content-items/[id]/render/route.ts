@@ -13,6 +13,7 @@ import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { resolveUserId, resolveWorkspaceId, resolveContentItemId } from '@/lib/errors/sentry-resolvers';
 import { renderContentItem } from '@/lib/editing/render-plan';
 import { validateEditPlan } from '@/lib/editing/validate-edit-plan';
+import { getRenderEntitlement, incrementRenderCount } from '@/lib/render-entitlement';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300; // 5 minute Vercel timeout
@@ -81,11 +82,36 @@ export const POST = withErrorCapture(async (
     );
   }
 
+  // ── Render entitlement check ──────────────────────────────────────────────
+  // Must happen before any expensive work. Blocks free users and over-quota
+  // subscribers with a clear upgrade message.
+  const entitlement = await getRenderEntitlement(user.id);
+  if (!entitlement.canRender) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'RENDER_LIMIT_REACHED',
+        message: entitlement.upgradeMessage,
+        upgrade_url: entitlement.upgradeUrl,
+        renders_used: entitlement.rendersUsed,
+        renders_per_month: entitlement.rendersPerMonth,
+        plan_id: entitlement.planId,
+        correlation_id: correlationId,
+      },
+      { status: 402 },
+    );
+  }
+
   // Kick off render
   try {
     const result = await renderContentItem({
       contentItemId: id,
       actorId: user.id,
+    });
+
+    // Increment usage counter after successful render (non-blocking, non-fatal)
+    incrementRenderCount(user.id).catch((err: unknown) => {
+      console.error('[render] Failed to increment render count (non-fatal):', err);
     });
 
     const response = NextResponse.json({
@@ -94,6 +120,9 @@ export const POST = withErrorCapture(async (
         rendered_video_url: result.output_url,
         storage_path: result.storage_path,
         duration_sec: result.duration_sec,
+        renders_remaining: entitlement.rendersRemaining !== null
+          ? Math.max(0, entitlement.rendersRemaining - 1)
+          : null,
       },
       correlation_id: correlationId,
     });

@@ -6,8 +6,9 @@ import Link from 'next/link';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useCredits } from '@/hooks/useCredits';
 import { useSubscription } from '@/hooks/useFeatureAccess';
-import { Check, X, Sparkles, Video } from 'lucide-react';
+import { Check, X, Sparkles, Video, Film } from 'lucide-react';
 import { PRICING, PLAN_DETAILS, migrateOldPlanId, type PlanName } from '@/lib/subscriptions';
+import { FLASHFLOW_PLANS_LIST, type FlashFlowPlanId } from '@/lib/plans';
 
 interface AuthUser {
   id: string;
@@ -105,7 +106,8 @@ export default function UpgradePage() {
   const router = useRouter();
   const [authUser, setAuthUser] = useState<AuthUser | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'saas' | 'video'>('saas');
+  const [activeTab, setActiveTab] = useState<'saas' | 'video' | 'flashflow'>('flashflow');
+  const [ffCheckoutLoading, setFfCheckoutLoading] = useState<string | null>(null);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const { credits, isLoading: creditsLoading } = useCredits();
@@ -174,6 +176,26 @@ export default function UpgradePage() {
       console.error('Checkout error:', err);
       setCheckoutError(err instanceof Error ? err.message : 'Failed to start checkout. Please try again.');
       setCheckoutLoading(null);
+    }
+  };
+
+  const handleFlashFlowSubscribe = async (planId: FlashFlowPlanId) => {
+    setFfCheckoutLoading(planId);
+    setCheckoutError(null);
+    try {
+      const res = await fetch('/api/flashflow/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ planId }),
+      });
+      const data = await res.json();
+      if (!data.ok || !data.url) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+      window.location.href = data.url;
+    } catch (err) {
+      setCheckoutError(err instanceof Error ? err.message : 'Checkout failed. Please try again.');
+      setFfCheckoutLoading(null);
     }
   };
 
@@ -279,6 +301,17 @@ export default function UpgradePage() {
             >
               <Video className="w-4 h-4" />
               Video Editing
+            </button>
+            <button type="button"
+              onClick={() => setActiveTab('flashflow')}
+              className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium transition-all ${
+                activeTab === 'flashflow'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-zinc-400 hover:text-white'
+              }`}
+            >
+              <Film className="w-4 h-4" />
+              FlashFlow Renders
             </button>
           </div>
         </div>
@@ -485,6 +518,80 @@ export default function UpgradePage() {
               </table>
             </div>
           </>
+        )}
+
+        {/* FlashFlow Render Plans */}
+        {activeTab === 'flashflow' && (
+          <div className="mb-10">
+            <div className="text-center mb-8">
+              <h2 className="text-2xl font-bold mb-2">FlashFlow Video Renders</h2>
+              <p className="text-zinc-400">
+                Upload raw footage, generate an AI edit plan, and render polished videos — automatically.
+              </p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
+              {FLASHFLOW_PLANS_LIST.map((plan) => {
+                const isCurrent = currentPlan === plan.id;
+                const isLoading = ffCheckoutLoading === plan.id;
+                const isPopular = 'popular' in plan && plan.popular === true;
+                return (
+                  <div
+                    key={plan.id}
+                    className={`relative rounded-2xl border p-6 ${
+                      isPopular
+                        ? 'border-blue-500/50 bg-blue-500/5'
+                        : 'border-white/10 bg-zinc-900/50'
+                    }`}
+                  >
+                    {isPopular && (
+                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-blue-600 text-white text-xs font-medium rounded-full">
+                        Most Popular
+                      </div>
+                    )}
+                    <div className="mb-4">
+                      <div className="text-lg font-bold">{plan.name}</div>
+                      <div className="mt-2 flex items-baseline gap-1">
+                        <span className="text-3xl font-bold">${plan.price}</span>
+                        <span className="text-zinc-400 text-sm">/month</span>
+                      </div>
+                      <div className="mt-1 text-blue-400 font-medium text-sm">
+                        {plan.rendersPerMonth} renders / month
+                      </div>
+                    </div>
+                    <ul className="space-y-2 mb-6">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex items-start gap-2 text-sm text-zinc-300">
+                          <Check className="w-4 h-4 text-emerald-500 flex-shrink-0 mt-0.5" />
+                          {f}
+                        </li>
+                      ))}
+                    </ul>
+                    {isCurrent ? (
+                      <div className="w-full text-center text-sm text-emerald-400 py-2.5 font-medium border border-emerald-500/30 rounded-lg bg-emerald-500/10">
+                        Current Plan
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleFlashFlowSubscribe(plan.id)}
+                        disabled={isLoading}
+                        className={`w-full py-2.5 rounded-lg font-medium text-sm transition-colors ${
+                          isPopular
+                            ? 'bg-blue-600 hover:bg-blue-500 text-white'
+                            : 'bg-zinc-800 hover:bg-zinc-700 text-white border border-white/10'
+                        } disabled:opacity-60 disabled:cursor-not-allowed`}
+                      >
+                        {isLoading ? 'Loading...' : `Get ${plan.name}`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p className="text-center text-zinc-500 text-sm mt-6">
+              Render counts reset at the start of each billing period. Cancel anytime.
+            </p>
+          </div>
         )}
 
         {/* FAQ Section */}

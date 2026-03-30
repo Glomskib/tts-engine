@@ -200,6 +200,69 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
     }
   }, [guidedState.active, guidedState.contentItemId, id, setContentItemId]);
 
+  // ── Poll for in-progress operations detected on load or state change ───────
+  // Handles the case where the user refreshes mid-analyze or mid-render.
+  // Sets editingBusy so the UI reflects the running operation, then resolves
+  // once the status leaves the 'processing' / 'rendering' state.
+  useEffect(() => {
+    if (!item) return;
+
+    if (item.transcript_status === 'processing') {
+      setEditingBusy(prev => prev ?? 'analyzing');
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/content-items/${id}`);
+          const json = await res.json();
+          if (!json.ok || !json.data) return;
+          const fresh: ContentItem = json.data;
+          if (fresh.transcript_status !== 'processing') {
+            clearInterval(interval);
+            setItem(fresh);
+            setEditingBusy(null);
+            if (fresh.transcript_status === 'completed') {
+              showToast({ message: 'Analysis complete ✓', type: 'success' });
+              fetchEvents();
+            } else if (fresh.transcript_status === 'failed') {
+              showToast({
+                message: `Analysis failed: ${fresh.transcript_error || 'Unknown error'}`,
+                type: 'error',
+              });
+            }
+          }
+        } catch { /* network glitch — keep polling */ }
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+
+    if (item.edit_status === 'rendering') {
+      setEditingBusy(prev => prev ?? 'rendering');
+      const interval = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/content-items/${id}`);
+          const json = await res.json();
+          if (!json.ok || !json.data) return;
+          const fresh: ContentItem = json.data;
+          if (fresh.edit_status !== 'rendering') {
+            clearInterval(interval);
+            setItem(fresh);
+            setEditingBusy(null);
+            if (fresh.edit_status === 'rendered') {
+              showToast({ message: 'Render complete! 🎉', type: 'success' });
+              fetchEvents();
+            } else if (fresh.edit_status === 'failed') {
+              showToast({
+                message: `Render failed: ${fresh.render_error || 'Unknown error'}`,
+                type: 'error',
+              });
+            }
+          }
+        } catch { /* network glitch — keep polling */ }
+      }, 8000);
+      return () => clearInterval(interval);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [item?.transcript_status, item?.edit_status]);
+
   // Sync instructions textarea with loaded item
   useEffect(() => {
     if (item?.editing_instructions && !instructions) {
@@ -267,9 +330,9 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
           showToast({ message: 'Transcript done but editor notes failed — you can still generate a plan', type: 'info' });
         }
       } else {
-        showToast({ message: json.error || 'Analysis failed', type: 'error' });
+        showToast({ message: json.message || json.error || 'Analysis failed', type: 'error' });
       }
-    } catch { showToast({ message: 'Network error', type: 'error' }); }
+    } catch { showToast({ message: 'Network error during analysis', type: 'error' }); }
     finally { setEditingBusy(null); }
   };
 
@@ -283,13 +346,13 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
         setItem({ ...item, edit_plan_json: json.data.edit_plan_json, edit_status: json.data.edit_status });
         showToast({ message: 'Edit plan generated', type: 'success' });
         if (json.data.warnings?.length) {
-          showToast({ message: `${json.data.warnings.length} warning(s) — check plan`, type: 'info' });
+          showToast({ message: `${json.data.warnings.length} warning(s) in plan — check actions`, type: 'info' });
         }
         fetchEvents();
       } else {
-        showToast({ message: json.error || 'Plan generation failed', type: 'error' });
+        showToast({ message: json.message || json.error || 'Plan generation failed', type: 'error' });
       }
-    } catch { showToast({ message: 'Network error', type: 'error' }); }
+    } catch { showToast({ message: 'Network error during plan generation', type: 'error' }); }
     finally { setEditingBusy(null); }
   };
 

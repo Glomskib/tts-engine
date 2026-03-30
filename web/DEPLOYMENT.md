@@ -42,7 +42,27 @@ Add these environment variables in Vercel project settings:
 | Variable | Description |
 |----------|-------------|
 | `ANTHROPIC_API_KEY` | Anthropic API key for Claude-based generation |
-| `OPENAI_API_KEY` | OpenAI API key for GPT-based generation |
+| `OPENAI_API_KEY` | OpenAI API key for GPT-based generation (Whisper transcription) |
+
+#### Payments / Stripe (Required for billing)
+
+| Variable | Description |
+|----------|-------------|
+| `STRIPE_SECRET_KEY` | Stripe secret key (`sk_live_*` or `sk_test_*`) |
+| `STRIPE_WEBHOOK_SECRET` | Stripe webhook signing secret (`whsec_*`) |
+| `STRIPE_PRICE_FF_CREATOR` | Stripe price ID for FlashFlow Creator plan ($29/mo, 30 renders) |
+| `STRIPE_PRICE_FF_PRO` | Stripe price ID for FlashFlow Pro plan ($79/mo, 100 renders) |
+| `STRIPE_PRICE_CREATOR_LITE` | Stripe price ID for Creator Lite SaaS plan |
+| `STRIPE_PRICE_CREATOR_PRO` | Stripe price ID for Creator Pro SaaS plan |
+| `STRIPE_PRICE_BUSINESS` | Stripe price ID for Business SaaS plan |
+| `NEXT_PUBLIC_SITE_URL` | Public URL used for Stripe redirect URLs (e.g. `https://flashflowai.com`) |
+
+**Stripe webhook setup:**
+1. In Stripe Dashboard → Developers → Webhooks → Add endpoint
+2. URL: `https://<your-domain>/api/webhooks/stripe`
+3. Events to enable: `checkout.session.completed`, `customer.subscription.updated`,
+   `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed`
+4. Copy the signing secret → set as `STRIPE_WEBHOOK_SECRET`
 
 #### Email Notifications (Optional)
 
@@ -165,6 +185,16 @@ supabase db reset
 ### Migration Files
 
 Migrations are located in `web/supabase/migrations/`. They are applied in order by filename prefix (001, 002, etc.).
+
+#### Required before going live with FlashFlow billing
+
+Run `20260407000000_ff_render_entitlements.sql` in the Supabase SQL Editor.
+This adds `ff_renders_per_month` and `ff_renders_used_this_month` to `user_subscriptions`
+and creates the `increment_ff_render` and `reset_ff_renders` RPCs used by the render gate.
+
+Without this migration:
+- All render requests will be blocked with an entitlement error
+- The `getRenderEntitlement` helper will fail to find render quota data
 
 ## Post-Deployment Verification
 

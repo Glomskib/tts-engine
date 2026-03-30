@@ -8,11 +8,17 @@
 import { describe, it, expect } from 'vitest';
 import { buildEditPlan } from './build-edit-plan';
 import { validateEditPlan } from './validate-edit-plan';
+import type { EditorNotesJSON } from '../content-items/editor-notes-schema';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function types(plan: ReturnType<typeof buildEditPlan>['plan']) {
   return plan.actions.map(a => a.type);
+}
+
+/** Cast a partial notes object to EditorNotesJSON for test purposes. */
+function notes(partial: Partial<EditorNotesJSON>): EditorNotesJSON {
+  return partial as unknown as EditorNotesJSON;
 }
 
 // ── buildEditPlan ─────────────────────────────────────────────────────────────
@@ -76,9 +82,9 @@ describe('buildEditPlan', () => {
       const { plan } = buildEditPlan({
         source_duration_sec: 60,
         primary_hook: 'Hook text',
-        editor_notes_json: {
-          timeline: [{ label: 'text', start_sec: 0, end_sec: 3, note: '', on_screen_text: 'Existing overlay' }],
-        },
+        editor_notes_json: notes({
+          timeline: [{ label: 'text', start_sec: 0, end_sec: 3, note: '', on_screen_text: 'Existing overlay', broll: null }],
+        }),
       });
       const overlays = plan.actions.filter(a => a.type === 'text_overlay');
       expect(overlays.length).toBe(1); // only the one from editor_notes
@@ -198,9 +204,9 @@ describe('buildEditPlan', () => {
     it('converts timeline cuts to cut actions', () => {
       const { plan } = buildEditPlan({
         source_duration_sec: 60,
-        editor_notes_json: {
-          timeline: [{ label: 'cut', start_sec: 5, end_sec: 10, note: 'filler' }],
-        },
+        editor_notes_json: notes({
+          timeline: [{ label: 'cut', start_sec: 5, end_sec: 10, note: 'filler', broll: null, on_screen_text: null }],
+        }),
       });
       const cut = plan.actions.find(a => a.type === 'cut') as { start_sec: number; end_sec: number } | undefined;
       expect(cut!.start_sec).toBe(5);
@@ -210,9 +216,9 @@ describe('buildEditPlan', () => {
     it('converts timeline keeps', () => {
       const { plan } = buildEditPlan({
         source_duration_sec: 60,
-        editor_notes_json: {
-          timeline: [{ label: 'keep', start_sec: 0, end_sec: 55, note: '' }],
-        },
+        editor_notes_json: notes({
+          timeline: [{ label: 'keep', start_sec: 0, end_sec: 55, note: '', broll: null, on_screen_text: null }],
+        }),
       });
       const keep = plan.actions.find(a => a.type === 'keep') as { start_sec: number; end_sec: number } | undefined;
       expect(keep!.start_sec).toBe(0);
@@ -222,9 +228,9 @@ describe('buildEditPlan', () => {
     it('converts broll pack to broll actions', () => {
       const { plan } = buildEditPlan({
         source_duration_sec: 60,
-        editor_notes_json: {
-          broll_pack: [{ at_sec: 10, prompt: 'cityscape at sunset' }],
-        },
+        editor_notes_json: notes({
+          broll_pack: [{ at_sec: 10, type: 'lifestyle', prompt: 'cityscape at sunset' }],
+        }),
       });
       const broll = plan.actions.find(a => a.type === 'broll') as { start_sec: number; end_sec: number; prompt?: string } | undefined;
       expect(broll!.start_sec).toBe(10);
@@ -237,9 +243,9 @@ describe('buildEditPlan', () => {
     it('does not add default keep when editor_notes already has keep', () => {
       const { plan } = buildEditPlan({
         source_duration_sec: 60,
-        editor_notes_json: {
-          timeline: [{ label: 'keep', start_sec: 0, end_sec: 60, note: '' }],
-        },
+        editor_notes_json: notes({
+          timeline: [{ label: 'keep', start_sec: 0, end_sec: 60, note: '', broll: null, on_screen_text: null }],
+        }),
       });
       const keeps = plan.actions.filter(a => a.type === 'keep');
       expect(keeps.length).toBe(1);

@@ -164,6 +164,7 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
   const [updating, setUpdating] = useState(false);
   const [editingBusy, setEditingBusy] = useState<string | null>(null); // 'planning' | 'rendering' | 'analyzing' | 'saving' | null
   const [instructions, setInstructions] = useState('');
+  const [renderQuota, setRenderQuota] = useState<{ rendersRemaining: number | null; rendersPerMonth: number | null } | null>(null);
 
   const fetchItem = useCallback(async () => {
     try {
@@ -192,6 +193,16 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
   }, [id]);
 
   useEffect(() => { fetchItem(); fetchEvents(); }, [fetchItem, fetchEvents]);
+
+  // Fetch render quota once on mount — shown near the Render button
+  useEffect(() => {
+    fetch('/api/flashflow/entitlement')
+      .then(r => r.json())
+      .then(j => {
+        if (j.ok) setRenderQuota({ rendersRemaining: j.rendersRemaining, rendersPerMonth: j.rendersPerMonth });
+      })
+      .catch(() => {}); // non-fatal
+  }, []);
 
   // Register this content item with guided mode when it loads
   useEffect(() => {
@@ -819,6 +830,21 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
             {editingBusy === 'rendering' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
             {item.edit_status === 'rendered' ? 'Re-render' : item.edit_status === 'rendering' ? 'Rendering...' : 'Render Video'}
           </button>
+
+          {/* Render quota indicator — only shown for metered plans */}
+          {renderQuota && renderQuota.rendersPerMonth !== null && (
+            <span className={`text-[11px] self-center px-2 py-0.5 rounded border ${
+              renderQuota.rendersRemaining === 0
+                ? 'text-red-400 bg-red-500/10 border-red-500/20'
+                : renderQuota.rendersRemaining !== null && renderQuota.rendersRemaining <= 3
+                ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
+                : 'text-zinc-500 bg-zinc-800/50 border-zinc-700/50'
+            }`}>
+              {renderQuota.rendersRemaining === 0
+                ? 'No renders left'
+                : `${renderQuota.rendersRemaining}/${renderQuota.rendersPerMonth} renders left`}
+            </span>
+          )}
 
           {/* Inline hint — only one shown at a time based on what's blocking */}
           {!item.raw_video_url && (

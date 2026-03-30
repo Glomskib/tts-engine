@@ -188,7 +188,7 @@ export default function BillingPage() {
 
   // ── Stripe redirect banners ───────────────────────────────────────────────
   useEffect(() => {
-    if (searchParams.get('upgraded') === 'true') {
+    if (searchParams.get('upgraded') === 'true' || searchParams.get('checkout') === 'success') {
       setBanner({ type: 'success', plan: searchParams.get('plan') || undefined });
       refetch();
     } else if (searchParams.get('credits_purchased')) {

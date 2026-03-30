@@ -5,10 +5,11 @@ import Link from 'next/link';
 import {
   Loader2, RefreshCw, Mic, Scissors, Send, Flame, Trophy, Zap,
   ChevronRight, ExternalLink, Lightbulb, Plus, Sparkles, Check,
-  BarChart3, FlaskConical,
+  BarChart3, FlaskConical, MapPin,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import AdminPageLayout, { AdminCard, EmptyState } from '@/app/admin/components/AdminPageLayout';
+import { useGuidedMode } from '@/contexts/GuidedModeContext';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -169,6 +170,7 @@ export default function CommandCenter() {
   const [ideas, setIdeas] = useState<GeneratedIdea[]>([]);
   const [generating, setGenerating] = useState(false);
   const [createdIds, setCreatedIds] = useState<Set<number>>(new Set());
+  const { state: guidedState, start: startGuided, exit: exitGuided } = useGuidedMode();
 
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -248,7 +250,47 @@ export default function CommandCenter() {
       subtitle={totalActionable > 0 ? `${totalActionable} items need action` : 'All clear'}
       maxWidth="2xl"
       headerActions={
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {!guidedState.active ? (
+            <button
+              type="button"
+              onClick={() => {
+                startGuided();
+                router.push('/admin/content-studio?action=create&guided=1');
+              }}
+              className="flex items-center gap-2 px-3 py-1.5 bg-teal-700 text-teal-100 border border-teal-500/40 rounded-lg hover:bg-teal-600 transition-colors text-sm font-medium"
+            >
+              <MapPin className="w-3.5 h-3.5" />
+              Start Guided Flow
+            </button>
+          ) : (
+            <div className="flex items-center gap-2">
+              {guidedState.contentItemId ? (
+                <Link
+                  href={`/admin/content-items/${guidedState.contentItemId}`}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-500 transition-colors text-sm font-medium"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  Continue — Step {guidedState.step} of 7
+                </Link>
+              ) : (
+                <Link
+                  href="/admin/content-studio?action=create&guided=1"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-500 transition-colors text-sm font-medium"
+                >
+                  <MapPin className="w-3.5 h-3.5" />
+                  Continue — Create Item
+                </Link>
+              )}
+              <button
+                type="button"
+                onClick={exitGuided}
+                className="text-xs text-zinc-500 hover:text-zinc-300 transition px-2"
+              >
+                Exit guided
+              </button>
+            </div>
+          )}
           <Link
             href="/admin/content-studio?action=create"
             className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"

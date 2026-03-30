@@ -28,6 +28,8 @@ import { CreditMilestoneBanner, ReferralPromptBanner } from '@/components/Upgrad
 import { CommandPalette } from '@/components/CommandPalette';
 import { FeedbackWidget } from '@/components/FeedbackWidget';
 import { ThemeProvider, useTheme } from '@/app/components/ThemeProvider';
+import { GuidedModeProvider } from '@/contexts/GuidedModeContext';
+import { GuidedModeBanner } from '@/components/guided-mode/GuidedModeBanner';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -297,6 +299,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   };
 
   return (
+    <GuidedModeProvider>
     <ThemeProvider>
     <ToastProvider>
     <AriaLiveProvider>
@@ -493,6 +496,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
           {/* Mobile Main Content - FULL WIDTH with padding for header and bottom nav */}
           <main id="main-content" className="pt-16 pb-[calc(80px+env(safe-area-inset-bottom,0px))] min-h-[100dvh] overflow-x-hidden">
+            <GuidedModeBanner />
             <div className="max-w-full">
               {pathname !== '/admin' && pathname !== '/admin/dashboard' && (
                 <button onClick={() => router.back()} className="flex items-center gap-1 text-gray-400 hover:text-white text-sm mb-4 px-4">
@@ -624,6 +628,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
 
           {/* Desktop Main Content - Offset by sidebar */}
           <main id="main-content" className="ml-72 pt-16 min-h-screen">
+            <GuidedModeBanner />
             <div className="p-6">
               {pathname !== '/admin' && pathname !== '/admin/dashboard' && (
                 <button onClick={() => router.back()} className="flex items-center gap-1 text-gray-400 hover:text-white text-sm mb-4">
@@ -648,5 +653,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     </AriaLiveProvider>
     </ToastProvider>
     </ThemeProvider>
+    </GuidedModeProvider>
   );
 }

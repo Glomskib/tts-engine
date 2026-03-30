@@ -17,6 +17,8 @@ import { CONTENT_ITEM_STATUSES } from '@/lib/content-items/types';
 import { getNextAction, getActionButtonClasses } from '@/lib/content-items/nextAction';
 import DriveFolderButton from '@/components/DriveFolderButton';
 import RawVideoUpload from '@/components/RawVideoUpload';
+import { useGuidedMode } from '@/contexts/GuidedModeContext';
+import { GuidedModePanel } from '@/components/guided-mode/GuidedModePanel';
 
 // ── Status display config ─────────────────────────────────────────
 
@@ -153,6 +155,7 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
   const { showToast } = useToast();
+  const { state: guidedState, setContentItemId } = useGuidedMode();
 
   const [item, setItem] = useState<ContentItem | null>(null);
   const [events, setEvents] = useState<ContentItemEvent[]>([]);
@@ -189,6 +192,13 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
   }, [id]);
 
   useEffect(() => { fetchItem(); fetchEvents(); }, [fetchItem, fetchEvents]);
+
+  // Register this content item with guided mode when it loads
+  useEffect(() => {
+    if (guidedState.active && id && guidedState.contentItemId !== id) {
+      setContentItemId(id);
+    }
+  }, [guidedState.active, guidedState.contentItemId, id, setContentItemId]);
 
   // Sync instructions textarea with loaded item
   useEffect(() => {
@@ -392,7 +402,9 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {/* Two-column details */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity ${
+        guidedState.active && guidedState.step >= 4 ? 'opacity-50' : ''
+      }`}>
         {/* Left: Core Info */}
         <div
           className="rounded-xl p-4 space-y-4"
@@ -580,9 +592,24 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
+      {/* ── Guided Mode Panel ────────────────────────────────── */}
+      {guidedState.active && (
+        <GuidedModePanel
+          item={item}
+          onAnalyze={handleAnalyze}
+          onGeneratePlan={handleGeneratePlan}
+          onRender={handleRender}
+          editingBusy={editingBusy}
+        />
+      )}
+
       {/* ── Editing Engine Panel ────────────────────────────── */}
       <div
-        className="rounded-xl p-4 space-y-4"
+        className={`rounded-xl p-4 space-y-4 transition-opacity ${
+          guidedState.active && guidedState.step < 4
+            ? 'opacity-40 pointer-events-none'
+            : ''
+        }`}
         style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}` }}
       >
         <div className="flex items-center justify-between">

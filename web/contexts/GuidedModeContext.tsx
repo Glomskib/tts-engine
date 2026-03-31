@@ -60,7 +60,6 @@ function parsePersistedState(raw: string): GuidedModeState | null {
 export function GuidedModeProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GuidedModeState>(DEFAULT_STATE);
   const [recordingAcknowledged, setRecordingAcknowledged] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
     try {
@@ -75,7 +74,6 @@ export function GuidedModeProvider({ children }: { children: ReactNode }) {
         }
       }
     } catch { /* ignore */ }
-    setHydrated(true);
   }, []);
 
   const start = useCallback(() => {
@@ -122,9 +120,6 @@ export function GuidedModeProvider({ children }: { children: ReactNode }) {
     setRecordingAcknowledged(true);
   }, []);
 
-  // Don't render children until hydrated to avoid flicker
-  if (!hydrated) return <>{children}</>;
-
   return (
     <GuidedModeContext.Provider
       value={{ state, recordingAcknowledged, start, exit, setContentItemId, advance, acknowledgeRecording }}
@@ -134,8 +129,24 @@ export function GuidedModeProvider({ children }: { children: ReactNode }) {
   );
 }
 
+const NOOP = () => {};
+const FALLBACK: GuidedModeContextValue = {
+  state: DEFAULT_STATE,
+  recordingAcknowledged: false,
+  start: NOOP,
+  exit: NOOP,
+  setContentItemId: NOOP,
+  advance: NOOP,
+  acknowledgeRecording: NOOP,
+};
+
 export function useGuidedMode(): GuidedModeContextValue {
   const ctx = useContext(GuidedModeContext);
-  if (!ctx) throw new Error('useGuidedMode must be used within GuidedModeProvider');
+  if (!ctx) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[useGuidedMode] used outside GuidedModeProvider — returning inactive fallback');
+    }
+    return FALLBACK;
+  }
   return ctx;
 }

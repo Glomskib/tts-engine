@@ -222,6 +222,12 @@ export default function VideoWorkflowPage() {
         setPostingMeta(json.posting_meta || null);
         setError(null);
       } else {
+        // Check if this ID belongs to a content_item instead
+        const ciRes = await fetch(`/api/content-items/${videoId}`);
+        if (ciRes.ok) {
+          router.replace(`/admin/content-items/${videoId}`);
+          return;
+        }
         setError(json.error || 'Video not found');
       }
     } catch {

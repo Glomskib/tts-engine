@@ -261,6 +261,8 @@ export default function ClipStudio() {
 
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [isFallingBack, setIsFallingBack] = useState(false);
+  const renderStartRef = useRef<number>(0);
 
   useEffect(() => {
     fetch('/api/products?limit=50')
@@ -315,6 +317,48 @@ export default function ClipStudio() {
     if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
   };
 
+  // ── Cloud fallback (when no Mac mini picks up job within 90s) ────────────
+
+  const fallbackToCloud = useCallback(async (jobId: string) => {
+    setIsFallingBack(true);
+
+    // Cancel the queued render job so it doesn't run later
+    try {
+      await fetch('/api/render-jobs/admin', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', job_id: jobId }),
+      });
+    } catch { /* best-effort */ }
+
+    try {
+      const formData = new FormData();
+      clips.forEach((c, i) => formData.append(`clip_${i}`, c.file, c.file.name));
+      if (selectedProductId) formData.append('product_id', selectedProductId);
+      if (context) formData.append('context', context);
+
+      const res = await fetch('/api/creator/analyze-clips', {
+        method: 'POST',
+        body: formData,
+      });
+      const json = await res.json();
+
+      if (!res.ok || !json.ok) {
+        showError(json.error || 'Cloud analysis failed. Please try again.');
+        setView('upload');
+        return;
+      }
+
+      setAnalysis(json.data);
+      setView('results');
+    } catch (err: any) {
+      showError(err?.message || 'Cloud analysis failed. Please try again.');
+      setView('upload');
+    } finally {
+      setIsFallingBack(false);
+    }
+  }, [clips, context, selectedProductId, showError]);
+
   // ── Poll render job status ─────────────────────────────────────────────────
 
   const pollJobStatus = useCallback(async (jobId: string) => {
@@ -364,6 +408,12 @@ export default function ClipStudio() {
         showError(job.error || 'Render failed on Mac mini. Please try again.');
         setView('upload');
       } else {
+        // If job is still queued after 90s → no Mac mini available, fall back to cloud
+        const elapsed = Date.now() - renderStartRef.current;
+        if (job.status === 'queued' && elapsed > 90_000) {
+          await fallbackToCloud(jobId);
+          return;
+        }
         // Still running — poll again
         pollRef.current = setTimeout(() => pollJobStatus(jobId), POLL_INTERVAL_MS);
       }
@@ -371,7 +421,7 @@ export default function ClipStudio() {
       // Network blip — retry
       pollRef.current = setTimeout(() => pollJobStatus(jobId), POLL_INTERVAL_MS * 2);
     }
-  }, [clips, products, selectedProductId, showError]);
+  }, [clips, products, selectedProductId, showError, fallbackToCloud]);
 
   // ── Start render flow: upload → queue ─────────────────────────────────────
 
@@ -443,7 +493,8 @@ export default function ClipStudio() {
       setRenderJobId(jobId);
       setRenderJob({ id: jobId, status: 'queued', progress_pct: 0, progress_message: 'Waiting for Mac mini...', node_id: null });
 
-      // 4. Start polling
+      // 4. Start polling (record start time for fallback timeout)
+      renderStartRef.current = Date.now();
       pollRef.current = setTimeout(() => pollJobStatus(jobId), POLL_INTERVAL_MS);
     } catch (err: any) {
       showError(err?.message || 'Upload failed. Please try again.');
@@ -503,6 +554,8 @@ export default function ClipStudio() {
     setRenderJob(null);
     setRenderJobId(null);
     setFinalVideoUrl(null);
+    setIsFallingBack(false);
+    renderStartRef.current = 0;
     setView('upload');
   };
 
@@ -710,6 +763,29 @@ export default function ClipStudio() {
     const nodeId = job?.node_id;
     const isQueued = !job || job.status === 'queued';
 
+    // Fallback in progress
+    if (isFallingBack) {
+      return (
+        <AdminPageLayout title="Clip Studio" subtitle="Switching to cloud analysis..." maxWidth="2xl">
+          <div className="flex flex-col items-center justify-center py-16 gap-6">
+            <div className="relative">
+              <div className="w-24 h-24 rounded-3xl border-2 border-blue-500/40 bg-blue-500/10 flex items-center justify-center">
+                <Sparkles className="w-10 h-10 text-blue-400 animate-pulse" />
+              </div>
+            </div>
+            <div className="text-center">
+              <p className="text-2xl font-bold text-white mb-2">Switching to cloud AI</p>
+              <p className="text-sm text-zinc-400">No Mac mini picked up the job — analyzing in the cloud instead</p>
+            </div>
+            <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              Sending clips to cloud analysis...
+            </div>
+          </div>
+        </AdminPageLayout>
+      );
+    }
+
     // Determine stage label from progress
     const stageLabel = pct < 15 ? 'Downloading clips...'
       : pct < 30 ? 'Transcribing audio...'
@@ -793,9 +869,12 @@ export default function ClipStudio() {
           </div>
 
           {isQueued && (
-            <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5">
-              <WifiOff className="w-3.5 h-3.5" />
-              Make sure your Mac mini is running the FlashFlow render agent
+            <div className="flex flex-col gap-1.5 items-center">
+              <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5">
+                <WifiOff className="w-3.5 h-3.5" />
+                Make sure your Mac mini is running the FlashFlow render agent
+              </div>
+              <p className="text-[10px] text-zinc-600">Will automatically switch to cloud analysis after 90s if no node is available</p>
             </div>
           )}
 

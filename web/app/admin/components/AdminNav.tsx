@@ -157,6 +157,10 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
               Billing
             </Link>
             <span style={separatorStyle}>|</span>
+            <Link href="/admin/render-jobs" style={linkStyle('/admin/render-jobs', '#0d9488')}>
+              Render Nodes
+            </Link>
+            <span style={separatorStyle}>|</span>
             <Link href="/admin/settings" style={linkStyle('/admin/settings')}>
               Settings
             </Link>

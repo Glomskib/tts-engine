@@ -121,6 +121,14 @@
     {
       "path": "/api/cron/process-jobs",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/auto-generate",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/requeue-render-jobs",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

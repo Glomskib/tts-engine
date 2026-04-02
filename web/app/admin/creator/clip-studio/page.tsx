@@ -7,6 +7,7 @@ import {
   Upload, Film, Sparkles, CheckCircle2, Loader2, X, ChevronRight,
   Copy, Check, Zap, Target, Star, AlertTriangle, Play, RefreshCw,
   MousePointerClick, Hash, FileVideo, ArrowLeft, Trophy, Lightbulb,
+  Monitor, WifiOff, BarChart2,
 } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
@@ -17,6 +18,9 @@ interface ClipFile {
   file: File;
   previewUrl: string;
   thumbnail: string | null;
+  uploadProgress?: number; // 0-100
+  uploaded?: boolean;
+  storageUrl?: string;
 }
 
 interface ClipResult {
@@ -48,6 +52,21 @@ interface AnalysisResult {
   affiliate_url: string | null;
   credits_used: number;
   credits_remaining: number;
+  final_video_url?: string | null;
+}
+
+interface RenderJob {
+  id: string;
+  status: 'queued' | 'claimed' | 'processing' | 'completed' | 'failed';
+  progress_pct: number;
+  progress_message: string | null;
+  node_id: string | null;
+  result?: {
+    final_video_url: string;
+    analysis?: AnalysisResult['hook'] extends string ? Partial<AnalysisResult> : any;
+    transcript?: string;
+  } | null;
+  error?: string | null;
 }
 
 interface Product {
@@ -55,6 +74,8 @@ interface Product {
   name: string;
   tiktok_product_id: string | null;
 }
+
+type PageView = 'upload' | 'uploading' | 'rendering' | 'results' | 'saved';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -90,6 +111,27 @@ function captureThumbnail(file: File): Promise<string | null> {
   });
 }
 
+async function uploadWithProgress(
+  signedUrl: string,
+  file: File,
+  onProgress: (pct: number) => void
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100));
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) resolve();
+      else reject(new Error(`Upload failed: ${xhr.status}`));
+    };
+    xhr.onerror = () => reject(new Error('Upload network error'));
+    xhr.open('PUT', signedUrl);
+    xhr.setRequestHeader('Content-Type', file.type || 'video/mp4');
+    xhr.send(file);
+  });
+}
+
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
 function ClipCard({ clip, onRemove, result }: {
@@ -105,13 +147,24 @@ function ClipCard({ clip, onRemove, result }: {
           ? 'border-zinc-700'
           : 'border-zinc-800'
     }`}>
-      {/* Thumbnail */}
       <div className="relative aspect-[9/16] bg-zinc-800 max-h-40 overflow-hidden">
         {clip.thumbnail ? (
           <img src={clip.thumbnail} alt="" className="w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center">
             <FileVideo className="w-8 h-8 text-zinc-600" />
+          </div>
+        )}
+        {/* Upload progress overlay */}
+        {clip.uploadProgress !== undefined && !clip.uploaded && (
+          <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center gap-1">
+            <Loader2 className="w-5 h-5 text-teal-400 animate-spin" />
+            <span className="text-[10px] text-white font-bold">{clip.uploadProgress}%</span>
+          </div>
+        )}
+        {clip.uploaded && (
+          <div className="absolute bottom-2 left-2">
+            <CheckCircle2 className="w-4 h-4 text-green-400" />
           </div>
         )}
         {result?.is_best && (
@@ -124,7 +177,7 @@ function ClipCard({ clip, onRemove, result }: {
             {result.score}/10
           </div>
         )}
-        {!result && (
+        {!result && clip.uploadProgress === undefined && (
           <button
             onClick={() => onRemove(clip.id)}
             className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center hover:bg-black transition-colors"
@@ -133,7 +186,6 @@ function ClipCard({ clip, onRemove, result }: {
           </button>
         )}
       </div>
-      {/* Info */}
       <div className="p-2">
         <p className="text-[10px] text-zinc-300 truncate font-medium">{clip.file.name}</p>
         <p className="text-[9px] text-zinc-600 mt-0.5">{formatBytes(clip.file.size)}</p>
@@ -150,7 +202,7 @@ function EditableField({ label, value, onChange, multiline = false, icon: Icon }
   value: string;
   onChange: (v: string) => void;
   multiline?: boolean;
-  icon?: typeof Zap;
+  icon?: React.ElementType;
 }) {
   return (
     <div>
@@ -178,12 +230,13 @@ function EditableField({ label, value, onChange, multiline = false, icon: Icon }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type PageView = 'upload' | 'analyzing' | 'results' | 'saved';
+const POLL_INTERVAL_MS = 3000;
 
 export default function ClipStudio() {
   const { showError, showSuccess } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const dropZoneRef = useRef<HTMLDivElement>(null);
+  const pollRef = useRef<NodeJS.Timeout | null>(null);
 
   const [view, setView] = useState<PageView>('upload');
   const [clips, setClips] = useState<ClipFile[]>([]);
@@ -193,6 +246,8 @@ export default function ClipStudio() {
   const [isDragOver, setIsDragOver] = useState(false);
   const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
   const [savedItemId, setSavedItemId] = useState<string | null>(null);
+  const [renderJob, setRenderJob] = useState<RenderJob | null>(null);
+  const [renderJobId, setRenderJobId] = useState<string | null>(null);
 
   // Editable result fields
   const [editHook, setEditHook] = useState('');
@@ -202,11 +257,11 @@ export default function ClipStudio() {
   const [editCoverText, setEditCoverText] = useState('');
   const [editTitle, setEditTitle] = useState('');
   const [selectedClipIndex, setSelectedClipIndex] = useState(0);
+  const [finalVideoUrl, setFinalVideoUrl] = useState<string | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  // Load products
   useEffect(() => {
     fetch('/api/products?limit=50')
       .then(r => r.json())
@@ -214,17 +269,22 @@ export default function ClipStudio() {
       .catch(() => {});
   }, []);
 
-  // When analysis comes in, populate edit fields
   useEffect(() => {
     if (!analysis) return;
-    setEditHook(analysis.hook);
-    setEditCaption(analysis.caption);
-    setEditHashtags(analysis.hashtags);
-    setEditCta(analysis.cta);
-    setEditCoverText(analysis.cover_text);
-    setEditTitle(analysis.hook.slice(0, 80));
-    setSelectedClipIndex(analysis.best_clip_index);
+    setEditHook(analysis.hook || '');
+    setEditCaption(analysis.caption || '');
+    setEditHashtags(analysis.hashtags || []);
+    setEditCta(analysis.cta || '');
+    setEditCoverText(analysis.cover_text || '');
+    setEditTitle((analysis.hook || '').slice(0, 80));
+    setSelectedClipIndex(analysis.best_clip_index || 0);
+    if (analysis.final_video_url) setFinalVideoUrl(analysis.final_video_url);
   }, [analysis]);
+
+  // Cleanup poll on unmount
+  useEffect(() => {
+    return () => { if (pollRef.current) clearTimeout(pollRef.current); };
+  }, []);
 
   const addFiles = useCallback(async (files: FileList | File[]) => {
     const arr = Array.from(files);
@@ -247,11 +307,7 @@ export default function ClipStudio() {
     setClips(prev => prev.filter(c => c.id !== id));
   };
 
-  // Drag & drop
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  };
+  const handleDragOver = (e: React.DragEvent) => { e.preventDefault(); setIsDragOver(true); };
   const handleDragLeave = () => setIsDragOver(false);
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
@@ -259,30 +315,138 @@ export default function ClipStudio() {
     if (e.dataTransfer.files.length) addFiles(e.dataTransfer.files);
   };
 
-  const handleAnalyze = async () => {
-    if (!clips.length) return;
-    setView('analyzing');
+  // ── Poll render job status ─────────────────────────────────────────────────
 
-    const formData = new FormData();
-    for (const clip of clips) formData.append('clips', clip.file);
-    if (selectedProductId) formData.append('product_id', selectedProductId);
-    if (context) formData.append('context', context);
+  const pollJobStatus = useCallback(async (jobId: string) => {
+    try {
+      const res = await fetch(`/api/render-jobs?job_id=${jobId}`);
+      const json = await res.json();
+      if (!json.ok) return;
+
+      const job: RenderJob = json.data;
+      setRenderJob(job);
+
+      if (job.status === 'completed' && job.result?.final_video_url) {
+        // Build analysis from render result
+        const ra = job.result.analysis || {};
+        setAnalysis({
+          job_id: jobId,
+          clips: clips.map((c, i) => ({
+            index: i,
+            filename: c.file.name,
+            size_bytes: c.file.size,
+            url: c.storageUrl || null,
+            transcript: null,
+            score: null,
+            is_best: i === (ra.best_clip_index ?? 0),
+          })),
+          best_clip_index: ra.best_clip_index ?? 0,
+          best_clip_url: job.result.final_video_url,
+          reasoning: ra.reasoning || 'Mac mini render complete.',
+          content_angle: ra.content_angle || '',
+          hook: ra.hook || '',
+          caption: ra.caption || '',
+          hashtags: ra.hashtags || ['#ad'],
+          cta: ra.cta || '',
+          cover_text: ra.cover_text || '',
+          product_id: selectedProductId || null,
+          product_name: products.find(p => p.id === selectedProductId)?.name || '',
+          tiktok_product_id: products.find(p => p.id === selectedProductId)?.tiktok_product_id || null,
+          link_code: null,
+          affiliate_url: null,
+          credits_used: clips.length,
+          credits_remaining: 0,
+          final_video_url: job.result.final_video_url,
+        });
+        setFinalVideoUrl(job.result.final_video_url);
+        setView('results');
+      } else if (job.status === 'failed') {
+        showError(job.error || 'Render failed on Mac mini. Please try again.');
+        setView('upload');
+      } else {
+        // Still running — poll again
+        pollRef.current = setTimeout(() => pollJobStatus(jobId), POLL_INTERVAL_MS);
+      }
+    } catch {
+      // Network blip — retry
+      pollRef.current = setTimeout(() => pollJobStatus(jobId), POLL_INTERVAL_MS * 2);
+    }
+  }, [clips, products, selectedProductId, showError]);
+
+  // ── Start render flow: upload → queue ─────────────────────────────────────
+
+  const handleStartRender = async () => {
+    if (!clips.length) return;
+    setView('uploading');
 
     try {
-      const res = await fetch('/api/creator/analyze-clips', {
+      // 1. Get presigned upload URLs
+      const urlRes = await fetch('/api/creator/upload-urls', {
         method: 'POST',
-        body: formData,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          files: clips.map(c => ({
+            filename: c.file.name,
+            content_type: c.file.type || 'video/mp4',
+            size_bytes: c.file.size,
+          })),
+        }),
       });
-      const json = await res.json();
-      if (!res.ok) {
-        showError(json.error || 'Analysis failed');
+      const urlJson = await urlRes.json();
+      if (!urlRes.ok || !urlJson.ok) {
+        showError(urlJson.error || 'Failed to get upload URLs');
         setView('upload');
         return;
       }
-      setAnalysis(json.data);
-      setView('results');
-    } catch {
-      showError('Analysis failed. Please try again.');
+
+      const { job_id: storageJobId, uploads } = urlJson.data;
+
+      // 2. Upload each clip in parallel with per-file progress
+      await Promise.all(
+        uploads.map(async (u: any, i: number) => {
+          setClips(prev => prev.map((c, ci) =>
+            ci === i ? { ...c, uploadProgress: 0 } : c
+          ));
+
+          await uploadWithProgress(u.signed_url, clips[i].file, (pct) => {
+            setClips(prev => prev.map((c, ci) =>
+              ci === i ? { ...c, uploadProgress: pct } : c
+            ));
+          });
+
+          setClips(prev => prev.map((c, ci) =>
+            ci === i ? { ...c, uploaded: true, uploadProgress: 100, storageUrl: u.storage_url } : c
+          ));
+        })
+      );
+
+      // 3. Queue render job
+      setView('rendering');
+      const jobRes = await fetch('/api/render-jobs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clip_urls: uploads.map((u: any) => u.storage_url),
+          product_id: selectedProductId || null,
+          context: context || null,
+          settings: {},
+        }),
+      });
+      const jobJson = await jobRes.json();
+      if (!jobRes.ok || !jobJson.ok) {
+        showError(jobJson.error || 'Failed to queue render job');
+        setView('upload');
+        return;
+      }
+
+      const jobId = jobJson.data.job_id;
+      setRenderJobId(jobId);
+      setRenderJob({ id: jobId, status: 'queued', progress_pct: 0, progress_message: 'Waiting for Mac mini...', node_id: null });
+
+      // 4. Start polling
+      pollRef.current = setTimeout(() => pollJobStatus(jobId), POLL_INTERVAL_MS);
+    } catch (err: any) {
+      showError(err?.message || 'Upload failed. Please try again.');
       setView('upload');
     }
   };
@@ -291,7 +455,6 @@ export default function ClipStudio() {
     if (!analysis) return;
     setSaving(true);
     try {
-      const selectedClip = analysis.clips[selectedClipIndex];
       const res = await fetch('/api/creator/analyze-clips/finalize', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -302,7 +465,7 @@ export default function ClipStudio() {
           hashtags: editHashtags,
           cta: editCta,
           cover_text: editCoverText,
-          final_video_url: selectedClip?.url || analysis.best_clip_url,
+          final_video_url: finalVideoUrl || analysis.best_clip_url,
           product_id: analysis.product_id,
           tiktok_product_id: analysis.tiktok_product_id,
           job_id: analysis.job_id,
@@ -331,21 +494,29 @@ export default function ClipStudio() {
   };
 
   const reset = () => {
+    if (pollRef.current) clearTimeout(pollRef.current);
     setClips([]);
     setAnalysis(null);
     setSavedItemId(null);
     setContext('');
     setSelectedProductId('');
+    setRenderJob(null);
+    setRenderJobId(null);
+    setFinalVideoUrl(null);
     setView('upload');
   };
 
-  // ── Upload View ────────────────────────────────────────────────────────────
+  // ─────────────────────────────────────────────────────────────────────────────
+  // VIEWS
+  // ─────────────────────────────────────────────────────────────────────────────
+
+  // ── Upload View ─────────────────────────────────────────────────────────────
 
   if (view === 'upload') {
     return (
       <AdminPageLayout
         title="Clip Studio"
-        subtitle="Drop your raw clips — get a post-ready TikTok in seconds"
+        subtitle="Drop your raw clips — get a post-ready TikTok rendered on your Mac mini"
         maxWidth="2xl"
         headerActions={
           <Link href="/admin/creator" className="inline-flex items-center gap-2 px-4 py-2.5 text-sm text-zinc-400 hover:text-white transition-colors">
@@ -385,13 +556,14 @@ export default function ClipStudio() {
               </div>
               <div className="text-center">
                 <p className="text-base font-semibold text-zinc-300">Drop your clips here</p>
-                <p className="text-sm text-zinc-500 mt-1">or click to browse — up to 6 clips, mp4 / mov / webm</p>
+                <p className="text-sm text-zinc-500 mt-1">up to 6 clips, any size · mp4 / mov / webm</p>
               </div>
               <div className="flex items-center gap-6 mt-2">
                 {[
                   { icon: Zap, text: 'Audio transcribed' },
                   { icon: Lightbulb, text: 'AI picks best clip' },
-                  { icon: Sparkles, text: 'Caption generated' },
+                  { icon: Monitor, text: 'Mac mini renders' },
+                  { icon: Sparkles, text: 'TikTok-ready output' },
                 ].map(({ icon: Icon, text }) => (
                   <div key={text} className="flex items-center gap-1.5 text-xs text-zinc-500">
                     <Icon className="w-3.5 h-3.5 text-zinc-600" />
@@ -421,11 +593,9 @@ export default function ClipStudio() {
           )}
         </div>
 
-        {/* Settings */}
         {clips.length > 0 && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Product */}
               <div>
                 <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide block mb-2">Product (optional)</label>
                 <select
@@ -439,8 +609,6 @@ export default function ClipStudio() {
                   ))}
                 </select>
               </div>
-
-              {/* Extra context */}
               <div>
                 <label className="text-xs font-semibold text-zinc-500 uppercase tracking-wide block mb-2">Extra context (optional)</label>
                 <input
@@ -452,26 +620,28 @@ export default function ClipStudio() {
               </div>
             </div>
 
-            {/* Credit info + CTA */}
+            {/* Mac mini callout + CTA */}
             <div className="flex items-center justify-between gap-4 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4">
               <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center">
-                  <Zap className="w-4 h-4 text-teal-400" />
+                  <Monitor className="w-4 h-4 text-teal-400" />
                 </div>
                 <div>
                   <p className="text-sm font-semibold text-white">
-                    {clips.length} credit{clips.length !== 1 ? 's' : ''} will be used
+                    Render on Mac mini · {clips.length} credit{clips.length !== 1 ? 's' : ''}
                   </p>
-                  <p className="text-xs text-zinc-500">1 credit per clip · AI transcription + content generation</p>
+                  <p className="text-xs text-zinc-500">
+                    Clips upload to storage → Mac mini renders 1080×1920 → AI analyzes
+                  </p>
                 </div>
               </div>
               <button
-                onClick={handleAnalyze}
+                onClick={handleStartRender}
                 disabled={clips.length === 0}
                 className="flex-shrink-0 inline-flex items-center gap-2 px-6 py-3 rounded-xl text-base font-semibold bg-teal-600 text-white hover:bg-teal-500 transition-colors disabled:opacity-40"
               >
-                <Sparkles className="w-5 h-5" />
-                Analyze & Generate
+                <Upload className="w-5 h-5" />
+                Upload & Render
                 <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -481,40 +651,161 @@ export default function ClipStudio() {
     );
   }
 
-  // ── Analyzing View ─────────────────────────────────────────────────────────
+  // ── Uploading View ──────────────────────────────────────────────────────────
 
-  if (view === 'analyzing') {
+  if (view === 'uploading') {
+    const totalProgress = clips.reduce((sum, c) => sum + (c.uploadProgress || 0), 0) / clips.length;
     return (
-      <AdminPageLayout title="Clip Studio" subtitle="Analyzing your clips..." maxWidth="2xl">
-        <div className="flex flex-col items-center justify-center py-20 gap-8">
+      <AdminPageLayout title="Clip Studio" subtitle="Uploading clips to storage..." maxWidth="2xl">
+        <div className="flex flex-col items-center justify-center py-16 gap-8">
           <div className="relative">
             <div className="w-20 h-20 rounded-full border-4 border-zinc-800 border-t-teal-500 animate-spin" />
-            <Sparkles className="w-8 h-8 text-teal-400 absolute inset-0 m-auto" />
+            <Upload className="w-8 h-8 text-teal-400 absolute inset-0 m-auto" />
           </div>
           <div className="text-center">
-            <p className="text-xl font-bold text-white mb-2">Analyzing {clips.length} clip{clips.length !== 1 ? 's' : ''}...</p>
-            <p className="text-sm text-zinc-400">Transcribing audio · Identifying best clip · Generating your post</p>
+            <p className="text-xl font-bold text-white mb-2">Uploading {clips.length} clip{clips.length !== 1 ? 's' : ''}...</p>
+            <p className="text-sm text-zinc-400">Sending to Supabase Storage — Mac mini will pick up from there</p>
           </div>
-          <div className="w-full max-w-sm space-y-2">
+
+          {/* Per-clip progress */}
+          <div className="w-full max-w-md space-y-3">
             {clips.map((clip, i) => (
-              <div key={clip.id} className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5">
-                {clip.thumbnail ? (
-                  <img src={clip.thumbnail} alt="" className="w-8 h-10 rounded object-cover flex-shrink-0" />
-                ) : (
-                  <FileVideo className="w-4 h-4 text-zinc-600 flex-shrink-0" />
-                )}
-                <span className="text-sm text-zinc-300 truncate flex-1">{clip.file.name}</span>
-                <Loader2 className="w-4 h-4 text-teal-400 animate-spin flex-shrink-0" />
+              <div key={clip.id} className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3">
+                <div className="flex items-center gap-3 mb-2">
+                  {clip.thumbnail ? (
+                    <img src={clip.thumbnail} alt="" className="w-8 h-10 rounded object-cover flex-shrink-0" />
+                  ) : (
+                    <FileVideo className="w-4 h-4 text-zinc-600 flex-shrink-0" />
+                  )}
+                  <span className="text-sm text-zinc-300 truncate flex-1">{clip.file.name}</span>
+                  {clip.uploaded
+                    ? <CheckCircle2 className="w-4 h-4 text-green-400 flex-shrink-0" />
+                    : <Loader2 className="w-4 h-4 text-teal-400 animate-spin flex-shrink-0" />
+                  }
+                </div>
+                <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-teal-500 rounded-full transition-all duration-200"
+                    style={{ width: `${clip.uploadProgress ?? 0}%` }}
+                  />
+                </div>
               </div>
             ))}
           </div>
-          <p className="text-xs text-zinc-600">This takes about 15–30 seconds</p>
+
+          <p className="text-xs text-zinc-600">
+            Overall: {Math.round(totalProgress)}% uploaded
+          </p>
         </div>
       </AdminPageLayout>
     );
   }
 
-  // ── Results View ───────────────────────────────────────────────────────────
+  // ── Rendering View (Mac mini processing) ───────────────────────────────────
+
+  if (view === 'rendering') {
+    const job = renderJob;
+    const pct = job?.progress_pct ?? 0;
+    const msg = job?.progress_message ?? 'Waiting for Mac mini...';
+    const nodeId = job?.node_id;
+    const isQueued = !job || job.status === 'queued';
+
+    // Determine stage label from progress
+    const stageLabel = pct < 15 ? 'Downloading clips...'
+      : pct < 30 ? 'Transcribing audio...'
+      : pct < 45 ? 'Merging clips...'
+      : pct < 60 ? 'Extracting keyframes...'
+      : pct < 75 ? 'AI visual analysis...'
+      : pct < 90 ? 'Transcoding 1080×1920...'
+      : pct < 100 ? 'Uploading render...'
+      : 'Done!';
+
+    return (
+      <AdminPageLayout title="Clip Studio" subtitle="Rendering on your Mac mini..." maxWidth="2xl">
+        <div className="flex flex-col items-center justify-center py-16 gap-8">
+
+          {/* Mac mini illustration */}
+          <div className="relative">
+            <div className={`w-24 h-24 rounded-3xl border-2 flex items-center justify-center transition-all ${
+              isQueued
+                ? 'border-zinc-700 bg-zinc-900'
+                : 'border-teal-500/50 bg-teal-500/10 shadow-lg shadow-teal-500/20'
+            }`}>
+              <Monitor className={`w-10 h-10 ${isQueued ? 'text-zinc-600' : 'text-teal-400'}`} />
+            </div>
+            {!isQueued && (
+              <div className="absolute -top-1 -right-1 w-5 h-5 bg-teal-500 rounded-full flex items-center justify-center">
+                <div className="w-2.5 h-2.5 bg-white rounded-full animate-pulse" />
+              </div>
+            )}
+          </div>
+
+          <div className="text-center">
+            <p className="text-2xl font-bold text-white mb-2">
+              {isQueued ? 'In queue...' : 'Rendering on your Mac mini'}
+            </p>
+            {nodeId && (
+              <p className="text-xs text-teal-400 mb-1 flex items-center justify-center gap-1">
+                <div className="w-1.5 h-1.5 bg-teal-400 rounded-full animate-pulse" />
+                {nodeId} is processing
+              </p>
+            )}
+            <p className="text-sm text-zinc-400">{msg || stageLabel}</p>
+          </div>
+
+          {/* Progress bar */}
+          <div className="w-full max-w-md">
+            <div className="flex justify-between text-xs text-zinc-500 mb-2">
+              <span>{isQueued ? 'Waiting for node...' : stageLabel}</span>
+              <span className="font-bold text-zinc-300">{pct}%</span>
+            </div>
+            <div className="h-3 bg-zinc-800 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full transition-all duration-500 ${
+                  isQueued ? 'bg-zinc-600 w-full animate-pulse' : 'bg-gradient-to-r from-teal-600 to-teal-400'
+                }`}
+                style={isQueued ? {} : { width: `${Math.max(3, pct)}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Pipeline stages */}
+          <div className="w-full max-w-md grid grid-cols-4 gap-2">
+            {[
+              { label: 'Download', threshold: 0 },
+              { label: 'Transcribe', threshold: 15 },
+              { label: 'Merge + Analyze', threshold: 30 },
+              { label: 'Render + Upload', threshold: 60 },
+            ].map(({ label, threshold }) => (
+              <div
+                key={label}
+                className={`text-center p-2 rounded-xl border text-[10px] font-medium transition-all ${
+                  pct >= threshold + 15
+                    ? 'border-teal-500/30 bg-teal-500/10 text-teal-400'
+                    : pct >= threshold
+                      ? 'border-teal-500/20 bg-zinc-900 text-zinc-300'
+                      : 'border-zinc-800 bg-zinc-900/50 text-zinc-600'
+                }`}
+              >
+                {pct >= threshold + 15 ? '✓ ' : ''}{label}
+              </div>
+            ))}
+          </div>
+
+          {isQueued && (
+            <div className="flex items-center gap-2 text-xs text-zinc-500 bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5">
+              <WifiOff className="w-3.5 h-3.5" />
+              Make sure your Mac mini is running the FlashFlow render agent
+            </div>
+          )}
+
+          <p className="text-xs text-zinc-600">Usually takes 1–3 minutes depending on clip length</p>
+        </div>
+      </AdminPageLayout>
+    );
+  }
+
+  // ── Results View ────────────────────────────────────────────────────────────
 
   if (view === 'results' && analysis) {
     const selectedClip = analysis.clips[selectedClipIndex];
@@ -530,18 +821,23 @@ export default function ClipStudio() {
           </button>
         }
       >
-        {/* Analysis summary */}
+        {/* Render complete banner */}
         <div className="bg-gradient-to-br from-teal-900/20 to-zinc-900 border border-teal-500/20 rounded-2xl p-5">
           <div className="flex items-start gap-4">
             <div className="w-10 h-10 rounded-xl bg-teal-500/20 flex items-center justify-center flex-shrink-0">
               <CheckCircle2 className="w-5 h-5 text-teal-400" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <p className="text-base font-bold text-white">Analysis Complete</p>
+              <div className="flex items-center gap-2 flex-wrap mb-1">
+                <p className="text-base font-bold text-white">Render Complete</p>
                 <span className="text-xs text-teal-400 bg-teal-500/10 px-2 py-0.5 rounded-full border border-teal-500/20">
                   {analysis.credits_used} credit{analysis.credits_used !== 1 ? 's' : ''} used
                 </span>
+                {finalVideoUrl && (
+                  <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded-full border border-green-500/20 flex items-center gap-1">
+                    <Film className="w-2.5 h-2.5" /> 1080×1920 ready
+                  </span>
+                )}
               </div>
               <p className="text-sm text-zinc-400">{analysis.reasoning}</p>
               {analysis.content_angle && (
@@ -553,9 +849,30 @@ export default function ClipStudio() {
           </div>
         </div>
 
+        {/* Final video preview (if available) */}
+        {finalVideoUrl && (
+          <div className="flex items-center gap-4 bg-zinc-900 border border-zinc-800 rounded-2xl px-5 py-4">
+            <div className="w-9 h-9 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center justify-center flex-shrink-0">
+              <Play className="w-4 h-4 text-green-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold text-white mb-0.5">Final Render</p>
+              <p className="text-xs text-zinc-500 truncate">{finalVideoUrl}</p>
+            </div>
+            <a
+              href={finalVideoUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="text-xs text-teal-400 hover:text-teal-300 underline flex-shrink-0"
+            >
+              Preview
+            </a>
+          </div>
+        )}
+
         {/* Clip selector */}
         <div>
-          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">Select clip to use</p>
+          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-wide mb-3">Source clips</p>
           <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
             {analysis.clips.map((clip) => {
               const clipFile = clips[clip.index];
@@ -574,37 +891,11 @@ export default function ClipStudio() {
 
         {/* Editable fields */}
         <div className="space-y-4">
-          <EditableField
-            label="Title (internal)"
-            value={editTitle}
-            onChange={setEditTitle}
-            icon={Film}
-          />
-          <EditableField
-            label="Hook — opening line"
-            value={editHook}
-            onChange={setEditHook}
-            icon={Zap}
-          />
-          <EditableField
-            label="Caption"
-            value={editCaption}
-            onChange={setEditCaption}
-            multiline
-            icon={Sparkles}
-          />
-          <EditableField
-            label="Call to action"
-            value={editCta}
-            onChange={setEditCta}
-            icon={Target}
-          />
-          <EditableField
-            label="Cover text (thumbnail overlay)"
-            value={editCoverText}
-            onChange={setEditCoverText}
-            icon={Play}
-          />
+          <EditableField label="Title (internal)" value={editTitle} onChange={setEditTitle} icon={Film} />
+          <EditableField label="Hook — opening line" value={editHook} onChange={setEditHook} icon={Zap} />
+          <EditableField label="Caption" value={editCaption} onChange={setEditCaption} multiline icon={Sparkles} />
+          <EditableField label="Call to action" value={editCta} onChange={setEditCta} icon={Target} />
+          <EditableField label="Cover text (thumbnail overlay)" value={editCoverText} onChange={setEditCoverText} icon={Play} />
 
           {/* Hashtags */}
           <div>
@@ -696,7 +987,7 @@ export default function ClipStudio() {
     );
   }
 
-  // ── Saved View ─────────────────────────────────────────────────────────────
+  // ── Saved View ──────────────────────────────────────────────────────────────
 
   if (view === 'saved') {
     return (
@@ -708,7 +999,7 @@ export default function ClipStudio() {
           <div>
             <p className="text-2xl font-bold text-white mb-2">Ready to Post!</p>
             <p className="text-sm text-zinc-400 max-w-sm">
-              Your clip has been analyzed, content has been generated, and the post is in your queue.
+              Rendered, analyzed, and added to your posting queue.
             </p>
           </div>
           <div className="flex items-center gap-3 mt-2">

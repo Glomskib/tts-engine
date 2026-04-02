@@ -64,6 +64,10 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
           Studio
         </Link>
         <span style={separatorStyle}>|</span>
+        <Link href="/admin/creator/clip-studio" style={linkStyle('/admin/creator/clip-studio', '#0d9488')}>
+          Clip Studio
+        </Link>
+        <span style={separatorStyle}>|</span>
         <Link href="/admin/script-library" style={linkStyle('/admin/script-library')}>
           Scripts
         </Link>
@@ -102,6 +106,10 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
         <span style={separatorStyle}>|</span>
         <Link href="/admin/analytics" style={linkStyle('/admin/analytics')}>
           Analytics
+        </Link>
+        <span style={separatorStyle}>|</span>
+        <Link href="/admin/link-hub" style={linkStyle('/admin/link-hub', '#2f9e44')}>
+          Link Hub
         </Link>
       </div>
 

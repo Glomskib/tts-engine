@@ -950,13 +950,13 @@ export default function MyStudio() {
       {/* ── GENERATE NEW CONTENT ───────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <Link
-          href="/admin/content-studio"
+          href="/admin/creator/clip-studio"
           className="flex items-center gap-3 px-5 py-4 bg-teal-600/10 border border-teal-500/20 rounded-2xl text-teal-300 hover:bg-teal-600/20 hover:border-teal-500/40 transition-all group"
         >
           <Sparkles className="w-5 h-5 text-teal-400 flex-shrink-0" />
           <div>
-            <p className="text-sm font-semibold">Generate Script</p>
-            <p className="text-[11px] text-teal-500">AI writes your next video</p>
+            <p className="text-sm font-semibold">Clip Studio</p>
+            <p className="text-[11px] text-teal-500">Upload clips → ready to post</p>
           </div>
           <ChevronRight className="w-4 h-4 ml-auto opacity-0 group-hover:opacity-100 transition-opacity" />
         </Link>

@@ -154,6 +154,10 @@ export const PATCH = withErrorCapture(async (
   if (parsed.data.editor_notes_status === 'pending') {
     updateData.editor_notes_error = null;
   }
+  // Auto-set posted_at when marking as posted
+  if (parsed.data.status === 'posted' && !parsed.data.posted_at) {
+    updateData.posted_at = new Date().toISOString();
+  }
 
   const { data: updated, error } = await supabaseAdmin
     .from('content_items')

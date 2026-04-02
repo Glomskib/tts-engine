@@ -60,6 +60,10 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
       {/* Create Group */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <span style={groupLabelStyle}>Create</span>
+        <Link href="/admin/footage" style={linkStyle('/admin/footage', '#6366f1')}>
+          Footage Hub
+        </Link>
+        <span style={separatorStyle}>|</span>
         <Link href="/admin/content-studio" style={linkStyle('/admin/content-studio')}>
           Studio
         </Link>

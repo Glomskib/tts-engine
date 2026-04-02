@@ -208,6 +208,18 @@ const tiktokCheckSessionHandler: DispatchHandler = {
   },
 };
 
+const contentItemDraftHandler: DispatchHandler = {
+  type: 'child_process',
+  meta: { requires_browser: true, requires_openclaw: true },
+  execute: async (payload) => {
+    const mode = (payload.mode as string) || 'draft';
+    const itemIds = Array.isArray(payload.item_ids) ? (payload.item_ids as string[]) : [];
+    const args: string[] = ['--mode', mode];
+    if (itemIds.length > 0) args.push('--item-ids', itemIds.join(','));
+    return runScript('scripts/tiktok-studio/draft-content-items.ts', args, 10 * 60 * 1000);
+  },
+};
+
 // ── External research handler ────────────────────────────────────────────────
 
 const externalResearchHandler: DispatchHandler = {
@@ -351,6 +363,7 @@ export const HANDLERS: Record<string, DispatchHandler> = {
   ri_ingest: riIngestHandler,
   tiktok_nightly_draft: tiktokNightlyDraftHandler,
   tiktok_check_session: tiktokCheckSessionHandler,
+  content_item_draft: contentItemDraftHandler,
   // Cron forward
   orchestrator: cronForwardHandler('/api/cron/orchestrator'),
   clip_discover: cronForwardHandler('/api/cron/clip-discover'),
@@ -369,6 +382,8 @@ export const JOB_ALIASES: Record<string, string> = {
   // Admin dispatch used different names for local-only jobs
   ri_ingestion: 'ri_ingest',
   nightly_draft: 'tiktok_nightly_draft',
+  // Content item drafting
+  draft_content_items: 'content_item_draft',
 };
 
 /** Resolve a job name to its canonical handler key */

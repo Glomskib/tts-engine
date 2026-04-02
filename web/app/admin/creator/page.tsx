@@ -165,20 +165,86 @@ function CopyButton({ text, label, copyKey, copiedKey, onCopy }: {
   );
 }
 
+// ─── Readiness Score ──────────────────────────────────────────────────────────
+
+function computeReadiness(item: PostItem) {
+  const checks = [
+    { label: 'Caption written', pass: Boolean(item.caption || item.primary_hook) },
+    { label: 'Hook line', pass: Boolean(item.primary_hook) },
+    { label: '#ad tag (FTC required)', pass: (item.hashtags || []).some(h => h.toLowerCase() === '#ad'), critical: true },
+    { label: 'TikTok Shop product linked', pass: Boolean(item.tiktok_product_id), critical: true },
+    { label: 'Video file ready', pass: Boolean(item.final_video_url), critical: true },
+  ];
+  const score = checks.filter(c => c.pass).length;
+  return { score, max: checks.length, checks };
+}
+
+function ReadinessScore({ item }: { item: PostItem }) {
+  const { score, max, checks } = computeReadiness(item);
+
+  const label =
+    score === 5 ? 'Post-Ready' :
+    score === 4 ? 'Almost Ready' :
+    score === 3 ? 'Needs Review' :
+    'Incomplete';
+
+  const labelColor =
+    score === 5 ? 'text-green-400' :
+    score === 4 ? 'text-lime-400' :
+    score === 3 ? 'text-amber-400' :
+    'text-red-400';
+
+  const dotColor = (pass: boolean) =>
+    pass ? 'bg-green-500' : 'bg-zinc-700';
+
+  const failingCritical = checks.filter(c => c.critical && !c.pass);
+
+  return (
+    <div className="mb-3">
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          {checks.map((c, i) => (
+            <div
+              key={i}
+              title={`${c.label}: ${c.pass ? 'pass' : 'fail'}`}
+              className={`w-2.5 h-2.5 rounded-full ${dotColor(c.pass)}`}
+            />
+          ))}
+        </div>
+        <span className={`text-[10px] font-semibold ${labelColor}`}>{label}</span>
+        <span className="text-[10px] text-zinc-600">{score}/{max}</span>
+      </div>
+      {failingCritical.length > 0 && (
+        <div className="flex flex-wrap gap-1 mt-1.5">
+          {failingCritical.map((c, i) => (
+            <span key={i} className="inline-flex items-center gap-1 text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+              <AlertCircle className="w-2.5 h-2.5 flex-shrink-0" />
+              {c.label}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // Upload-ready posting card — the core daily workflow component
 function PostCard({
   item,
   onMarkPosted,
+  onPushDraft,
   copiedKey,
   onCopy,
 }: {
   item: PostItem;
   onMarkPosted: (id: string) => Promise<void>;
+  onPushDraft: (id: string) => Promise<void>;
   copiedKey: string | null;
   onCopy: (text: string, key: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const [marking, setMarking] = useState(false);
+  const [pushing, setPushing] = useState(false);
   const appUrl = typeof window !== 'undefined' ? window.location.origin : '';
 
   const captionText = item.caption || item.primary_hook || '';
@@ -191,6 +257,14 @@ function PostCard({
     await onMarkPosted(item.id);
     setMarking(false);
   };
+
+  const handlePushDraft = async () => {
+    setPushing(true);
+    await onPushDraft(item.id);
+    setPushing(false);
+  };
+
+  const canPushDraft = Boolean(item.tiktok_product_id);
 
   return (
     <div className="bg-zinc-900 border border-green-500/20 rounded-2xl overflow-hidden">
@@ -294,6 +368,11 @@ function PostCard({
         )}
       </div>
 
+      {/* Readiness score */}
+      <div className="px-4 pb-3">
+        <ReadinessScore item={item} />
+      </div>
+
       {/* Action bar */}
       <div className="border-t border-zinc-800 px-4 py-3 flex items-center gap-2 flex-wrap bg-zinc-900/50">
         <CopyButton
@@ -321,6 +400,15 @@ function PostCard({
           <ExternalLink className="w-3 h-3" />
           View
         </Link>
+        <button
+          onClick={handlePushDraft}
+          disabled={pushing || !canPushDraft}
+          title={!canPushDraft ? 'Link TikTok Shop product first' : undefined}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {pushing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Upload className="w-3 h-3" />}
+          Push to TikTok Draft
+        </button>
         <button
           onClick={handleMarkPosted}
           disabled={marking}
@@ -464,6 +552,7 @@ export default function MyStudio() {
   const { showError, showSuccess } = useToast();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [draftingAll, setDraftingAll] = useState(false);
   const postRef = useRef<HTMLDivElement>(null);
   const filmRef = useRef<HTMLDivElement>(null);
   const editRef = useRef<HTMLDivElement>(null);
@@ -513,6 +602,32 @@ export default function MyStudio() {
       showSuccess('Moved to Ready to Post!');
       fetchData();
     }
+  };
+
+  const handlePushAllDrafts = async () => {
+    setDraftingAll(true);
+    try {
+      const res = await fetch('/api/creator/push-draft', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'draft' }),
+      });
+      const json = await res.json();
+      if (json.ok) showSuccess(`${json.queued} video${json.queued !== 1 ? 's' : ''} queued for TikTok draft`);
+      else showError('Failed to queue drafts');
+    } catch { showError('Failed to queue drafts'); }
+    finally { setDraftingAll(false); }
+  };
+
+  const handlePushDraft = async (id: string) => {
+    const res = await fetch('/api/creator/push-draft', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ item_ids: [id], mode: 'draft' }),
+    });
+    const json = await res.json();
+    if (json.ok) showSuccess('Queued for TikTok draft!');
+    else showError('Failed to queue draft');
   };
 
   if (loading) {
@@ -688,7 +803,17 @@ export default function MyStudio() {
       {/* ── UPLOAD TO TIKTOK ───────────────────────────────────────────── */}
       {postingQueue.length > 0 && (
         <div ref={postRef} className="space-y-3">
-          <SectionDivider icon={Upload} label="Ready to Post — Upload These Now" count={postingQueue.length} color="green" />
+          <div className="flex items-center gap-3">
+            <SectionDivider icon={Upload} label="Ready to Post — Upload These Now" count={postingQueue.length} color="green" />
+            <button
+              onClick={handlePushAllDrafts}
+              disabled={draftingAll}
+              className="flex-shrink-0 inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-indigo-600 text-white hover:bg-indigo-500 transition-colors disabled:opacity-50"
+            >
+              {draftingAll ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+              Draft All in TikTok
+            </button>
+          </div>
           <p className="text-xs text-zinc-500 px-1">
             Caption, hashtags, and link are pre-written. Copy → paste into TikTok → tap post.
           </p>
@@ -697,6 +822,7 @@ export default function MyStudio() {
               key={item.id}
               item={item}
               onMarkPosted={handleMarkPosted}
+              onPushDraft={handlePushDraft}
               copiedKey={copiedKey}
               onCopy={copy}
             />

@@ -63,7 +63,13 @@ async function getSfxClipsForVideo(videoId: string, duration: number): Promise<S
   }
 }
 
-export const GET = withErrorCapture(async () => {
+export const GET = withErrorCapture(async (request: Request) => {
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const results: Record<string, unknown>[] = [];
 
   // --- Phase 1: Check pending Shotstack compose renders ---

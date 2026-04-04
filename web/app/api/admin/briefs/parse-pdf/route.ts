@@ -14,10 +14,10 @@ export const POST = withErrorCapture(async (request: Request) => {
   const correlationId = generateCorrelationId();
 
   const auth = await getApiAuthContext(request);
-  if (!auth.isAdmin) {
+  if (!auth.user) {
     return NextResponse.json(
-      { ok: false, error: 'Admin access required', correlation_id: correlationId },
-      { status: 403 },
+      { ok: false, error: 'Authentication required', correlation_id: correlationId },
+      { status: 401 },
     );
   }
 

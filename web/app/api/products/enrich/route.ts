@@ -3,6 +3,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { z } from "zod";
+import { aiRouteGuard } from "@/lib/ai-route-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -301,6 +302,9 @@ async function generateEnrichment(input: z.infer<typeof EnrichProductSchema>): P
  * Returns: ProductEnrichment with selling intelligence
  */
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 3, userLimit: 5 });
+  if (guard.error) return guard.error;
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   try {

@@ -17,8 +17,14 @@ export async function GET(request: Request) {
 
   // H7: Verify VA access token to prevent unauthorized access
   const vaToken = process.env.VA_ACCESS_TOKEN;
+  if (!vaToken) {
+    return NextResponse.json(
+      { ok: false, error: "VA access not configured", correlation_id: correlationId },
+      { status: 503 }
+    );
+  }
   const authHeader = request.headers.get("x-va-token") || new URL(request.url).searchParams.get("token");
-  if (vaToken && authHeader !== vaToken) {
+  if (authHeader !== vaToken) {
     return NextResponse.json(
       { ok: false, error: "Unauthorized — invalid VA access token", correlation_id: correlationId },
       { status: 401 }

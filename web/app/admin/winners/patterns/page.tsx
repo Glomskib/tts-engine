@@ -406,8 +406,8 @@ export default function WinnerPatternsPage() {
                     (cat.win_rate / maxCategoryWinRate) * 100
                   );
                   return (
-                    <div key={idx} className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 w-40 flex-shrink-0">
+                    <div key={idx} className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+                      <div className="flex items-center gap-2 sm:w-40 sm:flex-shrink-0">
                         <span className="flex-shrink-0 w-6 h-6 rounded-md bg-orange-500/15 text-orange-400 text-xs font-bold flex items-center justify-center">
                           {idx + 1}
                         </span>
@@ -422,7 +422,7 @@ export default function WinnerPatternsPage() {
                             style={{ width: `${barPct}%` }}
                           />
                         </div>
-                        <div className="flex items-center gap-3 text-xs flex-shrink-0 w-32 justify-end">
+                        <div className="flex items-center gap-3 text-xs flex-shrink-0 sm:w-32 justify-end">
                           <span className="text-zinc-500">
                             {cat.wins}/{cat.total}
                           </span>

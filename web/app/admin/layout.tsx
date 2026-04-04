@@ -12,6 +12,8 @@ import { ClawbotStatus } from '@/components/ClawbotStatus';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
 import { MobileNavSheet } from '@/components/MobileNavSheet';
 import { ToastProvider } from '@/contexts/ToastContext';
+import { UpgradeModalProvider } from '@/contexts/UpgradeModalContext';
+import { UpgradeModal } from '@/components/UpgradeModal';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -99,6 +101,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/help': 'Help',
       '/admin/support': 'Support',
       '/admin/settings/system-status': 'System Status',
+      '/admin/launch-check': 'Launch Check',
       '/admin/command-center': 'Command Center',
       '/admin/command-center/usage': 'API Usage',
       '/admin/command-center/projects': 'Campaigns',
@@ -302,6 +305,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <GuidedModeProvider>
     <ThemeProvider>
     <ToastProvider>
+    <UpgradeModalProvider>
     <AriaLiveProvider>
     <SkipLink />
     <OfflineIndicator />
@@ -650,7 +654,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <CommandPalette />
     <KeyboardShortcutsModal />
     <PlanDebugBanner />
+    <UpgradeModal />
     </AriaLiveProvider>
+    </UpgradeModalProvider>
     </ToastProvider>
     </ThemeProvider>
     </GuidedModeProvider>

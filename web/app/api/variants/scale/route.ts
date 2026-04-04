@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { getIterationGroupsColumns, VALID_CHANGE_TYPES, ChangeType } from '@/lib/scaling-schema';
 import { generateCorrelationId } from '@/lib/safe-schema';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -323,6 +324,9 @@ async function executeScalingBackground(
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await aiRouteGuard(request, { creditCost: 5, userLimit: 3 });
+  if (guard.error) return guard.error;
+
   const auth = await getApiAuthContext(request);
   if (!auth.user) {
     return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });

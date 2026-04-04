@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import OpenAI from 'openai';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -20,6 +21,9 @@ interface ParsedBrief {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await aiRouteGuard(request, { creditCost: 3, userLimit: 5 });
+  if (guard.error) return guard.error;
+
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
 
   try {

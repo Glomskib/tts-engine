@@ -95,7 +95,7 @@ export default function JobDrawer({ job, onClose, onUpdate }: Props) {
         onClick={(e) => { if (e.target === backdropRef.current) onClose(); }}
       />
 
-      <div className="fixed top-0 right-0 h-full w-full max-w-[480px] bg-zinc-900 border-l border-zinc-700 z-50 flex flex-col animate-in slide-in-from-right duration-200">
+      <div className="fixed top-0 right-0 h-full w-full sm:max-w-[480px] bg-zinc-900 border-l border-zinc-700 z-50 flex flex-col animate-in slide-in-from-right duration-200">
         {/* Header */}
         <div className="flex items-start gap-3 p-5 border-b border-zinc-800">
           <div className="flex-1 min-w-0">

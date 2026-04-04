@@ -10,6 +10,7 @@
 
 import { processEmailQueue } from '@/lib/email/scheduler';
 import { NextResponse } from 'next/server';
+import { checkAndSendFailureAlert } from '@/lib/ops/failure-alert';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -35,11 +36,18 @@ export async function GET(request: Request) {
       processedAt: new Date().toISOString(),
     });
   } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : String(error);
     const { captureRouteException } = await import('@/lib/errorTracking');
     captureRouteException(error instanceof Error ? error : new Error(String(error)), {
       route: '/api/cron/process-emails',
     });
     console.error('[cron/process-emails] Failed:', error);
+    await checkAndSendFailureAlert({
+      source: 'process-emails',
+      error: errorMsg,
+      cooldownMinutes: 30,
+      context: { route: '/api/cron/process-emails' },
+    });
     return NextResponse.json({ ok: false, error: 'Processing failed' }, { status: 500 });
   }
 }

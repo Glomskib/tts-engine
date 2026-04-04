@@ -174,6 +174,16 @@ export const events = {
 
   searchPerformed: (query: string, resultCount: number) =>
     track('search_performed', { query, resultCount }),
+
+  // Remix
+  remixCreated: (params: { remixSessionId?: string; platform: string; sourceUrl: string }) =>
+    track('remix_created', params),
+
+  remixShared: (remixSessionId: string) =>
+    track('remix_shared', { remixSessionId }),
+
+  remixViewed: (remixSessionId: string) =>
+    track('remix_viewed', { remixSessionId }),
 };
 
 // ============================================

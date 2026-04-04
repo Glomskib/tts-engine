@@ -40,27 +40,24 @@ export async function GET(request: Request) {
   try {
     const { email } = await exchangeCodeAndStore(code, userId);
 
-    // Upsert connector row
-    await supabaseAdmin
-      .from('drive_intake_connectors')
-      .upsert({
-        user_id: userId,
-        provider: 'google_drive',
-        status: 'CONNECTED',
-        google_email: email,
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'user_id', ignoreDuplicates: false })
-      .select()
-      .single();
-
-    // Handle potential upsert issue: if no onConflict on user_id, do insert-or-update
+    // Upsert connector row (unique index on user_id)
     const { data: existing } = await supabaseAdmin
       .from('drive_intake_connectors')
       .select('id')
       .eq('user_id', userId)
-      .single();
+      .maybeSingle();
 
-    if (!existing) {
+    if (existing) {
+      await supabaseAdmin
+        .from('drive_intake_connectors')
+        .update({
+          status: 'CONNECTED',
+          google_email: email,
+          last_poll_error: null,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('user_id', userId);
+    } else {
       await supabaseAdmin
         .from('drive_intake_connectors')
         .insert({
@@ -69,15 +66,6 @@ export async function GET(request: Request) {
           status: 'CONNECTED',
           google_email: email,
         });
-    } else {
-      await supabaseAdmin
-        .from('drive_intake_connectors')
-        .update({
-          status: 'CONNECTED',
-          google_email: email,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId);
     }
 
     return NextResponse.redirect(new URL(`${INTAKE_PAGE}?connected=true`, url.origin));

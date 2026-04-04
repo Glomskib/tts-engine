@@ -3,6 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminPageLayout, { AdminCard, AdminButton } from '@/app/admin/components/AdminPageLayout';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 type PostStatus = 'pending' | 'scheduled' | 'published' | 'failed' | 'cancelled';
 
@@ -37,7 +38,7 @@ export default function MarketingPage() {
   const { isAdmin, loading: authLoading } = useAuth();
   const [tab, setTab] = useState<Tab>('queue');
 
-  if (authLoading) return <div className="p-8 text-zinc-400">Loading...</div>;
+  if (authLoading) return <SkeletonAuthCheck />;
   if (!isAdmin) return <div className="p-8 text-red-400">Admin access required</div>;
 
   return (

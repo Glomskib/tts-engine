@@ -36,7 +36,7 @@ function categorize(check: DiagnosticCheck): 'environment' | 'database' | 'conte
   if (n.startsWith('Env:')) return 'environment';
   if (n.startsWith('Table:') || n === 'Database Connection') return 'database';
   if (n === 'Products Exist' || n === 'Personas Exist') return 'content';
-  // API Key, Content Generation, Telegram Bot
+  // Integration:, API Key, Content Generation, Telegram Bot
   return 'integrations';
 }
 

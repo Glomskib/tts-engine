@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getTikTokContentClient } from '@/lib/tiktok-content';
 import { detectWinner, type VideoStats } from '@/lib/winner-detection';
+import { checkAndSendFailureAlert } from '@/lib/ops/failure-alert';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -304,7 +305,14 @@ export async function GET(request: Request) {
     });
 
   } catch (err: any) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
     console.error('[sync-tiktok-videos] Fatal error:', err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    await checkAndSendFailureAlert({
+      source: 'sync-tiktok-videos',
+      error: errorMsg,
+      cooldownMinutes: 30,
+      context: { route: '/api/cron/sync-tiktok-videos' },
+    });
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }

@@ -20,14 +20,18 @@ export async function POST(request: Request, { params }: RouteParams) {
 
   // H7: Verify VA access token
   const vaToken = process.env.VA_ACCESS_TOKEN;
-  if (vaToken) {
-    const authToken = request.headers.get("x-va-token");
-    if (authToken !== vaToken) {
-      return NextResponse.json(
-        { ok: false, error: "Unauthorized", correlation_id: correlationId },
-        { status: 401 }
-      );
-    }
+  if (!vaToken) {
+    return NextResponse.json(
+      { ok: false, error: "VA access not configured", correlation_id: correlationId },
+      { status: 503 }
+    );
+  }
+  const authToken = request.headers.get("x-va-token");
+  if (authToken !== vaToken) {
+    return NextResponse.json(
+      { ok: false, error: "Unauthorized", correlation_id: correlationId },
+      { status: 401 }
+    );
   }
 
   let body: Record<string, unknown>;

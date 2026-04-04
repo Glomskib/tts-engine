@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
 import { logUsageEventAsync } from '@/lib/finops/log-usage';
+import { fetchHookIntelligence, buildIntelligenceContext } from '@/lib/hooks/hook-intelligence';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -38,19 +39,39 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { topic, contentType } = body;
+    const { topic } = body;
 
-    if (!topic || typeof topic !== 'string') {
-      return NextResponse.json({ error: 'Topic is required' }, { status: 400 });
+    if (!topic || typeof topic !== 'string' || topic.trim().length < 3 || topic.trim().length > 200) {
+      return NextResponse.json({ error: 'Topic is required (3-200 characters)' }, { status: 400 });
     }
+
+    // Allowlist contentType to prevent prompt injection
+    const ALLOWED_CONTENT_TYPES = ['UGC Testimonial', 'Problem/Solution', 'Educational', 'Story/Testimonial', 'Direct Response', 'Hook Only'] as const;
+    const contentType = ALLOWED_CONTENT_TYPES.includes(body.contentType) ? body.contentType : 'UGC Testimonial';
 
     const openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY,
     });
 
+    // Fetch hook intelligence (non-fatal, works for all users)
+    let intelligenceSection = '';
+    try {
+      const intel = await fetchHookIntelligence(undefined);
+      const ctx = buildIntelligenceContext(intel);
+      if (ctx) intelligenceSection = '\n\n' + ctx;
+    } catch { /* non-fatal */ }
+
+    const hookRules = `\nHOOK RULES:
+- Create a pattern interrupt — make the scroller STOP
+- NEVER use: "game changer", "changed my life", "you need this", "trust me", "hear me out", "hidden gem", "run don't walk"
+- NEVER start with: "So I just...", "Okay so...", "Hey guys...", "POV:", "Attention:"
+- Sound like a real person, not marketing copy`;
+
+    const safeTopic = topic.trim().slice(0, 200);
+
     const prompt = contentType === 'Hook Only'
-      ? `Generate a viral TikTok hook (first 3 seconds) for: ${topic}\n\nProvide ONLY the hook text, no explanation.`
-      : `Generate a ${contentType} TikTok script for: ${topic}\n\nFormat:\nHOOK: [First 3 seconds]\nBODY: [Main content]\nCTA: [Call to action]\n\nKeep it under 60 seconds of spoken content.`;
+      ? `You are an elite short-form video hook strategist. Generate a viral TikTok hook (first 3 seconds) for: ${safeTopic}\n${hookRules}${intelligenceSection}\n\nProvide ONLY the hook text, no explanation.`
+      : `You are an elite short-form video script writer. Generate a ${contentType} TikTok script for: ${safeTopic}\n${hookRules}${intelligenceSection}\n\nFormat:\nHOOK: [First 3 seconds — pattern interrupt, specific, filmable]\nBODY: [Main content — entertaining, not salesy]\nCTA: [Natural call to action]\n\nKeep it under 60 seconds of spoken content. Write like a real creator, not a brand.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
@@ -87,7 +108,7 @@ export async function POST(request: NextRequest) {
   } catch (err: unknown) {
     console.error('Free generator error:', err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Generation failed' },
+      { error: 'Generation failed. Please try again.' },
       { status: 500 }
     );
   }

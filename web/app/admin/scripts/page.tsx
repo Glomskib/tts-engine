@@ -282,7 +282,7 @@ export default function ScriptsLibraryPage() {
   };
 
   return (
-    <div style={{ padding: '20px', maxWidth: '1400px', margin: '0 auto' }} className="pb-24 lg:pb-6">
+    <div style={{ maxWidth: '1400px', margin: '0 auto' }} className="px-4 sm:px-5 pb-24 lg:pb-6">
 
       {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
@@ -313,7 +313,7 @@ export default function ScriptsLibraryPage() {
                 placeholder="Search by title or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ padding: '6px 10px', border: '1px solid #ccc', borderRadius: '4px', width: '250px' }}
+                style={{ padding: '6px 10px', border: '1px solid #ccc', borderRadius: '4px', width: '100%', maxWidth: '250px' }}
               />
               <select
                 value={statusFilter}
@@ -473,7 +473,7 @@ export default function ScriptsLibraryPage() {
                 placeholder="Search by name or ID..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                style={{ padding: '6px 10px', border: '1px solid #ccc', borderRadius: '4px', width: '250px' }}
+                style={{ padding: '6px 10px', border: '1px solid #ccc', borderRadius: '4px', width: '100%', maxWidth: '250px' }}
               />
               {categories.length > 0 && (
                 <select

@@ -36,7 +36,7 @@ export const POST = withErrorCapture(async (
   // Load content item with all fields needed for plan generation
   const { data: item, error: fetchErr } = await supabaseAdmin
     .from('content_items')
-    .select('id, workspace_id, editing_instructions, editor_notes_json, primary_hook, caption, edit_status, raw_video_url, raw_video_storage_path, transcript_json, transcript_status')
+    .select('id, workspace_id, editing_instructions, editor_notes_json, primary_hook, caption, edit_status, raw_video_url, raw_video_storage_path, raw_video_duration_sec')
     .eq('id', id)
     .eq('workspace_id', user.id)
     .single();
@@ -45,24 +45,24 @@ export const POST = withErrorCapture(async (
     return createApiErrorResponse('NOT_FOUND', 'Content item not found', 404, correlationId);
   }
 
-  // Need a raw video
-  if (!item.raw_video_url && !item.raw_video_storage_path) {
+  // Check for multi-clip assets
+  const { data: clipAssets } = await supabaseAdmin
+    .from('content_item_assets')
+    .select('id, duration_sec, trim_start_sec, trim_end_sec')
+    .eq('content_item_id', id)
+    .eq('kind', 'raw_clip')
+    .order('sequence_index', { ascending: true });
+
+  const hasClips = clipAssets && clipAssets.length > 0;
+
+  // Need either raw video or clips to build a plan
+  if (!hasClips && !item.raw_video_url && !item.raw_video_storage_path) {
     return createApiErrorResponse(
       'PRECONDITION_FAILED',
-      'Upload a raw video before generating an edit plan.',
+      'Upload a raw video or clips before generating an edit plan.',
       422,
       correlationId,
     );
-  }
-
-  // Transcript must be completed — edit plan quality depends on it
-  if (item.transcript_status !== 'completed') {
-    const detail = item.transcript_status === 'processing'
-      ? 'Transcription is still running — wait for it to finish, then try again.'
-      : item.transcript_status === 'failed'
-      ? 'Transcription failed. Re-run the Analyze step before generating an edit plan.'
-      : 'Transcription required. Run the Analyze step first.';
-    return createApiErrorResponse('PRECONDITION_FAILED', detail, 422, correlationId);
   }
 
   // Parse optional body for overrides
@@ -74,16 +74,23 @@ export const POST = withErrorCapture(async (
     // No body is fine
   }
 
-  // We need source_duration_sec — prefer body override, then derive from transcript, else default to 60
-  let sourceDuration = overrides.source_duration_sec;
-  if (!sourceDuration && item.transcript_json) {
-    const segs = item.transcript_json as Array<{ end?: number }>;
-    if (segs.length > 0) {
-      const last = segs[segs.length - 1];
-      if (typeof last.end === 'number' && last.end > 0) sourceDuration = last.end;
+  // Compute total duration from clips if using multi-clip
+  let clipsDuration: number | null = null;
+  if (hasClips) {
+    clipsDuration = 0;
+    for (const clip of clipAssets) {
+      const dur = clip.duration_sec ?? 0;
+      const trimStart = clip.trim_start_sec ?? 0;
+      const trimEnd = clip.trim_end_sec ?? dur;
+      clipsDuration += Math.max(0, (dur > 0 ? Math.min(trimEnd, dur) : trimEnd) - trimStart);
     }
   }
-  sourceDuration = sourceDuration || 60;
+
+  // Source duration priority: body override > clips total > stored DB value > 60s fallback
+  const sourceDuration = overrides.source_duration_sec
+    || clipsDuration
+    || item.raw_video_duration_sec
+    || 60; // Last-resort fallback; real probe happens at render time
 
   const { plan, warnings } = buildEditPlan({
     source_duration_sec: sourceDuration,

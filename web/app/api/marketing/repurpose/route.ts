@@ -27,6 +27,7 @@ import { resolveTargets } from '@/lib/marketing/brand-accounts';
 import { generateRunId } from '@/lib/marketing/queue';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import type { PlatformTarget } from '@/lib/marketing/types';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60; // transcript extraction can take time
@@ -256,6 +257,9 @@ NEVER make health claims, income promises, or guarantees.`;
 
 // ── Main handler ─────────────────────────────────────────────────
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 6 });
+  if (guard.error) return guard.error;
+
   // Auth: accept CRON_SECRET (server-to-server) OR admin session (browser UI)
   const authHeader = request.headers.get('authorization');
   const cronSecret = process.env.CRON_SECRET;

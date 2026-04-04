@@ -2,6 +2,7 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId } from "@/lib/api-errors";
 import { NextResponse } from "next/server";
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -28,6 +29,9 @@ interface ExtractedData {
  * Updates reference_extracts and sets reference_video status to ready.
  */
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 4 });
+  if (guard.error) return guard.error;
+
   const auth = await getApiAuthContext(request);
   if (!auth.user) {
     return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });

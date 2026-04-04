@@ -56,6 +56,7 @@ import {
   Camera,
   MoreHorizontal,
   Trophy,
+  Lightbulb,
 } from 'lucide-react';
 
 // Import from content-types.ts
@@ -71,6 +72,7 @@ import ScriptAssistantChat from './_components/ScriptAssistantChat';
 import { BottomSheet } from '@/components/BottomSheet';
 import { MobileTextarea } from '@/components/ui/MobileInput';
 import { SegmentedControl } from '@/components/ui/SegmentedControl';
+import VisualHooksPanel from '@/components/VisualHooksPanel';
 
 // Icon mapping for content types
 const CONTENT_TYPE_ICONS: Record<string, React.ComponentType<{ size?: number; className?: string }>> = {
@@ -1601,6 +1603,7 @@ export default function ContentStudioPage() {
       setSavedSkitId(approvedSkitId);
 
       // 2. Send to pipeline
+      let pipelineOk = true;
       if (selectedProductId) {
         // Product-based: use send-to-video (creates via createVideoFromProduct)
         const pipelineRes = await postJson(`/api/skits/${approvedSkitId}/send-to-video`, {
@@ -1608,7 +1611,7 @@ export default function ContentStudioPage() {
         });
         if (isApiError(pipelineRes)) {
           console.error('Send to pipeline failed:', pipelineRes.message);
-          // Script was saved, just pipeline link failed
+          pipelineOk = false;
         }
       } else {
         // Manual product: use lightweight create-from-script
@@ -1621,12 +1624,17 @@ export default function ContentStudioPage() {
         });
         if (isApiError(pipelineRes)) {
           console.error('Create video from script failed:', pipelineRes.message);
+          pipelineOk = false;
         }
       }
 
       setApprovedToPipeline(true);
       setPipelineSuccessOpen(true);
-      showSuccess('Script approved and sent to pipeline!');
+      if (pipelineOk) {
+        showSuccess('Script approved and sent to pipeline!');
+      } else {
+        showSuccess('Script saved, but pipeline step had an issue. Check the script library.');
+      }
     } catch (err) {
       console.error('Approve and send failed:', err);
       setError({
@@ -1720,24 +1728,38 @@ export default function ContentStudioPage() {
       if (!approvedSkitId) throw new Error('No script ID returned');
       setSavedSkitId(approvedSkitId);
 
+      let pipelineOk = true;
       if (selectedProductId) {
-        await postJson(`/api/skits/${approvedSkitId}/send-to-video`, { priority: 'normal' });
+        const pipelineRes = await postJson(`/api/skits/${approvedSkitId}/send-to-video`, { priority: 'normal' });
+        if (isApiError(pipelineRes)) {
+          console.error('Send to video failed:', pipelineRes.message);
+          pipelineOk = false;
+        }
       } else {
-        await postJson('/api/videos/create-from-script', {
+        const pipelineRes = await postJson('/api/videos/create-from-script', {
           script_id: approvedSkitId,
           title: (skit.hook_line || skit.visual_hook || skit.verbal_hook || 'Untitled').substring(0, 50),
           product_name: productName,
           product_brand: productBrand,
           hook_line: skit.hook_line || skit.verbal_hook,
         });
+        if (isApiError(pipelineRes)) {
+          console.error('Create video from script failed:', pipelineRes.message);
+          pipelineOk = false;
+        }
       }
 
       setApprovedVariations(prev => new Set([...prev, variationIndex]));
       setPipelineSuccessOpen(true);
-      showSuccess(`Variation ${variationIndex + 1} approved and sent to pipeline!`);
+      if (pipelineOk) {
+        showSuccess(`Variation ${variationIndex + 1} approved and sent to pipeline!`);
+      } else {
+        showSuccess(`Variation ${variationIndex + 1} saved, but pipeline step had an issue. Check the script library.`);
+      }
     } catch (err) {
       console.error('Approve variation failed:', err);
-      showError('Failed to approve variation');
+      const message = err instanceof Error ? err.message : 'Failed to approve variation';
+      showError(message);
     } finally {
       setApprovingVariation(null);
     }
@@ -1955,7 +1977,7 @@ export default function ContentStudioPage() {
               Content Studio
             </h1>
             <p className="mt-1 text-base text-zinc-400">
-              Generate viral short-form video scripts
+              Write scripts for any content type — pick a format, add your product, and go
             </p>
           </div>
           {/* Winner Pattern Banner */}
@@ -1995,15 +2017,27 @@ export default function ContentStudioPage() {
                 Talk Through It
               </button>
             )}
-            {!simpleMode && (
-              <Link
-                href="/admin/script-of-the-day"
-                className="flex-shrink-0 px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl text-white text-sm flex items-center gap-2 hover:from-amber-500 hover:to-orange-500 transition-colors whitespace-nowrap font-medium"
-              >
-                <Sparkles size={16} />
-                What should I film today?
-              </Link>
-            )}
+            <Link
+              href="/admin/opportunities"
+              className="flex-shrink-0 px-4 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 rounded-xl text-white text-sm flex items-center gap-2 hover:from-amber-500 hover:to-orange-500 transition-colors whitespace-nowrap font-medium"
+            >
+              <Lightbulb size={16} />
+              What should I make?
+            </Link>
+            <Link
+              href="/admin/hook-generator"
+              className="flex-shrink-0 px-4 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-white text-sm flex items-center gap-2 hover:bg-zinc-700 transition-colors whitespace-nowrap"
+            >
+              <Zap size={16} />
+              Hooks
+            </Link>
+            <Link
+              href="/admin/content-pack"
+              className="flex-shrink-0 px-4 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-white text-sm flex items-center gap-2 hover:bg-zinc-700 transition-colors whitespace-nowrap"
+            >
+              <Package size={16} />
+              Content Pack
+            </Link>
             <Link
               href="/admin/script-library"
               className="flex-shrink-0 px-4 py-2.5 bg-zinc-800 border border-white/10 rounded-xl text-white text-sm flex items-center gap-2 hover:bg-zinc-700 transition-colors whitespace-nowrap"
@@ -2036,9 +2070,9 @@ export default function ContentStudioPage() {
             <div>
               <h3 className="text-white font-semibold text-sm mb-1">Welcome to Content Studio</h3>
               <p className="text-zinc-400 text-sm leading-relaxed">
-                Type any product name below, pick a content style, and hit <span className="text-teal-400 font-medium">Generate</span> to create
-                your first viral script. Or <Link href="/admin/products" className="text-teal-400 hover:text-teal-300 underline">add products</Link> first
-                to unlock AI-powered audience targeting.
+                Type a product name below, pick a content style, and hit <span className="text-teal-400 font-medium">Write Script</span> to get
+                your first script. Or <Link href="/admin/products" className="text-teal-400 hover:text-teal-300 underline">add products</Link> first
+                for smarter audience targeting.
               </p>
             </div>
           </div>
@@ -2181,7 +2215,7 @@ export default function ContentStudioPage() {
           <div className="mb-4 pb-4 border-b border-zinc-800">
             <SegmentedControl
               options={[
-                { value: 'ai', label: 'AI Generate', icon: <Sparkles size={14} /> },
+                { value: 'ai', label: 'Write with AI', icon: <Sparkles size={14} /> },
                 { value: 'manual', label: 'Write Manually', icon: <Pencil size={14} /> },
               ]}
               value={manualWriteMode ? 'manual' : 'ai'}
@@ -2206,7 +2240,7 @@ export default function ContentStudioPage() {
                 size="sm"
               />
               <p className="text-xs text-zinc-500 mt-1.5">
-                {simpleMode ? 'Pick a product, choose a style, and generate.' : 'Full control over every parameter.'}
+                {simpleMode ? 'Pick a product, choose a style, and go.' : 'Full control over every parameter.'}
               </p>
             </div>
           )}
@@ -3485,12 +3519,12 @@ export default function ContentStudioPage() {
                   {generating ? (
                     <>
                       <Loader2 className="animate-spin" size={20} />
-                      Generating...
+                      Writing...
                     </>
                   ) : (
                     <>
                       <Zap size={20} />
-                      Generate ({creditCost} credit{creditCost !== 1 ? 's' : ''})
+                      Write Script ({creditCost} credit{creditCost !== 1 ? 's' : ''})
                     </>
                   )}
                 </button>
@@ -3663,7 +3697,7 @@ export default function ContentStudioPage() {
                         gap: '6px',
                         animation: 'pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite',
                       }}>
-                        <Loader2 size={12} className="animate-spin" /> Generating...
+                        <Loader2 size={12} className="animate-spin" /> Writing...
                       </span>
                     )}
                   </div>
@@ -4265,6 +4299,19 @@ export default function ContentStudioPage() {
                   )}
                 </div>
               </div>
+
+              {/* Visual Ideas — inline panel for first-shot ideas */}
+              {currentSkit && selectedProductId && (
+                <div style={{ marginBottom: '16px' }}>
+                  <VisualHooksPanel
+                    topic={products.find(p => p.id === selectedProductId)?.name || ''}
+                    platform="tiktok"
+                    verbalHook={currentSkit.verbal_hook}
+                    scriptContext={currentSkit.beats?.[0]?.action}
+                    variant="inline"
+                  />
+                </div>
+              )}
 
               {/* Beats */}
               <div style={{ marginBottom: '16px' }}>
@@ -4916,7 +4963,7 @@ export default function ContentStudioPage() {
                         'Add more urgency',
                         'Shorten the script',
                         'Rewrite for younger audience',
-                        'Make CTA more compelling',
+                        'Make the CTA hit harder',
                         'Dial up the humor',
                       ].map((nudge) => (
                         <button
@@ -5050,11 +5097,11 @@ export default function ContentStudioPage() {
               }`}
             >
               {generating ? (
-                <><Loader2 className="animate-spin" size={18} /> Generating...</>
+                <><Loader2 className="animate-spin" size={18} /> Writing...</>
               ) : !selectedProductId && !manualProductName.trim() ? (
-                <>Select a product to generate</>
+                <>Select a product to start</>
               ) : (
-                <><Zap size={18} /> Generate ({creditCost} credit{creditCost !== 1 ? 's' : ''})</>
+                <><Zap size={18} /> Write Script ({creditCost} credit{creditCost !== 1 ? 's' : ''})</>
               )}
             </button>
           </div>

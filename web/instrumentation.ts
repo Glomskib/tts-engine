@@ -6,6 +6,10 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === 'nodejs') {
     await import('./sentry.server.config');
+
+    // Validate required env vars at boot — logs warnings, never crashes
+    const { validateBootEnvVars } = await import('./lib/env-validation');
+    validateBootEnvVars();
   }
 
   if (process.env.NEXT_RUNTIME === 'edge') {

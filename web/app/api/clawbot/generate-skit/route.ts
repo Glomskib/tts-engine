@@ -1,13 +1,5 @@
 import { NextResponse } from "next/server";
-import { getApiAuthContext } from "@/lib/supabase/api-auth";
-import {
-  generateCorrelationId,
-  createApiErrorResponse,
-} from "@/lib/api-errors";
-import {
-  enforceRateLimits,
-  extractRateLimitContext,
-} from "@/lib/rate-limit";
+import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
   generateStrategy,
@@ -15,26 +7,16 @@ import {
   fetchRecentFeedback,
 } from "@/lib/clawbot";
 import type { StrategyRequest, StrategyResponse } from "@/lib/clawbot";
+import { aiRouteGuard } from "@/lib/ai-route-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(request: Request) {
-  const correlationId = generateCorrelationId();
-
-  // Auth
-  const authContext = await getApiAuthContext(request);
-  if (!authContext.user) {
-    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
-  }
-
-  // Rate limit
-  const rlContext = {
-    ...extractRateLimitContext(request),
-    userId: authContext.user.id,
-  };
-  const rateLimited = enforceRateLimits(rlContext, correlationId, { userLimit: 5 });
-  if (rateLimited) return rateLimited;
+  const guard = await aiRouteGuard(request, { creditCost: 3, userLimit: 5 });
+  if (guard.error) return guard.error;
+  const { userId, correlationId } = guard;
+  const authContext = { user: { id: userId } };
 
   // Parse body
   let body: Record<string, unknown>;

@@ -15,11 +15,11 @@ import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors'
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { resolveUserId, resolveWorkspaceId, resolveContentItemId } from '@/lib/errors/sentry-resolvers';
 import { logContentItemEvent } from '@/lib/content-items/sync';
+import { uploadRawVideo, deleteMediaObject, BUCKETS } from '@/lib/media-storage';
 
 export const runtime = 'nodejs';
 
 const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500 MB
-const BUCKET_NAME = 'video-files';
 
 const ALLOWED_VIDEO_TYPES: Record<string, string> = {
   'video/mp4': 'mp4',
@@ -100,45 +100,37 @@ export const POST = withErrorCapture(async (
 
   // Delete previous raw video if it exists
   if (item.raw_video_storage_path) {
-    await supabaseAdmin.storage
-      .from(BUCKET_NAME)
-      .remove([item.raw_video_storage_path])
-      .catch(() => {}); // best-effort cleanup
+    await deleteMediaObject(BUCKETS.RAW_VIDEOS, item.raw_video_storage_path);
   }
 
-  // Upload to storage — tenant-scoped path
+  // Upload via centralized helper — tenant-scoped path
   const fileExt = ALLOWED_VIDEO_TYPES[file.type] || (isAllowedExt ? extension : 'mp4');
-  const sanitized = sanitizeFilename(file.name);
-  const storagePath = `${user.id}/raw/${id}_${Date.now()}_${sanitized}.${fileExt}`;
 
   const arrayBuffer = await file.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
-  const { data: uploadData, error: uploadError } = await supabaseAdmin.storage
-    .from(BUCKET_NAME)
-    .upload(storagePath, buffer, {
-      contentType: file.type || 'video/mp4',
-      upsert: false,
-    });
-
-  if (uploadError) {
-    console.error(`[${correlationId}] raw-video upload error:`, uploadError);
-    return createApiErrorResponse('STORAGE_ERROR', `Upload failed: ${uploadError.message}`, 500, correlationId);
+  let uploadResult;
+  try {
+    uploadResult = await uploadRawVideo(
+      user.id,
+      id,
+      buffer,
+      file.name,
+      fileExt,
+      file.type || 'video/mp4',
+    );
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Upload failed';
+    console.error(`[${correlationId}] raw-video upload error:`, msg);
+    return createApiErrorResponse('STORAGE_ERROR', msg, 500, correlationId);
   }
 
-  // Get public URL
-  const { data: { publicUrl } } = supabaseAdmin.storage
-    .from(BUCKET_NAME)
-    .getPublicUrl(uploadData.path);
-
-  // Update content item — also queue transcription so cron picks this up
+  // Update content item — storage_path is canonical, url is convenience cache
   const { data: updated, error: updateError } = await supabaseAdmin
     .from('content_items')
     .update({
-      raw_video_url: publicUrl,
-      raw_video_storage_path: storagePath,
-      transcript_status: 'pending',
-      transcript_error: null,
+      raw_video_url: uploadResult.url,
+      raw_video_storage_path: uploadResult.storagePath,
     })
     .eq('id', id)
     .select('id, raw_video_url, raw_video_storage_path, edit_status')
@@ -151,7 +143,7 @@ export const POST = withErrorCapture(async (
 
   // Log event
   await logContentItemEvent(id, 'raw_video_uploaded', user.id, null, null, {
-    storage_path: storagePath,
+    storage_path: uploadResult.storagePath,
     file_size_mb: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
     file_name: file.name,
   });
@@ -161,8 +153,8 @@ export const POST = withErrorCapture(async (
     data: {
       ...updated,
       file: {
-        url: publicUrl,
-        path: storagePath,
+        url: uploadResult.url,
+        path: uploadResult.storagePath,
         size_mb: parseFloat((file.size / (1024 * 1024)).toFixed(2)),
       },
     },
@@ -208,16 +200,13 @@ export const DELETE = withErrorCapture(async (
 
   // Delete from storage
   if (item.raw_video_storage_path) {
-    await supabaseAdmin.storage
-      .from(BUCKET_NAME)
-      .remove([item.raw_video_storage_path])
-      .catch(() => {});
+    await deleteMediaObject(BUCKETS.RAW_VIDEOS, item.raw_video_storage_path);
   }
 
   // Clear fields
   await supabaseAdmin
     .from('content_items')
-    .update({ raw_video_url: null, raw_video_storage_path: null })
+    .update({ raw_video_url: null, raw_video_storage_path: null, raw_video_duration_sec: null })
     .eq('id', id);
 
   await logContentItemEvent(id, 'raw_video_removed', user.id, null, null, {});

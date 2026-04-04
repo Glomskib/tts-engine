@@ -9,6 +9,7 @@ import { postMCDoc } from '@/lib/flashflow/mission-control';
 import { buildZebbyScenes } from '@/lib/zebby/scene-builder';
 import type { ZebbySceneOutput, BuildScenesResult } from '@/lib/zebby/scene-builder';
 import { logUsageEventAsync } from '@/lib/finops/log-usage';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120;
@@ -62,6 +63,9 @@ function formatScenesAsMarkdown(output: ZebbySceneOutput): string {
 }
 
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 3, userLimit: 3 });
+  if (guard.error) return guard.error;
+
   const correlationId = generateCorrelationId();
 
   // Auth

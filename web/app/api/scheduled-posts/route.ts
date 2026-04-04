@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
         *,
         skit:saved_skits(id, title, product_name, product_brand)
       `)
+      .eq('user_id', authContext.user.id)
       .order('scheduled_for', { ascending: true });
 
     if (startDate) query = query.gte('scheduled_for', startDate);

@@ -166,7 +166,7 @@ export function FeedbackWidget() {
     <>
       {/* Floating FlashFlow Logo Button with Menu */}
       {!isOpen && (
-        <div ref={menuRef} className="fixed bottom-24 right-4 lg:bottom-6 lg:right-6 z-[60]">
+        <div ref={menuRef} className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-4 lg:bottom-6 lg:right-6 z-[45]">
           {/* Menu */}
           {menuOpen && (
             <div className="absolute bottom-14 right-0 w-48 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden mb-2">
@@ -207,10 +207,10 @@ export function FeedbackWidget() {
           {/* Logo Icon Button */}
           <button
             onClick={() => setMenuOpen(!menuOpen)}
-            className="w-11 h-11 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 shadow-lg shadow-violet-500/25 flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+            className="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-gradient-to-br from-violet-600 to-indigo-600 shadow-lg shadow-violet-500/25 flex items-center justify-center transition-all hover:scale-110 active:scale-95 opacity-80 lg:opacity-100"
             title="FlashFlow AI"
           >
-            <Zap className="w-5 h-5 text-white" />
+            <Zap className="w-4 h-4 lg:w-5 lg:h-5 text-white" />
           </button>
         </div>
       )}

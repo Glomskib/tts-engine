@@ -203,6 +203,10 @@ export async function fetchJson<T>(
 
   // Handle non-2xx responses
   if (!response.ok) {
+    // Fire upgrade modal if backend signals { upgrade: true }
+    if (jsonBody && jsonBody.upgrade === true && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('flashflow:upgrade', { detail: jsonBody }));
+    }
     return normalizeErrorBody(jsonBody, response.status, correlationId);
   }
 

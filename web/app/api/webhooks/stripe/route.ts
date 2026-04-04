@@ -298,6 +298,10 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
 
   if (error) {
     console.error(`[${correlationId}] Failed to update subscription:`, error);
+    // Critical failure — user paid but subscription not recorded. Alert immediately.
+    sendTelegramNotification(
+      `🚨 CRITICAL: Subscription upsert failed for user <b>${userId}</b> plan <b>${planId}</b>. CorrelationId: ${correlationId}. Manual intervention required.`
+    ).catch(() => {});
   }
 
   // Sync role to match new plan
@@ -331,6 +335,10 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
 
   if (creditError) {
     console.error(`[${correlationId}] Failed to initialize credits:`, creditError);
+    // Critical failure — user paid but credits not provisioned. Alert immediately.
+    sendTelegramNotification(
+      `🚨 CRITICAL: Credit provisioning failed for user <b>${userId}</b> (${credits} credits on ${planId}). CorrelationId: ${correlationId}. Manual fix required.`
+    ).catch(() => {});
   }
 
   // Telegram notification
@@ -338,7 +346,7 @@ async function handleCheckoutCompleted(correlationId: string, session: Stripe.Ch
   const amount = session.amount_total ? `$${(session.amount_total / 100).toFixed(0)}` : 'N/A';
   const customerEmail = session.customer_details?.email || 'unknown';
   sendTelegramNotification(
-    `💰 New subscriber! <b>${customerEmail}</b> → ${planName} (${amount}/mo)`
+    `💰 New subscriber! <b>${customerEmail}</b> → ${planName} (${amount}/mo) | ${credits} credits provisioned`
   ).catch(() => {});
 
   // Process referral conversion — credit the referrer if this user was referred
@@ -595,6 +603,10 @@ async function handleInvoicePaid(correlationId: string, invoice: Stripe.Invoice)
 
   if (error) {
     console.error(`[${correlationId}] Failed to reset credits:`, error);
+    // Renewal credit reset failed — user billed but credits not refreshed.
+    sendTelegramNotification(
+      `🚨 CRITICAL: Credit renewal failed for user <b>${subscription.user_id}</b> plan <b>${planId}</b>. CorrelationId: ${correlationId}. Manual fix required.`
+    ).catch(() => {});
   }
 
   // Upsert entitlement — confirm active on renewal (non-fatal)

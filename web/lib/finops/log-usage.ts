@@ -103,7 +103,9 @@ export async function logUsageEvent(
  * Fire-and-forget version — does not block the main request.
  */
 export function logUsageEventAsync(input: LogUsageEventInput): void {
-  logUsageEvent(input).catch(() => {});
+  logUsageEvent(input).catch((err) => {
+    console.warn('[finops/log-usage] Async logging failed:', err instanceof Error ? err.message : err);
+  });
 }
 
 /**

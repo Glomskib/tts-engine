@@ -62,7 +62,7 @@ export const GET = withErrorCapture(async (
 // ── POST /api/content-items/[id]/assets ──────────────────────────
 
 const AssetSchema = z.object({
-  kind: z.enum(['raw_footage', 'transcript', 'final_video', 'broll', 'editor_notes']),
+  kind: z.enum(['raw_footage', 'raw_clip', 'transcript', 'final_video', 'broll', 'editor_notes']),
   source: z.enum(['google_drive', 'upload', 'generated']),
   file_id: z.string().optional().nullable(),
   file_name: z.string().optional().nullable(),

@@ -11,6 +11,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { callAnthropicAPI } from '@/lib/ai/anthropic';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 
@@ -65,6 +66,9 @@ export const GET = withErrorCapture(async (request: Request) => {
 }, { routeName: '/api/intelligence/winners', feature: 'replication-engine' });
 
 export const POST = withErrorCapture(async (request: Request) => {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 4 });
+  if (guard.error) return guard.error;
+
   const correlationId = generateCorrelationId();
   const { user } = await getApiAuthContext(request);
   if (!user) {

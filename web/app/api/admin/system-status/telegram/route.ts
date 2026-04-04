@@ -26,6 +26,13 @@ interface SystemStatusData {
     activeThisWeek: number;
     creditsConsumedToday: number;
   };
+  workflowHealth?: {
+    overallSeverity: string;
+    workflows: Array<{ name: string; severity: string; message: string }>;
+    cronFreshness: Array<{ label: string; severity: string; message: string }>;
+    jobQueue: { severity: string; message: string };
+    warnings: string[];
+  };
   totalLatency: number;
   timestamp: string;
 }
@@ -117,7 +124,46 @@ function formatTelegramReport(data: SystemStatusData): string {
   lines.push(`\u{1F4B3} Credits today: ${data.usage.creditsConsumedToday}`);
   lines.push('');
 
+  // Workflow Health
+  if (data.workflowHealth) {
+    const wh = data.workflowHealth;
+    lines.push(`<b>Workflow Health:</b> ${severityEmoji(wh.overallSeverity)} ${wh.overallSeverity.toUpperCase()}`);
+
+    // Only show non-healthy items to keep message concise
+    const issues = [
+      ...wh.workflows.filter(w => w.severity !== 'healthy'),
+      ...wh.cronFreshness.filter(c => c.severity !== 'healthy'),
+    ];
+
+    if (issues.length > 0) {
+      for (const item of issues) {
+        const label = 'label' in item ? item.label : item.name;
+        lines.push(`${severityEmoji(item.severity)} ${label}: ${item.message}`);
+      }
+    }
+
+    if (wh.jobQueue.severity !== 'healthy') {
+      lines.push(`${severityEmoji(wh.jobQueue.severity)} Jobs: ${wh.jobQueue.message}`);
+    }
+
+    if (wh.warnings.length > 0) {
+      for (const w of wh.warnings) {
+        lines.push(`\u26A0\uFE0F ${w}`);
+      }
+    }
+    lines.push('');
+  }
+
   lines.push(`<i>Latency: ${data.totalLatency}ms</i>`);
 
   return lines.join('\n');
+}
+
+function severityEmoji(severity: string): string {
+  switch (severity) {
+    case 'healthy': return '\u2705';
+    case 'degraded': return '\u26A0\uFE0F';
+    case 'critical': return '\u274C';
+    default: return '\u2753';
+  }
 }

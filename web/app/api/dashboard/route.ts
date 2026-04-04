@@ -153,6 +153,30 @@ export async function GET(request: NextRequest) {
       // winners_bank might not exist in all environments
     }
 
+    // --- Scripts Count ---
+    let scriptsCount = 0;
+    try {
+      const { count } = await supabaseAdmin
+        .from('scripts')
+        .select('id', { count: 'exact', head: true })
+        .eq('created_by', auth.user.id);
+      scriptsCount = count || 0;
+    } catch {
+      // non-fatal
+    }
+
+    // --- Campaigns Count ---
+    let campaignsCount = 0;
+    try {
+      const { count } = await supabaseAdmin
+        .from('experiments')
+        .select('id', { count: 'exact', head: true })
+        .not('campaign_config', 'is', null);
+      campaignsCount = count || 0;
+    } catch {
+      // non-fatal
+    }
+
     return NextResponse.json({
       ok: true,
       nextActions,
@@ -163,6 +187,8 @@ export async function GET(request: NextRequest) {
       },
       todayAssignments,
       winners,
+      scriptsCount,
+      campaignsCount,
       correlation_id: correlationId,
     });
   } catch (err) {

@@ -194,7 +194,7 @@ export class TikTokContentClient {
 
   /**
    * Publish a video using PULL_FROM_URL (TikTok downloads the video).
-   * Posts to the creator's inbox for review before publishing.
+   * Posts directly to the creator's TikTok account.
    */
   async publishVideoFromUrl(
     accessToken: string,
@@ -235,6 +235,48 @@ export class TikTokContentClient {
     if (json.error?.code !== 'ok') {
       const errMsg = json.error?.message || json.error?.code || JSON.stringify(json);
       throw new Error(`Publish failed: ${errMsg}`);
+    }
+
+    return json.data as PublishResult;
+  }
+
+  /**
+   * Send a video to the creator's TikTok inbox (draft) using PULL_FROM_URL.
+   * The creator can review, attach Shop products, and publish manually.
+   * Uses the /inbox/ endpoint which does NOT require disclosure fields.
+   */
+  async publishVideoToInbox(
+    accessToken: string,
+    options: {
+      video_url: string;
+      title?: string;
+    },
+  ): Promise<PublishResult> {
+    const body = {
+      post_info: {
+        title: options.title || '',
+        privacy_level: 'SELF_ONLY',
+      },
+      source_info: {
+        source: 'PULL_FROM_URL',
+        video_url: options.video_url,
+      },
+    };
+
+    const res = await fetch(`${BASE_URL}/v2/post/publish/inbox/video/init/`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Type': 'application/json; charset=UTF-8',
+      },
+      body: JSON.stringify(body),
+    });
+
+    const json = await res.json();
+
+    if (json.error?.code !== 'ok') {
+      const errMsg = json.error?.message || json.error?.code || JSON.stringify(json);
+      throw new Error(`Inbox publish failed: ${errMsg}`);
     }
 
     return json.data as PublishResult;

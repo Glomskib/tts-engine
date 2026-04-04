@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { validateApiAccess } from '@/lib/auth/validateApiAccess';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -12,12 +13,16 @@ export const maxDuration = 60;
  * winners_bank, creator_dna, brands, products, tiktok_videos, brand_briefs
  */
 export async function POST(request: Request) {
+  // Rate limit + credit check before any expensive work
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 6 });
+  if (guard.error) return guard.error;
+  const userId = guard.userId;
+
   try {
     const auth = await validateApiAccess(request);
     if (!auth) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
-    const userId = auth.userId;
 
     const body = await request.json().catch(() => ({}));
     const filterBrand: string | undefined = body.brand;

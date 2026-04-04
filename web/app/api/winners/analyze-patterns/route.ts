@@ -5,6 +5,7 @@ import {
   generateCorrelationId,
   createApiErrorResponse,
 } from "@/lib/api-errors";
+import { aiRouteGuard } from "@/lib/ai-route-guard";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -47,6 +48,9 @@ interface PatternAnalysis {
  * Analyze winner patterns using Claude API
  */
 export async function POST(request: NextRequest) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 4 });
+  if (guard.error) return guard.error;
+
   const correlationId =
     request.headers.get("x-correlation-id") || generateCorrelationId();
 

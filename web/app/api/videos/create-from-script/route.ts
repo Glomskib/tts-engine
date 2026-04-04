@@ -34,7 +34,7 @@ export async function POST(request: Request) {
   // Filter by user_id to prevent cross-account access
   const { data: skit } = await supabaseAdmin
     .from('saved_skits')
-    .select('id, video_id, product_id, status, skit_data')
+    .select('id, video_id, product_id, status, skit_data, generation_config')
     .eq('id', script_id)
     .eq('user_id', authContext.user.id)
     .maybeSingle();
@@ -44,9 +44,28 @@ export async function POST(request: Request) {
   }
 
   // Guard: reject recommendations that haven't been turned into real scripts
-  const skitData = skit.skit_data as Record<string, unknown> | null;
+  const skitData = skit.skit_data as {
+    hook_line?: string;
+    visual_hook?: string;
+    verbal_hook?: string;
+    beats?: Array<{ t: string; action: string; dialogue?: string; on_screen_text?: string }>;
+    cta_line?: string;
+    cta_overlay?: string;
+    b_roll?: string[];
+    overlays?: string[];
+  } | null;
   const hasScriptContent = skitData && Object.keys(skitData).length > 0;
   if (skit.status === 'draft' && !hasScriptContent) {
+    return NextResponse.json(
+      { ok: false, error: 'Recommendations cannot be added to pipeline. Use Content Studio to create a script first.' },
+      { status: 400 }
+    );
+  }
+
+  // Guard: reject recommendation-sourced skits
+  const genConfig = skit.generation_config as { source?: string } | null;
+  const skitSource = genConfig?.source;
+  if (skitSource === 'recommendation' || skitSource === 'transcriber_concept' || skitSource === 'ai_recommendation') {
     return NextResponse.json(
       { ok: false, error: 'Recommendations cannot be added to pipeline. Use Content Studio to create a script first.' },
       { status: 400 }
@@ -62,15 +81,42 @@ export async function POST(request: Request) {
     });
   }
 
+  // Build full script text from skit_data (not just hook line)
+  let scriptText: string | null = null;
+  if (skitData?.beats && skitData.beats.length > 0) {
+    const lines: string[] = [];
+    const hookLine = skitData.hook_line || skitData.verbal_hook || '';
+    if (hookLine) {
+      lines.push('[HOOK]', hookLine, '');
+    }
+    for (let i = 0; i < skitData.beats.length; i++) {
+      const beat = skitData.beats[i];
+      lines.push(`[SCENE ${i + 1}] ${beat.t}`);
+      lines.push(`Action: ${beat.action}`);
+      if (beat.dialogue) lines.push(`Dialogue: "${beat.dialogue}"`);
+      if (beat.on_screen_text) lines.push(`On-screen text: "${beat.on_screen_text}"`);
+      lines.push('');
+    }
+    if (skitData.cta_line) {
+      lines.push('[CTA]', skitData.cta_line);
+      if (skitData.cta_overlay) lines.push(`Overlay: "${skitData.cta_overlay}"`);
+    }
+    scriptText = lines.join('\n');
+  } else if (hook_line) {
+    scriptText = `HOOK: ${hook_line}`;
+  }
+
   // Create video with script metadata — use valid recording_status values only
   // NOTE: account_id is FK to tiktok_accounts — do NOT set to auth user UUID.
   // Use client_user_id for user isolation; account_id is set when a TikTok account is chosen.
+  const hasScript = !!scriptText;
   const insertPayload: Record<string, unknown> = {
     client_user_id: authContext.user.id,
     status: 'needs_edit',
-    recording_status: 'NEEDS_SCRIPT',
+    recording_status: hasScript ? 'NOT_RECORDED' : 'NEEDS_SCRIPT',
     google_drive_url: '',
-    script_locked_text: hook_line ? `HOOK: ${hook_line}` : null,
+    script_locked_text: scriptText,
+    ...(scriptText ? { script_locked_version: 1 } : {}),
   };
   if (skit.product_id) {
     insertPayload.product_id = skit.product_id;
@@ -103,7 +149,7 @@ export async function POST(request: Request) {
       correlation_id: correlationId,
       actor: authContext.user.id,
       from_status: null,
-      to_status: 'NEEDS_SCRIPT',
+      to_status: hasScript ? 'NOT_RECORDED' : 'NEEDS_SCRIPT',
       details: {
         script_id,
         title: title || null,
@@ -117,7 +163,7 @@ export async function POST(request: Request) {
       correlation_id: correlationId,
       actor: authContext.user.id,
       from_status: null,
-      to_status: 'NEEDS_SCRIPT',
+      to_status: hasScript ? 'NOT_RECORDED' : 'NEEDS_SCRIPT',
       details: {
         source: 'script_library',
         script_id,

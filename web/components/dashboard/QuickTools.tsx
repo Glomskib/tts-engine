@@ -2,13 +2,14 @@
 
 import Link from 'next/link';
 import {
-  Sparkles, Video, Upload, FileText, Package,
+  Sparkles, Video, FileText, Package, Rocket,
 } from 'lucide-react';
 
 const QUICK_TOOLS = [
   { label: 'Create Content', href: '/admin/content-studio', icon: Sparkles, color: 'text-teal-400' },
+  { label: 'Campaigns', href: '/admin/campaigns', icon: Rocket, color: 'text-emerald-400' },
   { label: 'Pipeline', href: '/admin/pipeline', icon: Video, color: 'text-amber-400' },
-  { label: 'Transcriber', href: '/admin/transcribe', icon: FileText, color: 'text-purple-400' },
+  { label: 'Scripts', href: '/admin/scripts', icon: FileText, color: 'text-purple-400' },
   { label: 'Products', href: '/admin/products', icon: Package, color: 'text-blue-400' },
 ];
 

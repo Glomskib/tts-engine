@@ -12,6 +12,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { listVideoFiles, VIDEO_MIME_TYPES } from '@/lib/intake/google-drive';
 import { MAX_INTAKE_FILE_BYTES, MIN_INTAKE_FILE_BYTES, FAILURE_MESSAGES } from '@/lib/intake/intake-limits';
+import { checkAndSendFailureAlert } from '@/lib/ops/failure-alert';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -184,11 +185,18 @@ export async function GET(request: Request) {
     return NextResponse.json(summary);
 
   } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : String(err);
     const { captureRouteException } = await import('@/lib/errorTracking');
     captureRouteException(err instanceof Error ? err : new Error(String(err)), {
       route: '/api/cron/drive-intake-poll',
     });
     console.error(`${LOG} Fatal:`, err);
-    return NextResponse.json({ error: String(err) }, { status: 500 });
+    await checkAndSendFailureAlert({
+      source: 'drive-intake-poll',
+      error: errorMsg,
+      cooldownMinutes: 30,
+      context: { route: '/api/cron/drive-intake-poll' },
+    });
+    return NextResponse.json({ error: errorMsg }, { status: 500 });
   }
 }

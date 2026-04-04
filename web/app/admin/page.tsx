@@ -5,11 +5,10 @@ import Link from 'next/link';
 import {
   Loader2, RefreshCw, Mic, Scissors, Send, Flame, Trophy, Zap,
   ChevronRight, ExternalLink, Lightbulb, Plus, Sparkles, Check,
-  BarChart3, FlaskConical, MapPin,
+  BarChart3, FlaskConical,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import AdminPageLayout, { AdminCard, EmptyState } from '@/app/admin/components/AdminPageLayout';
-import { useGuidedMode } from '@/contexts/GuidedModeContext';
+import AdminPageLayout, { AdminCard, EmptyState, SectionDivider, StatCard } from '@/app/admin/components/AdminPageLayout';
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -112,28 +111,31 @@ function QueueSection({
   title,
   icon,
   accent,
+  cardAccent,
   items,
   emptyText,
 }: {
   title: string;
   icon: React.ReactNode;
   accent: string;
+  cardAccent?: 'teal' | 'violet' | 'amber' | 'blue' | 'red' | 'emerald';
   items: ContentItem[];
   emptyText: string;
 }) {
   return (
     <AdminCard
       title={title}
+      accent={cardAccent}
       headerActions={
         items.length > 0 ? (
-          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${accent}`}>
+          <span className={`text-xs font-bold px-2 py-0.5 rounded-full tabular-nums ${accent}`}>
             {items.length}
           </span>
         ) : null
       }
     >
       {items.length > 0 ? (
-        <div className="space-y-1">
+        <div className="space-y-0.5">
           {items.map((item) => (
             <Link
               key={item.id}
@@ -154,7 +156,7 @@ function QueueSection({
           ))}
         </div>
       ) : (
-        <p className="text-sm text-zinc-600 py-4 text-center">{emptyText}</p>
+        <p className="text-xs text-zinc-600 py-6 text-center">{emptyText}</p>
       )}
     </AdminCard>
   );
@@ -170,7 +172,6 @@ export default function CommandCenter() {
   const [ideas, setIdeas] = useState<GeneratedIdea[]>([]);
   const [generating, setGenerating] = useState(false);
   const [createdIds, setCreatedIds] = useState<Set<number>>(new Set());
-  const { state: guidedState, start: startGuided, exit: exitGuided } = useGuidedMode();
 
   const fetchData = async (showRefresh = false) => {
     if (showRefresh) setRefreshing(true);
@@ -250,47 +251,7 @@ export default function CommandCenter() {
       subtitle={totalActionable > 0 ? `${totalActionable} items need action` : 'All clear'}
       maxWidth="2xl"
       headerActions={
-        <div className="flex items-center gap-2 flex-wrap">
-          {!guidedState.active ? (
-            <button
-              type="button"
-              onClick={() => {
-                startGuided();
-                router.push('/admin/content-studio?action=create&guided=1');
-              }}
-              className="flex items-center gap-2 px-3 py-1.5 bg-teal-700 text-teal-100 border border-teal-500/40 rounded-lg hover:bg-teal-600 transition-colors text-sm font-medium"
-            >
-              <MapPin className="w-3.5 h-3.5" />
-              Start Guided Flow
-            </button>
-          ) : (
-            <div className="flex items-center gap-2">
-              {guidedState.contentItemId ? (
-                <Link
-                  href={`/admin/content-items/${guidedState.contentItemId}`}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-500 transition-colors text-sm font-medium"
-                >
-                  <MapPin className="w-3.5 h-3.5" />
-                  Continue — Step {guidedState.step} of 7
-                </Link>
-              ) : (
-                <Link
-                  href="/admin/content-studio?action=create&guided=1"
-                  className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-500 transition-colors text-sm font-medium"
-                >
-                  <MapPin className="w-3.5 h-3.5" />
-                  Continue — Create Item
-                </Link>
-              )}
-              <button
-                type="button"
-                onClick={exitGuided}
-                className="text-xs text-zinc-500 hover:text-zinc-300 transition px-2"
-              >
-                Exit guided
-              </button>
-            </div>
-          )}
+        <div className="flex items-center gap-2">
           <Link
             href="/admin/content-studio?action=create"
             className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 transition-colors text-sm font-medium"
@@ -323,12 +284,38 @@ export default function CommandCenter() {
         </div>
       }
     >
-      {/* Action Queues */}
+      {/* Stats Summary */}
+      {totalActionable > 0 && (
+        <div className="grid grid-cols-3 gap-3">
+          <StatCard
+            label="To Record"
+            value={data.record_queue.length}
+            variant={data.record_queue.length > 0 ? 'warning' : 'default'}
+            icon={<Mic size={12} />}
+          />
+          <StatCard
+            label="In Editing"
+            value={data.editing_queue.length}
+            variant={data.editing_queue.length > 0 ? 'warning' : 'default'}
+            icon={<Scissors size={12} />}
+          />
+          <StatCard
+            label="To Post"
+            value={data.posting_queue.length}
+            variant={data.posting_queue.length > 0 ? 'success' : 'default'}
+            icon={<Send size={12} />}
+          />
+        </div>
+      )}
+
+      {/* Production Queues */}
+      <SectionDivider label="Production" />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <QueueSection
           title="Record Queue"
           icon={<Mic size={14} />}
           accent="bg-violet-500/20 text-violet-400"
+          cardAccent="violet"
           items={data.record_queue}
           emptyText="Nothing to record"
         />
@@ -336,6 +323,7 @@ export default function CommandCenter() {
           title="Editing Queue"
           icon={<Scissors size={14} />}
           accent="bg-blue-500/20 text-blue-400"
+          cardAccent="blue"
           items={data.editing_queue}
           emptyText="Nothing in editing"
         />
@@ -343,12 +331,14 @@ export default function CommandCenter() {
           title="Posting Queue"
           icon={<Send size={14} />}
           accent="bg-teal-500/20 text-teal-400"
+          cardAccent="teal"
           items={data.posting_queue}
           emptyText="Nothing to post"
         />
       </div>
 
       {/* Intelligence Row */}
+      <SectionDivider label="Intelligence" />
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         {/* Viral Content */}
         <AdminCard title="Viral Alerts" subtitle="AI-detected winners">

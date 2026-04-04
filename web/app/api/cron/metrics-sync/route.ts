@@ -3,13 +3,14 @@
  *
  * Finds content_item_posts that need metrics updates and attempts to
  * fetch fresh data from available providers in priority order:
- *   1. platform_api  — direct platform API (future)
- *   2. posting_provider — posting service API (future)
- *   3. scrape-lite — lightweight scraper (future)
- *   4. manual — skip (user-entered data)
+ *   1. internal_lookup — cross-reference existing DB tables (tiktok_videos, etc.)
+ *   2. posting_provider — posting service analytics API (Late.dev)
+ *   3. scrape_lite — lightweight scraper (not implemented)
  *
- * Currently: logs posts needing sync. Actual provider integrations will be
- * added as platform APIs are connected (Late.dev analytics, TikTok API, etc.).
+ * Provider status:
+ *   - internal_lookup: ACTIVE for TikTok (bridges tiktok_videos → content_item_metrics_snapshots)
+ *   - posting_provider: DISABLED (Late.dev analytics returns aggregate, not per-post data)
+ *   - scrape_lite: DISABLED (requires headless browser infrastructure)
  *
  * Runs every 30 minutes. Protected by CRON_SECRET.
  */
@@ -19,6 +20,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { scoreAndPersist } from '@/lib/content-intelligence/contentScore';
 import { updateProductPerformance } from '@/lib/content-intelligence/productPerformance';
+import { checkAndSendFailureAlert } from '@/lib/ops/failure-alert';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -32,8 +34,27 @@ interface SyncCandidate {
   workspace_id: string;
   platform: string;
   post_url: string;
+  platform_post_id: string | null;
   metrics_source: string;
   latest_snapshot_at: string | null;
+}
+
+interface MetricsData {
+  views?: number | null;
+  likes?: number | null;
+  comments?: number | null;
+  shares?: number | null;
+  saves?: number | null;
+  avg_watch_time_seconds?: number | null;
+  completion_rate?: number | null;
+}
+
+interface ProviderStatus {
+  name: string;
+  enabled: boolean;
+  reason?: string;
+  attempted: number;
+  succeeded: number;
 }
 
 export const GET = withErrorCapture(async (request: Request) => {
@@ -45,23 +66,48 @@ export const GET = withErrorCapture(async (request: Request) => {
 
   const startedAt = Date.now();
 
+  // Track provider diagnostics
+  const providerStats: Record<string, ProviderStatus> = {
+    internal_lookup: { name: 'internal_lookup', enabled: true, attempted: 0, succeeded: 0 },
+    posting_provider: { name: 'posting_provider', enabled: false, reason: 'Late.dev analytics returns aggregate data, not per-post metrics', attempted: 0, succeeded: 0 },
+    scrape_lite: { name: 'scrape_lite', enabled: false, reason: 'Requires headless browser infrastructure — not implemented', attempted: 0, succeeded: 0 },
+  };
+
   // Find posts that haven't been synced recently
   const staleThreshold = new Date(Date.now() - STALE_HOURS * 60 * 60 * 1000).toISOString();
 
   // Get all posts with their latest snapshot timestamp
   const { data: posts, error: postsError } = await supabaseAdmin
     .from('content_item_posts')
-    .select('id, workspace_id, platform, post_url, metrics_source')
+    .select('id, workspace_id, platform, post_url, platform_post_id, metrics_source')
     .eq('status', 'posted')
     .order('created_at', { ascending: false })
     .limit(BATCH_SIZE * 2);
 
-  if (postsError || !posts?.length) {
+  if (postsError) {
+    await checkAndSendFailureAlert({
+      source: 'metrics-sync',
+      error: postsError.message,
+      cooldownMinutes: 30,
+      context: { route: '/api/cron/metrics-sync' },
+    });
     return NextResponse.json({
       ok: true,
       synced: 0,
       skipped: 0,
-      message: postsError ? 'Failed to fetch posts' : 'No posts to sync',
+      message: 'Failed to fetch posts',
+      providers: providerStats,
+      durationMs: Date.now() - startedAt,
+    });
+  }
+
+  if (!posts?.length) {
+    return NextResponse.json({
+      ok: true,
+      synced: 0,
+      skipped: 0,
+      message: 'No posts to sync',
+      providers: providerStats,
       durationMs: Date.now() - startedAt,
     });
   }
@@ -94,6 +140,7 @@ export const GET = withErrorCapture(async (request: Request) => {
       workspace_id: p.workspace_id,
       platform: p.platform,
       post_url: p.post_url,
+      platform_post_id: p.platform_post_id ?? null,
       metrics_source: p.metrics_source,
       latest_snapshot_at: latestSnapshotMap.get(p.id) || null,
     }));
@@ -102,7 +149,7 @@ export const GET = withErrorCapture(async (request: Request) => {
   let skipped = 0;
 
   for (const candidate of candidates) {
-    const result = await syncPostMetrics(candidate);
+    const result = await syncPostMetrics(candidate, providerStats);
     if (result.synced) {
       synced++;
     } else {
@@ -127,25 +174,30 @@ export const GET = withErrorCapture(async (request: Request) => {
     synced,
     skipped,
     total_candidates: candidates.length,
+    providers: providerStats,
     durationMs: Date.now() - startedAt,
   });
 }, { routeName: '/api/cron/metrics-sync', feature: 'content-intel' });
 
 /**
  * Attempt to sync metrics for a single post via available providers.
- * Provider cascade: platform_api → posting_provider → scrape-lite → skip
+ * Provider cascade: internal_lookup → posting_provider (disabled) → scrape_lite (disabled)
  */
 async function syncPostMetrics(
   candidate: SyncCandidate,
+  stats: Record<string, ProviderStatus>,
 ): Promise<{ synced: boolean; source?: string }> {
-  // Try providers in priority order
   const providers = [
-    { name: 'platform_api', fn: tryPlatformApi },
-    { name: 'posting_provider', fn: tryPostingProvider },
-    { name: 'scrape_lite', fn: tryScrapeLite },
+    { name: 'internal_lookup', fn: tryInternalLookup, enabled: true },
+    { name: 'posting_provider', fn: tryPostingProvider, enabled: false },
+    { name: 'scrape_lite', fn: tryScrapeLite, enabled: false },
   ];
 
   for (const provider of providers) {
+    if (!provider.enabled) continue;
+
+    stats[provider.name].attempted++;
+
     try {
       const metrics = await provider.fn(candidate);
       if (metrics) {
@@ -181,6 +233,7 @@ async function syncPostMetrics(
           console.error(`${LOG} scoring error for ${candidate.post_id}:`, e),
         );
 
+        stats[provider.name].succeeded++;
         return { synced: true, source: provider.name };
       }
     } catch (err) {
@@ -191,42 +244,91 @@ async function syncPostMetrics(
   return { synced: false };
 }
 
-// ── Provider stubs ────────────────────────────────────────────
-
-interface MetricsData {
-  views?: number | null;
-  likes?: number | null;
-  comments?: number | null;
-  shares?: number | null;
-  saves?: number | null;
-  avg_watch_time_seconds?: number | null;
-  completion_rate?: number | null;
-}
+// ── Provider: Internal Lookup ──────────────────────────────────────
+// Bridges existing DB tables (tiktok_videos, etc.) into content_item_metrics_snapshots.
+// This data is already synced daily by sync-tiktok-videos cron.
 
 /**
- * Platform API provider — direct API integration (TikTok, Instagram, etc.)
- * TODO: Implement when platform OAuth tokens are available.
+ * Extract TikTok video ID from a post URL.
+ * Handles: tiktok.com/@user/video/7123456789, vm.tiktok.com/ABC123
  */
-async function tryPlatformApi(_candidate: SyncCandidate): Promise<MetricsData | null> {
-  // Future: check if workspace has connected platform account
-  // and fetch metrics via the platform's API
+function extractTikTokVideoId(url: string): string | null {
+  if (!url) return null;
+  // Standard URL: tiktok.com/@user/video/7123456789
+  const match = url.match(/\/video\/(\d+)/);
+  if (match) return match[1];
   return null;
 }
 
-/**
- * Posting provider — fetch from posting service (Late.dev analytics add-on).
- * TODO: Implement when Late.dev analytics API is integrated.
- */
+async function tryInternalLookup(candidate: SyncCandidate): Promise<MetricsData | null> {
+  if (candidate.platform === 'tiktok') {
+    return tryTikTokInternalLookup(candidate);
+  }
+
+  // Other platforms: no internal data source available yet
+  console.log(`${LOG} internal_lookup: no data source for platform '${candidate.platform}' (post ${candidate.post_id})`);
+  return null;
+}
+
+async function tryTikTokInternalLookup(candidate: SyncCandidate): Promise<MetricsData | null> {
+  // Try to find the matching tiktok_videos row
+  const videoId = candidate.platform_post_id || extractTikTokVideoId(candidate.post_url);
+
+  if (!videoId) {
+    console.log(`${LOG} internal_lookup: cannot extract TikTok video ID from post ${candidate.post_id} (url: ${candidate.post_url})`);
+    return null;
+  }
+
+  const { data: tiktokVideo, error } = await supabaseAdmin
+    .from('tiktok_videos')
+    .select('view_count, like_count, comment_count, share_count')
+    .eq('tiktok_video_id', videoId)
+    .maybeSingle();
+
+  if (error) {
+    console.error(`${LOG} internal_lookup: tiktok_videos query error:`, error);
+    return null;
+  }
+
+  if (!tiktokVideo) {
+    console.log(`${LOG} internal_lookup: no tiktok_videos row for video ID ${videoId} (post ${candidate.post_id})`);
+    return null;
+  }
+
+  // Only return if we have at least some data (views > 0 means real data)
+  if (!tiktokVideo.view_count && !tiktokVideo.like_count) {
+    return null;
+  }
+
+  return {
+    views: tiktokVideo.view_count ?? null,
+    likes: tiktokVideo.like_count ?? null,
+    comments: tiktokVideo.comment_count ?? null,
+    shares: tiktokVideo.share_count ?? null,
+    saves: null, // not available from tiktok_videos
+    avg_watch_time_seconds: null, // not available from Content API
+    completion_rate: null, // not available from Content API
+  };
+}
+
+// ── Provider: Posting Provider (DISABLED) ──────────────────────────
+// Late.dev getAnalytics() returns aggregate platform-level data,
+// not per-post metrics. Cannot map to individual content_item_posts.
+// Re-enable when Late.dev adds per-post analytics or we implement
+// a post-level attribution layer.
+
 async function tryPostingProvider(_candidate: SyncCandidate): Promise<MetricsData | null> {
-  // Future: query Late.dev /api/v1/analytics for post metrics
+  // Explicitly disabled — not silently returning null
+  console.log(`${LOG} posting_provider: DISABLED — Late.dev analytics returns aggregate data, not per-post metrics`);
   return null;
 }
 
-/**
- * Scrape-lite provider — lightweight public data extraction.
- * TODO: Implement with headless browser or API proxy.
- */
+// ── Provider: Scrape-Lite (DISABLED) ───────────────────────────────
+// Requires headless browser infrastructure (Playwright on HP machine
+// or a scraping API). Not available in Vercel serverless environment.
+
 async function tryScrapeLite(_candidate: SyncCandidate): Promise<MetricsData | null> {
-  // Future: lightweight scraping for public metrics
+  // Explicitly disabled — not silently returning null
+  console.log(`${LOG} scrape_lite: DISABLED — requires headless browser infrastructure not available in serverless`);
   return null;
 }

@@ -26,6 +26,9 @@ export async function GET(request: Request) {
   if (!authContext.user) {
     return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
   }
+  if (!authContext.isAdmin) {
+    return NextResponse.json({ ok: false, error: 'Forbidden' }, { status: 403 });
+  }
 
   const { searchParams } = new URL(request.url);
   const type = searchParams.get('type');

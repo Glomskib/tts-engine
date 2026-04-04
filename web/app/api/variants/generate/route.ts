@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { NextRequest, NextResponse } from "next/server";
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = "nodejs";
 
@@ -26,6 +27,9 @@ function getBaseUrl(request: NextRequest): string {
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await aiRouteGuard(request, { creditCost: 3, userLimit: 5 });
+  if (guard.error) return guard.error;
+
   const auth = await getApiAuthContext(request);
   if (!auth.user) {
     return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -12,6 +13,9 @@ export const maxDuration = 300;
  * against the creator's own DNA/winners to produce actionable recommendations.
  */
 export async function POST(request: NextRequest) {
+  const guard = await aiRouteGuard(request, { creditCost: 3, userLimit: 3 });
+  if (guard.error) return guard.error;
+
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   try {
     const authContext = await getApiAuthContext(request);

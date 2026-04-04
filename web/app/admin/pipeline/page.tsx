@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import IncidentBanner from '../components/IncidentBanner';
@@ -29,6 +29,16 @@ import { getVideoDisplayTitle } from './types';
 import { getStatusConfig as getStatusConfigCentral, formatStatusLabel, RECORDING_STATUSES as RECORDING_STATUSES_CENTRAL } from '@/lib/status';
 import { PipelineSummaryBar } from '@/components/PipelineSummaryBar';
 import { getNextAction as getNextActionCentral } from '@/lib/nextAction';
+import { PipelineWorkModeSwitcher, filterVideosByWorkMode, computeModeCounts, getWorkModeSummary, type WorkMode } from '@/components/PipelineWorkModeSwitcher';
+import { useSearchParams, usePathname } from 'next/navigation';
+import { buildRecordingPack, formatRecordingPacksBatch, type RecordingPackVideo } from '@/lib/packs/buildRecordingPack';
+import { buildEditingPack, formatEditingPacksBatch, type EditingPackVideo } from '@/lib/packs/buildEditingPack';
+import { downloadTextFile } from '@/lib/packs/downloadPack';
+import { getRoleDefaults, type UserRole } from '@/lib/role-defaults';
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts';
+import { KeyboardShortcutHelp } from '@/components/KeyboardShortcutHelp';
+import { RecordingSessionView, type SessionVideo } from '@/components/session/RecordingSessionView';
+import { EditingSessionView, type EditingSessionVideo } from '@/components/session/EditingSessionView';
 
 interface QueueSummary {
   counts_by_status: Record<string, number>;
@@ -367,8 +377,17 @@ function filterVideosByRole(videos: QueueVideo[], role: 'recorder' | 'editor' | 
   });
 }
 
-// Main pipeline page component
+// Wrapper for Suspense (required by useSearchParams)
 export default function AdminPipelinePage() {
+  return (
+    <Suspense fallback={<div className="py-20 text-center text-zinc-500">Loading pipeline...</div>}>
+      <AdminPipelinePageInner />
+    </Suspense>
+  );
+}
+
+// Main pipeline page component
+function AdminPipelinePageInner() {
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
   const { showSuccess, showError } = useToast();
@@ -415,6 +434,17 @@ export default function AdminPipelinePage() {
   // Filter intent state
   const [filterIntent, setFilterIntent] = useState<FilterIntent>('all');
   const [showMaintenanceMenu, setShowMaintenanceMenu] = useState(false);
+
+  // Work Mode state (Scripts / Record / Edit / Publish)
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+  const [workMode, setWorkMode] = useState<WorkMode>(() => {
+    const param = searchParams?.get('mode');
+    if (param && ['all', 'scripts', 'record', 'edit', 'publish'].includes(param)) {
+      return param as WorkMode;
+    }
+    return 'all';
+  });
 
   // Enhanced filter state
   const [workflowFilter, setWorkflowFilter] = useState<RecordingStatusTab>('ALL');
@@ -515,6 +545,19 @@ export default function AdminPipelinePage() {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   };
+
+  // Handle work mode change — persist to URL query param
+  const handleWorkModeChange = useCallback((mode: WorkMode) => {
+    setWorkMode(mode);
+    setSelectedVideoIds(new Set());
+    const url = new URL(window.location.href);
+    if (mode === 'all') {
+      url.searchParams.delete('mode');
+    } else {
+      url.searchParams.set('mode', mode);
+    }
+    window.history.replaceState({}, '', url.toString());
+  }, []);
 
   // Export videos as CSV
   const handleExportVideos = () => {
@@ -679,6 +722,49 @@ export default function AdminPipelinePage() {
   };
 
 
+  // Bulk download pack as ZIP (with markdown fallback)
+  const bulkDownloadPack = async (packType: 'recording' | 'editing') => {
+    const ids = Array.from(selectedVideoIds);
+    if (ids.length === 0) return;
+    setBulkActionLoading(true);
+    try {
+      const res = await fetch('/api/packs/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ video_ids: ids, pack_type: packType }),
+      });
+      if (res.ok) {
+        const blob = await res.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${packType}-pack${ids.length > 1 ? `s-${ids.length}` : ''}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+        showToast(`Downloaded ${packType} pack for ${ids.length} video(s)`);
+        return;
+      }
+    } catch {
+      // Fall through to markdown fallback
+    }
+
+    // Markdown fallback
+    const selected = queueVideos.filter(v => selectedVideoIds.has(v.id));
+    if (packType === 'recording') {
+      const packs = selected.map(v => buildRecordingPack(v as RecordingPackVideo));
+      const md = formatRecordingPacksBatch(packs);
+      downloadTextFile(md, `recording-pack-${packs.length}-videos.md`);
+    } else {
+      const packs = selected.map(v => buildEditingPack(v as EditingPackVideo));
+      const md = formatEditingPacksBatch(packs);
+      downloadTextFile(md, `editing-pack-${packs.length}-videos.md`);
+    }
+    showToast(`Downloaded ${packType} pack for ${selected.length} video(s)`);
+    setBulkActionLoading(false);
+  };
+
   // Reference data for filters
   const [brands, setBrands] = useState<{ id: string; name: string }[]>([]);
   const [products, setProducts] = useState<{ id: string; name: string; brand: string }[]>([]);
@@ -721,6 +807,14 @@ export default function AdminPipelinePage() {
           const savedMode = localStorage.getItem(VA_MODE_KEY);
           if (savedMode && VA_MODES.includes(savedMode as VAMode)) {
             setVaMode(savedMode as VAMode);
+          }
+        }
+
+        // Apply role-aware work mode default if no URL param is set
+        if (!searchParams?.get('mode')) {
+          const roleDefaults = getRoleDefaults(roleData.role as UserRole);
+          if (roleDefaults.defaultWorkMode !== 'all') {
+            setWorkMode(roleDefaults.defaultWorkMode);
           }
         }
 
@@ -878,6 +972,9 @@ export default function AdminPipelinePage() {
     return filtered;
   };
 
+  // Compute work mode counts from role-filtered videos (before intent/workflow filters)
+  const workModeCounts = computeModeCounts(getRoleFilteredVideos());
+
   // Handle primary action click (auto-assigns if video is available)
   const handlePrimaryActionClick = async (video: QueueVideo) => {
     const action = getPrimaryAction(video);
@@ -938,7 +1035,7 @@ export default function AdminPipelinePage() {
         params.set('recording_status', activeRecordingTab);
       }
       params.set('claimed', claimedFilter);
-      params.set('limit', '100');
+      params.set('limit', '200');
 
       // Add "My Work" filter
       if (myWorkOnly && activeUser) {
@@ -1729,6 +1826,9 @@ export default function AdminPipelinePage() {
   const getIntentFilteredVideos = () => {
     let videos = getRoleFilteredVideos();
 
+    // Apply work mode filter (before intent/workflow filters)
+    videos = filterVideosByWorkMode(videos, workMode);
+
     switch (filterIntent) {
       case 'my_work':
         videos = videos.filter(v => v.claimed_by === activeUser);
@@ -1857,8 +1957,75 @@ export default function AdminPipelinePage() {
     return groups;
   };
 
+  // Keyboard shortcuts for pipeline
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+  const [recordingSessionOpen, setRecordingSessionOpen] = useState(false);
+  const [editingSessionOpen, setEditingSessionOpen] = useState(false);
+
+  const pipelineShortcutDefs = useMemo(() => [
+    { key: 'j', description: 'Next video (open drawer)' },
+    { key: 'k', description: 'Previous video' },
+    { key: '/', description: 'Focus search' },
+    { key: 'Escape', description: 'Close drawer / modal' },
+    { key: '?', description: 'Toggle shortcuts help' },
+  ], []);
+
+  useKeyboardShortcuts([
+    {
+      key: 'j',
+      handler: () => {
+        const videos = getIntentFilteredVideos();
+        if (videos.length === 0) return;
+        const currentIdx = drawerVideo ? videos.findIndex(v => v.id === drawerVideo.id) : -1;
+        const nextIdx = currentIdx < videos.length - 1 ? currentIdx + 1 : 0;
+        setDrawerVideo(videos[nextIdx]);
+      },
+      description: 'Next video',
+    },
+    {
+      key: 'k',
+      handler: () => {
+        const videos = getIntentFilteredVideos();
+        if (videos.length === 0) return;
+        const currentIdx = drawerVideo ? videos.findIndex(v => v.id === drawerVideo.id) : 0;
+        const prevIdx = currentIdx > 0 ? currentIdx - 1 : videos.length - 1;
+        setDrawerVideo(videos[prevIdx]);
+      },
+      description: 'Previous video',
+    },
+    {
+      key: '/',
+      handler: () => {
+        const searchInput = document.querySelector<HTMLInputElement>('input[placeholder="Search..."]');
+        if (searchInput) searchInput.focus();
+      },
+      description: 'Focus search',
+    },
+    {
+      key: 'Escape',
+      handler: () => {
+        if (showShortcutHelp) { setShowShortcutHelp(false); return; }
+        if (drawerVideo) setDrawerVideo(null);
+      },
+      description: 'Close drawer / modal',
+    },
+    {
+      key: '?',
+      handler: () => setShowShortcutHelp(prev => !prev),
+      description: 'Toggle shortcuts help',
+      modifiers: ['shift'],
+    },
+  ]);
+
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
+      {/* Keyboard Shortcut Help Modal */}
+      {showShortcutHelp && (
+        <KeyboardShortcutHelp
+          shortcuts={pipelineShortcutDefs}
+          onClose={() => setShowShortcutHelp(false)}
+        />
+      )}
       {/* Upsell Banner */}
       <UpsellBanner creditsRemaining={creditsInfo?.remaining} />
 
@@ -1883,6 +2050,43 @@ export default function AdminPipelinePage() {
 
       {/* Pipeline Intelligence Header */}
       <PipelineSummaryBar videos={queueVideos} />
+
+      {/* Work Mode Switcher */}
+      <div className="mb-4">
+        <PipelineWorkModeSwitcher
+          value={workMode}
+          onChange={handleWorkModeChange}
+          counts={workModeCounts}
+        />
+        <div className="flex items-center gap-3 mt-1.5 ml-1">
+          {workMode !== 'all' && (
+            <p className="text-xs text-zinc-500">
+              {getWorkModeSummary(workMode, workModeCounts)}
+              {authUser?.role && authUser.role !== 'admin' && workMode === getRoleDefaults(authUser.role as UserRole).defaultWorkMode && (
+                <span className="ml-2 text-teal-500/70">Recommended for your role</span>
+              )}
+            </p>
+          )}
+          {workMode === 'record' && workModeCounts.record > 0 && (
+            <button
+              type="button"
+              onClick={() => setRecordingSessionOpen(true)}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-blue-500/10 text-blue-400 border border-blue-500/30 hover:bg-blue-500/20 transition-colors"
+            >
+              Start Recording Session &rarr;
+            </button>
+          )}
+          {workMode === 'edit' && workModeCounts.edit > 0 && (
+            <button
+              type="button"
+              onClick={() => setEditingSessionOpen(true)}
+              className="text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-colors"
+            >
+              Start Editing Sprint &rarr;
+            </button>
+          )}
+        </div>
+      </div>
 
       {/* Clean Header */}
       {/* Desktop Header - Hidden on mobile */}
@@ -2444,6 +2648,106 @@ export default function AdminPipelinePage() {
           <span style={{ fontSize: '13px', color: colors.text, fontWeight: 500 }}>
             {selectedVideoIds.size} selected
           </span>
+
+          {/* Mode-aware pack downloads */}
+          {(workMode === 'all' || workMode === 'record') && (
+            <button type="button"
+              onClick={() => bulkDownloadPack('recording')}
+              disabled={bulkActionLoading}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: bulkActionLoading ? 'not-allowed' : 'pointer',
+                opacity: bulkActionLoading ? 0.6 : 1,
+              }}
+            >
+              {selectedVideoIds.size > 1 ? 'Download Recording Packs (.zip)' : 'Download Recording Pack'}
+            </button>
+          )}
+          {(workMode === 'all' || workMode === 'edit') && (
+            <button type="button"
+              onClick={() => bulkDownloadPack('editing')}
+              disabled={bulkActionLoading}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#f59e0b',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: bulkActionLoading ? 'not-allowed' : 'pointer',
+                opacity: bulkActionLoading ? 0.6 : 1,
+              }}
+            >
+              {selectedVideoIds.size > 1 ? 'Download Editing Packs (.zip)' : 'Download Editing Pack'}
+            </button>
+          )}
+
+          {/* Mode-aware bulk status transitions */}
+          {workMode === 'record' && (
+            <button type="button"
+              onClick={() => bulkChangeStatus('RECORDED')}
+              disabled={bulkActionLoading}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: bulkActionLoading ? 'not-allowed' : 'pointer',
+                opacity: bulkActionLoading ? 0.6 : 1,
+              }}
+            >
+              Mark Recorded
+            </button>
+          )}
+          {workMode === 'edit' && (
+            <button type="button"
+              onClick={() => bulkChangeStatus('READY_TO_POST')}
+              disabled={bulkActionLoading}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: bulkActionLoading ? 'not-allowed' : 'pointer',
+                opacity: bulkActionLoading ? 0.6 : 1,
+              }}
+            >
+              Mark Ready to Post
+            </button>
+          )}
+          {workMode === 'publish' && (
+            <button type="button"
+              onClick={() => bulkChangeStatus('POSTED')}
+              disabled={bulkActionLoading}
+              style={{
+                padding: '6px 12px',
+                backgroundColor: '#8b5cf6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '12px',
+                fontWeight: 500,
+                cursor: bulkActionLoading ? 'not-allowed' : 'pointer',
+                opacity: bulkActionLoading ? 0.6 : 1,
+              }}
+            >
+              Mark Posted
+            </button>
+          )}
+
           <button type="button"
             onClick={bulkMarkWinner}
             disabled={bulkActionLoading}
@@ -3097,7 +3401,7 @@ export default function AdminPipelinePage() {
       {/* Attach Script Modal */}
       {attachModalVideoId && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] p-4" onClick={closeAttachModal}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-[500px] w-full max-h-[80vh] overflow-auto shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 sm:p-6 max-w-[500px] w-full max-h-[80vh] overflow-auto shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-5">
               <h2 className="text-lg font-semibold text-white">Attach Script</h2>
               <button type="button" onClick={closeAttachModal} className="text-zinc-400 hover:text-zinc-200 text-2xl leading-none">&times;</button>
@@ -3309,7 +3613,7 @@ export default function AdminPipelinePage() {
       {/* Post Modal (READY_TO_POST -> POSTED) */}
       {postModalVideoId && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] p-4" onClick={closePostModal}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-[450px] w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 sm:p-6 max-w-[450px] w-full shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-5">
               <h2 className="text-lg font-semibold text-white">Mark as Posted</h2>
               <button type="button" onClick={closePostModal} className="text-zinc-400 hover:text-zinc-200 text-2xl leading-none">&times;</button>
@@ -3385,7 +3689,7 @@ export default function AdminPipelinePage() {
       {/* Handoff Modal */}
       {handoffModalVideoId && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[1000] p-4" onClick={closeHandoffModal}>
-          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-[450px] w-full shadow-2xl" onClick={e => e.stopPropagation()}>
+          <div className="bg-zinc-900 border border-zinc-700 rounded-xl p-4 sm:p-6 max-w-[450px] w-full shadow-2xl" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-5">
               <h2 className="text-lg font-semibold text-white">Handoff Video</h2>
               <button type="button" onClick={closeHandoffModal} className="text-zinc-400 hover:text-zinc-200 text-2xl leading-none">&times;</button>
@@ -3516,6 +3820,33 @@ export default function AdminPipelinePage() {
             setRecordingKitItem(null);
             setRecordingKitBrief(null);
           }}
+        />
+      )}
+
+      {/* Recording Session Overlay */}
+      {recordingSessionOpen && (
+        <RecordingSessionView
+          videos={filterVideosByWorkMode(getRoleFilteredVideos(), 'record') as SessionVideo[]}
+          onClose={() => setRecordingSessionOpen(false)}
+          onMarkRecorded={async (videoId) => {
+            await executeTransition(videoId, 'RECORDED');
+          }}
+          onRefresh={fetchQueueVideos}
+        />
+      )}
+
+      {/* Editing Session Overlay */}
+      {editingSessionOpen && (
+        <EditingSessionView
+          videos={filterVideosByWorkMode(getRoleFilteredVideos(), 'edit') as unknown as EditingSessionVideo[]}
+          onClose={() => setEditingSessionOpen(false)}
+          onMarkEdited={async (videoId) => {
+            await executeTransition(videoId, 'READY_TO_POST');
+          }}
+          onMarkReadyToPost={async (videoId) => {
+            await executeTransition(videoId, 'READY_TO_POST');
+          }}
+          onRefresh={fetchQueueVideos}
         />
       )}
 

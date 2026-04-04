@@ -14,8 +14,14 @@ CREATE TABLE IF NOT EXISTS product_performance (
 ALTER TABLE product_performance
   ADD CONSTRAINT fk_pp_product FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE CASCADE;
 
-ALTER TABLE product_performance
-  ADD CONSTRAINT fk_pp_top_post FOREIGN KEY (top_post_id) REFERENCES content_item_posts(id) ON DELETE SET NULL;
+-- FK to content_item_posts deferred: table created in 20260331300000_content_intelligence_layer.sql
+-- Added via 20260331300001_product_performance_fk.sql after the target table exists.
+DO $$ BEGIN
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'content_item_posts') THEN
+    ALTER TABLE product_performance
+      ADD CONSTRAINT fk_pp_top_post FOREIGN KEY (top_post_id) REFERENCES content_item_posts(id) ON DELETE SET NULL;
+  END IF;
+END $$;
 
 -- Index for dashboard queries
 CREATE INDEX IF NOT EXISTS idx_pp_workspace_engagement

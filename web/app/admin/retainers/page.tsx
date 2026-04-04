@@ -373,38 +373,60 @@ export default function RetainersPage() {
             </div>
           </div>
 
-          {/* PDF Upload */}
+          {/* Brief Upload (PDF or Image) */}
           <div>
-            <label className="block text-xs text-zinc-400 mb-1">Upload PDF (optional)</label>
+            <label className="block text-xs text-zinc-400 mb-1">Upload brief (optional)</label>
             <label className="block cursor-pointer">
               <input
                 type="file"
-                accept=".pdf"
+                accept=".pdf,.png,.jpg,.jpeg,.webp"
                 onChange={async (e) => {
                   const file = e.target.files?.[0];
                   if (!file) return;
-                  if (file.type !== 'application/pdf') {
-                    setBriefError('Please upload a PDF file');
-                    return;
-                  }
                   setPdfParsing(true);
                   setBriefError(null);
                   try {
-                    const formData = new FormData();
-                    formData.append('file', file);
-                    const res = await fetch('/api/admin/briefs/parse-pdf', {
-                      method: 'POST',
-                      credentials: 'include',
-                      body: formData,
-                    });
-                    const data = await res.json();
-                    if (!res.ok) throw new Error(data.error || 'PDF parsing failed');
-                    if (data.extraction.lowSignal) {
-                      setBriefError('PDF appears to be image-based or has very little extractable text.');
+                    if (file.type === 'application/pdf') {
+                      const formData = new FormData();
+                      formData.append('file', file);
+                      const res = await fetch('/api/admin/briefs/parse-pdf', {
+                        method: 'POST',
+                        credentials: 'include',
+                        body: formData,
+                      });
+                      const data = await res.json();
+                      if (!res.ok) throw new Error(data.error || 'PDF parsing failed');
+                      if (data.extraction.lowSignal) {
+                        setBriefError('PDF appears to be image-based or has very little extractable text.');
+                      }
+                      setBriefText(data.extraction.text);
+                    } else if (file.type.startsWith('image/')) {
+                      const reader = new FileReader();
+                      reader.onload = async (ev) => {
+                        const base64 = ev.target?.result as string;
+                        try {
+                          const res = await fetch('/api/briefs/analyze', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            credentials: 'include',
+                            body: JSON.stringify({ type: 'image', image: base64, extract_only: true }),
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.error || 'Image text extraction failed');
+                          setBriefText(data.extracted_text || '');
+                        } catch (err: unknown) {
+                          setBriefError(err instanceof Error ? err.message : 'Image extraction failed');
+                        } finally {
+                          setPdfParsing(false);
+                        }
+                      };
+                      reader.readAsDataURL(file);
+                      return; // setPdfParsing(false) handled in reader.onload
+                    } else {
+                      setBriefError('Please upload a PDF or image file (PNG, JPG, WebP)');
                     }
-                    setBriefText(data.extraction.text);
                   } catch (err: unknown) {
-                    setBriefError(err instanceof Error ? err.message : 'PDF parsing failed');
+                    setBriefError(err instanceof Error ? err.message : 'File parsing failed');
                   } finally {
                     setPdfParsing(false);
                     e.target.value = '';
@@ -416,12 +438,12 @@ export default function RetainersPage() {
                 {pdfParsing ? (
                   <div className="flex items-center justify-center gap-2 text-sm text-zinc-400">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Extracting text from PDF...
+                    Extracting text...
                   </div>
                 ) : (
                   <div className="flex items-center justify-center gap-2 text-sm text-zinc-400">
                     <Upload className="w-4 h-4" />
-                    Click to upload a PDF brief
+                    Click to upload a brief (PDF, PNG, JPG)
                   </div>
                 )}
               </div>

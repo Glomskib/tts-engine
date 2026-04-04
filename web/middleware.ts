@@ -69,8 +69,8 @@ export async function middleware(request: NextRequest) {
     const { data } = await supabase.auth.getUser()
     user = data.user
 
-    // Debug log for admin routes — server-side only, no tokens
-    if (path.startsWith('/admin/') || path.startsWith('/mission-control/')) {
+    // Protect /admin/* and /mission-control/* — require authentication server-side
+    if (path.startsWith('/admin/') || path.startsWith('/mission-control/') || path === '/admin') {
       const hasSbCookie = request.cookies.getAll().some((c) => c.name.startsWith('sb-'))
       console.log('[AUTH-MW]', {
         path,
@@ -81,6 +81,13 @@ export async function middleware(request: NextRequest) {
         isAdmin: isAdmin(user),
         hasCookie: hasSbCookie,
       })
+
+      // Block unauthenticated users — redirect to /login
+      if (!user) {
+        const loginUrl = new URL('/login', request.url)
+        loginUrl.searchParams.set('redirect', path)
+        return NextResponse.redirect(loginUrl)
+      }
     }
   }
 

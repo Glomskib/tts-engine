@@ -3,6 +3,7 @@ import { validateApiAccess } from '@/lib/auth/validateApiAccess';
 import { checkRateLimit, recordUsage } from '@/lib/transcribe-rate-limit';
 import { VOICE_TONES, resolvePersona } from '@/lib/transcriber-personas';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -24,6 +25,9 @@ interface PreviousRewrite {
  * saves it as a child script (parent_id → original).
  */
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 6 });
+  if (guard.error) return guard.error;
+
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
 

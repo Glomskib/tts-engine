@@ -521,7 +521,7 @@ export default function YouTubeTranscriberCore() {
           <div className="max-w-4xl">
             <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
               <h3 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide mb-4">
-                Transcribing {videos.length} video{videos.length > 1 ? 's' : ''}...
+                Analyzing {videos.length} video{videos.length > 1 ? 's' : ''}...
               </h3>
               <div className="space-y-3">
                 {videos.map((v, i) => (

@@ -4,6 +4,7 @@ import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
 import { validateApiAccess } from "@/lib/auth/validateApiAccess";
 import { auditLogAsync } from "@/lib/audit";
+import { planGate } from "@/lib/plan-gate";
 
 export const runtime = "nodejs";
 
@@ -111,6 +112,15 @@ export async function POST(request: Request) {
     return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
   }
   const userId = auth.userId;
+
+  // Enforce plan limit: count existing products for this user
+  // Use getApiAuthContext to get isAdmin flag (validateApiAccess doesn't expose it)
+  const authCtx = await getApiAuthContext(request);
+  const productLimitError = await planGate(userId, 'products', authCtx.isAdmin, {
+    table: 'products',
+    filterColumn: 'user_id',
+  });
+  if (productLimitError) return productLimitError;
 
   let body: unknown;
   try {

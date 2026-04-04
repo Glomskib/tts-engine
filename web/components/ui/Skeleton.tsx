@@ -180,14 +180,18 @@ export function SkeletonPage({ className = '' }: { className?: string }) {
   );
 }
 
-// Auth checking skeleton — replaces "Checking access..." text
-export function SkeletonAuthCheck({ className = '' }: { className?: string }) {
+// Auth checking skeleton — branded FlashFlow loader
+export function SkeletonAuthCheck({ className = '', message = 'Verifying access...' }: { className?: string; message?: string }) {
   return (
-    <div className={`flex items-center justify-center min-h-[60vh] ${className}`}>
-      <div className="flex items-center gap-3 text-zinc-500">
-        <div className="w-5 h-5 border-2 border-zinc-700 border-t-zinc-400 rounded-full animate-spin" />
-        <span className="text-sm">Verifying access...</span>
+    <div className={`flex flex-col items-center justify-center min-h-[60vh] gap-4 ${className}`}>
+      <div className="relative">
+        <div className="w-12 h-12 rounded-xl bg-zinc-900 border border-white/10 flex items-center justify-center animate-pulse">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.svg" alt="FlashFlow" width={28} height={28} className="opacity-80" />
+        </div>
+        <div className="absolute inset-0 rounded-xl border-2 border-teal-500/20 animate-ping" style={{ animationDuration: '2s' }} />
       </div>
+      <p className="text-sm text-zinc-400">{message}</p>
     </div>
   );
 }

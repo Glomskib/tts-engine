@@ -15,6 +15,9 @@ export async function GET(request: Request) {
     if (!authContext.user) {
       return createApiErrorResponse('UNAUTHORIZED', 'Unauthorized', 401, correlationId);
     }
+    if (!authContext.isAdmin) {
+      return createApiErrorResponse('FORBIDDEN', 'Admin access required', 403, correlationId);
+    }
 
     const now = new Date();
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();

@@ -1336,6 +1336,24 @@ export default function TikTokShopSettingsPage() {
       {/* Content Posting Section */}
       <ContentPostingSection />
 
+      {/* Draft Export Workflow */}
+      <AdminCard title="Draft Export Workflow" subtitle="How to send videos to TikTok">
+        <div className="space-y-3 text-sm">
+          <div className="bg-zinc-800/40 rounded-lg p-3 text-xs text-zinc-400 space-y-1.5">
+            <p className="font-medium text-zinc-300">How it works:</p>
+            <ol className="list-decimal ml-4 space-y-1">
+              <li>Connect your TikTok account above (Content Posting)</li>
+              <li>Open a content item with a rendered video</li>
+              <li>Click &quot;Send to TikTok Draft&quot; to send the video to your TikTok inbox</li>
+              <li>Open TikTok, attach the product if needed, review, and publish</li>
+            </ol>
+          </div>
+          <p className="text-xs text-zinc-500">
+            The draft export button appears on content item detail pages and the posting page once you have an active Content Posting connection and a rendered video.
+          </p>
+        </div>
+      </AdminCard>
+
       {/* Data Controls */}
       <AdminCard title="TikTok Data Controls" subtitle="What we store and how to manage it">
         <div className="space-y-6">

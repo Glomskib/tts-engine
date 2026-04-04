@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import AdminPageLayout, { AdminCard, AdminButton, EmptyState, StatCard } from '../components/AdminPageLayout';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 interface Hook {
   id: number;
@@ -158,21 +159,9 @@ export default function AdminHookBankPage() {
     }
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <p className="text-zinc-500">Checking access...</p>
-      </div>
-    );
-  }
+  if (authLoading) return <SkeletonAuthCheck />;
 
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-[#09090b] flex items-center justify-center">
-        <p className="text-zinc-500">Redirecting...</p>
-      </div>
-    );
-  }
+  if (!isAdmin) return <SkeletonAuthCheck message="Redirecting..." />;
 
   const categoryCounts = hooks.reduce<Record<string, number>>((acc, h) => {
     acc[h.category] = (acc[h.category] || 0) + 1;

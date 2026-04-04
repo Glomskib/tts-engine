@@ -121,6 +121,67 @@ export default function TermsPage() {
           </p>
         </section>
 
+        {/* 5b */}
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-3">5b. Platform Integrations &amp; Third-Party Services</h2>
+          <p className="leading-relaxed">
+            FlashFlow integrates with third-party platforms including TikTok, TikTok Shop, and others
+            to provide workflow features such as draft export, transcription, and analytics.
+          </p>
+          <ul className="list-disc list-inside space-y-1.5 mt-3">
+            <li>
+              <strong>Independence:</strong> FlashFlow is an independent software platform.
+              We are not affiliated with, endorsed by, or sponsored by TikTok, ByteDance, or any
+              other third-party platform unless explicitly stated.
+            </li>
+            <li>
+              <strong>Platform compliance:</strong> You are responsible for complying with the
+              terms, policies, and guidelines of any third-party platform you use in connection
+              with the Service, including advertising disclosure rules, content policies, and
+              community guidelines.
+            </li>
+            <li>
+              <strong>Draft export:</strong> Where FlashFlow supports exporting content as drafts
+              to third-party platforms, you are responsible for reviewing, finalizing, and
+              publishing all content. FlashFlow does not post content on your behalf without your
+              explicit action.
+            </li>
+            <li>
+              <strong>Availability:</strong> Third-party integrations depend on the continued
+              availability of external APIs and services. We cannot guarantee uninterrupted access
+              to features that rely on third-party platforms.
+            </li>
+          </ul>
+        </section>
+
+        {/* 5c */}
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-3">5c. No Guarantee of Results</h2>
+          <p className="leading-relaxed">
+            FlashFlow provides content creation, research, and workflow tools. We do not guarantee
+            any specific business outcomes, including but not limited to views, engagement,
+            sales, commissions, or revenue. Performance varies by niche, content quality, audience,
+            offer, and platform conditions. Any earnings examples, projections, or calculators
+            on the Service are for illustrative purposes only and are not promises of results.
+          </p>
+        </section>
+
+        {/* 5d */}
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-3">5d. User Responsibilities</h2>
+          <p className="leading-relaxed">
+            FlashFlow is workflow software and operational infrastructure. It is not a substitute
+            for legal, tax, advertising compliance, or regulatory advice. You are solely responsible for:
+          </p>
+          <ul className="list-disc list-inside space-y-1.5 mt-3">
+            <li>Reviewing all AI-assisted content before publishing</li>
+            <li>Ensuring compliance with FTC disclosure requirements and applicable advertising laws</li>
+            <li>Complying with brand agreements, platform policies, and community guidelines</li>
+            <li>Verifying the accuracy and appropriateness of all generated content</li>
+            <li>Attaching required product links, disclosures, or disclaimers to published content</li>
+          </ul>
+        </section>
+
         {/* 6 */}
         <section>
           <h2 className="text-2xl font-bold text-white mb-3">6. Free Tier</h2>

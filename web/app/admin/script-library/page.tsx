@@ -58,6 +58,7 @@ interface SavedSkit {
   id: string;
   title: string;
   status: "draft" | "approved" | "produced" | "posted" | "archived";
+  product_id: string | null;
   product_name: string | null;
   product_brand: string | null;
   user_rating: number | null;
@@ -471,26 +472,38 @@ export default function SkitLibraryPage() {
           const skit = skits.find(s => s.id === skitId);
           if (skit && !skit.video_id) {
             try {
-              const videoRes = await fetch('/api/videos/create-from-script', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  script_id: skitId,
-                  title: skit.title,
-                  product_name: skit.product_name,
-                  product_brand: skit.product_brand,
-                  hook_line: skit.skit_data?.hook_line,
-                }),
-              });
-              const videoData = await videoRes.json();
+              let videoData: { ok: boolean; data?: { id?: string; video_id?: string }; duplicate?: boolean; error?: string };
+              if (skit.product_id) {
+                // Product-based: use send-to-video for full pipeline (script building, Runway, etc.)
+                const videoRes = await fetch(`/api/skits/${skitId}/send-to-video`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ priority: 'normal' }),
+                });
+                videoData = await videoRes.json();
+              } else {
+                // Manual product: use lightweight create-from-script
+                const videoRes = await fetch('/api/videos/create-from-script', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    script_id: skitId,
+                    title: skit.title,
+                    product_name: skit.product_name,
+                    product_brand: skit.product_brand,
+                    hook_line: skit.skit_data?.hook_line,
+                  }),
+                });
+                videoData = await videoRes.json();
+              }
               if (videoData.ok) {
-                // Update local state with video_id
+                const videoId = videoData.data?.video_id || videoData.data?.id;
                 setSkits(prev => prev.map(s =>
-                  s.id === skitId ? { ...s, video_id: videoData.data.id } : s
+                  s.id === skitId ? { ...s, video_id: videoId } : s
                 ));
                 setToast({ message: "Script approved and added to pipeline!", type: "success" });
               } else {
-                setToast({ message: "Script approved but failed to add to pipeline", type: "error" });
+                setToast({ message: `Script approved but pipeline failed: ${videoData.error || 'Unknown error'}`, type: "error" });
               }
             } catch {
               setToast({ message: "Script approved but failed to add to pipeline", type: "error" });
@@ -691,33 +704,45 @@ export default function SkitLibraryPage() {
     }
   };
 
-  // Add script directly to pipeline via /api/videos/create-from-script
+  // Add script directly to pipeline
   const handleAddToPipeline = async (skitId: string) => {
     const skit = skits.find(s => s.id === skitId);
     if (!skit || skit.video_id) return;
 
     setSendingToPipelineId(skitId);
     try {
-      const res = await fetch('/api/videos/create-from-script', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          script_id: skitId,
-          title: skit.title,
-          product_name: skit.product_name,
-          product_brand: skit.product_brand,
-          hook_line: skit.skit_data?.hook_line,
-        }),
-      });
-      const data = await res.json();
+      let data: { ok: boolean; data?: { id?: string; video_id?: string }; duplicate?: boolean; error?: string; message?: string };
+      if (skit.product_id) {
+        // Product-based: use send-to-video for full pipeline flow
+        const res = await fetch(`/api/skits/${skitId}/send-to-video`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ priority: 'normal' }),
+        });
+        data = await res.json();
+      } else {
+        // Manual product: use create-from-script
+        const res = await fetch('/api/videos/create-from-script', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            script_id: skitId,
+            title: skit.title,
+            product_name: skit.product_name,
+            product_brand: skit.product_brand,
+            hook_line: skit.skit_data?.hook_line,
+          }),
+        });
+        data = await res.json();
+      }
       if (data.ok) {
-        // Optimistically update local state with video_id
+        const videoId = data.data?.video_id || data.data?.id;
         setSkits(prev => prev.map(s =>
-          s.id === skitId ? { ...s, video_id: data.data.id } : s
+          s.id === skitId ? { ...s, video_id: videoId } : s
         ));
         showSuccess(data.duplicate ? 'Video already in pipeline' : 'Added to pipeline!');
       } else {
-        showError(data.error || 'Failed to add to pipeline');
+        showError(data.error || data.message || 'Failed to add to pipeline');
       }
     } catch {
       showError('Failed to add to pipeline');
@@ -983,14 +1008,14 @@ export default function SkitLibraryPage() {
           Admin
         </Link>
         <span style={{ color: colors.textMuted, margin: "0 8px" }}>/</span>
-        <span style={{ color: colors.text, fontWeight: 500 }}>Script Library</span>
+        <span style={{ color: colors.text, fontWeight: 500 }}>Saved Scripts</span>
       </nav>
 
       {/* Header */}
       <div style={{ marginBottom: "24px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "12px" }}>
         <div>
           <h1 style={{ fontSize: "24px", fontWeight: 600, color: colors.text, margin: 0 }}>
-            Script Library
+            Saved Scripts
             {!loading && (
               <span style={{ fontSize: "16px", fontWeight: 400, color: colors.textMuted, marginLeft: "8px" }}>
                 ({totalCount} script{totalCount !== 1 ? "s" : ""})
@@ -998,7 +1023,7 @@ export default function SkitLibraryPage() {
             )}
           </h1>
           <p style={{ fontSize: "14px", color: colors.textMuted, marginTop: "4px" }}>
-            Browse, manage, and reuse your saved scripts
+            Your saved scripts — browse, reuse, or turn into videos
           </p>
         </div>
         {/* Quick Nav Links */}
@@ -1573,14 +1598,14 @@ export default function SkitLibraryPage() {
           <div style={{ ...cardStyle, padding: "48px 24px", textAlign: "center" }}>
             <div style={{ fontSize: "32px", marginBottom: "12px" }}>📝</div>
             <h3 style={{ fontSize: "18px", fontWeight: 600, color: colors.text, marginBottom: "8px" }}>
-              Your Script Library
+              Your Saved Scripts
             </h3>
             <p style={{ fontSize: "14px", color: colors.textMuted, marginBottom: "24px", maxWidth: "380px", margin: "0 auto 24px" }}>
-              Every script you generate or save lands here. Rate them, track which ones get filmed, and reuse your best performers.
+              Every script you write or save shows up here. Rate them, track which ones get filmed, and reuse your best performers.
             </p>
             <div style={{ display: "flex", gap: "12px", justifyContent: "center", flexWrap: "wrap" }}>
               <Link href="/admin/content-studio" style={primaryButtonStyle}>
-                Generate a Script
+                Write a Script
               </Link>
               <Link
                 href="/admin/transcribe"

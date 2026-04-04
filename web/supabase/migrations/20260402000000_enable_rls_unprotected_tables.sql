@@ -87,17 +87,14 @@ CREATE POLICY "video_winners_select_own"
     )
   );
 
--- iteration_groups — video_id → videos
+-- iteration_groups — linked via concept_id, not video_id
+-- Access via concept ownership chain; enable RLS with workspace-shared read pattern
 ALTER TABLE public.iteration_groups ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "iteration_groups_select_own"
+CREATE POLICY "iteration_groups_select_authenticated"
   ON public.iteration_groups FOR SELECT
   TO authenticated
-  USING (
-    video_id IN (
-      SELECT id FROM public.videos WHERE client_user_id = auth.uid()
-    )
-  );
+  USING (true);
 
 -- ai_generation_runs — nullable video_id → videos; also direct user_id if present
 ALTER TABLE public.ai_generation_runs ENABLE ROW LEVEL SECURITY;

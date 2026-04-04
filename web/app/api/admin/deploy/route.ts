@@ -17,8 +17,9 @@ export async function POST(request: Request) {
     if (!auth.user) {
       return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });
     }
-
-    // For now, any authenticated user can trigger (admin layout already gates access)
+    if (!auth.isAdmin) {
+      return NextResponse.json({ ok: false, error: 'Admin access required' }, { status: 403 });
+    }
     const deployHook = process.env.VERCEL_DEPLOY_HOOK;
     if (deployHook) {
       // If a deploy hook is configured, trigger it

@@ -129,8 +129,8 @@ export default function PerformanceDashboard() {
       <AdminPageLayout title="Performance">
         <EmptyState
           icon={<BarChart3 size={24} />}
-          title="No data available"
-          description="Start posting content and adding metrics to see your performance dashboard."
+          title="No performance data yet"
+          description="This dashboard populates automatically as you post content and track metrics. To get started: create content items, post them to social platforms, and metrics will sync from connected accounts."
         />
       </AdminPageLayout>
     );

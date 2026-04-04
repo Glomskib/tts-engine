@@ -27,6 +27,7 @@ import {
   Languages,
 } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
+import VibeAnalysisCard from './VibeAnalysisCard';
 
 // ============================================================================
 // Types
@@ -130,7 +131,7 @@ const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
     name: 'TikTok',
     placeholder: 'https://www.tiktok.com/@user/video/...',
     heroTitle: 'Free TikTok Video',
-    heroDescription: 'Paste any TikTok URL \u2014 get the full transcript, hook analysis, and content breakdown in seconds.',
+    heroDescription: 'Paste any TikTok URL — break down why it works, analyze the hook, and build your own version.',
     socialProof: 'Works with any public TikTok video. No watermarks, no downloads, no tracking.',
     howItWorksStep1: 'Copy any public TikTok video link and paste it above.',
     productSearchUrl: (q: string) => `https://www.tiktok.com/shop/search?q=${encodeURIComponent(q)}`,
@@ -141,7 +142,7 @@ const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
     name: 'YouTube',
     placeholder: 'https://www.youtube.com/watch?v=...',
     heroTitle: 'Free YouTube Video',
-    heroDescription: 'Paste any YouTube URL \u2014 get the full transcript, hook analysis, and content breakdown in seconds.',
+    heroDescription: 'Paste any YouTube URL — break down why it works, analyze the hook, and build your own version.',
     socialProof: 'Works with any public YouTube video. Captions extracted instantly, Whisper fallback for accuracy.',
     howItWorksStep1: 'Copy any public YouTube video link and paste it above.',
     productSearchUrl: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
@@ -395,6 +396,17 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
       updateRateLimits(res);
       setResult(data);
 
+      // Dispatch event for workspace panels to pick up transcript context
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(new CustomEvent('transcriber:result', {
+          detail: {
+            transcript: data.transcript,
+            analysis: data.analysis,
+            sourceUrl: url.trim(),
+          },
+        }));
+      }
+
       // Smart default: if transcript is not English, default translate target to English
       if (data.language && data.language !== 'en') {
         setSelectedLanguage('english');
@@ -543,7 +555,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
           setRateLimitRemaining(0);
           return;
         }
-        setRecsError(data.error || 'Failed to generate recommendations.');
+        setRecsError(data.error || 'Recommendations failed — try again');
         return;
       }
 
@@ -763,12 +775,12 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
 
           <h1 className={`font-bold text-white mb-4 leading-tight ${isPortal ? 'text-2xl sm:text-3xl' : 'text-4xl sm:text-5xl'}`}>
             {isPortal ? (
-              'Transcriber'
+              'Video Breakdown'
             ) : (
               <>
                 {config.heroTitle}{' '}
                 <span className="bg-gradient-to-r from-teal-400 to-violet-400 bg-clip-text text-transparent">
-                  Transcriber
+                  Breakdown
                 </span>
               </>
             )}
@@ -800,12 +812,12 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                 {loading ? (
                   <>
                     <Loader2 size={18} className="animate-spin" />
-                    Transcribing...
+                    Analyzing...
                   </>
                 ) : (
                   <>
                     <MessageSquareText size={18} />
-                    Transcribe
+                    Break Down Video
                   </>
                 )}
               </button>
@@ -877,7 +889,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <MessageSquareText size={18} className="text-teal-400" />
-                  Full Transcript
+                  Transcript
                 </h2>
                 <CopyButton
                   text={result.transcript}
@@ -970,7 +982,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                   <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
                       <Sparkles size={18} className="text-violet-400" />
-                      Content Breakdown
+                      Format Breakdown
                     </h3>
                     <div className="space-y-4">
                       <div>
@@ -1028,7 +1040,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                   <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
                     <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
                       <Sparkles size={18} className="text-green-400" />
-                      What Works
+                      Why This Works
                     </h3>
                     {result.analysis.targetEmotion && (
                       <div className="mb-4">
@@ -1080,6 +1092,21 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             )}
 
             {/* ================================================================ */}
+            {/* Video Vibe Analysis */}
+            {/* ================================================================ */}
+            {result && result.segments && result.segments.length > 0 && (
+              <VibeAnalysisCard
+                transcript={result.transcript}
+                segments={result.segments}
+                duration={result.duration}
+                analysis={result.analysis as Record<string, unknown> | null}
+                onGenerateInStyle={(vibe) => {
+                  window.dispatchEvent(new CustomEvent('transcriber:generate-in-style', { detail: vibe }));
+                }}
+              />
+            )}
+
+            {/* ================================================================ */}
             {/* AI Recommendations Section */}
             {/* ================================================================ */}
             <div className="bg-zinc-900/50 border border-white/10 rounded-xl overflow-hidden">
@@ -1092,8 +1119,8 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                     <Lightbulb size={20} className="text-amber-400" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-white">AI Recommendations</h3>
-                    <p className="text-sm text-zinc-400">Script concepts, alternative hooks, product categories</p>
+                    <h3 className="text-lg font-semibold text-white">Build From This Video</h3>
+                    <p className="text-sm text-zinc-400">Script angles, alternative hooks, product ideas</p>
                   </div>
                 </div>
                 {recsOpen ? <ChevronUp size={20} className="text-zinc-400" /> : <ChevronDown size={20} className="text-zinc-400" />}
@@ -1110,10 +1137,10 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                             className="inline-flex items-center gap-2 px-6 py-3 bg-zinc-800 text-zinc-500 font-semibold rounded-xl cursor-not-allowed"
                           >
                             <Lock size={16} />
-                            Get AI Recommendations
+                            Get Script Ideas
                           </button>
                           <p className="text-sm text-zinc-500">
-                            Upgrade for unlimited AI recommendations.{' '}
+                            Upgrade for unlimited script ideas.{' '}
                             <span className="text-amber-400 font-medium">Use code TRANSCRIBE20</span>
                           </p>
                         </div>
@@ -1149,7 +1176,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       {/* Script Concepts */}
                       {recommendations.script_concepts?.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide mb-3">Script Concepts</h4>
+                          <h4 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide mb-3">Script Angles</h4>
                           <div className="space-y-3">
                             {recommendations.script_concepts.map((concept, i) => (
                               <div key={i} className="bg-zinc-800/50 border border-white/5 rounded-lg p-4">
@@ -1303,7 +1330,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       {/* Product Categories */}
                       {recommendations.product_categories?.length > 0 && (
                         <div>
-                          <h4 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide mb-3">Product Categories</h4>
+                          <h4 className="text-sm font-semibold text-zinc-300 uppercase tracking-wide mb-3">Products That Fit This Format</h4>
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                             {recommendations.product_categories.map((cat, i) => (
                               <div key={i} className="bg-zinc-800/50 border border-white/5 rounded-lg p-3">
@@ -1351,7 +1378,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                   </div>
                   <div>
                     <h3 className="text-lg font-semibold text-white">Translate</h3>
-                    <p className="text-sm text-zinc-400">AI-powered translation to or from any language</p>
+                    <p className="text-sm text-zinc-400">Translate the transcript to or from any language</p>
                   </div>
                 </div>
                 {translateOpen ? <ChevronUp size={20} className="text-zinc-400" /> : <ChevronDown size={20} className="text-zinc-400" />}
@@ -1830,7 +1857,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       className="inline-flex items-center gap-2 px-6 py-3 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-400 font-semibold rounded-xl transition-all"
                     >
                       <FileText size={18} />
-                      Generate Script From This
+                      Write Script From This
                     </button>
                     {winnerError && (
                       <p className="text-red-400 text-sm w-full text-center">{winnerError}</p>

@@ -23,7 +23,8 @@ export type EventsLogEntityType =
   | "system"
   | "invite"
   | "ingestion_job"
-  | "enrichment_worker";
+  | "enrichment_worker"
+  | "remix";
 
 /**
  * Arguments for logging an event to events_log.

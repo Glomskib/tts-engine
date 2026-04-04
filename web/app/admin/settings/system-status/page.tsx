@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Activity, RefreshCw, CheckCircle, AlertTriangle, XCircle,
   Clock, Database, Wifi, Video, Send, Film, Music, Scissors,
-  Users, CreditCard, Timer, AlertCircle,
+  Users, CreditCard, Timer, AlertCircle, Zap, HardDrive,
 } from 'lucide-react';
 import { SkeletonStats, SkeletonCard } from '@/components/ui/Skeleton';
 import { StatChip } from '@/components/ui/StatChip';
@@ -37,13 +37,70 @@ interface CronJob {
   description: string;
 }
 
+type Severity = 'healthy' | 'degraded' | 'critical' | 'unknown';
+
+interface WorkflowCheck {
+  name: string;
+  severity: Severity;
+  message: string;
+  details?: Record<string, unknown>;
+}
+
+interface CronFreshness {
+  job: string;
+  label: string;
+  lastRunAt: string | null;
+  lastStatus: string | null;
+  lastError: string | null;
+  recentFailures: number;
+  severity: Severity;
+  message: string;
+}
+
+interface JobQueueHealth {
+  pending: number;
+  running: number;
+  failed24h: number;
+  oldestPendingAge: string | null;
+  severity: Severity;
+  message: string;
+}
+
+interface WorkflowHealthReport {
+  overallSeverity: Severity;
+  workflows: WorkflowCheck[];
+  cronFreshness: CronFreshness[];
+  jobQueue: JobQueueHealth;
+  warnings: string[];
+}
+
+interface MetricsSystemHealth {
+  providers: Record<string, { enabled: boolean; platform?: string; description?: string; reason?: string }>;
+  lastSnapshot: string | null;
+  totalSnapshots: number;
+  postsWithMetrics: number;
+  postsWithoutMetrics: number;
+}
+
+interface EnvBootStatus {
+  env_ok: boolean;
+  required_present: number;
+  required_total: number;
+  optional_present: number;
+  optional_total: number;
+  integrations: { system: string; configured: boolean; missing: string[] }[];
+}
+
 interface SystemStatusData {
   ok: boolean;
   status: 'healthy' | 'degraded' | 'unhealthy';
+  envBoot?: EnvBootStatus;
   services: ServiceCheck[];
   pipeline: PipelineHealth;
   usage: UsageStats;
   cronJobs: CronJob[];
+  metricsSystem?: MetricsSystemHealth;
+  workflowHealth?: WorkflowHealthReport;
   totalLatency: number;
   timestamp: string;
 }
@@ -230,6 +287,52 @@ export default function SystemStatusPage() {
             </div>
           </div>
 
+          {/* Env Boot Status */}
+          {data.envBoot && (
+            <>
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                Environment Config
+                <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full uppercase tracking-wider ${
+                  data.envBoot.env_ok ? 'bg-green-500/15 text-green-400' : 'bg-red-500/15 text-red-400'
+                }`}>
+                  {data.envBoot.env_ok ? 'OK' : 'MISSING'}
+                </span>
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                <div className="p-3 rounded-xl border border-white/10 bg-zinc-900/50">
+                  <p className="text-xs text-zinc-500 mb-1">Required Env</p>
+                  <p className={`text-lg font-bold ${data.envBoot.required_present === data.envBoot.required_total ? 'text-green-400' : 'text-red-400'}`}>
+                    {data.envBoot.required_present}/{data.envBoot.required_total}
+                  </p>
+                </div>
+                <div className="p-3 rounded-xl border border-white/10 bg-zinc-900/50">
+                  <p className="text-xs text-zinc-500 mb-1">Optional Env</p>
+                  <p className="text-lg font-bold text-zinc-200">
+                    {data.envBoot.optional_present}/{data.envBoot.optional_total}
+                  </p>
+                </div>
+              </div>
+              {data.envBoot.integrations.some(i => !i.configured) && (
+                <div className="rounded-xl border border-amber-500/20 bg-amber-500/5 p-4 mb-4">
+                  <h3 className="text-sm font-semibold text-amber-400 mb-2">Unconfigured Integrations</h3>
+                  <div className="space-y-1">
+                    {data.envBoot.integrations
+                      .filter(i => !i.configured)
+                      .map(i => (
+                        <div key={i.system} className="flex items-start gap-2 text-xs">
+                          <AlertTriangle className="w-3 h-3 text-amber-400 mt-0.5 flex-shrink-0" />
+                          <span className="text-zinc-300">
+                            <strong>{i.system}</strong>
+                            <span className="text-zinc-500 ml-1">— missing: {i.missing.join(', ')}</span>
+                          </span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
           {/* Services Grid */}
           <h2 className="text-lg font-semibold text-white mb-4">Services</h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
@@ -315,6 +418,137 @@ export default function SystemStatusPage() {
             />
           </div>
 
+          {/* Workflow Health */}
+          {data.workflowHealth && (
+            <>
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Zap className="w-5 h-5" /> Workflow Health
+                <SeverityPill severity={data.workflowHealth.overallSeverity} />
+              </h2>
+
+              {/* Workflow Checks */}
+              {data.workflowHealth.workflows.length > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                  {data.workflowHealth.workflows.map((wf) => (
+                    <div key={wf.name} className={`p-3 rounded-xl border ${getSeverityColor(wf.severity)}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium text-zinc-200">{wf.name}</span>
+                        <SeverityPill severity={wf.severity} />
+                      </div>
+                      <p className="text-xs text-zinc-400">{wf.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Job Queue */}
+              <div className={`p-4 rounded-xl border mb-4 ${getSeverityColor(data.workflowHealth.jobQueue.severity)}`}>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-semibold text-zinc-200 flex items-center gap-2">
+                    <HardDrive className="w-4 h-4" /> Job Queue
+                  </span>
+                  <SeverityPill severity={data.workflowHealth.jobQueue.severity} />
+                </div>
+                <p className="text-xs text-zinc-400">{data.workflowHealth.jobQueue.message}</p>
+                <div className="flex gap-4 mt-2 text-xs text-zinc-500">
+                  <span>{data.workflowHealth.jobQueue.pending} pending</span>
+                  <span>{data.workflowHealth.jobQueue.running} running</span>
+                  <span>{data.workflowHealth.jobQueue.failed24h} failed (24h)</span>
+                </div>
+              </div>
+
+              {/* Cron Freshness */}
+              {data.workflowHealth.cronFreshness.length > 0 && (
+                <div className="rounded-xl border border-white/10 bg-zinc-900/50 overflow-hidden mb-4">
+                  <div className="px-4 py-3 border-b border-white/10">
+                    <h3 className="text-sm font-semibold text-zinc-300">Cron Freshness</h3>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b border-white/10">
+                          <th className="px-4 py-2 text-left text-zinc-400 font-medium text-xs">Cron</th>
+                          <th className="px-4 py-2 text-left text-zinc-400 font-medium text-xs">Status</th>
+                          <th className="px-4 py-2 text-left text-zinc-400 font-medium text-xs">Last Run</th>
+                          <th className="px-4 py-2 text-left text-zinc-400 font-medium text-xs">Failures (24h)</th>
+                          <th className="px-4 py-2 text-left text-zinc-400 font-medium text-xs">Message</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.workflowHealth.cronFreshness.map((cf) => (
+                          <tr key={cf.job} className="border-b border-white/5 last:border-0">
+                            <td className="px-4 py-2 text-zinc-200 text-xs font-medium">{cf.label}</td>
+                            <td className="px-4 py-2"><SeverityPill severity={cf.severity} /></td>
+                            <td className="px-4 py-2 text-zinc-400 text-xs">
+                              {cf.lastRunAt ? new Date(cf.lastRunAt).toLocaleString() : '—'}
+                            </td>
+                            <td className="px-4 py-2 text-zinc-400 text-xs">
+                              <span className={cf.recentFailures > 0 ? 'text-red-400' : ''}>{cf.recentFailures}</span>
+                            </td>
+                            <td className="px-4 py-2 text-zinc-400 text-xs">{cf.message}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Warnings */}
+              {data.workflowHealth.warnings.length > 0 && (
+                <div className="mb-4 space-y-1">
+                  {data.workflowHealth.warnings.map((w, i) => (
+                    <div key={i} className="text-xs text-amber-400 flex items-center gap-2">
+                      <AlertTriangle className="w-3 h-3 flex-shrink-0" /> {w}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Metrics System */}
+          {data.metricsSystem && (
+            <>
+              <h2 className="text-lg font-semibold text-white mb-4">Metrics System</h2>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+                <div className="p-3 rounded-xl border border-white/10 bg-zinc-900/50">
+                  <p className="text-xs text-zinc-500 mb-1">Total Snapshots</p>
+                  <p className="text-lg font-bold text-zinc-200">{data.metricsSystem.totalSnapshots}</p>
+                </div>
+                <div className="p-3 rounded-xl border border-white/10 bg-zinc-900/50">
+                  <p className="text-xs text-zinc-500 mb-1">Posts with Metrics</p>
+                  <p className="text-lg font-bold text-zinc-200">{data.metricsSystem.postsWithMetrics}</p>
+                </div>
+                <div className="p-3 rounded-xl border border-white/10 bg-zinc-900/50">
+                  <p className="text-xs text-zinc-500 mb-1">Posts without Metrics</p>
+                  <p className="text-lg font-bold text-zinc-200">{data.metricsSystem.postsWithoutMetrics}</p>
+                </div>
+              </div>
+              <div className="rounded-xl border border-white/10 bg-zinc-900/50 p-4 mb-8">
+                <h3 className="text-sm font-semibold text-zinc-300 mb-3">Providers</h3>
+                <div className="space-y-2">
+                  {Object.entries(data.metricsSystem.providers).map(([key, prov]) => (
+                    <div key={key} className="flex items-center gap-3 text-xs">
+                      <span className={`w-2 h-2 rounded-full flex-shrink-0 ${prov.enabled ? 'bg-green-400' : 'bg-zinc-600'}`} />
+                      <span className="text-zinc-300 font-mono">{key}</span>
+                      <span className="text-zinc-500">
+                        {prov.enabled
+                          ? prov.description || `Enabled (${prov.platform})`
+                          : prov.reason || 'Disabled'}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                {data.metricsSystem.lastSnapshot && (
+                  <p className="text-xs text-zinc-500 mt-3">
+                    Last snapshot: {new Date(data.metricsSystem.lastSnapshot).toLocaleString()}
+                  </p>
+                )}
+              </div>
+            </>
+          )}
+
           {/* Cron Jobs */}
           <h2 className="text-lg font-semibold text-white mb-4">Cron Jobs</h2>
           <div className="rounded-xl border border-white/10 bg-zinc-900/50 overflow-hidden">
@@ -342,6 +576,29 @@ export default function SystemStatusPage() {
         </>
       )}
     </div>
+  );
+}
+
+function getSeverityColor(severity: Severity): string {
+  switch (severity) {
+    case 'healthy': return 'bg-green-500/10 border-green-500/20';
+    case 'degraded': return 'bg-amber-500/10 border-amber-500/20';
+    case 'critical': return 'bg-red-500/10 border-red-500/20';
+    default: return 'bg-zinc-900/50 border-white/10';
+  }
+}
+
+function SeverityPill({ severity }: { severity: Severity }) {
+  const styles: Record<Severity, string> = {
+    healthy: 'bg-green-500/15 text-green-400',
+    degraded: 'bg-amber-500/15 text-amber-400',
+    critical: 'bg-red-500/15 text-red-400',
+    unknown: 'bg-zinc-500/15 text-zinc-400',
+  };
+  return (
+    <span className={`px-2 py-0.5 text-[10px] font-semibold rounded-full uppercase tracking-wider ${styles[severity]}`}>
+      {severity}
+    </span>
   );
 }
 

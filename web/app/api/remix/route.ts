@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -28,6 +29,9 @@ const REMIX_PROMPTS: Record<string, string> = {
  * Generate a remixed version of a script/winner/competitor content
  */
 export async function POST(request: NextRequest) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 6 });
+  if (guard.error) return guard.error;
+
   const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
   const authContext = await getApiAuthContext(request);
   if (!authContext.user) {

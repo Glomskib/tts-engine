@@ -210,6 +210,11 @@ export default function AffiliateCalculator() {
             </div>
           </div>
         </div>
+
+        {/* Disclaimer */}
+        <p className="text-xs text-zinc-600 text-center mt-4">
+          For illustration only. Actual earnings depend on your niche, content quality, audience, and platform conditions. FlashFlow does not guarantee any specific results.
+        </p>
       </div>
     </div>
   );

@@ -9,6 +9,7 @@ import { requirePlan } from "@/lib/plan-gate";
 import { CONTENT_TYPES } from "@/lib/content-types";
 import { generateUnifiedScript } from "@/lib/unified-script-generator";
 import { PERSONAS, SALES_APPROACHES } from "@/lib/script-expander";
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -97,6 +98,9 @@ function buildScriptBody(
 // Generate a prioritised content package for the authenticated user.
 // ---------------------------------------------------------------------------
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 4, userLimit: 2 });
+  if (guard.error) return guard.error;
+
   const correlationId =
     request.headers.get("x-correlation-id") || generateCorrelationId();
 

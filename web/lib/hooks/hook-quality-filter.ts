@@ -22,6 +22,7 @@ export interface QualityResult {
 // ── Banned phrases that signal generic, overused hooks ────────────
 
 const BANNED_PHRASES = [
+  // Original set
   'this changed everything',
   'you won\'t believe',
   'you won\'t believe what happened',
@@ -42,6 +43,45 @@ const BANNED_PHRASES = [
   'not sponsored',
   'hear me out',
   'ok but like',
+  // AI-speak / marketing
+  'transform your',
+  'revolutionize',
+  'elevate your',
+  'unlock the secret',
+  'discover the power',
+  'say goodbye to',
+  'say hello to',
+  'the secret to',
+  'the ultimate',
+  'next level',
+  'total game changer',
+  'absolute game changer',
+  'literally obsessed',
+  'low key obsessed',
+  'not gonna lie',
+  'i\'m not even kidding',
+  'i literally can\'t',
+  'this is the one',
+  'the one thing',
+  'if you know you know',
+  'iykyk',
+  // Generic filler
+  'let me tell you',
+  'i need to tell you',
+  'can we talk about',
+  'we need to talk about',
+  'nobody talks about',
+  'nobody is talking about this',
+  'stop what you\'re doing',
+  'drop everything',
+  'run don\'t walk',
+  'you\'re welcome',
+  'thank me later',
+  'best kept secret',
+  'industry secret',
+  'insider secret',
+  'little known',
+  'hidden gem',
 ];
 
 // ── Banned opening patterns (first few words) ────────────────────
@@ -55,6 +95,58 @@ const BANNED_OPENERS = [
   /^i just found/i,
   /^omg guys/i,
   /^you guys/i,
+  // Additional generic openers
+  /^let me show you/i,
+  /^i have to share/i,
+  /^can i be honest/i,
+  /^real talk/i,
+  /^storytime/i,
+  /^story time/i,
+  /^pov:/i,
+  /^attention[\s:!]/i,
+  /^breaking[\s:!]/i,
+  /^unpopular opinion/i,
+  /^hot take/i,
+  /^controversial opinion/i,
+];
+
+// ── Banned transitions / connectors ──────────────────────────────
+
+const BANNED_TRANSITIONS = [
+  'but here\'s the twist',
+  'but here\'s the thing',
+  'and here\'s why',
+  'and that\'s not all',
+  'but wait there\'s more',
+  'and the best part is',
+  'and the crazy part is',
+  'and the wild part is',
+  'fast forward to today',
+  'long story short',
+];
+
+// ── AI-style patterns (regex) ────────────────────────────────────
+// These detect hooks that are "too polished" or follow AI writing patterns
+
+const AI_STYLE_PATTERNS = [
+  // Symmetrical "X meets Y" or "X but make it Y" structure
+  /\bbut make it\b/i,
+  // "Imagine [X]. Now imagine [Y]." structure
+  /^imagine\b.*\.\s*now imagine\b/i,
+  // "What if I told you" matrix-speak
+  /what if i told you/i,
+  // Triple adjective stacking: "the quick, easy, and affordable"
+  /\bthe\s+\w+,\s+\w+,\s+and\s+\w+\b/i,
+  // "In a world where..." movie trailer speak
+  /^in a world where/i,
+  // Rhetorical question + immediate answer: "Tired of X? Meet Y."
+  /tired of .+\?\s*(meet|try|introducing|discover|say hello)/i,
+  // "Introducing the" product launch speak
+  /^introducing\s+the\b/i,
+  // "Here's why [number]" listicle opener
+  /^here'?s why \d/i,
+  // "The truth about" overused framing
+  /^the truth about\b/i,
 ];
 
 // ── Quality checks ──────────────────────────────────────────────
@@ -62,6 +154,9 @@ const BANNED_OPENERS = [
 function containsBannedPhrase(text: string): string | null {
   const lower = text.toLowerCase();
   for (const phrase of BANNED_PHRASES) {
+    if (lower.includes(phrase)) return phrase;
+  }
+  for (const phrase of BANNED_TRANSITIONS) {
     if (lower.includes(phrase)) return phrase;
   }
   return null;
@@ -74,26 +169,51 @@ function hasBannedOpener(verbalHook: string): string | null {
   return null;
 }
 
+function hasAIStylePattern(hook: HookData): string | null {
+  const allText = `${hook.visual_hook} ${hook.text_on_screen} ${hook.verbal_hook}`;
+  for (const pattern of AI_STYLE_PATTERNS) {
+    if (pattern.test(allText)) return pattern.source;
+  }
+  return null;
+}
+
 function isTooVague(hook: HookData): boolean {
-  // Visual hook should be specific (at least 8 words)
   const visualWords = hook.visual_hook.split(/\s+/).length;
   if (visualWords < 5) return true;
 
-  // Verbal hook should exist and be substantive
   const verbalWords = hook.verbal_hook.split(/\s+/).length;
   if (verbalWords < 4) return true;
+
+  // Visual hook should contain at least one concrete noun or action
+  // Flag purely abstract visuals
+  const abstractVisuals = /^(person|someone|user|creator|influencer)\s+(holds?|shows?|displays?|presents?|uses?)\s+(the\s+)?product/i;
+  if (abstractVisuals.test(hook.visual_hook.trim())) return true;
 
   return false;
 }
 
 function isTooLong(hook: HookData): boolean {
-  // Verbal hook should be deliverable in ~2 seconds (under 20 words)
   const verbalWords = hook.verbal_hook.split(/\s+/).length;
   if (verbalWords > 25) return true;
 
-  // Text on screen should be scannable (under 12 words)
   const textWords = hook.text_on_screen.split(/\s+/).length;
   if (textWords > 15) return true;
+
+  return false;
+}
+
+function isRepetitiveStructure(hook: HookData): boolean {
+  // Detect if verbal_hook and text_on_screen say essentially the same thing
+  const verbalLower = hook.verbal_hook.toLowerCase().replace(/[^a-z0-9\s]/g, '');
+  const textLower = hook.text_on_screen.toLowerCase().replace(/[^a-z0-9\s]/g, '');
+
+  // If text on screen is a substring of verbal hook or vice versa (80%+ overlap)
+  if (verbalLower.length > 10 && textLower.length > 10) {
+    const verbalWords = new Set(verbalLower.split(/\s+/));
+    const textWords = textLower.split(/\s+/);
+    const overlap = textWords.filter(w => verbalWords.has(w)).length;
+    if (overlap / textWords.length > 0.75) return true;
+  }
 
   return false;
 }
@@ -112,11 +232,18 @@ export function checkHookQuality(hook: HookData): QualityResult {
   const bannedOpener = hasBannedOpener(hook.verbal_hook);
   if (bannedOpener) return { pass: false, reason: `Starts with generic opener` };
 
+  // Check AI-style patterns
+  const aiPattern = hasAIStylePattern(hook);
+  if (aiPattern) return { pass: false, reason: `Matches AI-style pattern` };
+
   // Check vagueness
   if (isTooVague(hook)) return { pass: false, reason: 'Too vague — visual or verbal hook lacks specificity' };
 
   // Check length
   if (isTooLong(hook)) return { pass: false, reason: 'Too long — verbal or text won\'t land in under 2 seconds' };
+
+  // Check repetitive structure (text ≈ verbal)
+  if (isRepetitiveStructure(hook)) return { pass: false, reason: 'Text on screen repeats the verbal hook — should create independent tension' };
 
   return { pass: true };
 }
@@ -146,6 +273,20 @@ export function checkBatchDiversity(hooks: HookData[]): Map<number, string> {
       issues.set(i, `Duplicate category "${hooks[i].category}" with hook #${categories.get(hooks[i].category)! + 1}`);
     } else {
       categories.set(hooks[i].category, i);
+    }
+  }
+
+  // Check: no two text_on_screen should share 50%+ of their words
+  for (let i = 0; i < hooks.length; i++) {
+    if (issues.has(i)) continue;
+    const iWords = new Set(hooks[i].text_on_screen.toLowerCase().split(/\s+/));
+    for (let j = i + 1; j < hooks.length; j++) {
+      if (issues.has(j)) continue;
+      const jWords = hooks[j].text_on_screen.toLowerCase().split(/\s+/);
+      const overlap = jWords.filter(w => iWords.has(w)).length;
+      if (jWords.length > 3 && overlap / jWords.length > 0.5) {
+        issues.set(j, `Text on screen too similar to hook #${i + 1}`);
+      }
     }
   }
 

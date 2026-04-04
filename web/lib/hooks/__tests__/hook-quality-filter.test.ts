@@ -73,9 +73,9 @@ describe('checkHookQuality', () => {
 describe('checkBatchDiversity', () => {
   it('returns no issues for diverse hooks', () => {
     const hooks = [
-      makeHook({ verbal_hook: 'My roommate caught me at 3am doing this', category: 'curiosity_gap' }),
-      makeHook({ verbal_hook: 'Nobody talks about the real reason this works', category: 'contrarian' }),
-      makeHook({ verbal_hook: 'I threw mine in the trash yesterday morning', category: 'pattern_interrupt' }),
+      makeHook({ verbal_hook: 'My roommate caught me at 3am doing this', text_on_screen: 'I was mass producing 3,000 of these until...', category: 'curiosity_gap' }),
+      makeHook({ verbal_hook: 'The real reason nobody gets results from this ingredient', text_on_screen: 'Your dermatologist won\'t tell you this part', category: 'contrarian' }),
+      makeHook({ verbal_hook: 'I threw mine in the trash yesterday morning', text_on_screen: '47 days later and my skin cleared up completely', category: 'pattern_interrupt' }),
     ];
     const issues = checkBatchDiversity(hooks);
     expect(issues.size).toBe(0);
@@ -108,7 +108,8 @@ describe('filterHookBatch', () => {
       makeHook({ category: 'curiosity_gap' }),
       makeHook({ verbal_hook: 'This changed everything about my skin', category: 'pattern_interrupt' }),
       makeHook({
-        verbal_hook: 'Nobody ever talks about why this ingredient actually matters for skin',
+        verbal_hook: 'The ingredient your dermatologist keeps dodging questions about',
+        text_on_screen: '3 weeks. That\'s all it took.',
         category: 'contrarian',
       }),
     ];

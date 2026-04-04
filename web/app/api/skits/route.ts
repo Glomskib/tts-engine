@@ -17,15 +17,15 @@ const SkitBeatSchema = z.object({
 });
 
 const SkitDataSchema = z.object({
-  hook_line: z.string(),
+  hook_line: z.string().optional().default(''),
   visual_hook: z.string().optional(),
   text_on_screen_hook: z.string().optional(),
   verbal_hook: z.string().optional(),
-  beats: z.array(SkitBeatSchema),
-  b_roll: z.array(z.string()),
-  overlays: z.array(z.string()),
-  cta_line: z.string(),
-  cta_overlay: z.string(),
+  beats: z.array(SkitBeatSchema).optional().default([]),
+  b_roll: z.array(z.string()).optional().default([]),
+  overlays: z.array(z.string()).optional().default([]),
+  cta_line: z.string().optional().default(''),
+  cta_overlay: z.string().optional().default(''),
 }).passthrough();
 
 const GenerationConfigSchema = z.object({
@@ -44,7 +44,7 @@ const GenerationConfigSchema = z.object({
   presentation_style: z.string().optional(),
   target_length: z.string().optional(),
   humor_level: z.string().optional(),
-}).passthrough().optional();
+}).passthrough().nullable().optional();
 
 const AIScoreSchema = z.object({
   hook_strength: z.number().min(1).max(10),

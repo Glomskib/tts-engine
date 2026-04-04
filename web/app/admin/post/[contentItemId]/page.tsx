@@ -7,6 +7,7 @@ import { useToast } from '@/contexts/ToastContext';
 import type { ContentItem } from '@/lib/content-items/types';
 import DriveFolderButton from '@/components/DriveFolderButton';
 import ProductPicker from '@/components/ProductPicker';
+import TikTokDraftExport from '@/app/admin/components/TikTokDraftExport';
 
 function CopyBtn({ text, label }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -203,6 +204,14 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
             </a>
           </section>
         )}
+
+        {/* TikTok Draft Export */}
+        <TikTokDraftExport
+          contentItemId={contentItemId}
+          hasRenderedVideo={!!item.final_video_url}
+          initialStatus={(item as unknown as Record<string, unknown>).tiktok_draft_status as string | null}
+          initialError={(item as unknown as Record<string, unknown>).tiktok_draft_error as string | null}
+        />
 
         {/* Product */}
         {item.products?.name ? (

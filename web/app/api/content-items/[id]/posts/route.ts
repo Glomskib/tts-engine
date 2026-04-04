@@ -13,6 +13,7 @@ import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { z } from 'zod';
 import { POST_PLATFORMS } from '@/lib/content-items/types';
 import { inferPlatform, isValidPostUrl } from '@/lib/content-items/platform-inference';
+import { recordCommunitySignal } from '@/lib/opportunity-radar/community-signals';
 
 export const runtime = 'nodejs';
 
@@ -150,6 +151,26 @@ export const POST = withErrorCapture(async (
     .update({ status: 'posted' })
     .eq('id', id)
     .neq('status', 'posted');
+
+  // Record community signal (non-blocking)
+  if (post && item.product_id) {
+    const { data: product } = await supabaseAdmin
+      .from('products')
+      .select('name')
+      .eq('id', item.product_id)
+      .single();
+
+    recordCommunitySignal({
+      workspaceId: user.id,
+      contentItemId: id,
+      contentItemPostId: post.id,
+      productName: product?.name ?? null,
+      productId: item.product_id,
+      postedAt: parsed.data.posted_at ?? new Date().toISOString(),
+    }).catch((err) => {
+      console.error(`[${correlationId}] community signal failed (non-fatal):`, err);
+    });
+  }
 
   const response = NextResponse.json({
     ok: true,

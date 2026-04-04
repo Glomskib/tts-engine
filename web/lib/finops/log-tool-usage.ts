@@ -70,5 +70,7 @@ export async function logToolUsageEvent(
  * Fire-and-forget version — does not block the main request.
  */
 export function logToolUsageEventAsync(input: LogToolUsageEventInput): void {
-  logToolUsageEvent(input).catch(() => {});
+  logToolUsageEvent(input).catch((err) => {
+    console.warn('[finops/log-tool-usage] Async logging failed:', err instanceof Error ? err.message : err);
+  });
 }

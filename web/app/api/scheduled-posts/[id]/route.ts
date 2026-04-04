@@ -25,6 +25,7 @@ export async function GET(
         skit:saved_skits(id, title, skit_data, product_name, product_brand)
       `)
       .eq('id', id)
+      .eq('user_id', authContext.user.id)
       .single();
 
     if (error) {
@@ -78,6 +79,7 @@ export async function PATCH(
       .from('scheduled_posts')
       .update(updates)
       .eq('id', id)
+      .eq('user_id', authContext.user.id)
       .select()
       .single();
 
@@ -110,7 +112,8 @@ export async function DELETE(
     const { error } = await supabaseAdmin
       .from('scheduled_posts')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', authContext.user.id);
 
     if (error) {
       return createApiErrorResponse('DB_ERROR', 'Failed to delete scheduled post', 500, correlationId);

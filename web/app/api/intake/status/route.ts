@@ -91,6 +91,6 @@ export async function GET(request: NextRequest) {
       deferredCount: deferredCount || 0,
     },
     usage,
-    configured: !!(process.env.GOOGLE_DRIVE_CLIENT_ID && process.env.DRIVE_TOKEN_ENCRYPTION_KEY),
+    configured: !!(process.env.GOOGLE_DRIVE_CLIENT_ID && process.env.GOOGLE_DRIVE_CLIENT_SECRET && process.env.DRIVE_TOKEN_ENCRYPTION_KEY),
   });
 }

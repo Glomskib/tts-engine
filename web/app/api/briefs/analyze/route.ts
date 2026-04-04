@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
 
     // Parse request body
     const body = await request.json();
-    const { text, image, pdf_text, type = 'text' } = body;
+    const { text, image, pdf_text, type = 'text', extract_only = false } = body;
 
     let briefText = '';
 
@@ -171,6 +171,14 @@ export async function POST(request: NextRequest) {
         { error: 'Could not extract enough text from the brief. Please try again or paste text manually.' },
         { status: 400 }
       );
+    }
+
+    // If extract_only, return the raw text without running full analysis
+    if (extract_only) {
+      return NextResponse.json({
+        success: true,
+        extracted_text: briefText,
+      });
     }
 
     // Fetch creator context

@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import AdminPageLayout, { AdminCard, AdminButton } from '@/app/admin/components/AdminPageLayout';
+import { SectionLoader } from '@/components/ui/BrandedLoader';
 
 type ConnectorStatus = 'CONNECTED' | 'DISCONNECTED' | 'ERROR';
 type JobStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'NEEDS_APPROVAL' | 'DEFERRED';
@@ -108,6 +110,8 @@ const JOB_STATUS_COLORS: Record<string, string> = {
 
 export default function IntakePage() {
   const { isAdmin, loading: authLoading } = useAuth();
+  const searchParams = useSearchParams();
+  const router = useRouter();
   const [tab, setTab] = useState<Tab>('status');
   const [connector, setConnector] = useState<Connector | null>(null);
   const [jobs, setJobs] = useState<IntakeJob[]>([]);
@@ -116,12 +120,31 @@ export default function IntakePage() {
   const [configured, setConfigured] = useState(false);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
+  const [banner, setBanner] = useState<{ type: 'success' | 'error'; message: string } | null>(null);
 
   // Folder picker state
   const [showFolderPicker, setShowFolderPicker] = useState(false);
   const [folderSearch, setFolderSearch] = useState('');
   const [folders, setFolders] = useState<Folder[]>([]);
   const [loadingFolders, setLoadingFolders] = useState(false);
+
+  // Handle OAuth callback params
+  useEffect(() => {
+    const connected = searchParams.get('connected');
+    const error = searchParams.get('error');
+    if (connected === 'true') {
+      setBanner({ type: 'success', message: 'Google Drive connected successfully. Select a folder to start ingesting videos.' });
+      router.replace('/admin/intake', { scroll: false });
+    } else if (error) {
+      const messages: Record<string, string> = {
+        missing_code: 'OAuth flow was cancelled or returned no authorization code.',
+        state_expired: 'OAuth session expired. Please try connecting again.',
+        invalid_state: 'Invalid OAuth state. Please try connecting again.',
+      };
+      setBanner({ type: 'error', message: messages[error] || `Connection failed: ${decodeURIComponent(error)}` });
+      router.replace('/admin/intake', { scroll: false });
+    }
+  }, [searchParams, router]);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -167,10 +190,18 @@ export default function IntakePage() {
 
   const createRecommended = async () => {
     setActing(true);
-    const res = await fetch('/api/intake/google/folders/createRecommended', { method: 'POST' });
-    const data = await res.json();
-    if (data.needsReconnect) {
-      alert('Please reconnect with folder creation permission.');
+    try {
+      const res = await fetch('/api/intake/google/folders/createRecommended', { method: 'POST' });
+      const data = await res.json();
+      if (data.needsReconnect) {
+        setBanner({ type: 'error', message: 'Permission needed: please reconnect Google Drive to allow folder creation.' });
+      } else if (data.error) {
+        setBanner({ type: 'error', message: data.error });
+      } else {
+        setBanner({ type: 'success', message: 'Intake folder created in your Google Drive. Ready to receive videos.' });
+      }
+    } catch {
+      setBanner({ type: 'error', message: 'Failed to create folder.' });
     }
     await fetchStatus();
     setActing(false);
@@ -178,17 +209,28 @@ export default function IntakePage() {
 
   const triggerPoll = async () => {
     setActing(true);
-    const res = await fetch('/api/intake/trigger-poll', { method: 'POST' });
-    const data = await res.json();
-    alert(data.message || data.error || 'Poll complete');
+    try {
+      const res = await fetch('/api/intake/trigger-poll', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) {
+        setBanner({ type: 'error', message: data.error });
+      } else {
+        setBanner({ type: 'success', message: data.message || 'Folder checked for new videos.' });
+      }
+    } catch {
+      setBanner({ type: 'error', message: 'Failed to check for videos.' });
+    }
     await fetchStatus();
     setActing(false);
   };
 
+  const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
+
   const disconnect = async () => {
-    if (!confirm('Disconnect Google Drive? Pending jobs will not be processed.')) return;
     setActing(true);
     await fetch('/api/intake/google/disconnect', { method: 'POST' });
+    setBanner({ type: 'success', message: 'Google Drive disconnected.' });
+    setShowDisconnectConfirm(false);
     await fetchStatus();
     setActing(false);
   };
@@ -211,7 +253,14 @@ export default function IntakePage() {
   }
 
   return (
-    <AdminPageLayout title="Drive Intake" subtitle="Automatically ingest videos from Google Drive into your pipeline">
+    <AdminPageLayout
+      title="Drive Intake"
+      subtitle="Automatically ingest videos from Google Drive into your pipeline"
+      breadcrumbs={[
+        { label: 'Admin', href: '/admin' },
+        { label: 'Drive Intake' },
+      ]}
+    >
       {/* Tabs */}
       <div className="flex gap-2 mb-6 flex-wrap">
         {(['status', 'activity', 'settings', 'usage', 'approvals', 'tutorial'] as Tab[]).map((t) => (
@@ -232,11 +281,35 @@ export default function IntakePage() {
         ))}
       </div>
 
+      {/* Connection feedback banner */}
+      {banner && (
+        <div className={`rounded-xl border px-4 py-3 text-sm flex items-center justify-between ${
+          banner.type === 'success'
+            ? 'bg-green-500/10 border-green-500/30 text-green-300'
+            : 'bg-red-500/10 border-red-500/30 text-red-300'
+        }`}>
+          <span>{banner.message}</span>
+          <button onClick={() => setBanner(null)} className="text-xs opacity-60 hover:opacity-100 ml-4">Dismiss</button>
+        </div>
+      )}
+
       {!configured && (
         <AdminCard>
-          <div className="text-yellow-400 text-sm">
-            Drive Intake is not configured. Set <code>GOOGLE_DRIVE_CLIENT_ID</code>, <code>GOOGLE_DRIVE_CLIENT_SECRET</code>,
-            <code>GOOGLE_DRIVE_REDIRECT_URI</code>, and <code>DRIVE_TOKEN_ENCRYPTION_KEY</code> in your environment.
+          <div className="space-y-3">
+            <div className="text-yellow-400 text-sm font-medium">
+              Google Drive is not configured yet.
+            </div>
+            <div className="text-zinc-400 text-sm">
+              Set the following environment variables in Vercel (or <code>.env.local</code>):
+            </div>
+            <div className="bg-zinc-800/60 rounded-lg p-3 font-mono text-xs text-zinc-300 space-y-1">
+              <div><span className="text-zinc-500"># From Google Cloud Console &gt; APIs &amp; Services &gt; Credentials</span></div>
+              <div>GOOGLE_DRIVE_CLIENT_ID=<span className="text-zinc-500">your-client-id.apps.googleusercontent.com</span></div>
+              <div>GOOGLE_DRIVE_CLIENT_SECRET=<span className="text-zinc-500">GOCSPX-your-secret</span></div>
+              <div>GOOGLE_DRIVE_REDIRECT_URI=<span className="text-zinc-500">https://your-app.vercel.app/api/intake/google/callback</span></div>
+              <div><span className="text-zinc-500"># Generate with: node -e &quot;console.log(require(&apos;crypto&apos;).randomBytes(32).toString(&apos;base64&apos;))&quot;</span></div>
+              <div>DRIVE_TOKEN_ENCRYPTION_KEY=<span className="text-zinc-500">your-32-byte-base64-key</span></div>
+            </div>
           </div>
         </AdminCard>
       )}
@@ -257,6 +330,8 @@ export default function IntakePage() {
         createRecommended={createRecommended}
         triggerPoll={triggerPoll}
         disconnect={disconnect}
+        showDisconnectConfirm={showDisconnectConfirm}
+        setShowDisconnectConfirm={setShowDisconnectConfirm}
         updateSetting={updateSetting}
         configured={configured}
       />}
@@ -271,7 +346,7 @@ export default function IntakePage() {
 }
 
 // ── Connector Tab ────────────────────────────────────────────────
-function ConnectorTab({ connector, stats, usage, acting, showFolderPicker, setShowFolderPicker, folderSearch, setFolderSearch, folders, loadingFolders, searchFolders, selectFolder, createRecommended, triggerPoll, disconnect, updateSetting, configured }: {
+function ConnectorTab({ connector, stats, usage, acting, showFolderPicker, setShowFolderPicker, folderSearch, setFolderSearch, folders, loadingFolders, searchFolders, selectFolder, createRecommended, triggerPoll, disconnect, showDisconnectConfirm, setShowDisconnectConfirm, updateSetting, configured }: {
   connector: Connector | null;
   stats: { pending: number; totalProcessed: number; approvalCount: number; deferredCount: number };
   usage: Usage | null;
@@ -287,134 +362,205 @@ function ConnectorTab({ connector, stats, usage, acting, showFolderPicker, setSh
   createRecommended: () => void;
   triggerPoll: () => void;
   disconnect: () => void;
+  showDisconnectConfirm: boolean;
+  setShowDisconnectConfirm: (v: boolean) => void;
   updateSetting: (key: string, value: unknown) => void;
   configured: boolean;
 }) {
+  // Determine setup step
+  const isConnected = connector && connector.status !== 'DISCONNECTED';
+  const hasFolder = isConnected && !!connector.folder_id;
+  const isReady = hasFolder;
+  const step = !isConnected ? 1 : !hasFolder ? 2 : 3;
+
   return (
-    <div className="grid gap-6 lg:grid-cols-2">
-      <AdminCard title="Connection">
-        {!connector || connector.status === 'DISCONNECTED' ? (
-          <div className="space-y-4">
-            <div className="text-zinc-400 text-sm">Connect your Google Drive to automatically import new videos into your pipeline.</div>
-            <AdminButton
-              variant="primary"
-              onClick={() => window.location.href = '/api/intake/google/connect'}
-              disabled={!configured || acting}
-            >
-              Connect Google Drive
-            </AdminButton>
+    <div className="space-y-6">
+      {/* Setup Progress — shown when not fully ready */}
+      {(!isReady || stats.totalProcessed === 0) && (
+        <div className="bg-zinc-900/50 rounded-xl border border-white/[0.08] p-5">
+          <h3 className="text-sm font-semibold text-zinc-200 mb-3">Setup Progress</h3>
+          <div className="flex items-center gap-3">
+            <StepIndicator num={1} label="Connect Drive" active={step === 1} done={step > 1} />
+            <div className={`flex-1 h-px ${step > 1 ? 'bg-green-500/40' : 'bg-zinc-700'}`} />
+            <StepIndicator num={2} label="Select Folder" active={step === 2} done={step > 2} />
+            <div className={`flex-1 h-px ${step > 2 ? 'bg-green-500/40' : 'bg-zinc-700'}`} />
+            <StepIndicator num={3} label="Ready" active={step === 3} done={stats.totalProcessed > 0} />
           </div>
-        ) : (
-          <div className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-zinc-400">Status</span>
-              <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                connector.status === 'CONNECTED' ? 'bg-green-500/20 text-green-300' :
-                connector.status === 'ERROR' ? 'bg-red-500/20 text-red-300' :
-                'bg-zinc-500/20 text-zinc-300'
-              }`}>{connector.status}</span>
-            </div>
-            {connector.google_email && (
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Account</span>
-                <span className="text-zinc-200">{connector.google_email}</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-zinc-400">Folder</span>
-              <span className="text-zinc-200">{connector.folder_name || 'Not selected'}</span>
-            </div>
-            {connector.last_poll_at && (
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Last poll</span>
-                <span className="text-zinc-200">{new Date(connector.last_poll_at).toLocaleString()}</span>
-              </div>
-            )}
-            {connector.last_poll_error && (
-              <div className="text-red-400 text-xs mt-1">{connector.last_poll_error}</div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-zinc-400">Processed</span>
-              <span className="text-zinc-200">{stats.totalProcessed} videos</span>
-            </div>
-            {stats.pending > 0 && (
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Pending</span>
-                <span className="text-yellow-300">{stats.pending} in queue</span>
-              </div>
-            )}
-            {stats.approvalCount > 0 && (
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Needs Approval</span>
-                <span className="text-orange-300">{stats.approvalCount} jobs</span>
-              </div>
-            )}
-            {stats.deferredCount > 0 && (
-              <div className="flex justify-between">
-                <span className="text-zinc-400">Deferred</span>
-                <span className="text-purple-300">{stats.deferredCount} jobs</span>
-              </div>
-            )}
+          {step === 2 && (
+            <p className="text-xs text-zinc-500 mt-3">
+              Choose a folder where you'll upload videos for processing. We recommend creating a dedicated intake folder.
+            </p>
+          )}
+          {step === 3 && stats.totalProcessed === 0 && (
+            <p className="text-xs text-zinc-500 mt-3">
+              All set. Upload a video to your intake folder and FlashFlow will automatically process it. You can also click &ldquo;Check for New Videos&rdquo; to manually scan now.
+            </p>
+          )}
+        </div>
+      )}
 
-            <div className="flex gap-2 mt-4 flex-wrap">
-              <AdminButton variant="secondary" size="sm" onClick={() => { setShowFolderPicker(true); searchFolders(); }} disabled={acting}>
-                {connector.folder_id ? 'Change Folder' : 'Select Folder'}
-              </AdminButton>
-              <AdminButton variant="secondary" size="sm" onClick={createRecommended} disabled={acting}>
-                Create Recommended Folder
-              </AdminButton>
-              <AdminButton variant="secondary" size="sm" onClick={triggerPoll} disabled={acting || !connector.folder_id}>
-                Check for New Videos
-              </AdminButton>
-              <AdminButton variant="primary" size="sm" onClick={() => window.location.href = '/api/intake/google/connect'} disabled={acting}>
-                Reconnect
-              </AdminButton>
-              <AdminButton variant="secondary" size="sm" onClick={disconnect} disabled={acting}>
-                Disconnect
-              </AdminButton>
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Connection Card */}
+        <AdminCard title="Connection">
+          {!isConnected ? (
+            <div className="space-y-4">
+              <p className="text-zinc-400 text-sm">
+                Connect your Google Drive to automatically import new videos into your content pipeline.
+              </p>
+              <div className="bg-zinc-800/40 rounded-lg p-3 text-xs text-zinc-500 space-y-1">
+                <p className="font-medium text-zinc-400">How it works:</p>
+                <p>1. Connect your Google Drive account</p>
+                <p>2. Choose or create an intake folder</p>
+                <p>3. FlashFlow checks for new videos automatically</p>
+                <p>4. Imported videos appear in your pipeline for processing</p>
+              </div>
+              {configured ? (
+                <AdminButton
+                  variant="primary"
+                  onClick={() => window.location.href = '/api/intake/google/connect'}
+                  disabled={acting}
+                >
+                  {acting ? 'Connecting...' : 'Connect Google Drive'}
+                </AdminButton>
+              ) : (
+                <div className="text-xs text-zinc-500">
+                  Google Drive integration needs to be configured first. See the setup instructions above.
+                </div>
+              )}
             </div>
-          </div>
-        )}
-      </AdminCard>
+          ) : (
+            <div className="space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Status</span>
+                <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                  connector.status === 'CONNECTED' ? 'bg-green-500/20 text-green-300' :
+                  connector.status === 'ERROR' ? 'bg-red-500/20 text-red-300' :
+                  'bg-zinc-500/20 text-zinc-300'
+                }`}>{connector.status === 'CONNECTED' ? 'Connected' : connector.status === 'ERROR' ? 'Error' : connector.status}</span>
+              </div>
+              {connector.google_email && (
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Google Account</span>
+                  <span className="text-zinc-200">{connector.google_email}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Intake Folder</span>
+                <span className={connector.folder_name ? 'text-zinc-200' : 'text-zinc-500 italic'}>
+                  {connector.folder_name || 'Not selected yet'}
+                </span>
+              </div>
+              {connector.last_poll_at && (
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Last Check</span>
+                  <span className="text-zinc-200">{new Date(connector.last_poll_at).toLocaleString()}</span>
+                </div>
+              )}
+              {connector.last_poll_error && (
+                <div className="bg-red-500/10 border border-red-500/20 rounded-lg px-3 py-2 mt-2">
+                  <span className="text-red-400 text-xs">Last error: {connector.last_poll_error}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Videos Processed</span>
+                <span className="text-zinc-200">{stats.totalProcessed}</span>
+              </div>
+              {stats.pending > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">In Queue</span>
+                  <span className="text-yellow-300">{stats.pending} pending</span>
+                </div>
+              )}
+              {stats.approvalCount > 0 && (
+                <div className="flex justify-between">
+                  <span className="text-zinc-400">Needs Approval</span>
+                  <span className="text-orange-300">{stats.approvalCount} jobs</span>
+                </div>
+              )}
 
-      {/* Settings Card */}
-      {connector && connector.status === 'CONNECTED' && (
-        <AdminCard title="Settings">
-          <div className="space-y-4 text-sm">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={connector.create_pipeline_item}
-                onChange={(e) => updateSetting('create_pipeline_item', e.target.checked)} className="rounded" />
-              <span className="text-zinc-200">Create pipeline item (video row)</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={connector.create_transcript}
-                onChange={(e) => updateSetting('create_transcript', e.target.checked)} className="rounded" />
-              <span className="text-zinc-200">Auto-transcribe (Whisper)</span>
-            </label>
-            <label className="flex items-center gap-3 cursor-pointer">
-              <input type="checkbox" checked={connector.create_edit_notes}
-                onChange={(e) => updateSetting('create_edit_notes', e.target.checked)} className="rounded" />
-              <span className="text-zinc-200">Generate edit notes (AI)</span>
-            </label>
-            <div>
-              <label className="text-zinc-400 block mb-1">Poll interval (minutes)</label>
-              <select value={connector.polling_interval_minutes}
-                onChange={(e) => updateSetting('polling_interval_minutes', parseInt(e.target.value))}
-                className="bg-zinc-800 border border-white/10 text-zinc-200 rounded px-3 py-1.5 text-sm"
-              >
-                {[1, 2, 5, 10, 15, 30, 60].map(v => (
-                  <option key={v} value={v}>{v} min</option>
-                ))}
-              </select>
+              {/* Actions */}
+              <div className="border-t border-white/[0.06] pt-3 mt-3">
+                {!connector.folder_id ? (
+                  <div className="space-y-2">
+                    <p className="text-zinc-500 text-xs mb-2">Next: select a folder for video intake.</p>
+                    <div className="flex gap-2 flex-wrap">
+                      <AdminButton variant="primary" size="sm" onClick={createRecommended} disabled={acting}>
+                        {acting ? 'Creating...' : 'Create Recommended Folder'}
+                      </AdminButton>
+                      <AdminButton variant="secondary" size="sm" onClick={() => { setShowFolderPicker(true); searchFolders(); }} disabled={acting}>
+                        Choose Existing Folder
+                      </AdminButton>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2 flex-wrap">
+                    <AdminButton variant="primary" size="sm" onClick={triggerPoll} disabled={acting}>
+                      {acting ? 'Checking...' : 'Check for New Videos'}
+                    </AdminButton>
+                    <AdminButton variant="secondary" size="sm" onClick={() => { setShowFolderPicker(true); searchFolders(); }} disabled={acting}>
+                      Change Folder
+                    </AdminButton>
+                    <AdminButton variant="secondary" size="sm" onClick={() => window.location.href = '/api/intake/google/connect'} disabled={acting}>
+                      Reconnect
+                    </AdminButton>
+                    <AdminButton variant="secondary" size="sm" onClick={() => setShowDisconnectConfirm(true)} disabled={acting}>
+                      Disconnect
+                    </AdminButton>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </AdminCard>
-      )}
 
-      {/* Usage Card */}
-      {connector && connector.status === 'CONNECTED' && usage && (
-        <UsageCard usage={usage} />
-      )}
+        {/* Settings Card */}
+        {isConnected && (
+          <AdminCard title="Processing Settings">
+            <div className="space-y-4 text-sm">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={connector.create_pipeline_item}
+                  onChange={(e) => updateSetting('create_pipeline_item', e.target.checked)} className="rounded" />
+                <div>
+                  <span className="text-zinc-200">Create pipeline item</span>
+                  <p className="text-zinc-500 text-xs">Adds each video to the production board as a content item.</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={connector.create_transcript}
+                  onChange={(e) => updateSetting('create_transcript', e.target.checked)} className="rounded" />
+                <div>
+                  <span className="text-zinc-200">Auto-transcribe</span>
+                  <p className="text-zinc-500 text-xs">Transcribes audio via OpenAI Whisper.</p>
+                </div>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={connector.create_edit_notes}
+                  onChange={(e) => updateSetting('create_edit_notes', e.target.checked)} className="rounded" />
+                <div>
+                  <span className="text-zinc-200">Generate edit notes</span>
+                  <p className="text-zinc-500 text-xs">AI generates chapters, hooks, and B-roll suggestions.</p>
+                </div>
+              </label>
+              <div>
+                <label className="text-zinc-400 block mb-1">Check interval</label>
+                <select value={connector.polling_interval_minutes}
+                  onChange={(e) => updateSetting('polling_interval_minutes', parseInt(e.target.value))}
+                  className="bg-zinc-800 border border-white/10 text-zinc-200 rounded px-3 py-1.5 text-sm"
+                >
+                  {[1, 2, 5, 10, 15, 30, 60].map(v => (
+                    <option key={v} value={v}>Every {v} min</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </AdminCard>
+        )}
+
+        {/* Usage Card */}
+        {isConnected && usage && (
+          <UsageCard usage={usage} />
+        )}
+      </div>
 
       {/* Folder Picker Modal */}
       {showFolderPicker && (
@@ -437,7 +583,7 @@ function ConnectorTab({ connector, stats, usage, acting, showFolderPicker, setSh
               {loadingFolders ? (
                 <div className="text-zinc-400 text-sm p-4 text-center">Loading...</div>
               ) : folders.length === 0 ? (
-                <div className="text-zinc-500 text-sm p-4 text-center">No folders found</div>
+                <div className="text-zinc-500 text-sm p-4 text-center">No folders found. Try a different search or create a new folder.</div>
               ) : (
                 folders.map(f => (
                   <button key={f.id} onClick={() => selectFolder(f)}
@@ -456,6 +602,44 @@ function ConnectorTab({ connector, stats, usage, acting, showFolderPicker, setSh
           </div>
         </div>
       )}
+
+      {/* Disconnect Confirmation Modal */}
+      {showDisconnectConfirm && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-zinc-900 border border-white/10 rounded-xl p-6 w-full max-w-sm">
+            <h3 className="text-lg font-medium text-zinc-100 mb-2">Disconnect Google Drive?</h3>
+            <p className="text-zinc-400 text-sm mb-4">
+              Pending jobs will not be processed. You can reconnect at any time.
+            </p>
+            <div className="flex gap-2 justify-end">
+              <AdminButton variant="secondary" size="sm" onClick={() => setShowDisconnectConfirm(false)}>
+                Cancel
+              </AdminButton>
+              <AdminButton variant="danger" size="sm" onClick={disconnect} disabled={acting}>
+                {acting ? 'Disconnecting...' : 'Disconnect'}
+              </AdminButton>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Step Indicator ──────────────────────────────────────────────
+function StepIndicator({ num, label, active, done }: { num: number; label: string; active: boolean; done: boolean }) {
+  return (
+    <div className="flex flex-col items-center gap-1">
+      <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold ${
+        done ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+        active ? 'bg-white/10 text-zinc-200 border border-white/20' :
+        'bg-zinc-800 text-zinc-500 border border-white/[0.06]'
+      }`}>
+        {done ? '\u2713' : num}
+      </div>
+      <span className={`text-[10px] ${active ? 'text-zinc-300' : done ? 'text-green-400/70' : 'text-zinc-600'}`}>
+        {label}
+      </span>
     </div>
   );
 }
@@ -513,7 +697,10 @@ function ActivityTab({ jobs }: { jobs: IntakeJob[] }) {
   return (
     <AdminCard title="Recent Activity" noPadding>
       {jobs.length === 0 ? (
-        <div className="p-8 text-center text-zinc-500">No intake jobs yet. Connect Drive and select a folder to start.</div>
+        <div className="p-8 text-center">
+          <p className="text-zinc-400 mb-1">No videos processed yet.</p>
+          <p className="text-zinc-500 text-xs">Once you connect Google Drive and select a folder, videos will appear here as they are processed.</p>
+        </div>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -607,7 +794,7 @@ function GuardrailSettingsTab() {
     setSaving(false);
   };
 
-  if (loading) return <div className="text-zinc-400">Loading settings...</div>;
+  if (loading) return <SectionLoader message="Loading settings..." />;
   if (!settings) return <div className="text-red-400">Failed to load settings</div>;
 
   const inputCls = 'bg-zinc-800 border border-white/10 text-zinc-200 rounded px-3 py-1.5 text-sm w-full';
@@ -725,7 +912,7 @@ function UsageHistoryTab() {
       .catch(() => setLoading(false));
   }, []);
 
-  if (loading) return <div className="text-zinc-400">Loading usage history...</div>;
+  if (loading) return <SectionLoader message="Loading usage history..." />;
 
   const currentMonth = new Date().toISOString().slice(0, 7);
 
@@ -812,7 +999,7 @@ function ApprovalsTab({ onAction }: { onAction: () => void }) {
     setActing(null);
   };
 
-  if (loading) return <div className="text-zinc-400">Loading approvals...</div>;
+  if (loading) return <SectionLoader message="Loading approvals..." />;
 
   return (
     <AdminCard title="Pending Approvals" noPadding>

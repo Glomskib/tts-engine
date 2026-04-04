@@ -12,6 +12,7 @@ import { ProgressInline } from '@/components/ui/ProgressInline';
 import { PLANS_LIST } from '@/lib/plans';
 import type { PlanLimitKey } from '@/lib/plans';
 import UpsellBanner from '@/components/UpsellBanner';
+import { FullPageLoader } from '@/components/ui/BrandedLoader';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -332,11 +333,7 @@ export default function BillingPage() {
   // ── Loading state ─────────────────────────────────────────────────────────
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="w-6 h-6 text-zinc-500 animate-spin" />
-      </div>
-    );
+    return <FullPageLoader message="Loading billing..." />;
   }
 
   // ── Render ────────────────────────────────────────────────────────────────

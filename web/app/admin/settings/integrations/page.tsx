@@ -320,6 +320,10 @@ export default function IntegrationsPage() {
 
       {/* Platform Integrations */}
       <AdminCard title="Platform Integrations" subtitle="OAuth connections and external services">
+        <p className="text-xs text-zinc-600 -mt-1 mb-2">
+          Connected accounts use encrypted OAuth tokens. You can disconnect any service at any time. See our{' '}
+          <a href="/privacy" className="text-violet-400 hover:underline">Privacy Policy</a> for details.
+        </p>
         <div className="-mx-5 divide-y divide-white/5">
           {platformServices.map((svc) => (
             <ServiceRow

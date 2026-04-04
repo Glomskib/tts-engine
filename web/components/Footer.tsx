@@ -26,7 +26,7 @@ const footerLinks = {
   legal: [
     { label: 'Terms of Service', href: '/terms' },
     { label: 'Privacy Policy', href: '/privacy' },
-    { label: 'Cookie Policy', href: '/cookies' },
+    { label: 'Contact', href: 'mailto:hello@flashflowai.com' },
   ],
 };
 
@@ -182,12 +182,8 @@ export function Footer() {
           <p className="text-sm text-zinc-600">
             &copy; {new Date().getFullYear()} {BRAND.name}. All rights reserved.
           </p>
-          <p className="text-sm text-zinc-600">
-            Made with{' '}
-            <span className="text-red-500" aria-label="love">
-              ♥
-            </span>{' '}
-            for creators everywhere
+          <p className="text-xs text-zinc-700 max-w-md text-center sm:text-right">
+            FlashFlow is an independent workflow platform. Not affiliated with or endorsed by TikTok or ByteDance.
           </p>
         </div>
       </div>

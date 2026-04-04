@@ -94,7 +94,9 @@ export async function logGeneration(
  * Fire-and-forget version. Use when you don't need the returned row.
  */
 export function logGenerationAsync(input: LogGenerationInput): void {
-  logGeneration(input).catch(() => {});
+  logGeneration(input).catch((err) => {
+    console.warn('[ff:generations] Async logging failed:', err instanceof Error ? err.message : err);
+  });
 }
 
 /**
@@ -137,9 +139,13 @@ export function logGenerationWithEvent(
 ): void {
   logGeneration(input).then((gen) => {
     if (gen) {
-      logGenerationEvent(gen.id, eventType, input.user_id, eventPayload).catch(() => {});
+      logGenerationEvent(gen.id, eventType, input.user_id, eventPayload).catch((err) => {
+        console.warn('[ff:events] Async event log failed:', err instanceof Error ? err.message : err);
+      });
     }
-  }).catch(() => {});
+  }).catch((err) => {
+    console.warn('[ff:generations] logGenerationWithEvent failed:', err instanceof Error ? err.message : err);
+  });
 }
 
 /**

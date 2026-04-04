@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
 import { z } from 'zod';
+import { planGate } from '@/lib/plan-gate';
 
 export const runtime = 'nodejs';
 
@@ -72,6 +73,13 @@ export async function POST(request: NextRequest) {
   if (!authContext.user) {
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
+
+  // Enforce plan limit: count existing brands for this user
+  const brandLimitError = await planGate(authContext.user.id, 'brands', authContext.isAdmin, {
+    table: 'brands',
+    filterColumn: 'user_id',
+  });
+  if (brandLimitError) return brandLimitError;
 
   let body: unknown;
   try {

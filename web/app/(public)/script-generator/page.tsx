@@ -50,19 +50,19 @@ interface SkitResult {
 const FAQ_ITEMS = [
   {
     q: 'Is the TikTok script generator really free?',
-    a: 'Yes! You can generate up to 3 scripts per day without signing up. Create a free account for 5 daily generations, or upgrade for unlimited access plus advanced features like audience personas and winner pattern analysis.',
+    a: 'Yes! You get 3 scripts per day without signing up. Create a free account for 5 daily scripts, or upgrade for unlimited access plus audience personas and winner pattern analysis.',
   },
   {
-    q: 'What makes these scripts optimized for TikTok?',
-    a: 'Every script follows proven TikTok patterns: scroll-stopping hooks in the first 1-2 seconds, punchy 15-30 second pacing, natural product integration, and clear CTAs. Our AI is trained on viral TikTok formats and adapts to each persona\'s style.',
+    q: 'Why do these scripts work on TikTok?',
+    a: 'Every script follows real TikTok patterns: hooks in the first 1-2 seconds, punchy 15-30 second pacing, natural product mentions, and clear CTAs. Each persona writes differently — same way real creators have their own style.',
   },
   {
     q: 'Can I use these scripts for TikTok Shop videos?',
-    a: 'Absolutely. All generated scripts are TikTok Shop compliant — no prohibited health claims, no fake urgency tactics, no celebrity imitation. The "Safe" tone mode is specifically designed for brand-safe TikTok Shop content.',
+    a: 'Absolutely. Scripts are TikTok Shop compliant — no prohibited health claims, no fake urgency, no celebrity imitation. The "Safe" tone mode keeps your content brand-safe.',
   },
   {
     q: 'How do the persona presets work?',
-    a: 'Each persona has a distinct voice, humor style, and delivery approach. For example, the "Skeptical Reviewer" writes analytical, honest content while the "Gen-Z Trendsetter" uses current slang and pop culture references. The AI adapts its writing to match whichever persona you choose.',
+    a: 'Each persona has its own voice, humor style, and delivery. The "Skeptical Reviewer" writes honest, analytical content. The "Gen-Z Trendsetter" uses current slang and pop culture. Pick whoever fits your brand.',
   },
   {
     q: 'Can I edit the generated scripts?',
@@ -233,14 +233,14 @@ export default function ScriptGeneratorPage() {
             Free TikTok Script Generator
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
-            Generate viral TikTok scripts{' '}
+            Write TikTok scripts{' '}
             <span className="bg-gradient-to-r from-teal-400 via-violet-400 to-teal-400 bg-clip-text text-transparent">
-              in seconds
+              that actually convert
             </span>
           </h1>
           <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
-            AI-powered script generator built for TikTok Shop creators. Choose a persona, describe
-            your product, and get a scroll-stopping script instantly.
+            Pick a creator persona, describe your product, and get a ready-to-film script.
+            Built for TikTok Shop creators.
           </p>
         </div>
 
@@ -373,12 +373,12 @@ export default function ScriptGeneratorPage() {
           {loading ? (
             <>
               <Loader2 size={20} className="animate-spin" />
-              Generating your script...
+              Writing your script...
             </>
           ) : (
             <>
               <Sparkles size={20} />
-              Generate TikTok Script
+              Write My Script
             </>
           )}
         </button>
@@ -578,7 +578,7 @@ export default function ScriptGeneratorPage() {
                       }}
                       className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg border border-white/10 text-zinc-300 font-medium text-sm hover:bg-white/5 transition-colors"
                     >
-                      Generate Another
+                      Write Another
                     </button>
                   </div>
                 </div>
@@ -597,10 +597,9 @@ export default function ScriptGeneratorPage() {
               The fastest way to write TikTok scripts
             </h2>
             <p className="text-zinc-400 max-w-2xl mx-auto leading-relaxed">
-              Stop staring at a blank screen. Our AI script generator creates scroll-stopping
-              TikTok content in seconds — complete with hooks, beat-by-beat dialogue, b-roll
-              suggestions, and CTAs. Built specifically for TikTok Shop creators who need to
-              produce content at scale.
+              Stop staring at a blank screen. Get a full TikTok script in seconds — hook,
+              dialogue, b-roll notes, and CTA included. Built for TikTok Shop creators
+              who need to post consistently.
             </p>
           </div>
 
@@ -614,7 +613,7 @@ export default function ScriptGeneratorPage() {
                 {
                   step: '1',
                   title: 'Describe your product',
-                  desc: 'Enter your product name and optionally add key details. The AI adapts to any product category.',
+                  desc: 'Enter your product name and optionally add key details. Works for any product category.',
                 },
                 {
                   step: '2',
@@ -657,8 +656,8 @@ export default function ScriptGeneratorPage() {
                   desc: 'From Gen-Z trendsetter to trusted expert advisor. Each persona writes with a distinct voice and style.',
                 },
                 {
-                  title: 'Scroll-stopping hooks',
-                  desc: 'The AI prioritizes the first 1-2 seconds. Every script opens with a pattern interrupt designed to stop the scroll.',
+                  title: 'Hooks that actually stop the scroll',
+                  desc: 'Every script leads with a strong opener in the first 1-2 seconds — the part that decides if someone keeps watching.',
                 },
                 {
                   title: 'Beat-by-beat structure',

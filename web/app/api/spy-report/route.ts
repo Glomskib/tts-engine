@@ -20,6 +20,7 @@ import { promisify } from 'util';
 import OpenAI from 'openai';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { downloadTikTokVideo } from '@/lib/tiktok-downloader';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 120; // 2 min — spy reports are heavier than basic transcripts
@@ -278,6 +279,9 @@ function parseJSON<T>(text: string): T {
 // ============================================================================
 
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 4, userLimit: 2 });
+  if (guard.error) return guard.error;
+
   // Auth check
   if (!validateAuth(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -1,8 +1,12 @@
 /**
  * GET /api/creator/dashboard
  *
- * Full creator operations data — designed for daily/weekly use.
- * Returns pipeline queues, weekly stats, posting streak, and performance.
+ * Returns all data needed for the Creator Command Center:
+ * - Next video to record
+ * - Recording queue
+ * - Editing queue
+ * - Posting queue
+ * - Performance snapshot (top video this week)
  */
 
 import { NextResponse } from 'next/server';
@@ -12,13 +16,6 @@ import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors'
 
 export const runtime = 'nodejs';
 
-function startOfWeek(): Date {
-  const d = new Date();
-  d.setDate(d.getDate() - d.getDay()); // Sunday
-  d.setHours(0, 0, 0, 0);
-  return d;
-}
-
 export async function GET(request: Request) {
   const correlationId = generateCorrelationId();
   const { user } = await getApiAuthContext(request);
@@ -27,205 +24,90 @@ export async function GET(request: Request) {
   }
 
   const workspaceId = user.id;
-  const weekStart = startOfWeek().toISOString();
-  const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString();
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 86400000).toISOString();
 
+  // Run all queries in parallel
   const [
     nextVideoResult,
     recordingQueueResult,
     editingQueueResult,
     postingQueueResult,
-    briefingQueueResult,
-    statsResult,
-    weeklyStatsResult,
-    streakResult,
     topVideoResult,
+    statsResult,
   ] = await Promise.all([
-
-    // Next priority video to film
+    // Next video: first content item in ready_to_record status
     supabaseAdmin
       .from('content_items')
-      .select('id, title, status, product_id, created_at, primary_hook, products:product_id(name)')
+      .select('id, title, status, product_id, created_at, products:product_id(name)')
       .eq('workspace_id', workspaceId)
       .eq('status', 'ready_to_record')
       .order('created_at', { ascending: true })
       .limit(1)
       .maybeSingle(),
 
-    // Film queue — full script info
-    supabaseAdmin
-      .from('content_items')
-      .select('id, title, status, product_id, created_at, primary_hook, script_text, products:product_id(name)')
-      .eq('workspace_id', workspaceId)
-      .eq('status', 'ready_to_record')
-      .order('created_at', { ascending: true })
-      .limit(15),
-
-    // Edit queue
-    supabaseAdmin
-      .from('content_items')
-      .select('id, title, status, product_id, created_at, primary_hook, products:product_id(name)')
-      .eq('workspace_id', workspaceId)
-      .in('status', ['recorded', 'editing'])
-      .order('created_at', { ascending: true })
-      .limit(15),
-
-    // Posting queue — full caption/hashtags/hook for copy-paste workflow
-    supabaseAdmin
-      .from('content_items')
-      .select('id, title, status, product_id, created_at, primary_hook, caption, hashtags, final_video_url, products:product_id(name, tiktok_product_id, link_code)')
-      .eq('workspace_id', workspaceId)
-      .eq('status', 'ready_to_post')
-      .order('created_at', { ascending: true })
-      .limit(15),
-
-    // Briefing queue
+    // Recording queue: all ready_to_record items
     supabaseAdmin
       .from('content_items')
       .select('id, title, status, product_id, created_at, products:product_id(name)')
       .eq('workspace_id', workspaceId)
-      .eq('status', 'briefing')
+      .eq('status', 'ready_to_record')
       .order('created_at', { ascending: true })
       .limit(10),
 
-    // Pipeline status counts
+    // Editing queue: recorded items needing editing
+    supabaseAdmin
+      .from('content_items')
+      .select('id, title, status, product_id, created_at, products:product_id(name)')
+      .eq('workspace_id', workspaceId)
+      .in('status', ['recorded', 'editing'])
+      .order('created_at', { ascending: true })
+      .limit(10),
+
+    // Posting queue: ready_to_post items
+    supabaseAdmin
+      .from('content_items')
+      .select('id, title, status, product_id, created_at, products:product_id(name)')
+      .eq('workspace_id', workspaceId)
+      .eq('status', 'ready_to_post')
+      .order('created_at', { ascending: true })
+      .limit(10),
+
+    // Top video this week: best performing posted content
+    // FIXED: was N+1 (1 query per post). Now 2 queries total.
     (async () => {
-      const counts: Record<string, number> = {};
-      await Promise.all(
-        ['briefing', 'ready_to_record', 'recorded', 'editing', 'ready_to_post', 'posted'].map(async (status) => {
-          const { count } = await supabaseAdmin
-            .from('content_items')
-            .select('id', { count: 'exact', head: true })
-            .eq('workspace_id', workspaceId)
-            .eq('status', status);
-          counts[status] = count ?? 0;
-        })
-      );
-      return counts;
-    })(),
-
-    // Weekly stats: posts this week, views/likes/clicks in last 7 days
-    (async () => {
-      // Videos posted this week (content_items)
-      const { count: postedThisWeek } = await supabaseAdmin
-        .from('content_items')
-        .select('id', { count: 'exact', head: true })
-        .eq('workspace_id', workspaceId)
-        .eq('status', 'posted')
-        .gte('posted_at', weekStart);
-
-      // Metrics from posts in last 7 days
-      const { data: recentPostIds } = await supabaseAdmin
-        .from('content_item_posts')
-        .select('id')
-        .eq('workspace_id', workspaceId)
-        .gte('posted_at', sevenDaysAgo);
-
-      let views7d = 0;
-      let likes7d = 0;
-      let shares7d = 0;
-      let comments7d = 0;
-
-      if (recentPostIds?.length) {
-        const ids = recentPostIds.map((p: { id: string }) => p.id);
-        const { data: metrics } = await supabaseAdmin
-          .from('content_item_metrics_snapshots')
-          .select('content_item_post_id, views, likes, shares, comments')
-          .in('content_item_post_id', ids);
-
-        // Use latest snapshot per post (last in array, ordered by captured_at desc would be ideal
-        // but we sum all for simplicity since there's usually 1 per post right now)
-        const seen = new Set<string>();
-        for (const m of (metrics || [])) {
-          if (seen.has(m.content_item_post_id)) continue;
-          seen.add(m.content_item_post_id);
-          views7d += m.views || 0;
-          likes7d += m.likes || 0;
-          shares7d += m.shares || 0;
-          comments7d += m.comments || 0;
-        }
-      }
-
-      // Affiliate link clicks this week
-      const { count: affiliateClicks } = await supabaseAdmin
-        .from('click_events')
-        .select('id', { count: 'exact', head: true })
-        .gte('created_at', sevenDaysAgo);
-
-      return {
-        posted_this_week: postedThisWeek ?? 0,
-        views_7d: views7d,
-        likes_7d: likes7d,
-        shares_7d: shares7d,
-        comments_7d: comments7d,
-        affiliate_clicks_7d: affiliateClicks ?? 0,
-      };
-    })(),
-
-    // Posting streak: consecutive days ending today with at least one post
-    (async () => {
-      const { data: recentPosts } = await supabaseAdmin
-        .from('content_items')
-        .select('posted_at')
-        .eq('workspace_id', workspaceId)
-        .eq('status', 'posted')
-        .not('posted_at', 'is', null)
-        .gte('posted_at', thirtyDaysAgo)
-        .order('posted_at', { ascending: false });
-
-      if (!recentPosts?.length) return 0;
-
-      const postedDays = new Set(
-        recentPosts.map((p: { posted_at: string }) =>
-          new Date(p.posted_at).toISOString().slice(0, 10)
-        )
-      );
-
-      let streak = 0;
-      const today = new Date();
-      for (let i = 0; i < 30; i++) {
-        const d = new Date(today);
-        d.setDate(d.getDate() - i);
-        const dayStr = d.toISOString().slice(0, 10);
-        if (postedDays.has(dayStr)) {
-          streak++;
-        } else if (i === 0) {
-          // If nothing posted today yet, still check yesterday
-          continue;
-        } else {
-          break;
-        }
-      }
-      return streak;
-    })(),
-
-    // Top video this week
-    (async () => {
+      const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString();
       const { data: posts } = await supabaseAdmin
         .from('content_item_posts')
         .select('id, content_item_id, platform, posted_at, caption_used, content_items:content_item_id(title)')
         .eq('workspace_id', workspaceId)
         .eq('status', 'posted')
-        .gte('posted_at', sevenDaysAgo)
+        .gte('posted_at', weekAgo)
         .order('posted_at', { ascending: false })
         .limit(20);
 
       if (!posts?.length) return null;
 
+      // Batch fetch all metrics in a single query, then pick the latest per post
+      const postIds = posts.map(p => p.id);
+      const { data: allMetrics } = await supabaseAdmin
+        .from('content_item_metrics_snapshots')
+        .select('content_item_post_id, views, likes, comments, shares, captured_at')
+        .eq('workspace_id', workspaceId)
+        .in('content_item_post_id', postIds)
+        .order('captured_at', { ascending: false });
+
+      // Dedupe to latest snapshot per post
+      const latestByPost = new Map<string, { views: number; likes: number; comments: number; shares: number }>();
+      for (const m of allMetrics ?? []) {
+        if (!latestByPost.has(m.content_item_post_id)) {
+          latestByPost.set(m.content_item_post_id, m);
+        }
+      }
+
+      // Find top post by views
       let topPost = null;
       let topViews = 0;
-
       for (const post of posts) {
-        const { data: metrics } = await supabaseAdmin
-          .from('content_item_metrics_snapshots')
-          .select('views, likes, comments, shares')
-          .eq('content_item_post_id', post.id)
-          .eq('workspace_id', workspaceId)
-          .order('captured_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
+        const metrics = latestByPost.get(post.id);
         if (metrics && (metrics.views ?? 0) > topViews) {
           topViews = metrics.views ?? 0;
           const ci = post.content_items as unknown as { title: string } | null;
@@ -245,52 +127,45 @@ export async function GET(request: Request) {
 
       return topPost;
     })(),
+
+    // Pipeline stats counts
+    // FIXED: was 6 sequential queries. Now a single group-by query.
+    (async () => {
+      const STATUSES = ['briefing', 'ready_to_record', 'recorded', 'editing', 'ready_to_post', 'posted'];
+      const counts: Record<string, number> = Object.fromEntries(STATUSES.map(s => [s, 0]));
+      try {
+        const { data } = await supabaseAdmin
+          .from('content_items')
+          .select('status')
+          .eq('workspace_id', workspaceId)
+          .in('status', STATUSES);
+        for (const row of data ?? []) {
+          counts[row.status] = (counts[row.status] ?? 0) + 1;
+        }
+      } catch {
+        // non-fatal — return zeroed counts
+      }
+      return counts;
+    })(),
   ]);
 
-  const formatBasicItem = (item: Record<string, unknown>) => ({
+  const formatItem = (item: Record<string, unknown>) => ({
     id: item.id,
     title: item.title || 'Untitled',
     status: item.status,
     product_name: (item.products as { name: string } | null)?.name || null,
-    primary_hook: item.primary_hook || null,
     created_at: item.created_at,
-  });
-
-  const formatPostItem = (item: Record<string, unknown>) => {
-    const product = item.products as { name: string; tiktok_product_id?: string; link_code?: string } | null;
-    return {
-      id: item.id,
-      title: item.title || 'Untitled',
-      status: item.status,
-      product_name: product?.name || null,
-      tiktok_product_id: product?.tiktok_product_id || null,
-      link_code: product?.link_code || null,
-      primary_hook: item.primary_hook || null,
-      caption: item.caption || null,
-      hashtags: item.hashtags || [],
-      final_video_url: item.final_video_url || null,
-      created_at: item.created_at,
-    };
-  };
-
-  const formatScriptItem = (item: Record<string, unknown>) => ({
-    ...formatBasicItem(item),
-    script_text: item.script_text || null,
   });
 
   return NextResponse.json({
     ok: true,
     data: {
-      next_video: nextVideoResult.data ? formatBasicItem(nextVideoResult.data as Record<string, unknown>) : null,
-      recording_queue: (recordingQueueResult.data || []).map(r => formatScriptItem(r as unknown as Record<string, unknown>)),
-      editing_queue: (editingQueueResult.data || []).map(r => formatBasicItem(r as unknown as Record<string, unknown>)),
-      posting_queue: (postingQueueResult.data || []).map(r => formatPostItem(r as unknown as Record<string, unknown>)),
-      briefing_queue: (briefingQueueResult.data || []).map(r => formatBasicItem(r as unknown as Record<string, unknown>)),
+      next_video: nextVideoResult.data ? formatItem(nextVideoResult.data as Record<string, unknown>) : null,
+      recording_queue: (recordingQueueResult.data || []).map(r => formatItem(r as unknown as Record<string, unknown>)),
+      editing_queue: (editingQueueResult.data || []).map(r => formatItem(r as unknown as Record<string, unknown>)),
+      posting_queue: (postingQueueResult.data || []).map(r => formatItem(r as unknown as Record<string, unknown>)),
       top_video: topVideoResult,
       stats: statsResult,
-      weekly_stats: weeklyStatsResult,
-      posting_streak: streakResult,
-      weekly_goal: 5, // default — make configurable later
     },
     correlation_id: correlationId,
   });

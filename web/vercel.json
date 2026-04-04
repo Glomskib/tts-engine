@@ -15,8 +15,16 @@
       "schedule": "*/2 * * * *"
     },
     {
-      "path": "/api/cron/nightly-reset",
-      "schedule": "5 5 * * *"
+      "path": "/api/cron/analyze-videos",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/brain-dispatch",
+      "schedule": "*/2 * * * *"
+    },
+    {
+      "path": "/api/cron/build-creator-dna",
+      "schedule": "0 5 * * *"
     },
     {
       "path": "/api/cron/process-emails",
@@ -123,12 +131,40 @@
       "schedule": "* * * * *"
     },
     {
-      "path": "/api/cron/auto-generate",
+"path": "/api/cron/auto-generate",
       "schedule": "0 7 * * *"
     },
     {
       "path": "/api/cron/requeue-render-jobs",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/process-payouts",
+      "schedule": "0 8 1 * *"
+    },
+    {
+      "path": "/api/cron/marketing-health",
+      "schedule": "0 */6 * * *"
+    },
+    {
+      "path": "/api/cron/radar-scan",
+      "schedule": "0 */4 * * *"
+    },
+    {
+      "path": "/api/cron/rescore-trends",
+      "schedule": "30 */6 * * *"
+    },
+    {
+      "path": "/api/cron/sync-tiktok-sales",
+      "schedule": "0 7 * * *"
+    },
+    {
+      "path": "/api/cron/weekly-report-card",
+      "schedule": "0 18 * * 1"
+    },
+    {
+      "path": "/api/cron/weekly-summaries",
+      "schedule": "30 18 * * 1"
     }
   ]
 }

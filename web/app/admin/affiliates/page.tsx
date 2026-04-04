@@ -14,6 +14,7 @@ import {
   Link2,
   CreditCard,
 } from 'lucide-react';
+import { SkeletonAuthCheck } from '@/components/ui/Skeleton';
 
 interface AffiliateRow {
   id: string;
@@ -205,7 +206,7 @@ export default function AdminAffiliatesPage() {
   };
 
   if (!isAdmin) {
-    return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-zinc-500" /></div>;
+    return <SkeletonAuthCheck />;
   }
 
   const pending = affiliates.filter(a => a.status === 'pending');

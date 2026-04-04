@@ -125,7 +125,9 @@ export async function dispatchWebhook(event: WebhookEvent, data: Record<string, 
     });
 
     // Don't await all — let them complete in background
-    Promise.allSettled(deliveries).catch(() => {});
+    Promise.allSettled(deliveries).catch((err) => {
+      console.warn('[webhooks] delivery settlement error:', err instanceof Error ? err.message : err);
+    });
   } catch (err) {
     console.error('[webhooks] dispatch error:', err);
   }

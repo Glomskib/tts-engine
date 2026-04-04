@@ -8,6 +8,8 @@ import { createServerSupabaseClient } from '@/lib/supabase/server';
 import { NextResponse } from 'next/server';
 import { recordReferralSignup, ensureReferralCode } from '@/lib/referrals';
 import { recordAffiliateAttribution } from '@/lib/affiliate-tracking';
+import { logEventSafe } from '@/lib/events-log';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { queueEmailSequence } from '@/lib/email/scheduler';
 import { syncRoleFromPlan } from '@/lib/sync-role';
 
@@ -148,6 +150,25 @@ export async function GET(request: Request) {
         console.error('Affiliate attribution recording error (non-fatal):', e);
       }
 
+      // Record remix signup conversion if user came from remix flow (non-fatal)
+      const ffRemixMatch = cookieHeader.match(/(?:^|;\s*)ff_remix_id=([^;]+)/);
+      const remixId = ffRemixMatch ? decodeURIComponent(ffRemixMatch[1]) : null;
+      if (remixId) {
+        try {
+          await logEventSafe(supabaseAdmin, {
+            entity_type: 'remix',
+            entity_id: remixId,
+            event_type: 'remix_signup_conversion',
+            payload: {
+              user_id: data.user.id,
+              email: data.user.email,
+            },
+          });
+        } catch (e) {
+          console.error('Remix signup attribution error (non-fatal):', e);
+        }
+      }
+
       // Process promo code if present (non-fatal)
       if (promoCode) {
         try {
@@ -179,6 +200,7 @@ export async function GET(request: Request) {
       if (explicitRedirect) {
         const redirectRes = NextResponse.redirect(`${origin}${explicitRedirect}`);
         redirectRes.cookies.set('ff_ref', '', { maxAge: 0, path: '/' });
+        redirectRes.cookies.set('ff_remix_id', '', { maxAge: 0, path: '/' });
         return redirectRes;
       }
 

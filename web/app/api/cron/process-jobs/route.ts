@@ -8,9 +8,10 @@
 
 import { NextResponse } from 'next/server';
 import { processJobs } from '@/lib/jobs';
+import { checkAndSendFailureAlert } from '@/lib/ops/failure-alert';
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 300; // 5 min — render_video jobs can take several minutes
 
 const LOG = '[cron/process-jobs]';
 
@@ -33,9 +34,16 @@ export async function GET(request: Request) {
 
     return NextResponse.json({ ok: true, ...result, duration_ms: durationMs });
   } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Unknown error';
     console.error(`${LOG} Fatal error:`, err);
+    await checkAndSendFailureAlert({
+      source: 'process-jobs',
+      error: errorMsg,
+      cooldownMinutes: 30,
+      context: { route: '/api/cron/process-jobs' },
+    });
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : 'Unknown error' },
+      { ok: false, error: errorMsg },
       { status: 500 },
     );
   }

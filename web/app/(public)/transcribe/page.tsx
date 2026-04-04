@@ -31,7 +31,7 @@ export default function TranscribePage() {
         </div>
         <h1 className="text-4xl font-bold mb-4 text-white">Free TikTok Video Transcriber & Script Analyzer</h1>
         <p className="text-lg text-gray-300 mb-8">
-          Paste any TikTok video link below to instantly get the full transcript, AI-powered hook analysis, and content recommendations. No signup required.
+          Paste any TikTok video link to get the full transcript, hook breakdown, and content notes. No signup required.
         </p>
       </div>
 
@@ -51,13 +51,13 @@ export default function TranscribePage() {
             </div>
             <div className="p-4 bg-gray-800/50 rounded-lg">
               <div className="text-3xl font-bold text-teal-500 mb-2">2</div>
-              <h3 className="text-lg font-semibold text-white mb-2">AI Analyzes the Video</h3>
-              <p className="text-gray-300">Our AI transcribes the audio, analyzes the hook strength, identifies key phrases, and rates emotional triggers.</p>
+              <h3 className="text-lg font-semibold text-white mb-2">We Break It Down</h3>
+              <p className="text-gray-300">The video gets transcribed, the hook gets scored, key phrases get pulled out, and emotional triggers get flagged.</p>
             </div>
             <div className="p-4 bg-gray-800/50 rounded-lg">
               <div className="text-3xl font-bold text-teal-500 mb-2">3</div>
               <h3 className="text-lg font-semibold text-white mb-2">Get Insights & Scripts</h3>
-              <p className="text-gray-300">Export the transcript, study the hook structure, or use our script generator to create your own videos based on what works.</p>
+              <p className="text-gray-300">Copy the transcript, study the hook, or jump into the script writer to make your own version of what works.</p>
             </div>
           </div>
         </section>
@@ -76,7 +76,7 @@ export default function TranscribePage() {
             </li>
             <li className="flex items-start">
               <span className="text-teal-500 mr-3">✓</span>
-              <span><strong>Key Phrases:</strong> Critical words and phrases that drive engagement</span>
+              <span><strong>Key Phrases:</strong> The words and phrases doing the heavy lifting</span>
             </li>
             <li className="flex items-start">
               <span className="text-teal-500 mr-3">✓</span>
@@ -88,7 +88,7 @@ export default function TranscribePage() {
             </li>
             <li className="flex items-start">
               <span className="text-teal-500 mr-3">✓</span>
-              <span><strong>Recommendations:</strong> Actionable tips to adapt for your own content</span>
+              <span><strong>Recommendations:</strong> Specific notes on how to use this in your own content</span>
             </li>
           </ul>
         </section>
@@ -120,11 +120,11 @@ export default function TranscribePage() {
         <section className="text-center py-12 border-t border-gray-700">
           <h2 className="text-2xl font-bold mb-4 text-white">Turn Analysis Into Action</h2>
           <p className="text-gray-300 mb-6 max-w-2xl mx-auto">
-            Found a winning hook? Generate your own script based on it. FlashFlow&apos;s AI script generator uses 20+ persona voices to create scroll-stopping content.
+            Found a winning hook? Write your own script based on it. FlashFlow has 20+ creator personas to match your style.
           </p>
           <div className="flex gap-4 justify-center flex-wrap">
             <Link href="/script-generator" className="px-6 py-3 bg-teal-500 text-white rounded-lg font-semibold hover:bg-teal-600 transition">
-              Generate a Script Free
+              Write a Script Free
             </Link>
             <Link href="/login?mode=signup" className="px-6 py-3 border border-gray-600 text-white rounded-lg font-semibold hover:bg-gray-800 transition">
               Create Free Account

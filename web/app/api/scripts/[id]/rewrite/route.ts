@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createApiErrorResponse, generateCorrelationId } from "@/lib/api-errors";
 import { validateScriptJson, normalizeScriptJson, renderScriptText, ScriptJson } from "@/lib/script-renderer";
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -110,6 +111,9 @@ async function callAI(
 }
 
 export async function POST(request: Request, { params }: RouteParams) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 8 });
+  if (guard.error) return guard.error;
+
   const auth = await getApiAuthContext(request);
   if (!auth.user) {
     return NextResponse.json({ ok: false, error: 'Authentication required' }, { status: 401 });

@@ -86,6 +86,7 @@ async function checkRateLimit(
 // TikTok download (resilient fallback chain)
 // ============================================================================
 import { downloadTikTokVideo } from '@/lib/tiktok-downloader';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 // ============================================================================
 // TikTok URL validation
@@ -140,6 +141,9 @@ async function prepareAudioFile(videoPath: string): Promise<string> {
 // ============================================================================
 
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 1, userLimit: 10 });
+  if (guard.error) return guard.error;
+
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
 
@@ -316,9 +320,15 @@ Return this exact JSON structure:
     }
 
     if (message.includes('All download services failed')) {
+      // Check if the failure is likely due to the video being inaccessible vs services being down
+      const isVideoIssue = message.includes('10204') || message.includes('not found') || message.includes('parsing');
       return NextResponse.json(
-        { error: 'TikTok download service is temporarily unavailable. Please try again in a few minutes.' },
-        { status: 503 }
+        {
+          error: isVideoIssue
+            ? 'Could not access this TikTok video. It may be private, deleted, or region-locked. Try a different video URL.'
+            : 'TikTok download service is temporarily unavailable. Please try again in a few minutes.',
+        },
+        { status: isVideoIssue ? 422 : 503 }
       );
     }
 

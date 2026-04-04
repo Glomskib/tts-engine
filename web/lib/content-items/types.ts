@@ -37,6 +37,8 @@ export type CowTier = 'safe' | 'edgy' | 'unhinged';
 
 export type ProcessingStatus = 'none' | 'pending' | 'processing' | 'completed' | 'failed';
 
+export type TikTokDraftStatus = 'pending' | 'processing' | 'sent' | 'failed';
+
 export interface EditorNotes {
   cut_suggestions: Array<{ start_ts: string; end_ts: string; reason: string }>;
   pause_removals: Array<{ start_ts: string; end_ts: string }>;
@@ -99,6 +101,7 @@ export interface ContentItem {
   // Editing engine fields
   raw_video_url: string | null;
   raw_video_storage_path: string | null;
+  raw_video_duration_sec: number | null;
   editing_instructions: string | null;
   edit_plan_json: EditPlan | null;
   edit_status: EditStatus;
@@ -106,6 +109,13 @@ export interface ContentItem {
   rendered_video_storage_path: string | null;
   render_error: string | null;
   last_rendered_at: string | null;
+  // TikTok draft export
+  tiktok_draft_status: TikTokDraftStatus | null;
+  tiktok_draft_publish_id: string | null;
+  tiktok_draft_account_id: string | null;
+  tiktok_draft_error: string | null;
+  tiktok_draft_requested_at: string | null;
+  tiktok_draft_completed_at: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -122,7 +132,7 @@ export interface ContentItemEvent {
   created_at: string;
 }
 
-export type AssetKind = 'raw_footage' | 'transcript' | 'final_video' | 'broll' | 'editor_notes';
+export type AssetKind = 'raw_footage' | 'raw_clip' | 'transcript' | 'final_video' | 'broll' | 'editor_notes';
 export type AssetSource = 'google_drive' | 'upload' | 'generated';
 
 export interface ContentItemAsset {
@@ -135,6 +145,11 @@ export interface ContentItemAsset {
   file_url: string | null;
   metadata: Record<string, unknown>;
   created_at: string;
+  // Multi-clip fields
+  sequence_index: number | null;
+  trim_start_sec: number | null;
+  trim_end_sec: number | null;
+  duration_sec: number | null;
 }
 
 export interface CreatorBriefRow {

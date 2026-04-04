@@ -804,8 +804,8 @@ export default function LandingPage() {
               <button type="button" onClick={() => setContactOpen(true)} className="hover:text-zinc-300 transition-colors">Contact</button>
             </div>
           </div>
-          <p className="text-center text-sm text-zinc-600 mt-8">
-            {BRAND.tagline}
+          <p className="text-center text-xs text-zinc-700 mt-8">
+            FlashFlow is an independent workflow platform. Not affiliated with or endorsed by TikTok or ByteDance.
           </p>
         </div>
       </footer>

@@ -104,6 +104,32 @@ export default function PrivacyPage() {
           </p>
         </section>
 
+        {/* 4b */}
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-3">4b. Connected Platform Accounts</h2>
+          <p className="leading-relaxed">
+            When you connect third-party accounts (such as TikTok, TikTok Shop, or other platforms),
+            we access only the data and permissions you explicitly authorize during the connection flow.
+          </p>
+          <ul className="list-disc list-inside space-y-1.5 mt-3">
+            <li>OAuth tokens and API credentials are encrypted at rest and in transit</li>
+            <li>Access tokens are used solely to provide the features you requested (e.g., draft export, analytics retrieval, product sync)</li>
+            <li>You may disconnect any linked account at any time from your settings, which revokes our access</li>
+            <li>We do not access connected accounts beyond the scopes you authorized</li>
+          </ul>
+        </section>
+
+        {/* 4c */}
+        <section>
+          <h2 className="text-2xl font-bold text-white mb-3">4c. Uploaded Media &amp; Generated Content</h2>
+          <p className="leading-relaxed">
+            Media you upload (images, videos, audio) and content generated through the Service
+            (scripts, video renders, voiceovers) are stored securely and associated with your account.
+            This content is used only to provide the Service to you. Upon account deletion, uploaded
+            media and generated content are permanently removed per our data retention policy.
+          </p>
+        </section>
+
         {/* 5 */}
         <section>
           <h2 className="text-2xl font-bold text-white mb-3">5. Data Security</h2>

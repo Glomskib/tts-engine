@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -12,6 +13,9 @@ interface VideoTranscript {
 }
 
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 5 });
+  if (guard.error) return guard.error;
+
   const auth = await getApiAuthContext(request);
   if (!auth.user) {
     return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

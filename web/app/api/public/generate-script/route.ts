@@ -5,6 +5,7 @@ import { generateCorrelationId } from "@/lib/api-errors";
 import { PERSONAS } from "@/lib/personas";
 import { logUsageEventAsync } from "@/lib/finops/log-usage";
 import { cookies } from "next/headers";
+import { fetchHookIntelligence, buildIntelligenceContext } from "@/lib/hooks/hook-intelligence";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -185,12 +186,20 @@ export async function POST(request: Request) {
     }
   }
 
+  // --- Fetch hook intelligence (non-fatal, works for all users) ---
+  let intelligenceSection = '';
+  try {
+    const intel = await fetchHookIntelligence(undefined);
+    const ctx = buildIntelligenceContext(intel);
+    if (ctx) intelligenceSection = '\n' + ctx;
+  } catch { /* non-fatal */ }
+
   // --- Build prompt ---
   const personaSection = persona
     ? `CREATOR VOICE: Write as a "${persona.name}" — ${persona.fullDescription}. Tone: ${persona.tone}. Style: ${persona.style}.`
     : "CREATOR VOICE: Write as a friendly, relatable narrator with conversational tone.";
 
-  const prompt = `You are a TikTok script writer. Generate a short-form video script for the product below.
+  const prompt = `You are an elite short-form video script writer who has studied thousands of top-performing TikToks, Reels, and Shorts. You understand what makes viewers stop scrolling and watch to the end.
 
 PRODUCT: "${productName}"
 ${productDescription ? `DESCRIPTION: ${productDescription}` : ""}
@@ -198,20 +207,28 @@ ${productDescription ? `DESCRIPTION: ${productDescription}` : ""}
 ${personaSection}
 
 TONE: ${TIER_PROMPTS[riskTier]}
-${creatorStyleSection}
+${creatorStyleSection}${intelligenceSection}
 CRITICAL RULES:
 - NEVER use words: cure, treat, heal, diagnose, guaranteed, 100%
 - NEVER reference medical conditions or make health claims
 - Product benefits should be stated as experiences, not outcomes
 - NEVER imitate real celebrities or public figures
 
-INSTRUCTIONS:
-- Write a scroll-stopping hook line (first 1-2 seconds)
-- Write 4-5 beats (short scenes/moments) that build toward the product
+HOOK RULES:
+- The hook line must create a pattern interrupt — something that makes a scroller STOP
+- NEVER use banned hook phrases: "game changer", "changed my life", "you need this", "trust me", "hear me out", "hidden gem", "run don't walk", "best kept secret", "stop what you're doing", "you won't believe"
+- NEVER start with: "So I just...", "Okay so...", "Hey guys...", "Guys,", "OMG guys", "Let me show you", "POV:", "Attention:"
+- NEVER use AI patterns: "What if I told you", "Imagine X. Now imagine Y.", "Tired of X? Meet Y."
+- Hook should sound like a real person talking to their phone, not marketing copy
+
+SCRIPT RULES:
+- Write a scroll-stopping hook line (first 1-2 seconds) — specific, filmable, human
+- Write 4-5 beats (short scenes/moments) that build toward the product reveal
 - Each beat has: timestamp range, action description, spoken dialogue, optional on-screen text
-- End with a clear CTA
+- On-screen text should create tension INDEPENDENT from spoken dialogue (not the same words)
+- End with a clear, natural CTA — not salesy
 - Keep total spoken words to ~60-70 words (15-30 second video)
-- Make it genuinely entertaining, not salesy
+- Make it genuinely entertaining — write like a real creator, not a brand
 
 Return ONLY valid JSON with this exact structure:
 {

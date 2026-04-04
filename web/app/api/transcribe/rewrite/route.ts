@@ -7,6 +7,7 @@ import {
   extractCtaKeywords,
   validateRegeneration,
 } from '@/lib/regenerate-validation';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -26,6 +27,9 @@ interface PreviousRewrite {
  * Counts as 1 use from the shared transcriber rate limit pool.
  */
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 6 });
+  if (guard.error) return guard.error;
+
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
 

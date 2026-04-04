@@ -5,7 +5,14 @@ import OpenAI from 'openai';
 import { logGenerationAsync } from '@/lib/flashflow/generations';
 import { logUsageEventAsync } from '@/lib/finops/log-usage';
 import { selectCategories, type HookCategory } from '@/lib/hooks/hook-categories';
-import { filterHookBatch, checkHookQuality, type HookData } from '@/lib/hooks/hook-quality-filter';
+import { filterHookBatch, type HookData } from '@/lib/hooks/hook-quality-filter';
+import { buildVibePromptContext } from '@/lib/vibe-analysis/prompt-context';
+import type { VibeAnalysis } from '@/lib/vibe-analysis/types';
+import { fetchHookIntelligence, buildIntelligenceContext } from '@/lib/hooks/hook-intelligence';
+import { punchUpHooks } from '@/lib/hooks/hook-punchup';
+import { fetchPerformanceContext } from '@/lib/creator-performance/build-prompt-context';
+import { getGenerationKnowledgeContext } from '@/lib/knowledge-graph/retrieve';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 const getOpenAI = () => new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -53,6 +60,8 @@ function buildSystemPrompt(
   toneCtx: string,
   audienceCtx: string,
   constraintsCtx: string,
+  vibeCtx: string = '',
+  intelligenceCtx: string = '',
 ): string {
   const categoryBlock = buildCategoryBlock(categories);
 
@@ -65,15 +74,18 @@ ${categoryBlock}
 
 RULES — READ CAREFULLY:
 1. The VISUAL HOOK must be a specific, filmable action or scene — not vague direction. Bad: "Person holding product." Good: "Close-up of hand squeezing the last drop out of an empty bottle, then tossing it in the trash."
-2. TEXT ON SCREEN must create an open loop or tension. It should be scannable in under 2 seconds (max 12 words). Bad: "Check out this amazing product!" Good: "I was mass producing 3,000 of these until..."
-3. VERBAL HOOK is the first words spoken — must sound natural, like a real person talking. No marketing speak. Bad: "This incredible product will transform your routine." Good: "Okay so my roommate just caught me doing this at 3am."
+2. TEXT ON SCREEN must create an open loop or tension INDEPENDENT from the verbal hook. It should be scannable in under 2 seconds (max 12 words). Bad: "Check out this amazing product!" Good: "I was mass producing 3,000 of these until..."
+3. VERBAL HOOK is the first words spoken — must sound natural, like a real person talking to their phone camera. No marketing speak, no copywriting voice. Bad: "This incredible product will transform your routine." Good: "Okay so my roommate just caught me doing this at 3am."
 4. Each hook must use a DIFFERENT opening word/phrase — no two hooks can start the same way.
-5. NEVER use these banned phrases: "this changed everything", "game changer", "you won't believe", "life hack", "wait for it", "changed my life", "mind blown", "best thing ever", "you need this", "trust me", "I'm obsessed", "holy grail", "must have", "hear me out".
-6. NEVER start with: "So I just...", "Okay so...", "Hey guys...", "Guys,", "OMG guys".
-7. WHY THIS WORKS must explain the specific psychological trigger in 1-2 sentences.
+5. NEVER use these banned phrases: "this changed everything", "game changer", "you won't believe", "life hack", "wait for it", "changed my life", "mind blown", "best thing ever", "you need this", "trust me", "I'm obsessed", "holy grail", "must have", "hear me out", "transform your", "revolutionize", "elevate your", "say goodbye to", "say hello to", "the ultimate", "next level", "run don't walk", "thank me later", "hidden gem", "best kept secret", "stop what you're doing", "drop everything", "nobody is talking about this".
+6. NEVER start with: "So I just...", "Okay so...", "Hey guys...", "Guys,", "OMG guys", "Let me show you", "Can I be honest", "Storytime", "POV:", "Attention:", "Unpopular opinion", "Hot take".
+7. NEVER use AI-style patterns: "What if I told you", "Imagine X. Now imagine Y.", "Tired of X? Meet Y.", "Introducing the...", "In a world where...".
+8. WHY THIS WORKS must explain the specific psychological trigger in 1-2 sentences.
+9. Text on screen and verbal hook should NOT say the same thing — they create tension from different angles.
+10. Write like a real person, not a brand. Imperfect grammar is fine. Fragments are fine. Sound human.
 
 Platform: ${platformContext}
-${nicheContext}${personaContext}${toneCtx}${audienceCtx}${constraintsCtx}
+${nicheContext}${personaContext}${toneCtx}${audienceCtx}${constraintsCtx}${vibeCtx}${intelligenceCtx ? '\n\n' + intelligenceCtx : ''}
 
 Return ONLY a valid JSON array of ${categories.length} hooks in this exact format:
 [
@@ -90,6 +102,9 @@ Use the exact category id from the assignments above. Do not include any markdow
 }
 
 export async function POST(request: NextRequest) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 6 });
+  if (guard.error) return guard.error;
+
   try {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -107,7 +122,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { product, platform = 'tiktok', niche = '', audience_persona_id, tone, audience, constraints } = body;
+    const { product, platform = 'tiktok', niche = '', audience_persona_id, tone, audience, constraints, vibe_analysis } = body;
 
     if (!product || typeof product !== 'string' || product.trim().length === 0) {
       return NextResponse.json(
@@ -150,6 +165,24 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Build vibe context if provided
+    let vibeCtx = '';
+    if (vibe_analysis && typeof vibe_analysis === 'object' && vibe_analysis.delivery_style) {
+      vibeCtx = '\n\n' + buildVibePromptContext(vibe_analysis as unknown as VibeAnalysis);
+    }
+
+    // Fetch hook intelligence, performance context, and knowledge in parallel — non-blocking
+    const emptyPerf = { prompt: '', hasData: false, confidence: 'none' as const };
+    const emptyKnowledge = { prompt: '', hasData: false, nodeCount: 0 };
+    const [intel, perfCtx, knowledgeCtx] = await Promise.all([
+      fetchHookIntelligence(niche || undefined),
+      user ? fetchPerformanceContext(user.id).catch(() => emptyPerf) : Promise.resolve(emptyPerf),
+      user ? getGenerationKnowledgeContext(user.id, product).catch(() => emptyKnowledge) : Promise.resolve(emptyKnowledge),
+    ]);
+    const intelligenceCtx = buildIntelligenceContext(intel)
+      + (perfCtx.hasData ? '\n\n' + perfCtx.prompt : '')
+      + (knowledgeCtx.hasData ? '\n\n' + knowledgeCtx.prompt : '');
+
     // Select categories for this batch
     const hookCount = 5;
     const categories = selectCategories(hookCount);
@@ -162,6 +195,8 @@ export async function POST(request: NextRequest) {
       toneCtx,
       audienceCtx,
       constraintsCtx,
+      vibeCtx,
+      intelligenceCtx,
     );
 
     const userPrompt = `Product/Topic: ${product.trim()}`;
@@ -229,15 +264,43 @@ export async function POST(request: NextRequest) {
     }
 
     // Take up to hookCount
-    const finalHooks = allPassedHooks.slice(0, hookCount);
+    let finalHooks = allPassedHooks.slice(0, hookCount);
+
+    // Punch-up pass: sharpen hooks with a fast second LLM call
+    if (finalHooks.length >= 3) {
+      const punchup = await punchUpHooks(finalHooks, product.trim());
+      if (punchup.punchedUp) {
+        // Re-filter punched-up hooks (punch-up might introduce banned phrases)
+        const { passed: punchedPassed } = filterHookBatch(punchup.hooks);
+        if (punchedPassed.length >= finalHooks.length * 0.6) {
+          finalHooks = punchedPassed.slice(0, hookCount);
+        }
+        // else keep originals — punch-up degraded quality
+      }
+      // Track punch-up tokens
+      if (punchup.tokens.input > 0) {
+        logUsageEventAsync({
+          source: 'flashflow',
+          lane: 'FlashFlow',
+          provider: 'anthropic',
+          model: 'claude-haiku-4-5-20251001',
+          input_tokens: punchup.tokens.input,
+          output_tokens: punchup.tokens.output,
+          user_id: user?.id,
+          endpoint: '/api/hooks/generate',
+          template_key: 'hook_punchup',
+          agent_id: 'flash',
+        });
+      }
+    }
 
     // Log generation for self-improvement loop (fire-and-forget)
     if (user) {
       logGenerationAsync({
         user_id: user.id,
         template_id: 'hook_generate',
-        prompt_version: '2.0.0',
-        inputs_json: { product: product.trim(), platform, niche, audience_persona_id, tone, audience, constraints },
+        prompt_version: '3.0.0',
+        inputs_json: { product: product.trim(), platform, niche, audience_persona_id, tone, audience, constraints, has_vibe: !!vibe_analysis, has_intel: intelligenceCtx.length > 0 },
         output_text: JSON.stringify(finalHooks),
         model: 'gpt-4o-mini',
       });

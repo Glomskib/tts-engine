@@ -55,6 +55,10 @@ import {
   Gauge,
   Briefcase,
   Film,
+  Radar,
+  Rocket,
+  Pickaxe,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 import { meetsMinPlan, migrateOldPlanId, getPlanByStringId } from '@/lib/plans';
@@ -66,6 +70,8 @@ export interface NavItem {
   name: string;
   href: string;
   icon: LucideIcon;
+  /** Short description shown on hover or below the label */
+  subtitle?: string;
   /** Feature key for gating (optional) */
   featureKey?: string;
   /** External link (opens in same tab but not under admin layout) */
@@ -78,6 +84,8 @@ export interface NavItem {
   minPlan?: 'free' | 'creator_lite' | 'creator_pro' | 'brand' | 'agency';
   /** data-tour attribute value for guided walkthrough targeting */
   tourId?: string;
+  /** Optional badge shown next to the item name (e.g. 'Beta', 'New') */
+  badge?: 'Beta' | 'New' | 'Internal';
 }
 
 /** Nav item with resolved lock state for rendering */
@@ -103,6 +111,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'HOME',
     subscriptionType: 'saas',
     items: [
+      { name: 'Today', href: '/admin/today', icon: Sparkles, subtitle: 'Your daily briefing' },
       { name: 'Command Center', href: '/admin', icon: Gauge },
       { name: 'Creator Dashboard', href: '/admin/creator', icon: Clapperboard, tourId: 'nav-creator' },
     ],
@@ -111,36 +120,42 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'CREATE',
     subscriptionType: 'saas',
     items: [
+      { name: 'Opportunities', href: '/admin/opportunities', icon: Lightbulb, subtitle: 'What to make right now', minPlan: 'creator_lite' },
+      { name: 'Campaigns', href: '/admin/campaigns', icon: Rocket, subtitle: 'Launch bulk content campaigns' },
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator', tourId: 'nav-content-studio' },
-      { name: 'Hook Generator', href: '/admin/hook-generator', icon: Zap },
-      { name: 'Script Library', href: '/admin/script-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite', tourId: 'nav-script-library' },
-      { name: 'Comment Reply Creator', href: '/admin/tools/tok-comment', icon: MessageSquare },
-      { name: 'Transcriber', href: '/admin/transcribe', icon: Mic, tourId: 'nav-transcriber' },
-      { name: 'YT Transcriber', href: '/admin/youtube-transcribe', icon: Youtube },
+      { name: 'Content Pack', href: '/admin/content-pack', icon: Package, subtitle: 'Hooks + script + visuals in one shot' },
+      { name: 'Pack Library', href: '/admin/content-packs', icon: Package, subtitle: 'Browse saved packs' },
+      { name: 'Hooks', href: '/admin/hook-generator', icon: Zap },
+      { name: 'Saved Scripts', href: '/admin/script-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite', tourId: 'nav-script-library' },
+      { name: 'Comment Miner', href: '/admin/comment-miner', icon: Pickaxe, subtitle: 'Turn comments into content ideas' },
+      { name: 'Comment Replies', href: '/admin/tools/tok-comment', icon: MessageSquare },
+      { name: 'Video Breakdown', href: '/admin/transcribe', icon: Mic, subtitle: 'Analyze any video and recreate it', tourId: 'nav-transcriber' },
     ],
   },
   {
     title: 'PIPELINE',
     subscriptionType: 'saas',
     items: [
-      { name: 'Content Items', href: '/admin/content-items', icon: ListTodo, tourId: 'nav-content-items' },
-      { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, minPlan: 'creator_pro', tourId: 'nav-content-planner' },
-      { name: 'Production Board', href: '/admin/pipeline', icon: Video, minPlan: 'creator_pro', tourId: 'nav-pipeline' },
-      { name: 'Drive Intake', href: '/admin/intake', icon: Download, minPlan: 'creator_pro' },
-      { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, minPlan: 'creator_pro', tourId: 'nav-posting-queue' },
+      { name: 'Production Console', href: '/admin/production', icon: Gauge, subtitle: 'What to work on right now', minPlan: 'creator_pro', tourId: 'nav-production' },
+      { name: 'Content Items', href: '/admin/content-items', icon: ListTodo, subtitle: 'All content in one place', tourId: 'nav-content-items' },
+      { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, subtitle: 'Schedule and plan ahead', minPlan: 'creator_pro', tourId: 'nav-content-planner' },
+      { name: 'Production Board', href: '/admin/pipeline', icon: Video, subtitle: 'Track progress across stages', minPlan: 'creator_pro', tourId: 'nav-pipeline' },
+      { name: 'Drive Intake', href: '/admin/intake', icon: Download, subtitle: 'Import from Google Drive', minPlan: 'creator_pro' },
+      { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, subtitle: 'Ready to publish', minPlan: 'creator_pro', tourId: 'nav-posting-queue' },
     ],
   },
   {
-    title: 'AUDIENCE',
+    title: 'RESEARCH & ANALYTICS',
     subscriptionType: 'saas',
     items: [
+      { name: 'Performance Loop', href: '/admin/performance-loop', icon: TrendingUp, subtitle: 'What works for you — learn and improve' },
       { name: 'Speak To Your Audience', href: '/admin/audience', icon: UserCheck },
       { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro', tourId: 'nav-winners' },
-      { name: 'Winner Patterns', href: '/admin/intelligence/winners-bank', icon: Activity, minPlan: 'creator_pro' },
-      { name: 'Clip Index', href: '/admin/clip-index', icon: Film },
+      { name: 'Winner Patterns', href: '/admin/intelligence/winners-bank', icon: Activity, minPlan: 'creator_pro', badge: 'Beta' },
       { name: 'Hook Library', href: '/admin/hooks', icon: Anchor, minPlan: 'creator_pro' },
-      { name: 'Hook Performance', href: '/admin/intelligence/hooks', icon: Zap, minPlan: 'creator_pro' },
-      { name: 'Performance', href: '/admin/performance', icon: BarChart3, minPlan: 'creator_pro' },
+      { name: 'Hook Performance', href: '/admin/intelligence/hooks', icon: Zap, minPlan: 'creator_pro', badge: 'Beta' },
+      { name: 'Performance', href: '/admin/performance', icon: BarChart3, minPlan: 'creator_pro', badge: 'Beta' },
+      { name: 'Clip Index', href: '/admin/clip-index', icon: Film, minPlan: 'creator_pro', badge: 'Beta' },
     ],
   },
   {
@@ -150,7 +165,9 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog', tourId: 'nav-products' },
       { name: 'Brands', href: '/admin/brands', icon: Building, minPlan: 'creator_pro' },
       { name: 'Briefs', href: '/admin/briefs', icon: FileText, minPlan: 'creator_pro' },
-      { name: 'Retainers & Bonuses', href: '/admin/retainers', icon: Target, minPlan: 'creator_pro' },
+      { name: 'Experiments', href: '/admin/experiments', icon: FlaskConical, minPlan: 'creator_pro', badge: 'Beta' },
+      { name: 'Retainers & Bonuses', href: '/admin/retainers', icon: Target, minPlan: 'creator_pro', badge: 'Beta' },
+      { name: 'Opportunity Radar', href: '/admin/opportunity-radar', icon: Radar, adminOnly: true },
     ],
   },
   {
@@ -166,6 +183,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'SYSTEM',
     subscriptionType: 'saas',
     items: [
+      { name: 'Launch Check', href: '/admin/launch-check', icon: Rocket, adminOnly: true },
       { name: 'System Status', href: '/admin/settings/system-status', icon: Activity, adminOnly: true },
       { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, ownerOnly: true },
       { name: 'Feedback', href: '/admin/feedback', icon: MessageSquare, adminOnly: true },

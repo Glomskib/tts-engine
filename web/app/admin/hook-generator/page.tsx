@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
-import { Copy, Sparkles, Loader2, Eye, MessageCircle, Mic, CheckCircle, Tag } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
+import { Copy, Sparkles, Loader2, Eye, MessageCircle, Mic, CheckCircle, Tag, ArrowRight, Zap } from 'lucide-react';
 import AdminPageLayout, { AdminCard } from '@/app/admin/components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
+import VisualHooksPanel from '@/components/VisualHooksPanel';
 
 interface Hook {
   visual_hook: string;
@@ -16,7 +19,14 @@ interface Hook {
 
 export default function AdminHookGeneratorPage() {
   const { showSuccess, showError } = useToast();
+  const searchParams = useSearchParams();
   const [product, setProduct] = useState('');
+
+  // Pre-fill from URL params (e.g., from Opportunities page)
+  useEffect(() => {
+    const p = searchParams.get('product');
+    if (p) setProduct(p);
+  }, [searchParams]);
   const [platform, setPlatform] = useState('tiktok');
   const [niche, setNiche] = useState('');
   const [tone, setTone] = useState('');
@@ -39,13 +49,19 @@ export default function AdminHookGeneratorPage() {
         body: JSON.stringify({ product, platform, niche, tone, audience, constraints }),
       });
 
-      if (!res.ok) throw new Error('Failed to generate hooks');
-
       const data = await res.json();
+
+      if (!res.ok) {
+        if (data?.upgrade === true && typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('flashflow:upgrade', { detail: data }));
+        }
+        throw new Error('Failed to generate hooks');
+      }
+
       setHooks(data.hooks || []);
-      showSuccess(`${(data.hooks || []).length} hooks generated`);
+      showSuccess(`${(data.hooks || []).length} hooks ready`);
     } catch {
-      showError('Failed to generate hooks');
+      showError('Hooks failed — try again');
     } finally {
       setLoading(false);
     }
@@ -65,14 +81,34 @@ export default function AdminHookGeneratorPage() {
     }
   };
 
+  const useInStudio = (hook: Hook) => {
+    const hookText = `${hook.verbal_hook}`;
+    const inspiration = `Visual: ${hook.visual_hook}\nText on screen: ${hook.text_on_screen}\nWhy it works: ${hook.why_this_works || hook.strategy_note}`;
+    const params = new URLSearchParams({ hook: hookText, inspiration });
+    window.location.href = `/admin/content-studio?${params.toString()}`;
+  };
+
   const inputClass = 'w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded-lg text-white text-sm focus:outline-none focus:ring-2 focus:ring-teal-500';
 
   return (
     <AdminPageLayout
-      title="Hook Generator"
-      subtitle="Generate 3-part scroll-stopping hooks for your short-form videos"
+      title="Hooks"
+      subtitle="Make hooks that stop the scroll — visual, text, and verbal, ready to film"
+      stage="create"
     >
-      <AdminCard title="Generate Hooks">
+      {/* Cross-link to Content Studio */}
+      <div className="flex items-center gap-4 mb-2 text-sm">
+        <Link
+          href="/admin/content-studio"
+          className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors"
+        >
+          <Sparkles size={14} />
+          Want a full script? Use Content Studio
+          <ArrowRight size={12} />
+        </Link>
+      </div>
+
+      <AdminCard title="Make Hooks">
         <div className="space-y-4">
           <div>
             <label className="block text-sm text-zinc-400 mb-1">Product or Topic *</label>
@@ -152,9 +188,9 @@ export default function AdminHookGeneratorPage() {
             className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
           >
             {loading ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Generating...</>
+              <><Loader2 className="w-4 h-4 animate-spin" /> Making hooks...</>
             ) : (
-              <><Sparkles className="w-4 h-4" /> Generate Hooks</>
+              <><Sparkles className="w-4 h-4" /> Make Hooks</>
             )}
           </button>
         </div>
@@ -163,7 +199,7 @@ export default function AdminHookGeneratorPage() {
       {hooks.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-zinc-100">{hooks.length} Hooks Generated</h3>
+            <h3 className="text-lg font-semibold text-zinc-100">{hooks.length} Hooks</h3>
           </div>
 
           {hooks.map((hook, index) => (
@@ -178,6 +214,12 @@ export default function AdminHookGeneratorPage() {
                       {hook.category.replace(/_/g, ' ')}
                     </span>
                   )}
+                  <button
+                    onClick={() => useInStudio(hook)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-violet-500/10 hover:bg-violet-500/20 text-violet-400 border border-violet-500/20 rounded-lg transition-colors"
+                  >
+                    <Zap className="w-3.5 h-3.5" /> Use in Studio
+                  </button>
                   <button
                     onClick={() => copyHook(hook, index)}
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs bg-zinc-700 hover:bg-zinc-600 text-zinc-300 rounded-lg transition-colors"
@@ -225,6 +267,17 @@ export default function AdminHookGeneratorPage() {
                 <div className="pt-3 border-t border-white/5">
                   <div className="text-xs font-medium text-zinc-500 mb-1">Why This Works</div>
                   <p className="text-sm text-zinc-400">{hook.why_this_works || hook.strategy_note}</p>
+                </div>
+
+                {/* Visual Ideas for this hook */}
+                <div className="pt-3 border-t border-white/5">
+                  <VisualHooksPanel
+                    topic={product}
+                    platform={platform as 'tiktok' | 'youtube_shorts' | 'instagram_reels'}
+                    verbalHook={hook.verbal_hook}
+                    niche={niche || undefined}
+                    variant="inline"
+                  />
                 </div>
               </div>
             </AdminCard>

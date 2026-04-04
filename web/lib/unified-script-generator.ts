@@ -11,6 +11,10 @@
  *   2. Always includes product info, audience persona, winner patterns, sales approach
  *   3. Intelligent variety biased toward proven patterns (not pure random)
  *   4. Scorer feedback fed into regeneration prompts
+ *   5. Rich voice packs for persona differentiation
+ *   6. Structure variety — not always hook→setup→body→cta
+ *   7. Anti-cliche enforcement in prompt + post-generation check
+ *   8. Optional punch-up pass for creator-native voice
  *
  * Called by:
  *   - /api/scripts/generate
@@ -29,6 +33,13 @@ import type { ScriptScoreResult } from '@/lib/script-scorer';
 import { buildStylePack } from '@/lib/creator-style/style-pack';
 import type { StylePack } from '@/lib/creator-style/style-pack';
 import { logUsageEventAsync } from '@/lib/finops/log-usage';
+import { buildVibePromptContext } from '@/lib/vibe-analysis/prompt-context';
+import { getVoicePack, buildVoicePackPrompt } from '@/lib/script-voice-packs';
+import { selectStructure, buildStructurePrompt } from '@/lib/script-structures';
+import { buildAntiClichePrompt, checkScriptQuality } from '@/lib/script-anti-cliche';
+import { fetchPerformanceContext } from '@/lib/creator-performance/build-prompt-context';
+import { getGenerationKnowledgeContext } from '@/lib/knowledge-graph/retrieve';
+import { punchUpScript } from '@/lib/script-punchup';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -82,6 +93,12 @@ export interface UnifiedScriptInput {
 
   /** Creator style fingerprint ID — injects style context into prompt */
   creatorStyleId?: string;
+
+  /** Vibe analysis from a reference video — shapes rhythm, energy, pacing, CTA tone */
+  vibeAnalysis?: import('@/lib/vibe-analysis/types').VibeAnalysis;
+
+  /** Enable punch-up pass (default: true for pipeline, false otherwise) */
+  enablePunchUp?: boolean;
 }
 
 export interface UnifiedScriptOutput {
@@ -126,6 +143,12 @@ export interface UnifiedScriptOutput {
 
   /** Creator style ID used (for traceability) */
   creatorStyleRef?: string;
+
+  /** Script structure used */
+  structureUsed?: string;
+
+  /** Whether punch-up pass was applied */
+  punchedUp?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -257,10 +280,11 @@ function buildProductSection(input: {
 }
 
 function buildWinnerPatternsSection(analysis: WinnerAnalysis): string {
-  const lines = ['=== WINNER INTELLIGENCE (from your best-performing content) ==='];
+  const lines = ['=== WINNER INTELLIGENCE (from best-performing content) ==='];
+  lines.push('Use these patterns to SHAPE your script — structure, rhythm, energy. Do NOT copy words.');
 
   if (analysis.winningFormula) {
-    lines.push(`Winning Formula: ${analysis.winningFormula}`);
+    lines.push(`\nWinning Formula: ${analysis.winningFormula}`);
   }
 
   if (analysis.topHookTypes.length > 0) {
@@ -275,13 +299,13 @@ function buildWinnerPatternsSection(analysis: WinnerAnalysis): string {
   }
 
   if (analysis.commonPhrases.length > 0) {
-    lines.push('\nPhrases That Resonate (weave these in naturally):');
+    lines.push('\nPhrases That Resonate (use sparingly, naturally):');
     for (const cp of analysis.commonPhrases.slice(0, 6)) {
       lines.push(`  - "${cp.phrase}"${cp.context ? ` — ${cp.context}` : ''}`);
     }
   }
 
-  lines.push('');
+  lines.push('===');
   return lines.join('\n');
 }
 
@@ -311,7 +335,7 @@ function buildAudiencePersonaSection(persona: AudiencePersonaData): string {
     lines.push(`\nCommon Objections to Address: ${persona.common_objections.slice(0, 4).join(', ')}`);
   }
 
-  lines.push('');
+  lines.push('===');
   return lines.join('\n');
 }
 
@@ -340,7 +364,7 @@ function buildScorerFeedbackSection(score: ScriptScoreResult): string {
   }
 
   lines.push('\nAddress ALL of the above in this regeneration. The previous script was not good enough.');
-  lines.push('');
+  lines.push('===');
   return lines.join('\n');
 }
 
@@ -355,21 +379,6 @@ const WORD_LIMITS: Record<string, { max: number; chars: number; seconds: string 
   '45_sec': { max: 160, chars: 800, seconds: '40-50' },
   '60_sec': { max: 200, chars: 1000, seconds: '50-65' },
 };
-
-// ---------------------------------------------------------------------------
-// CTA pool (weighted toward proven TikTok Shop language)
-// ---------------------------------------------------------------------------
-
-const CTA_POOL = [
-  'Tap the yellow basket to grab yours',
-  "Comment LINK and I'll send it to you",
-  "I linked it below — go check it out",
-  'The link is right there in the shop tab',
-  "Don't wait on this one — yellow basket, go",
-  'Grab it before it sells out again',
-  'Follow me and tap the link to get yours',
-  "Add it to your cart right now, you'll thank me later",
-];
 
 // ---------------------------------------------------------------------------
 // Main generation function
@@ -462,6 +471,9 @@ export async function generateUnifiedScript(
     selectedPersona = pickPersona(input.usedPersonaIds || []);
   }
 
+  // ── Get rich voice pack for the persona ──
+  const voicePack = getVoicePack(selectedPersona.id);
+
   // ── Pick sales approach (biased by content type) ──
   let selectedApproach: (typeof SALES_APPROACHES)[number];
   if (input.salesApproachId) {
@@ -470,6 +482,13 @@ export async function generateUnifiedScript(
   } else {
     selectedApproach = pickSalesApproach(input.contentType || '', input.usedApproachIds || []);
   }
+
+  // ── Select script structure based on persona + content type ──
+  const structure = selectStructure(
+    selectedPersona.id,
+    input.contentType,
+    voicePack.preferredStructures,
+  );
 
   // ── Pick hook style (biased toward winner patterns) ──
   let hookStyleHint = '';
@@ -486,9 +505,6 @@ export async function generateUnifiedScript(
   // ── Pick target length + word limit ──
   const targetLength = input.targetLength || '30_sec';
   const wordLimit = WORD_LIMITS[targetLength] || WORD_LIMITS['30_sec'];
-
-  // ── Pick CTA ──
-  const ctaStyle = CTA_POOL[Math.floor(Math.random() * CTA_POOL.length)];
 
   // ── Build the prompt ──
   const productSection = buildProductSection({
@@ -521,15 +537,16 @@ export async function generateUnifiedScript(
     );
   }
 
-  // Creator persona
-  promptParts.push(
-    `\n=== CREATOR PERSONA ===\n${selectedPersona.name}: ${selectedPersona.voice}`
-  );
+  // Rich voice pack (replaces thin persona one-liner)
+  promptParts.push(`\n${buildVoicePackPrompt(voicePack)}`);
 
   // Sales approach
   promptParts.push(
     `\n=== SALES APPROACH ===\n${selectedApproach.name}: ${selectedApproach.description}`
   );
+
+  // Script structure
+  promptParts.push(`\n${buildStructurePrompt(structure)}`);
 
   // Audience persona
   if (audiencePersona) {
@@ -551,17 +568,48 @@ export async function generateUnifiedScript(
     promptParts.push(`\n${userStyleProfile}`);
   }
 
+  // Creator performance profile (what hooks/angles/formats work best)
+  if (input.userId) {
+    try {
+      const perfCtx = await fetchPerformanceContext(input.userId);
+      if (perfCtx.hasData) {
+        promptParts.push(`\n${perfCtx.prompt}`);
+      }
+    } catch {
+      // Non-fatal — proceed without performance context
+    }
+  }
+
+  // Creator knowledge graph (audience insights, product knowledge, patterns)
+  if (input.userId) {
+    try {
+      const knowledgeCtx = await getGenerationKnowledgeContext(input.userId, productName || undefined);
+      if (knowledgeCtx.hasData) {
+        promptParts.push(`\n${knowledgeCtx.prompt}`);
+      }
+    } catch {
+      // Non-fatal — proceed without knowledge context
+    }
+  }
+
+  // Vibe analysis from reference video
+  if (input.vibeAnalysis) {
+    promptParts.push(`\n${buildVibePromptContext(input.vibeAnalysis)}`);
+  }
+
   // Scorer feedback (for regeneration)
   if (input.previousScore) {
     promptParts.push(`\n${buildScorerFeedbackSection(input.previousScore)}`);
   }
+
+  // Anti-cliche rules
+  promptParts.push(`\n${buildAntiClichePrompt()}`);
 
   // Word limit
   promptParts.push(`
 === LENGTH CONSTRAINT (CRITICAL) ===
 Target: ${wordLimit.seconds} seconds when read aloud (${wordLimit.max} words max / ~${wordLimit.chars} characters).
 Scripts that are too long get cut off by TTS. Be CONCISE. Every word must earn its place.
-CTA approach: "${ctaStyle}"
 `);
 
   // Category risk / compliance
@@ -576,12 +624,14 @@ Category: ${input.categoryRisk || productCategory || 'general'}
   // Voice rules
   promptParts.push(`
 === VOICE RULES ===
-- Sound like a real person talking to their phone camera, NOT marketing copy
-- Never start with "I" — lead with the product, a hook question, or a command
-- Vary sentence length — short punchy lines mixed with flowing ones
-- Use contractions, casual language, filler words where natural ("honestly", "like", "lowkey")
+- Sound like the ${voicePack.name} persona above — match their rhythm, vocabulary, and attitude
+- Never start the hook with "I" — lead with the product, a hook question, or a command
+- Vary sentence length — short punchy fragments mixed with flowing ones
+- Use the persona's natural fillers and vocabulary tendencies
 - Include inline stage directions in brackets: [pause], [show product], [hold up bottle]
-- Reference SPECIFIC product details — name, benefits, ingredients. No generic filler.
+- Reference SPECIFIC product details — name, benefits, ingredients. No generic filler
+- The CTA must match the persona's CTA style (see voice pack above)
+- Text on screen should create independent tension, NOT repeat the verbal script
 `);
 
   // Output format
@@ -589,10 +639,10 @@ Category: ${input.categoryRisk || productCategory || 'general'}
 === OUTPUT FORMAT ===
 Respond with ONLY a JSON object (no markdown, no code fences, no explanation):
 {
-  "hook": "The first 3 seconds — scroll-stopper opening line",
-  "setup": "5-10 seconds — the problem/context that draws them in",
-  "body": "15-30 seconds — the pitch/demo/story with product specifics and stage directions",
-  "cta": "3-5 seconds — natural call to action",
+  "hook": "${structure.fieldGuide.hook}",
+  "setup": "${structure.fieldGuide.setup}",
+  "body": "${structure.fieldGuide.body}",
+  "cta": "${structure.fieldGuide.cta}",
   "on_screen_text": ["overlay 1", "overlay 2", "overlay 3"],
   "caption": "Complete social caption with emojis",
   "hashtags": ["#hashtag1", "#hashtag2", "#hashtag3", "#fyp"],
@@ -607,8 +657,13 @@ Respond with ONLY a JSON object (no markdown, no code fences, no explanation):
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) throw new Error('ANTHROPIC_API_KEY not configured');
 
-  const systemPrompt =
-    'You are a UGC script writer for short-form video. You write scripts that sound like real people talking to their phone camera — NOT marketing copy. You are concise, specific, and always reference the actual product by name.';
+  const systemPrompt = `You are a UGC script writer for short-form video. You write scripts that sound like specific, real creators talking to their phone camera — never marketing copy, never AI-polished prose.
+
+You have a specific persona voice to match. Stay in character. Match their rhythm, vocabulary, attitude, and CTA style exactly.
+
+You follow a specific script structure. Each structure has a different narrative arc — use the arc you're given, not the default hook→setup→body→cta every time.
+
+You NEVER use banned phrases or AI-style patterns. Your scripts are imperfect, specific, committed, and human. Fragments are fine. Sentence restarts are fine. Trailing off is fine. Sounding too smooth is NOT fine.`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -638,12 +693,9 @@ Respond with ONLY a JSON object (no markdown, no code fences, no explanation):
   // ── FinOps: log Anthropic usage (fire-and-forget) ──
   const anthropicUsage = data.usage as { input_tokens?: number; output_tokens?: number; cache_creation_input_tokens?: number; cache_read_input_tokens?: number } | undefined;
   if (anthropicUsage) {
-    const lane = input.callerContext === 'pipeline' ? 'FlashFlow'
-      : input.callerContext === 'content_package' ? 'FlashFlow'
-      : 'FlashFlow';
     logUsageEventAsync({
       source: 'flashflow',
-      lane,
+      lane: 'FlashFlow',
       provider: 'anthropic',
       model: 'claude-sonnet-4-5-20250929',
       input_tokens: anthropicUsage.input_tokens ?? 0,
@@ -657,6 +709,8 @@ Respond with ONLY a JSON object (no markdown, no code fences, no explanation):
       metadata: {
         caller_context: input.callerContext,
         creator_style_id: input.creatorStyleId,
+        persona: selectedPersona.id,
+        structure: structure.id,
       },
     });
   }
@@ -664,12 +718,73 @@ Respond with ONLY a JSON object (no markdown, no code fences, no explanation):
   // ── Parse JSON response ──
   const parsed = parseAIResponse(rawText);
 
+  // ── Post-generation quality check ──
+  const qualityIssues = checkScriptQuality({
+    hook: String(parsed.hook || ''),
+    setup: String(parsed.setup || ''),
+    body: String(parsed.body || ''),
+    cta: String(parsed.cta || ''),
+  });
+  if (qualityIssues.length > 0) {
+    console.warn('[unified-script-generator] Quality issues:', qualityIssues.map(i => `${i.field}: ${i.issue}`).join('; '));
+  }
+
+  // ── Optional punch-up pass ──
+  const shouldPunchUp = input.enablePunchUp ?? (input.callerContext === 'pipeline');
+  let punchedUp = false;
+  let finalHook = String(parsed.hook || input.hookText || '');
+  let finalSetup = String(parsed.setup || '');
+  let finalBody = String(parsed.body || '');
+  let finalCta = String(parsed.cta || '');
+  let finalOnScreenText = Array.isArray(parsed.on_screen_text) ? parsed.on_screen_text.map(String) : [];
+  let finalFilmingNotes = String(parsed.filming_notes || '');
+
+  if (shouldPunchUp && (qualityIssues.length > 0 || Math.random() < 0.5)) {
+    const punchResult = await punchUpScript(
+      {
+        hook: finalHook,
+        setup: finalSetup,
+        body: finalBody,
+        cta: finalCta,
+        on_screen_text: finalOnScreenText,
+        filming_notes: finalFilmingNotes,
+      },
+      voicePack.name,
+    );
+
+    if (punchResult.punchedUp) {
+      punchedUp = true;
+      finalHook = punchResult.script.hook;
+      finalSetup = punchResult.script.setup;
+      finalBody = punchResult.script.body;
+      finalCta = punchResult.script.cta;
+      if (punchResult.script.on_screen_text) finalOnScreenText = punchResult.script.on_screen_text;
+      if (punchResult.script.filming_notes) finalFilmingNotes = punchResult.script.filming_notes;
+    }
+
+    // Log punch-up usage
+    if (punchResult.inputTokens > 0) {
+      logUsageEventAsync({
+        source: 'flashflow',
+        lane: 'FlashFlow',
+        provider: 'anthropic',
+        model: 'claude-haiku-4-5-20251001',
+        input_tokens: punchResult.inputTokens,
+        output_tokens: punchResult.outputTokens,
+        user_id: input.userId,
+        endpoint: '/api/scripts/generate',
+        template_key: 'script_punchup',
+        agent_id: 'flash',
+      });
+    }
+  }
+
   // ── Build spoken script from structured parts ──
   const spokenParts = [
-    parsed.hook,
-    parsed.setup,
-    parsed.body,
-    parsed.cta,
+    finalHook,
+    finalSetup,
+    finalBody,
+    finalCta,
   ].filter(Boolean);
 
   // Remove stage directions for the spoken script (TTS can't read [actions])
@@ -681,18 +796,16 @@ Respond with ONLY a JSON object (no markdown, no code fences, no explanation):
 
   return {
     spokenScript,
-    hook: String(parsed.hook || input.hookText || ''),
-    setup: String(parsed.setup || ''),
-    body: String(parsed.body || ''),
-    cta: String(parsed.cta || ctaStyle),
-    onScreenText: Array.isArray(parsed.on_screen_text)
-      ? parsed.on_screen_text.map(String)
-      : [],
+    hook: finalHook,
+    setup: finalSetup,
+    body: finalBody,
+    cta: finalCta,
+    onScreenText: finalOnScreenText,
     caption: String(parsed.caption || ''),
     hashtags: Array.isArray(parsed.hashtags)
       ? parsed.hashtags.map(String)
       : [],
-    filmingNotes: String(parsed.filming_notes || ''),
+    filmingNotes: finalFilmingNotes,
     persona: selectedPersona.name,
     salesApproach: selectedApproach.name,
     estimatedLength: String(parsed.estimated_length || `${wordLimit.seconds} seconds`),
@@ -700,6 +813,8 @@ Respond with ONLY a JSON object (no markdown, no code fences, no explanation):
       ? parsed.editor_notes.map(String)
       : [],
     creatorStyleRef: creatorStyleContext ? input.creatorStyleId : undefined,
+    structureUsed: structure.name,
+    punchedUp,
   };
 }
 

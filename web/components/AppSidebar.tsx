@@ -157,6 +157,7 @@ export function AppSidebar({
                     key={item.href}
                     href={item.href}
                     onClick={handleLinkClick}
+                    title={item.subtitle || undefined}
                     className={`flex items-center gap-3 px-4 py-2.5 mx-2 rounded-lg transition-all ${
                       active
                         ? 'bg-white/10 text-white'
@@ -168,7 +169,16 @@ export function AppSidebar({
                       className={active ? 'text-teal-400' : ''}
                     />
                     <span className="text-sm font-medium">{item.name}</span>
-                    {item.href === '/admin/whats-new' && hasUnreadChangelog && (
+                    {item.badge && (
+                      <span className={`ml-auto px-1.5 py-0.5 text-[10px] font-medium rounded shrink-0 ${
+                        item.badge === 'Beta' ? 'bg-amber-500/15 text-amber-400' :
+                        item.badge === 'New' ? 'bg-teal-500/15 text-teal-400' :
+                        'bg-zinc-500/15 text-zinc-400'
+                      }`}>
+                        {item.badge}
+                      </span>
+                    )}
+                    {item.href === '/admin/whats-new' && hasUnreadChangelog && !item.badge && (
                       <span className="ml-auto w-2 h-2 rounded-full bg-teal-500 shrink-0" />
                     )}
                   </Link>

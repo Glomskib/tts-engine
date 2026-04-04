@@ -98,6 +98,15 @@ export function MobileNavSheet({ open, onClose, navSections, pathname }: MobileN
                       >
                         <Icon className="w-5 h-5 flex-shrink-0" />
                         <span className="text-[15px] font-medium">{item.name}</span>
+                        {item.badge && !item.locked && (
+                          <span className={`ml-auto px-1.5 py-0.5 text-[10px] font-medium rounded shrink-0 ${
+                            item.badge === 'Beta' ? 'bg-amber-500/15 text-amber-400' :
+                            item.badge === 'New' ? 'bg-teal-500/15 text-teal-400' :
+                            'bg-zinc-500/15 text-zinc-400'
+                          }`}>
+                            {item.badge}
+                          </span>
+                        )}
                         {item.locked && (
                           <span className="ml-auto text-[11px] text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-full">
                             {item.requiredPlanName}

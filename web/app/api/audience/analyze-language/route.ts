@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { requireCredits, useCredit } from "@/lib/credits";
 import { z } from "zod";
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -12,6 +13,9 @@ const AnalyzeLanguageSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 5 });
+  if (guard.error) return guard.error;
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   const authContext = await getApiAuthContext(request);

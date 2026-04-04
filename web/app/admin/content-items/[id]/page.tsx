@@ -7,18 +7,19 @@ import {
   ArrowLeft, Copy, Check, Loader2, ExternalLink,
   FileText, Clock, ChevronRight, Calendar, Send,
   Mic, Scissors, BarChart3, Package, Sparkles,
-  Film, Play, AlertTriangle, RefreshCw,
+  Film, Play, AlertTriangle, RefreshCw, Download,
+  CheckCircle, RotateCcw,
 } from 'lucide-react';
 import type { EditStatus } from '@/lib/editing/types';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
 import { useToast } from '@/contexts/ToastContext';
-import type { ContentItem, ContentItemStatus, ContentItemEvent } from '@/lib/content-items/types';
+import type { ContentItem, ContentItemStatus, ContentItemEvent, ContentItemAsset } from '@/lib/content-items/types';
 import { CONTENT_ITEM_STATUSES } from '@/lib/content-items/types';
 import { getNextAction, getActionButtonClasses } from '@/lib/content-items/nextAction';
 import DriveFolderButton from '@/components/DriveFolderButton';
 import RawVideoUpload from '@/components/RawVideoUpload';
-import { useGuidedMode } from '@/contexts/GuidedModeContext';
-import { GuidedModePanel } from '@/components/guided-mode/GuidedModePanel';
+import ClipList from '@/components/ClipList';
+import TikTokDraftExport from '@/app/admin/components/TikTokDraftExport';
 
 // ── Status display config ─────────────────────────────────────────
 
@@ -155,16 +156,17 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
   const { isDark } = useTheme();
   const colors = getThemeColors(isDark);
   const { showToast } = useToast();
-  const { state: guidedState, setContentItemId } = useGuidedMode();
 
   const [item, setItem] = useState<ContentItem | null>(null);
   const [events, setEvents] = useState<ContentItemEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [eventsLoading, setEventsLoading] = useState(true);
   const [updating, setUpdating] = useState(false);
-  const [editingBusy, setEditingBusy] = useState<string | null>(null); // 'planning' | 'rendering' | 'analyzing' | 'saving' | null
+  const [editingBusy, setEditingBusy] = useState<string | null>(null); // 'planning' | 'rendering' | null
   const [instructions, setInstructions] = useState('');
-  const [renderQuota, setRenderQuota] = useState<{ rendersRemaining: number | null; rendersPerMonth: number | null } | null>(null);
+  const [rawVideoDuration, setRawVideoDuration] = useState<number | null>(null);
+  const [clips, setClips] = useState<ContentItemAsset[]>([]);
+  const [clipsTotalDuration, setClipsTotalDuration] = useState<number>(0);
 
   const fetchItem = useCallback(async () => {
     try {
@@ -192,87 +194,15 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
     }
   }, [id]);
 
-  useEffect(() => { fetchItem(); fetchEvents(); }, [fetchItem, fetchEvents]);
+  const fetchClips = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/content-items/${id}/clips`);
+      const json = await res.json();
+      if (json.ok) setClips(json.data || []);
+    } catch { /* silent */ }
+  }, [id]);
 
-  // Fetch render quota once on mount — shown near the Render button
-  useEffect(() => {
-    fetch('/api/flashflow/entitlement')
-      .then(r => r.json())
-      .then(j => {
-        if (j.ok) setRenderQuota({ rendersRemaining: j.rendersRemaining, rendersPerMonth: j.rendersPerMonth });
-      })
-      .catch(() => {}); // non-fatal
-  }, []);
-
-  // Register this content item with guided mode when it loads
-  useEffect(() => {
-    if (guidedState.active && id && guidedState.contentItemId !== id) {
-      setContentItemId(id);
-    }
-  }, [guidedState.active, guidedState.contentItemId, id, setContentItemId]);
-
-  // ── Poll for in-progress operations detected on load or state change ───────
-  // Handles the case where the user refreshes mid-analyze or mid-render.
-  // Sets editingBusy so the UI reflects the running operation, then resolves
-  // once the status leaves the 'processing' / 'rendering' state.
-  useEffect(() => {
-    if (!item) return;
-
-    if (item.transcript_status === 'processing') {
-      setEditingBusy(prev => prev ?? 'analyzing');
-      const interval = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/content-items/${id}`);
-          const json = await res.json();
-          if (!json.ok || !json.data) return;
-          const fresh: ContentItem = json.data;
-          if (fresh.transcript_status !== 'processing') {
-            clearInterval(interval);
-            setItem(fresh);
-            setEditingBusy(null);
-            if (fresh.transcript_status === 'completed') {
-              showToast({ message: 'Analysis complete ✓', type: 'success' });
-              fetchEvents();
-            } else if (fresh.transcript_status === 'failed') {
-              showToast({
-                message: `Analysis failed: ${fresh.transcript_error || 'Unknown error'}`,
-                type: 'error',
-              });
-            }
-          }
-        } catch { /* network glitch — keep polling */ }
-      }, 5000);
-      return () => clearInterval(interval);
-    }
-
-    if (item.edit_status === 'rendering') {
-      setEditingBusy(prev => prev ?? 'rendering');
-      const interval = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/content-items/${id}`);
-          const json = await res.json();
-          if (!json.ok || !json.data) return;
-          const fresh: ContentItem = json.data;
-          if (fresh.edit_status !== 'rendering') {
-            clearInterval(interval);
-            setItem(fresh);
-            setEditingBusy(null);
-            if (fresh.edit_status === 'rendered') {
-              showToast({ message: 'Render complete! 🎉', type: 'success' });
-              fetchEvents();
-            } else if (fresh.edit_status === 'failed') {
-              showToast({
-                message: `Render failed: ${fresh.render_error || 'Unknown error'}`,
-                type: 'error',
-              });
-            }
-          }
-        } catch { /* network glitch — keep polling */ }
-      }, 8000);
-      return () => clearInterval(interval);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [item?.transcript_status, item?.edit_status]);
+  useEffect(() => { fetchItem(); fetchEvents(); fetchClips(); }, [fetchItem, fetchEvents, fetchClips]);
 
   // Sync instructions textarea with loaded item
   useEffect(() => {
@@ -280,6 +210,13 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
       setInstructions(item.editing_instructions);
     }
   }, [item?.editing_instructions]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Sync stored duration
+  useEffect(() => {
+    if (item?.raw_video_duration_sec && !rawVideoDuration) {
+      setRawVideoDuration(item.raw_video_duration_sec);
+    }
+  }, [item?.raw_video_duration_sec]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleStatusChange = async (newStatus: string) => {
     if (!item || item.status === newStatus) return;
@@ -326,74 +263,82 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
     finally { setEditingBusy(null); }
   };
 
-  const handleAnalyze = async () => {
-    if (!item) return;
-    setEditingBusy('analyzing');
-    try {
-      const res = await fetch(`/api/content-items/${id}/analyze`, { method: 'POST' });
-      const json = await res.json();
-      if (json.ok) {
-        // Refresh item to pick up transcript + editor notes
-        await fetchItem();
-        await fetchEvents();
-        showToast({ message: `Analyzed: ${json.data.segment_count} segments, ${Math.round(json.data.duration_seconds)}s`, type: 'success' });
-        if (json.data.editor_notes_status === 'failed') {
-          showToast({ message: 'Transcript done but editor notes failed — you can still generate a plan', type: 'info' });
-        }
-      } else {
-        showToast({ message: json.message || json.error || 'Analysis failed', type: 'error' });
-      }
-    } catch { showToast({ message: 'Network error during analysis', type: 'error' }); }
-    finally { setEditingBusy(null); }
-  };
-
   const handleGeneratePlan = async () => {
     if (!item) return;
     setEditingBusy('planning');
     try {
-      const res = await fetch(`/api/content-items/${id}/edit-plan`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) });
+      const effectiveDuration = clips.length > 0 ? (clipsTotalDuration || undefined) : (rawVideoDuration || undefined);
+      const res = await fetch(`/api/content-items/${id}/edit-plan`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(effectiveDuration ? { source_duration_sec: effectiveDuration } : {}),
+      });
       const json = await res.json();
       if (json.ok) {
         setItem({ ...item, edit_plan_json: json.data.edit_plan_json, edit_status: json.data.edit_status });
-        showToast({ message: 'Edit plan generated', type: 'success' });
+        const actionCount = json.data.edit_plan_json?.actions?.length ?? 0;
+        showToast({ message: `Edit plan ready — ${actionCount} action${actionCount !== 1 ? 's' : ''}. Click Render to process.`, type: 'success' });
         if (json.data.warnings?.length) {
-          showToast({ message: `${json.data.warnings.length} warning(s) in plan — check actions`, type: 'info' });
+          showToast({ message: `${json.data.warnings.length} warning(s) — review plan below`, type: 'info' });
         }
         fetchEvents();
       } else {
-        showToast({ message: json.message || json.error || 'Plan generation failed', type: 'error' });
+        showToast({ message: `Plan failed: ${json.error || 'Unknown error'}`, type: 'error' });
       }
-    } catch { showToast({ message: 'Network error during plan generation', type: 'error' }); }
+    } catch { showToast({ message: 'Network error', type: 'error' }); }
     finally { setEditingBusy(null); }
   };
 
   const handleRender = async () => {
     if (!item) return;
     setEditingBusy('rendering');
-    setItem({ ...item, edit_status: 'rendering' as EditStatus });
+    setItem({ ...item, edit_status: 'rendering' as EditStatus, render_error: null });
     try {
       const res = await fetch(`/api/content-items/${id}/render`, { method: 'POST' });
       const json = await res.json();
       if (json.ok) {
-        setItem(prev => prev ? { ...prev, edit_status: 'rendered' as EditStatus, rendered_video_url: json.data.rendered_video_url, render_error: null } : prev);
-        showToast({ message: 'Video rendered successfully', type: 'success' });
-        fetchEvents();
-      } else if (res.status === 402 && json.error === 'RENDER_LIMIT_REACHED') {
-        // Render quota exceeded — revert optimistic status, surface upgrade CTA
-        setItem(prev => prev ? { ...prev, edit_status: 'not_started' as EditStatus } : prev);
-        showToast({
-          message: json.message || 'Render limit reached. Upgrade to continue.',
-          type: 'error',
-        });
-        setTimeout(() => { window.location.href = json.upgrade_url || '/upgrade'; }, 2500);
+        // Render is now async — show queued state and start polling
+        showToast({ message: clips.length > 1
+          ? `Render queued — stitching ${clips.length} clips. This page will update when done.`
+          : 'Render queued — processing in background. This page will update when done.',
+          type: 'success' });
+        // Poll for completion
+        const pollInterval = setInterval(async () => {
+          try {
+            const pollRes = await fetch(`/api/content-items/${id}`);
+            const pollJson = await pollRes.json();
+            if (pollJson.ok && pollJson.data) {
+              const updated = pollJson.data;
+              if (updated.edit_status === 'rendered') {
+                clearInterval(pollInterval);
+                setItem(prev => prev ? { ...prev, ...updated } : prev);
+                showToast({ message: 'Render complete — video is ready below', type: 'success' });
+                setEditingBusy(null);
+                fetchEvents();
+              } else if (updated.edit_status === 'failed') {
+                clearInterval(pollInterval);
+                setItem(prev => prev ? { ...prev, ...updated } : prev);
+                showToast({ message: `Render failed: ${updated.render_error || 'Check error details below'}`, type: 'error' });
+                setEditingBusy(null);
+              }
+            }
+          } catch { /* continue polling */ }
+        }, 5000); // poll every 5 seconds
+        // Stop polling after 10 minutes
+        setTimeout(() => {
+          clearInterval(pollInterval);
+          setEditingBusy(null);
+        }, 600_000);
+        return; // don't clear editingBusy yet
       } else {
         setItem(prev => prev ? { ...prev, edit_status: 'failed' as EditStatus, render_error: json.error } : prev);
-        showToast({ message: json.message || json.error || 'Render failed', type: 'error' });
+        showToast({ message: json.error || 'Render failed', type: 'error' });
       }
     } catch {
       setItem(prev => prev ? { ...prev, edit_status: 'failed' as EditStatus } : prev);
-      showToast({ message: 'Network error during render', type: 'error' });
-    } finally { setEditingBusy(null); }
+      showToast({ message: 'Network error', type: 'error' });
+    }
+    setEditingBusy(null);
   };
 
   if (loading) {
@@ -484,9 +429,7 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
       </div>
 
       {/* Two-column details */}
-      <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 transition-opacity ${
-        guidedState.active && guidedState.step >= 4 ? 'opacity-50' : ''
-      }`}>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {/* Left: Core Info */}
         <div
           className="rounded-xl p-4 space-y-4"
@@ -581,8 +524,43 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
               contentItemId={item.id}
               currentUrl={item.raw_video_url}
               onUploadComplete={(url, path) => setItem({ ...item, raw_video_url: url, raw_video_storage_path: path })}
-              onRemove={() => setItem({ ...item, raw_video_url: null, raw_video_storage_path: null })}
+              onRemove={() => {
+                setItem({ ...item, raw_video_url: null, raw_video_storage_path: null, raw_video_duration_sec: null });
+                setRawVideoDuration(null);
+              }}
+              onDurationDetected={(dur) => {
+                setRawVideoDuration(dur);
+                // Persist to DB for reuse across sessions
+                fetch(`/api/content-items/${id}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ raw_video_duration_sec: dur }),
+                }).catch(() => { /* best-effort */ });
+              }}
             />
+            {rawVideoDuration != null && (
+              <p className="text-[11px] text-zinc-500 mt-1">
+                Duration: {Math.floor(rawVideoDuration / 60)}:{String(Math.round(rawVideoDuration % 60)).padStart(2, '0')}
+              </p>
+            )}
+          </div>
+
+          {/* Multi-clip editing */}
+          <div>
+            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: colors.textMuted }}>
+              Clips {clips.length > 0 && <span className="text-zinc-500">({clips.length} clip{clips.length !== 1 ? 's' : ''})</span>}
+            </label>
+            <ClipList
+              contentItemId={item.id}
+              clips={clips}
+              onClipsChange={setClips}
+              onTotalDurationChange={setClipsTotalDuration}
+            />
+            {clips.length > 0 && clipsTotalDuration > 0 && (
+              <p className="text-[11px] text-zinc-500 mt-1">
+                {clips.length} clip{clips.length !== 1 ? 's' : ''} &middot; {Math.floor(clipsTotalDuration / 60)}:{String(Math.round(clipsTotalDuration % 60)).padStart(2, '0')} combined
+              </p>
+            )}
           </div>
 
           {/* Quick links */}
@@ -674,24 +652,9 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {/* ── Guided Mode Panel ────────────────────────────────── */}
-      {guidedState.active && (
-        <GuidedModePanel
-          item={item}
-          onAnalyze={handleAnalyze}
-          onGeneratePlan={handleGeneratePlan}
-          onRender={handleRender}
-          editingBusy={editingBusy}
-        />
-      )}
-
       {/* ── Editing Engine Panel ────────────────────────────── */}
       <div
-        className={`rounded-xl p-4 space-y-4 transition-opacity ${
-          guidedState.active && guidedState.step < 4
-            ? 'opacity-40 pointer-events-none'
-            : ''
-        }`}
+        className="rounded-xl p-4 space-y-4"
         style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}` }}
       >
         <div className="flex items-center justify-between">
@@ -715,7 +678,10 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
         {item.render_error && (
           <div className="flex items-start gap-2 rounded-lg bg-red-500/10 border border-red-500/20 p-2.5">
             <AlertTriangle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
-            <p className="text-xs text-red-300">{item.render_error}</p>
+            <div>
+              <p className="text-xs font-medium text-red-300">Render failed</p>
+              <p className="text-[11px] text-red-400/80 mt-0.5">{item.render_error}</p>
+            </div>
           </div>
         )}
 
@@ -773,87 +739,127 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
           </div>
         )}
 
-        {/* Rendered output */}
+        {/* Rendering in progress */}
+        {item.edit_status === 'rendering' && (
+          <div className="rounded-lg border border-violet-500/30 bg-violet-500/5 p-3">
+            <div className="flex items-center gap-2">
+              <Loader2 size={14} className="text-violet-400 animate-spin" />
+              <span className="text-sm text-violet-300">Rendering in progress...</span>
+            </div>
+            <p className="text-[11px] text-zinc-500 mt-1">
+              {clips.length > 1
+                ? `Stitching ${clips.length} clips and applying edits. This may take a few minutes.`
+                : 'Processing video edits in the background.'}
+              {' '}This page updates automatically.
+            </p>
+          </div>
+        )}
+
+        {/* Rendered output — post-render panel */}
         {item.rendered_video_url && (
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1.5" style={{ color: colors.textMuted }}>Rendered Output</label>
+          <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CheckCircle size={14} className="text-emerald-400" />
+                <span className="text-sm font-medium text-emerald-300">Render Complete</span>
+              </div>
+              {item.last_rendered_at && (
+                <span className="text-[10px]" style={{ color: colors.textMuted }}>
+                  {formatDateTime(item.last_rendered_at)}
+                </span>
+              )}
+            </div>
+
             <video
               src={item.rendered_video_url}
               controls
               preload="metadata"
               className="w-full rounded-lg max-h-64 bg-black"
             />
-            <div className="flex items-center gap-3 mt-1.5">
+
+            {/* Next-step actions */}
+            <div className="flex flex-wrap gap-2">
+              <TikTokDraftExport
+                contentItemId={item.id}
+                hasRenderedVideo={!!item.rendered_video_url}
+                initialStatus={(item as unknown as Record<string, unknown>).tiktok_draft_status as string | null}
+                initialError={(item as unknown as Record<string, unknown>).tiktok_draft_error as string | null}
+              />
+
+              {item.status !== 'ready_to_post' && item.status !== 'posted' && (
+                <button
+                  onClick={() => handleStatusChange('ready_to_post')}
+                  disabled={updating}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-violet-900/30 text-violet-300 hover:bg-violet-900/50 border border-violet-500/20"
+                >
+                  <CheckCircle size={12} />
+                  Mark Ready to Post
+                </button>
+              )}
+            </div>
+
+            {/* Secondary actions */}
+            <div className="flex items-center gap-3 pt-1 border-t border-zinc-800">
+              <a
+                href={item.rendered_video_url}
+                download
+                className="text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1 transition"
+              >
+                <Download size={10} /> Download
+              </a>
               <a
                 href={item.rendered_video_url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 transition"
+                className="text-xs text-zinc-400 hover:text-zinc-200 flex items-center gap-1 transition"
               >
                 <ExternalLink size={10} /> Open full
               </a>
-              {item.last_rendered_at && (
-                <span className="text-[10px]" style={{ color: colors.textMuted }}>
-                  Rendered {formatDateTime(item.last_rendered_at)}
-                </span>
-              )}
+              <button
+                onClick={handleRender}
+                disabled={!item.edit_plan_json || item.edit_status === 'rendering' || !!editingBusy}
+                className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1 transition disabled:opacity-40 ml-auto"
+              >
+                <RotateCcw size={10} /> Re-render
+              </button>
             </div>
           </div>
+        )}
+
+        {/* Source summary */}
+        {(item.raw_video_url || clips.length > 0) && (
+          <p className="text-[11px] text-zinc-500">
+            Source: {clips.length > 0
+              ? `${clips.length} clip${clips.length !== 1 ? 's' : ''}${clipsTotalDuration > 0 ? ` (${Math.floor(clipsTotalDuration / 60)}:${String(Math.round(clipsTotalDuration % 60)).padStart(2, '0')})` : ''}`
+              : `Single video${rawVideoDuration ? ` (${Math.floor(rawVideoDuration / 60)}:${String(Math.round(rawVideoDuration % 60)).padStart(2, '0')})` : ''}`
+            }
+          </p>
         )}
 
         {/* Action buttons */}
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={handleAnalyze}
-            disabled={!item.raw_video_url || !!editingBusy}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-violet-900/30 text-violet-300 hover:bg-violet-900/50 border border-violet-500/20"
-          >
-            {editingBusy === 'analyzing' ? <Loader2 size={12} className="animate-spin" /> : <Mic size={12} />}
-            {editingBusy === 'analyzing' ? 'Analyzing...' : 'Analyze'}
-          </button>
-
-          <button
             onClick={handleGeneratePlan}
-            disabled={item.transcript_status !== 'completed' || !!editingBusy}
-            title={item.transcript_status !== 'completed' ? 'Analyze the video first to enable plan generation' : undefined}
+            disabled={(!item.raw_video_url && clips.length === 0) || !!editingBusy}
             className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-cyan-900/30 text-cyan-300 hover:bg-cyan-900/50 border border-cyan-500/20"
           >
             {editingBusy === 'planning' ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
             {item.edit_plan_json ? 'Rebuild Plan' : 'Generate Plan'}
           </button>
 
-          <button
-            onClick={handleRender}
-            disabled={!item.edit_plan_json || item.edit_status === 'rendering' || !!editingBusy}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/50 border border-emerald-500/20"
-          >
-            {editingBusy === 'rendering' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
-            {item.edit_status === 'rendered' ? 'Re-render' : item.edit_status === 'rendering' ? 'Rendering...' : 'Render Video'}
-          </button>
-
-          {/* Render quota indicator — only shown for metered plans */}
-          {renderQuota && renderQuota.rendersPerMonth !== null && (
-            <span className={`text-[11px] self-center px-2 py-0.5 rounded border ${
-              renderQuota.rendersRemaining === 0
-                ? 'text-red-400 bg-red-500/10 border-red-500/20'
-                : renderQuota.rendersRemaining !== null && renderQuota.rendersRemaining <= 3
-                ? 'text-amber-400 bg-amber-500/10 border-amber-500/20'
-                : 'text-zinc-500 bg-zinc-800/50 border-zinc-700/50'
-            }`}>
-              {renderQuota.rendersRemaining === 0
-                ? 'No renders left'
-                : `${renderQuota.rendersRemaining}/${renderQuota.rendersPerMonth} renders left`}
-            </span>
+          {!item.rendered_video_url && (
+            <button
+              onClick={handleRender}
+              disabled={!item.edit_plan_json || item.edit_status === 'rendering' || !!editingBusy}
+              className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition disabled:opacity-40 bg-emerald-900/30 text-emerald-300 hover:bg-emerald-900/50 border border-emerald-500/20"
+            >
+              {editingBusy === 'rendering' ? <Loader2 size={12} className="animate-spin" /> : <Play size={12} />}
+              {item.edit_status === 'rendering' ? 'Rendering...' : 'Render Video'}
+            </button>
           )}
 
-          {/* Inline hint — only one shown at a time based on what's blocking */}
-          {!item.raw_video_url && (
-            <p className="text-[11px] text-zinc-500 self-center">Upload a raw video first</p>
-          )}
-          {item.raw_video_url && item.transcript_status !== 'completed' && !item.edit_plan_json && (
-            <p className="text-[11px] text-zinc-500 self-center">
-              {item.transcript_status === 'processing' ? 'Analyzing…' : 'Analyze first to generate a plan'}
-            </p>
+          {!item.raw_video_url && clips.length === 0 && (
+            <p className="text-[11px] text-zinc-500 self-center">Upload a raw video or add clips to get started</p>
           )}
         </div>
       </div>

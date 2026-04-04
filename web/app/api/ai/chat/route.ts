@@ -1,6 +1,5 @@
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
-import { enforceRateLimits, extractRateLimitContext } from "@/lib/rate-limit";
-import { getApiAuthContext } from "@/lib/supabase/api-auth";
+import { aiRouteGuard } from "@/lib/ai-route-guard";
 import { NextResponse } from "next/server";
 import { callAnthropicAPI } from "@/lib/ai/anthropic";
 import { trackUsage } from "@/lib/command-center/ingest";
@@ -93,19 +92,10 @@ function repairAndParseJSON(raw: string): SkitData | null {
  * Provides quick responses for adjusting copy.
  */
 export async function POST(request: Request) {
-  const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
-
-  // Rate limiting check
-  const authContext = await getApiAuthContext(request);
-  const rateLimitContext = {
-    userId: authContext.user?.id ?? null,
-    orgId: null, // Org membership is event-sourced; user-level limiting is sufficient
-    ...extractRateLimitContext(request),
-  };
-  const rateLimitResponse = enforceRateLimits(rateLimitContext, correlationId);
-  if (rateLimitResponse) {
-    return rateLimitResponse;
-  }
+  const guard = await aiRouteGuard(request, { creditCost: 1, userLimit: 15 });
+  if (guard.error) return guard.error;
+  const { correlationId, userId } = guard;
+  const authContext = { user: { id: userId } };
 
   let body: unknown;
   try {

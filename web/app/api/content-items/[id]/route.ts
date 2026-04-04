@@ -94,6 +94,7 @@ const UpdateSchema = z.object({
   transcript_status: z.enum(PROCESSING_STATUSES).optional(),
   editor_notes_status: z.enum(PROCESSING_STATUSES).optional(),
   editing_instructions: z.string().nullable().optional(),
+  raw_video_duration_sec: z.number().positive().nullable().optional(),
 }).strict();
 
 export const PATCH = withErrorCapture(async (

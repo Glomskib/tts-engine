@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
+import { assessWorkflowHealth, type WorkflowHealthReport } from '@/lib/ops/workflow-health';
+import { getEnvSummary, checkFeatureConfig } from '@/lib/env-validation';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -34,24 +36,86 @@ interface CronJob {
   description: string;
 }
 
+interface MetricsSystemHealth {
+  providers: {
+    internal_lookup: { enabled: boolean; platform: string; description: string };
+    posting_provider: { enabled: boolean; reason: string };
+    scrape_lite: { enabled: boolean; reason: string };
+  };
+  lastSnapshot: string | null;
+  totalSnapshots: number;
+  postsWithMetrics: number;
+  postsWithoutMetrics: number;
+}
+
+interface EnvBootStatus {
+  env_ok: boolean;
+  required_present: number;
+  required_total: number;
+  optional_present: number;
+  optional_total: number;
+  integrations: { system: string; configured: boolean; missing: string[] }[];
+}
+
 interface SystemStatusResponse {
   ok: true;
   status: 'healthy' | 'degraded' | 'unhealthy';
+  envBoot: EnvBootStatus;
   services: ServiceCheck[];
   pipeline: PipelineHealth;
   usage: UsageStats;
   cronJobs: CronJob[];
+  metricsSystem: MetricsSystemHealth;
+  workflowHealth: WorkflowHealthReport;
   totalLatency: number;
   timestamp: string;
 }
 
 const CRON_JOBS: CronJob[] = [
+  // High-frequency (every 1-2 min)
+  { path: '/api/cron/process-jobs', schedule: '* * * * *', description: 'Job queue processor (every minute)' },
   { path: '/api/cron/check-renders', schedule: '*/2 * * * *', description: 'Check video render status (every 2 min)' },
-  { path: '/api/jobs/generate-scripts', schedule: '*/5 * * * *', description: 'Process script generation queue (every 5 min)' },
-  { path: '/api/cron/nightly-reset', schedule: '5 5 * * *', description: 'Nightly cleanup and reset (5:05 AM UTC)' },
-  { path: '/api/cron/process-emails', schedule: '0 */6 * * *', description: 'Process inbound emails (every 6 hours)' },
-  { path: '/api/cron/daily-digest', schedule: '0 14 * * *', description: 'Send daily digest notifications (2 PM UTC)' },
+  { path: '/api/cron/orchestrator', schedule: '*/2 * * * *', description: 'Pipeline orchestrator (every 2 min)' },
+  { path: '/api/cron/brain-dispatch', schedule: '*/2 * * * *', description: 'Decision→task dispatch (every 2 min)' },
+  // Medium-frequency (every 5-15 min)
+  { path: '/api/cron/drive-intake-poll', schedule: '*/5 * * * *', description: 'Google Drive intake poll (every 5 min)' },
+  { path: '/api/cron/drive-intake-worker', schedule: '*/5 * * * *', description: 'Google Drive intake worker (every 5 min)' },
+  { path: '/api/cron/content-item-processing', schedule: '*/5 * * * *', description: 'Content item pipeline (every 5 min)' },
   { path: '/api/cron/auto-post', schedule: '*/15 * * * *', description: 'Auto-post scheduled content (every 15 min)' },
+  { path: '/api/cron/posting-reminders', schedule: '*/15 * * * *', description: 'Posting reminders (every 15 min)' },
+  { path: '/api/cron/triage-issues', schedule: '*/15 * * * *', description: 'Triage support issues (every 15 min)' },
+  { path: '/api/cron/marketing-scheduler', schedule: '*/15 * * * *', description: 'Marketing post scheduler (every 15 min)' },
+  { path: '/api/cron/analyze-videos', schedule: '*/15 * * * *', description: 'Video analysis queue (every 15 min)' },
+  // Low-frequency (30 min - 6 hours)
+  { path: '/api/cron/metrics-sync', schedule: '*/30 * * * *', description: 'Metrics sync — internal_lookup via tiktok_videos (every 30 min)' },
+  { path: '/api/cron/clip-analyze', schedule: '15 * * * *', description: 'Clip analysis (hourly at :15)' },
+  { path: '/api/cron/radar-scan', schedule: '0 */4 * * *', description: 'Opportunity radar scan (every 4 hours)' },
+  { path: '/api/cron/process-emails', schedule: '0 */6 * * *', description: 'Process email queue (every 6 hours)' },
+  { path: '/api/cron/discord-role-sync', schedule: '0 */6 * * *', description: 'Discord role sync (every 6 hours)' },
+  { path: '/api/cron/clip-discover', schedule: '0 */6 * * *', description: 'Clip discovery (every 6 hours)' },
+  { path: '/api/cron/detect-winners', schedule: '0 */6 * * *', description: 'Winner pattern detection (every 6 hours)' },
+  { path: '/api/cron/marketing-health', schedule: '0 */6 * * *', description: 'Marketing health probe (every 6 hours)' },
+  { path: '/api/cron/rescore-trends', schedule: '30 */6 * * *', description: 'Rescore trend freshness (every 6 hours)' },
+  // Daily
+  { path: '/api/cron/build-creator-dna', schedule: '0 5 * * *', description: 'Creator DNA aggregation (5 AM UTC)' },
+  { path: '/api/cron/sync-tiktok-videos', schedule: '0 6 * * *', description: 'Sync TikTok video catalog (6 AM UTC)' },
+  { path: '/api/cron/finops-daily', schedule: '0 6 * * *', description: 'FinOps daily report (6 AM UTC)' },
+  { path: '/api/cron/sync-tiktok-sales', schedule: '0 7 * * *', description: 'TikTok Shop sales sync (7 AM UTC)' },
+  { path: '/api/cron/retainer-check', schedule: '0 13 * * *', description: 'Client retainer check (1 PM UTC)' },
+  { path: '/api/cron/daily-virals', schedule: '30 13 * * *', description: 'Daily viral content scan (1:30 PM UTC)' },
+  { path: '/api/cron/daily-digest', schedule: '0 14 * * *', description: 'Daily digest notification (2 PM UTC)' },
+  { path: '/api/cron/script-of-the-day', schedule: '0 15 * * *', description: 'Script of the day (3 PM UTC)' },
+  // Weekly
+  { path: '/api/cron/weekly-digest', schedule: '0 16 * * 1', description: 'Weekly digest (Mon 4 PM UTC)' },
+  { path: '/api/cron/weekly-trainer', schedule: '0 17 * * 1', description: 'Weekly training update (Mon 5 PM UTC)' },
+  { path: '/api/cron/weekly-support-report', schedule: '30 17 * * 1', description: 'Weekly support report (Mon 5:30 PM UTC)' },
+  { path: '/api/cron/weekly-report-card', schedule: '0 18 * * 1', description: 'User weekly report card (Mon 6 PM UTC)' },
+  { path: '/api/cron/weekly-summaries', schedule: '30 18 * * 1', description: 'Strategy optimization summaries (Mon 6:30 PM UTC)' },
+  { path: '/api/cron/finops-weekly', schedule: '30 6 * * 1', description: 'FinOps weekly report (Mon 6:30 AM UTC)' },
+  // Monthly
+  { path: '/api/cron/process-payouts', schedule: '0 8 1 * *', description: 'Affiliate payouts via Stripe Connect (1st of month, 8 AM UTC)' },
+  // Maintenance
+  { path: '/api/cron/cleanup-webhook-events', schedule: '0 4 * * 0', description: 'Webhook event cleanup (Sun 4 AM UTC)' },
 ];
 
 export async function GET(request: Request) {
@@ -67,10 +131,28 @@ export async function GET(request: Request) {
 
   const startTime = Date.now();
 
-  const [services, pipeline, usage] = await Promise.all([
+  // Env boot status (synchronous, no I/O)
+  const envSummary = getEnvSummary();
+  const INTEGRATION_SYSTEMS = [
+    'Stripe', 'TikTok', 'TikTok Content', 'Google Drive', 'HeyGen',
+    'Shotstack', 'Runway', 'OpenClaw', 'Telegram', 'Email', 'Late.dev',
+    'Mission Control', 'Discord',
+  ];
+  const integrations = INTEGRATION_SYSTEMS.map(sys => {
+    const check = checkFeatureConfig(sys);
+    return { system: sys, configured: check.configured, missing: check.missing };
+  });
+  const envBoot: EnvBootStatus = {
+    ...envSummary,
+    integrations,
+  };
+
+  const [services, pipeline, usage, metricsSystem, workflowHealth] = await Promise.all([
     checkAllServices(),
     checkPipelineHealth(),
     checkUsageStats(),
+    checkMetricsSystem(),
+    assessWorkflowHealth(),
   ]);
 
   // Overall status
@@ -78,20 +160,26 @@ export async function GET(request: Request) {
   const hasDegraded = services.some(s => s.status === 'degraded');
   const hasPipelineIssues = pipeline.stuckRendering > 0 || pipeline.stuckReview > 5;
 
+  const workflowCritical = workflowHealth.overallSeverity === 'critical';
+  const workflowDegraded = workflowHealth.overallSeverity === 'degraded';
+
   let status: 'healthy' | 'degraded' | 'unhealthy' = 'healthy';
-  if (hasUnhealthy || (pipeline.stuckRendering > 3)) {
+  if (hasUnhealthy || (pipeline.stuckRendering > 3) || workflowCritical) {
     status = 'unhealthy';
-  } else if (hasDegraded || hasPipelineIssues) {
+  } else if (hasDegraded || hasPipelineIssues || workflowDegraded) {
     status = 'degraded';
   }
 
   const response: SystemStatusResponse = {
     ok: true,
     status,
+    envBoot,
     services,
     pipeline,
     usage,
     cronJobs: CRON_JOBS,
+    metricsSystem,
+    workflowHealth,
     totalLatency: Date.now() - startTime,
     timestamp: new Date().toISOString(),
   };
@@ -108,6 +196,8 @@ async function checkAllServices(): Promise<ServiceCheck[]> {
     checkShotstack(),
     checkTikTokConnections(),
     checkTikwm(),
+    checkStripe(),
+    checkOpenClaw(),
   ]);
 
   return results.map((r) =>
@@ -367,6 +457,78 @@ async function checkTikwm(): Promise<ServiceCheck> {
   }
 }
 
+async function checkStripe(): Promise<ServiceCheck> {
+  const apiKey = process.env.STRIPE_SECRET_KEY;
+  if (!apiKey) {
+    return { name: 'Stripe', status: 'not_configured', message: 'API key not set' };
+  }
+
+  const start = Date.now();
+  try {
+    const res = await fetch('https://api.stripe.com/v1/balance', {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      return {
+        name: 'Stripe',
+        status: res.status === 401 ? 'unhealthy' : 'degraded',
+        latency: Date.now() - start,
+        message: `HTTP ${res.status}`,
+      };
+    }
+
+    return { name: 'Stripe', status: 'healthy', latency: Date.now() - start };
+  } catch (err) {
+    return {
+      name: 'Stripe',
+      status: 'degraded',
+      latency: Date.now() - start,
+      message: err instanceof Error ? err.message : 'Request failed',
+    };
+  }
+}
+
+async function checkOpenClaw(): Promise<ServiceCheck> {
+  const apiUrl = process.env.OPENCLAW_API_URL;
+  const apiKey = process.env.OPENCLAW_API_KEY;
+  if (!apiUrl || !apiKey) {
+    return { name: 'OpenClaw', status: 'not_configured', message: 'API URL or key not set' };
+  }
+
+  if (process.env.OPENCLAW_ENABLED === 'false') {
+    return { name: 'OpenClaw', status: 'not_configured', message: 'Disabled via OPENCLAW_ENABLED=false' };
+  }
+
+  const start = Date.now();
+  try {
+    // Use a lightweight endpoint to verify connectivity
+    const res = await fetch(`${apiUrl}/api/health`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!res.ok) {
+      return {
+        name: 'OpenClaw',
+        status: res.status === 401 ? 'unhealthy' : 'degraded',
+        latency: Date.now() - start,
+        message: `HTTP ${res.status}`,
+      };
+    }
+
+    return { name: 'OpenClaw', status: 'healthy', latency: Date.now() - start };
+  } catch (err) {
+    return {
+      name: 'OpenClaw',
+      status: 'degraded',
+      latency: Date.now() - start,
+      message: err instanceof Error ? err.message : 'Request failed',
+    };
+  }
+}
+
 async function checkPipelineHealth(): Promise<PipelineHealth> {
   const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
   const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -435,4 +597,78 @@ async function checkUsageStats(): Promise<UsageStats> {
     activeThisWeek: activeUserIds.size,
     creditsConsumedToday: creditsToday,
   };
+}
+
+async function checkMetricsSystem(): Promise<MetricsSystemHealth> {
+  try {
+    const [snapshotRes, postsWithRes, postsWithoutRes] = await Promise.all([
+      // Latest snapshot
+      supabaseAdmin
+        .from('content_item_metrics_snapshots')
+        .select('captured_at', { count: 'exact' })
+        .order('captured_at', { ascending: false })
+        .limit(1),
+      // Posts with at least one snapshot
+      supabaseAdmin.rpc('count_posts_with_metrics').maybeSingle(),
+      // Posts without any snapshots
+      supabaseAdmin
+        .from('content_item_posts')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'posted'),
+    ]);
+
+    const lastSnapshot = snapshotRes.data?.[0]?.captured_at ?? null;
+    const totalSnapshots = snapshotRes.count ?? 0;
+
+    // postsWithMetrics: use RPC if available, otherwise estimate from snapshot count
+    const postsWithMetrics = typeof postsWithRes?.data === 'number'
+      ? postsWithRes.data
+      : Math.min(totalSnapshots, postsWithoutRes.count ?? 0);
+    const totalPosts = postsWithoutRes.count ?? 0;
+
+    return {
+      providers: {
+        internal_lookup: {
+          enabled: true,
+          platform: 'tiktok',
+          description: 'Bridges tiktok_videos table (synced daily by sync-tiktok-videos cron)',
+        },
+        posting_provider: {
+          enabled: false,
+          reason: 'Late.dev analytics returns aggregate data, not per-post metrics',
+        },
+        scrape_lite: {
+          enabled: false,
+          reason: 'Requires headless browser infrastructure — not available in serverless',
+        },
+      },
+      lastSnapshot,
+      totalSnapshots,
+      postsWithMetrics,
+      postsWithoutMetrics: totalPosts - postsWithMetrics,
+    };
+  } catch {
+    // Tables may not exist yet
+    return {
+      providers: {
+        internal_lookup: {
+          enabled: true,
+          platform: 'tiktok',
+          description: 'Bridges tiktok_videos table (synced daily by sync-tiktok-videos cron)',
+        },
+        posting_provider: {
+          enabled: false,
+          reason: 'Late.dev analytics returns aggregate data, not per-post metrics',
+        },
+        scrape_lite: {
+          enabled: false,
+          reason: 'Requires headless browser infrastructure — not available in serverless',
+        },
+      },
+      lastSnapshot: null,
+      totalSnapshots: 0,
+      postsWithMetrics: 0,
+      postsWithoutMetrics: 0,
+    };
+  }
 }

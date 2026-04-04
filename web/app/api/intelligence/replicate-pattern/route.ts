@@ -11,10 +11,14 @@ import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { enqueueJob } from '@/lib/jobs';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = 'nodejs';
 
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 3, userLimit: 3 });
+  if (guard.error) return guard.error;
+
   const correlationId = generateCorrelationId();
   const { user } = await getApiAuthContext(request);
   if (!user) {

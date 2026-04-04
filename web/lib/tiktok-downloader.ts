@@ -68,10 +68,17 @@ export function getServiceHealthSummary(): Record<string, ServiceHealth> {
 // ---------------------------------------------------------------------------
 
 async function downloadViaTikwm(tiktokUrl: string): Promise<Buffer> {
-  const apiUrl = `https://www.tikwm.com/api/?url=${encodeURIComponent(tiktokUrl)}&hd=0`;
-
-  const metaRes = await fetch(apiUrl, {
-    headers: { 'User-Agent': UA, Accept: 'application/json' },
+  // tikwm requires POST with form-encoded data and web=1 param (GET no longer works)
+  const metaRes = await fetch('https://www.tikwm.com/api/', {
+    method: 'POST',
+    headers: {
+      'User-Agent': UA,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      Accept: 'application/json',
+      Origin: 'https://www.tikwm.com',
+      Referer: 'https://www.tikwm.com/',
+    },
+    body: new URLSearchParams({ url: tiktokUrl, count: '12', cursor: '0', web: '1', hd: '1' }).toString(),
     signal: AbortSignal.timeout(10_000),
   });
 
@@ -82,8 +89,14 @@ async function downloadViaTikwm(tiktokUrl: string): Promise<Buffer> {
     throw new Error(meta.msg || 'tikwm: no video URL');
   }
 
-  const videoRes = await fetch(meta.data.play, {
+  // play URL may be relative (e.g. /video/media/play/ID.mp4) — resolve it
+  const playUrl = meta.data.play.startsWith('/')
+    ? `https://www.tikwm.com${meta.data.play}`
+    : meta.data.play;
+
+  const videoRes = await fetch(playUrl, {
     headers: { 'User-Agent': UA, Referer: 'https://www.tikwm.com/' },
+    redirect: 'follow',
     signal: AbortSignal.timeout(30_000),
   });
 

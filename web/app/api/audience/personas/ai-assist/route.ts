@@ -2,6 +2,7 @@ import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors"
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { z } from "zod";
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 export const runtime = "nodejs";
 
@@ -12,6 +13,9 @@ const AiAssistSchema = z.object({
 });
 
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 5 });
+  if (guard.error) return guard.error;
+
   const correlationId = request.headers.get("x-correlation-id") || generateCorrelationId();
 
   const authContext = await getApiAuthContext(request);

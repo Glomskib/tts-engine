@@ -12,6 +12,7 @@ import {
   extractYouTubeCaptions,
   downloadYouTubeAudio,
 } from '@/lib/youtube-transcript';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 export const runtime = 'nodejs';
 export const maxDuration = 120;
 
@@ -84,6 +85,9 @@ async function checkRateLimit(
 // ============================================================================
 
 export async function POST(request: Request) {
+  const guard = await aiRouteGuard(request, { creditCost: 1, userLimit: 8 });
+  if (guard.error) return guard.error;
+
   const forwarded = request.headers.get('x-forwarded-for');
   const ip = forwarded?.split(',')[0]?.trim() || 'unknown';
 

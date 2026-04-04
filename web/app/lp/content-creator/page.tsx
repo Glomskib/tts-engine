@@ -184,6 +184,7 @@ export default function ContentCreatorLP() {
             <p className="font-medium text-white text-sm">Dani K.</p>
             <p className="text-xs text-zinc-500">UGC Creator, 120K followers</p>
           </div>
+          <p className="text-[10px] text-zinc-600 mt-3">Individual results vary. FlashFlow provides workflow tools, not guaranteed outcomes.</p>
         </div>
       </section>
 

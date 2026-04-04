@@ -32,6 +32,7 @@ export const FEATURE_REGISTRY: FeatureInfo[] = [
   { key: 'mc_pipeline_health_proxy', description: 'Mission Control pipeline health proxy', route: '/api/admin/command-center/pipeline-health' },
   { key: 'hook_bank_import', description: 'Hook Bank import from MC', route: '/api/admin/hook-bank/import' },
   { key: 'external_research', description: 'External web data retrieval (TikTok, YouTube, URL scraping)', route: '/api/transcribe, /api/spy-report, /api/youtube-transcribe, /api/tiktok/oembed, /api/winners/*, /api/competitors/*/track-video, /api/products/*, /api/broll/import, /api/creator-style/ingest' },
+  { key: 'creator_scan', description: 'Creator product/showcase scanning via OpenClaw', route: '/api/cron/radar-scan, /api/webhooks/openclaw/scan-result' },
 ];
 
 // ---------------------------------------------------------------------------

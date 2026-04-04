@@ -1,8 +1,9 @@
 /**
  * POST /api/content-items/[id]/render
  *
- * Trigger the editing engine renderer for a content item.
- * Requires: raw_video_url or raw_video_storage_path + valid edit_plan_json.
+ * Enqueue a render job for a content item.
+ * Validates preconditions then enqueues via the job queue.
+ * The actual FFmpeg render happens asynchronously in the job runner.
  */
 
 import { NextResponse } from 'next/server';
@@ -11,12 +12,10 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { resolveUserId, resolveWorkspaceId, resolveContentItemId } from '@/lib/errors/sentry-resolvers';
-import { renderContentItem } from '@/lib/editing/render-plan';
 import { validateEditPlan } from '@/lib/editing/validate-edit-plan';
-import { getRenderEntitlement, incrementRenderCount } from '@/lib/render-entitlement';
+import { enqueueJob } from '@/lib/jobs/enqueue';
 
 export const runtime = 'nodejs';
-export const maxDuration = 300; // 5 minute Vercel timeout
 
 export const POST = withErrorCapture(async (
   request: Request,
@@ -42,11 +41,20 @@ export const POST = withErrorCapture(async (
     return createApiErrorResponse('NOT_FOUND', 'Content item not found', 404, correlationId);
   }
 
-  // Pre-flight checks
-  if (!item.raw_video_url && !item.raw_video_storage_path) {
+  // Check for multi-clip assets
+  const { count: clipCount } = await supabaseAdmin
+    .from('content_item_assets')
+    .select('id', { count: 'exact', head: true })
+    .eq('content_item_id', id)
+    .eq('kind', 'raw_clip');
+
+  const hasClips = (clipCount ?? 0) > 0;
+
+  // Pre-flight checks: need either raw video or clips
+  if (!hasClips && !item.raw_video_url && !item.raw_video_storage_path) {
     return createApiErrorResponse(
       'PRECONDITION_FAILED',
-      'No raw video available. Upload a video before rendering.',
+      'No raw video or clips available. Upload media before rendering.',
       422,
       correlationId,
     );
@@ -72,7 +80,7 @@ export const POST = withErrorCapture(async (
     );
   }
 
-  // Guard against double-render
+  // Guard against double-render: block if already rendering or if a pending/running render job exists
   if (item.edit_status === 'rendering') {
     return createApiErrorResponse(
       'CONFLICT',
@@ -82,61 +90,65 @@ export const POST = withErrorCapture(async (
     );
   }
 
-  // ── Render entitlement check ──────────────────────────────────────────────
-  // Must happen before any expensive work. Blocks free users and over-quota
-  // subscribers with a clear upgrade message.
-  const entitlement = await getRenderEntitlement(user.id);
-  if (!entitlement.canRender) {
-    return NextResponse.json(
-      {
-        ok: false,
-        error: 'RENDER_LIMIT_REACHED',
-        message: entitlement.upgradeMessage,
-        upgrade_url: entitlement.upgradeUrl,
-        renders_used: entitlement.rendersUsed,
-        renders_per_month: entitlement.rendersPerMonth,
-        plan_id: entitlement.planId,
-        correlation_id: correlationId,
-      },
-      { status: 402 },
+  // Check for existing pending/running render job for this content item
+  const { data: existingJobs } = await supabaseAdmin
+    .from('jobs')
+    .select('id, status')
+    .eq('type', 'render_video')
+    .in('status', ['pending', 'running'])
+    .eq('payload->>content_item_id', id)
+    .limit(1);
+
+  if (existingJobs && existingJobs.length > 0) {
+    return createApiErrorResponse(
+      'CONFLICT',
+      'A render job is already queued or running for this content item.',
+      409,
+      correlationId,
+      { job_id: existingJobs[0].id },
     );
   }
 
-  // Kick off render
-  try {
-    const result = await renderContentItem({
-      contentItemId: id,
-      actorId: user.id,
-    });
+  // Mark as rendering optimistically so the UI updates immediately
+  await supabaseAdmin
+    .from('content_items')
+    .update({ edit_status: 'rendering', render_error: null })
+    .eq('id', id);
 
-    // Increment usage counter after successful render (non-blocking, non-fatal)
-    incrementRenderCount(user.id).catch((err: unknown) => {
-      console.error('[render] Failed to increment render count (non-fatal):', err);
-    });
+  // Enqueue the render job
+  const jobId = await enqueueJob(
+    item.workspace_id,
+    'render_video',
+    { content_item_id: id, actor_id: user.id },
+    3, // max attempts
+  );
 
-    const response = NextResponse.json({
-      ok: true,
-      data: {
-        rendered_video_url: result.output_url,
-        storage_path: result.storage_path,
-        duration_sec: result.duration_sec,
-        renders_remaining: entitlement.rendersRemaining !== null
-          ? Math.max(0, entitlement.rendersRemaining - 1)
-          : null,
-      },
-      correlation_id: correlationId,
-    });
-    response.headers.set('x-correlation-id', correlationId);
-    return response;
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+  if (!jobId) {
+    // Rollback status on enqueue failure
+    await supabaseAdmin
+      .from('content_items')
+      .update({ edit_status: item.edit_status || 'ready_to_render' })
+      .eq('id', id);
+
     return createApiErrorResponse(
       'INTERNAL',
-      `Render failed: ${message}`,
+      'Failed to enqueue render job',
       500,
       correlationId,
     );
   }
+
+  const response = NextResponse.json({
+    ok: true,
+    data: {
+      job_id: jobId,
+      status: 'queued',
+      message: 'Render job enqueued. It will be processed shortly.',
+    },
+    correlation_id: correlationId,
+  }, { status: 202 });
+  response.headers.set('x-correlation-id', correlationId);
+  return response;
 }, {
   routeName: '/api/content-items/[id]/render',
   feature: 'editing-engine',

@@ -1,12 +1,15 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useAuth } from '@/contexts/AuthContext';
 import { ActionCenter } from '@/components/dashboard/ActionCenter';
 import { PipelineOverview } from '@/components/dashboard/PipelineOverview';
 import { TodayAssignments } from '@/components/dashboard/TodayAssignments';
 import { WinnersPanel } from '@/components/dashboard/WinnersPanel';
 import { QuickTools } from '@/components/dashboard/QuickTools';
+import { UsageMeter } from '@/components/dashboard/UsageMeter';
+import { FileText, Rocket, Video } from 'lucide-react';
 
 interface DashboardData {
   nextActions: Array<{
@@ -39,6 +42,8 @@ interface DashboardData {
     content_format: string | null;
     product_category: string | null;
   }>;
+  scriptsCount?: number;
+  campaignsCount?: number;
 }
 
 export default function DashboardPage() {
@@ -101,6 +106,10 @@ export default function DashboardPage() {
 
   if (!data) return null;
 
+  const scriptsCount = data.scriptsCount ?? 0;
+  const campaignsCount = data.campaignsCount ?? 0;
+  const submissionsCount = data.pipelineCounts?.posted ?? 0;
+
   return (
     <div className="pt-6 pb-24 lg:pb-8 max-w-5xl mx-auto px-4 space-y-8">
       {/* Welcome Header */}
@@ -109,6 +118,34 @@ export default function DashboardPage() {
           {userName ? `What's next, ${userName}?` : "What's next?"}
         </h1>
         <p className="text-zinc-500 text-sm mt-1">Your content command center</p>
+      </div>
+
+      {/* Key Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <Link
+          href="/admin/scripts"
+          className="bg-zinc-900/60 border border-white/5 rounded-xl p-4 hover:border-violet-500/30 transition-colors group"
+        >
+          <FileText className="w-4 h-4 text-violet-400 mb-1" />
+          <p className="text-2xl font-bold text-white tabular-nums">{scriptsCount}</p>
+          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">Scripts</p>
+        </Link>
+        <Link
+          href="/admin/campaigns"
+          className="bg-zinc-900/60 border border-white/5 rounded-xl p-4 hover:border-teal-500/30 transition-colors group"
+        >
+          <Rocket className="w-4 h-4 text-teal-400 mb-1" />
+          <p className="text-2xl font-bold text-white tabular-nums">{campaignsCount}</p>
+          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">Campaigns</p>
+        </Link>
+        <Link
+          href="/admin/pipeline?status=posted"
+          className="bg-zinc-900/60 border border-white/5 rounded-xl p-4 hover:border-emerald-500/30 transition-colors group"
+        >
+          <Video className="w-4 h-4 text-emerald-400 mb-1" />
+          <p className="text-2xl font-bold text-white tabular-nums">{submissionsCount}</p>
+          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">Posted</p>
+        </Link>
       </div>
 
       {/* 1. Action Center */}
@@ -125,6 +162,9 @@ export default function DashboardPage() {
 
       {/* 5. Quick Tools */}
       <QuickTools />
+
+      {/* 6. Usage Meter */}
+      <UsageMeter />
     </div>
   );
 }

@@ -2,43 +2,18 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { NextResponse } from "next/server";
 import { getApiAuthContext } from "@/lib/supabase/api-auth";
 import { generateCorrelationId, createApiErrorResponse } from "@/lib/api-errors";
+import { ENV_REGISTRY } from "@/lib/env-validation";
+import { getSystemConfigStatus } from "@/lib/config-status";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+
 interface DiagnosticCheck {
   name: string;
   status: "green" | "yellow" | "red";
   message: string;
   fix?: string;
 }
-
-// Environment variables to check: [name, required]
-const ENV_VARS: [string, boolean][] = [
-  // Required
-  ["NEXT_PUBLIC_SUPABASE_URL", true],
-  ["SUPABASE_SERVICE_ROLE_KEY", true],
-  ["NEXT_PUBLIC_SUPABASE_ANON_KEY", true],
-  ["ANTHROPIC_API_KEY", true],
-  ["NEXT_PUBLIC_APP_URL", true],
-  ["ADMIN_USERS", true],
-  // Optional AI
-  ["OPENAI_API_KEY", false],
-  ["REPLICATE_API_TOKEN", false],
-  ["ELEVENLABS_API_KEY", false],
-  // Optional payments
-  ["STRIPE_SECRET_KEY", false],
-  ["STRIPE_WEBHOOK_SECRET", false],
-  // Optional notifications
-  ["TELEGRAM_BOT_TOKEN", false],
-  ["TELEGRAM_CHAT_ID", false],
-  ["SENDGRID_API_KEY", false],
-  ["SLACK_WEBHOOK_URL", false],
-  // Optional scraping
-  ["SCRAPECREATORS_API_KEY", false],
-  // Optional deployment
-  ["VERCEL_DEPLOY_HOOK", false],
-  ["CRON_SECRET", false],
-];
 
 const REQUIRED_TABLES = [
   "products",
@@ -79,33 +54,63 @@ export async function GET(request: Request) {
 
   const checks: DiagnosticCheck[] = [];
 
-  // a. Environment Variables
-  for (const [name, required] of ENV_VARS) {
-    const isSet = !!process.env[name];
+  // ── a. Environment Variables (from registry) ─────────────────────────────
+
+  for (const v of ENV_REGISTRY) {
+    const isSet = !!process.env[v.key]?.trim();
+
     if (isSet) {
       checks.push({
-        name: `Env: ${name}`,
+        name: `Env: ${v.key}`,
         status: "green",
-        message: "Set",
+        message: `Set — ${v.description}`,
       });
-    } else if (required) {
+    } else if (v.classification === "REQUIRED_AT_BOOT") {
       checks.push({
-        name: `Env: ${name}`,
+        name: `Env: ${v.key}`,
         status: "red",
-        message: "Missing (required)",
-        fix: `Set the ${name} environment variable in your deployment settings`,
+        message: `Missing (required) — ${v.description}`,
+        fix: `Set ${v.key} in your deployment environment`,
+      });
+    } else if (v.classification === "FEATURE_REQUIRED") {
+      checks.push({
+        name: `Env: ${v.key}`,
+        status: "yellow",
+        message: `Missing — ${v.description}`,
+        fix: `Set ${v.key} to enable ${v.system}`,
       });
     } else {
       checks.push({
-        name: `Env: ${name}`,
+        name: `Env: ${v.key}`,
         status: "yellow",
-        message: "Missing (optional)",
-        fix: `Set ${name} to enable this feature`,
+        message: `Missing (optional) — ${v.description}`,
+        fix: `Set ${v.key} to enable this feature`,
       });
     }
   }
 
-  // b. Database Connection
+  // ── b. Integration Status Summary ────────────────────────────────────────
+
+  const configStatus = getSystemConfigStatus();
+  for (const integration of configStatus.integrations) {
+    if (integration.configured) {
+      checks.push({
+        name: `Integration: ${integration.name}`,
+        status: "green",
+        message: "Fully configured",
+      });
+    } else {
+      checks.push({
+        name: `Integration: ${integration.name}`,
+        status: "yellow",
+        message: `Missing: ${integration.missing.join(", ")}`,
+        fix: `Configure ${integration.name} by setting: ${integration.missing.join(", ")}`,
+      });
+    }
+  }
+
+  // ── c. Database Connection ───────────────────────────────────────────────
+
   try {
     const { error } = await supabaseAdmin
       .from("products")
@@ -134,7 +139,8 @@ export async function GET(request: Request) {
     });
   }
 
-  // c. Required Tables
+  // ── d. Required Tables ───────────────────────────────────────────────────
+
   for (const table of REQUIRED_TABLES) {
     try {
       const { error } = await supabaseAdmin.from(table).select("*").limit(0);
@@ -162,7 +168,8 @@ export async function GET(request: Request) {
     }
   }
 
-  // d. Products Exist
+  // ── e. Products Exist ────────────────────────────────────────────────────
+
   try {
     const { count, error } = await supabaseAdmin
       .from("products")
@@ -197,7 +204,8 @@ export async function GET(request: Request) {
     });
   }
 
-  // e. Personas Exist
+  // ── f. Personas Exist ────────────────────────────────────────────────────
+
   try {
     const { count, error } = await supabaseAdmin
       .from("audience_personas")
@@ -232,7 +240,8 @@ export async function GET(request: Request) {
     });
   }
 
-  // f. API Key Configured
+  // ── g. API Key Configured ───────────────────────────────────────────────
+
   try {
     const { data, error } = await supabaseAdmin
       .from("api_keys")
@@ -269,52 +278,13 @@ export async function GET(request: Request) {
     });
   }
 
-  // g. Content Generation
-  const anthropicSet = !!process.env.ANTHROPIC_API_KEY;
-  checks.push({
-    name: "Content Generation",
-    status: anthropicSet ? "green" : "red",
-    message: anthropicSet
-      ? "ANTHROPIC_API_KEY is configured"
-      : "ANTHROPIC_API_KEY is not set",
-    ...(anthropicSet
-      ? {}
-      : {
-          fix: "Set ANTHROPIC_API_KEY to enable AI script generation and content features",
-        }),
-  });
+  // ── Calculate health score ───────────────────────────────────────────────
 
-  // h. Telegram Bot
-  const telegramTokenSet = !!process.env.TELEGRAM_BOT_TOKEN;
-  const telegramChatIdSet = !!process.env.TELEGRAM_CHAT_ID;
-  if (telegramTokenSet && telegramChatIdSet) {
-    checks.push({
-      name: "Telegram Bot",
-      status: "green",
-      message: "Both TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are configured",
-    });
-  } else if (telegramTokenSet || telegramChatIdSet) {
-    checks.push({
-      name: "Telegram Bot",
-      status: "yellow",
-      message: `Partial config: ${telegramTokenSet ? "token set" : "token missing"}, ${telegramChatIdSet ? "chat ID set" : "chat ID missing"}`,
-      fix: `Set ${!telegramTokenSet ? "TELEGRAM_BOT_TOKEN" : "TELEGRAM_CHAT_ID"} to enable Telegram notifications`,
-    });
-  } else {
-    checks.push({
-      name: "Telegram Bot",
-      status: "yellow",
-      message: "Not configured",
-      fix: "Set TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID to enable Telegram notifications",
-    });
-  }
-
-  // Calculate health score
   const totalChecks = checks.length;
   const passed = checks.filter((c) => c.status === "green").length;
   const warnings = checks.filter((c) => c.status === "yellow").length;
   const failed = checks.filter((c) => c.status === "red").length;
-  const healthScore = Math.round((passed / totalChecks) * 100);
+  const healthScore = totalChecks > 0 ? Math.round((passed / totalChecks) * 100) : 0;
 
   const response = NextResponse.json({
     ok: true,
@@ -325,6 +295,12 @@ export async function GET(request: Request) {
       passed,
       warnings,
       failed,
+      config_status: {
+        boot_ok: configStatus.boot_ok,
+        integrations_configured: configStatus.summary.configured,
+        integrations_total: configStatus.summary.total,
+        boot_missing: configStatus.summary.boot_missing,
+      },
     },
   });
   response.headers.set("x-correlation-id", correlationId);

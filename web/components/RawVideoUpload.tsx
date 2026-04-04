@@ -8,6 +8,7 @@ interface RawVideoUploadProps {
   currentUrl?: string | null;
   onUploadComplete?: (url: string, storagePath: string) => void;
   onRemove?: () => void;
+  onDurationDetected?: (durationSec: number) => void;
 }
 
 const MAX_SIZE_MB = 500;
@@ -22,6 +23,7 @@ export default function RawVideoUpload({
   currentUrl,
   onUploadComplete,
   onRemove,
+  onDurationDetected,
 }: RawVideoUploadProps) {
   const [state, setState] = useState<UploadState>(currentUrl ? 'success' : 'idle');
   const [progress, setProgress] = useState(0);
@@ -164,6 +166,12 @@ export default function RawVideoUpload({
             controls
             preload="metadata"
             className="w-full rounded max-h-48 bg-black"
+            onLoadedMetadata={(e) => {
+              const dur = (e.target as HTMLVideoElement).duration;
+              if (dur && isFinite(dur) && onDurationDetected) {
+                onDurationDetected(Math.round(dur * 100) / 100);
+              }
+            }}
           />
         )}
         <div className="flex items-center gap-2">

@@ -147,6 +147,7 @@ export default function TikTokShopLP() {
             <p className="font-medium text-white text-sm">Jenna M.</p>
             <p className="text-xs text-zinc-500">TikTok Shop Creator, 50K followers</p>
           </div>
+          <p className="text-[10px] text-zinc-600 mt-3">Individual results vary. FlashFlow provides workflow tools, not guaranteed outcomes.</p>
         </div>
       </section>
 
@@ -182,6 +183,9 @@ export default function TikTokShopLP() {
           <span className="text-zinc-700">|</span>
           <span>Cancel anytime</span>
         </div>
+        <p className="text-[10px] text-zinc-700 text-center mt-8">
+          FlashFlow is an independent workflow platform. Not affiliated with or endorsed by TikTok or ByteDance.
+        </p>
       </section>
     </div>
   );

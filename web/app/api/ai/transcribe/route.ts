@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateCorrelationId, createApiErrorResponse } from '@/lib/api-errors';
-import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 import { z } from 'zod';
 
 export const runtime = 'nodejs';
@@ -19,12 +19,9 @@ const TranscribeSchema = z.object({
  * Generate a likely video script/hook from TikTok metadata using AI.
  */
 export async function POST(request: NextRequest) {
-  const correlationId = request.headers.get('x-correlation-id') || generateCorrelationId();
-
-  const authContext = await getApiAuthContext(request);
-  if (!authContext.user) {
-    return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
-  }
+  const guard = await aiRouteGuard(request, { creditCost: 2, userLimit: 8 });
+  if (guard.error) return guard.error;
+  const { correlationId } = guard;
 
   let body: unknown;
   try {

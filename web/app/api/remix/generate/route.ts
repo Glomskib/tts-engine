@@ -12,6 +12,7 @@
 
 import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
+import { aiRouteGuard } from '@/lib/ai-route-guard';
 import { generateCorrelationId } from '@/lib/api-errors';
 import { logUsageEventAsync } from '@/lib/finops/log-usage';
 import { logEventSafe } from '@/lib/events-log';
@@ -278,7 +279,9 @@ async function generateRemixVisualHooks(
 // ── Main Route ──
 
 export async function POST(request: Request) {
-  const correlationId = generateCorrelationId();
+  const guard = await aiRouteGuard(request, { creditCost: 3, userLimit: 5 });
+  if (guard.error) return guard.error;
+  const { correlationId, userId } = guard;
 
   let body: { remix_context: RemixContext };
   try {
@@ -291,10 +294,6 @@ export async function POST(request: Request) {
   if (!ctx || !ctx.transcript || !ctx.original_hook) {
     return NextResponse.json({ error: 'remix_context with transcript and original_hook is required' }, { status: 400 });
   }
-
-  // Auth check — optional (anonymous users can generate once)
-  const authContext = await getApiAuthContext(request);
-  const userId = authContext.user?.id ?? undefined;
 
   // Run all three in parallel
   const [scriptResult, hooksResult, visualResult] = await Promise.allSettled([

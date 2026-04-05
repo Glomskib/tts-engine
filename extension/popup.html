@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=380">
+  <link rel="stylesheet" href="styles.css">
+  <title>FlashFlow AI</title>
+</head>
+<body>
+
+  <!-- ═══════════════ AUTH SCREEN ═══════════════ -->
+  <div id="auth-screen" class="auth-screen" style="display:none;">
+    <h2>Flash<span style="color:#a78bfa;">Flow</span> AI</h2>
+    <p>Paste your API key from<br>
+      <a href="https://flashflowai.com/admin/dashboard" target="_blank"
+         style="color:#a78bfa;">flashflowai.com/admin/dashboard</a>
+    </p>
+    <input id="token-input" class="token-input" type="password"
+           placeholder="ff_ak_xxxxxxxxxxxx" spellcheck="false">
+    <button id="btn-login" class="btn btn-primary">Connect</button>
+  </div>
+
+  <!-- ═══════════════ MAIN APP ═══════════════ -->
+  <div id="app" style="display:none;">
+
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <div class="logo">Flash<span>Flow</span></div>
+      </div>
+      <span id="credits-badge" class="credits-badge"></span>
+    </div>
+
+    <div class="main">
+
+      <!-- Context bar -->
+      <div class="context-bar">
+        <div id="context-dot" class="dot inactive"></div>
+        <span id="context-text" class="context-text">No page context detected</span>
+      </div>
+
+      <!-- Input -->
+      <div class="input-group">
+        <label>Topic / Context</label>
+        <textarea id="input-text" class="input-textarea"
+                  placeholder="Enter a topic, paste a transcript, or auto-detect from the page..."
+                  rows="3"></textarea>
+      </div>
+
+      <!-- Action buttons -->
+      <div class="actions">
+        <button id="btn-hooks" class="btn btn-primary">Generate Hooks</button>
+        <button id="btn-script" class="btn btn-secondary">Generate Script</button>
+      </div>
+
+      <!-- Messages -->
+      <div id="msg-error" class="message error"></div>
+      <div id="msg-upgrade" class="message upgrade" style="display:none;">
+        You've used all your credits.
+        <button class="btn btn-primary btn-small"
+                onclick="window.open('https://flashflowai.com/admin/billing','_blank')">
+          Upgrade Plan
+        </button>
+      </div>
+
+      <!-- Loading -->
+      <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <div class="loading-text">Generating...</div>
+      </div>
+
+      <!-- Output -->
+      <div id="output-section" class="output-section">
+        <div class="output-header">
+          <h3 id="output-title">Hooks</h3>
+          <button id="btn-copy" class="btn btn-secondary btn-small">Copy</button>
+        </div>
+        <div id="output-content" class="output-content"></div>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <a href="https://flashflowai.com/admin/dashboard" target="_blank">Dashboard</a>
+      <button id="btn-logout" class="btn-ghost">Disconnect</button>
+    </div>
+  </div>
+
+  <!-- Copy toast -->
+  <div id="copy-toast" class="copy-toast">Copied!</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

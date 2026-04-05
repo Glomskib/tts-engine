@@ -9,7 +9,7 @@ import { TodayAssignments } from '@/components/dashboard/TodayAssignments';
 import { WinnersPanel } from '@/components/dashboard/WinnersPanel';
 import { QuickTools } from '@/components/dashboard/QuickTools';
 import { UsageMeter } from '@/components/dashboard/UsageMeter';
-import { FileText, Rocket, Video } from 'lucide-react';
+import { FileText, Rocket, Video, Sparkles, Package, Trophy, ArrowRight, CheckCircle2 } from 'lucide-react';
 
 interface DashboardData {
   nextActions: Array<{
@@ -44,6 +44,100 @@ interface DashboardData {
   }>;
   scriptsCount?: number;
   campaignsCount?: number;
+}
+
+const START_STEPS = [
+  {
+    num: 1,
+    label: 'Add a product',
+    desc: "Tell FlashFlow what you're promoting",
+    href: '/admin/products',
+    icon: Package,
+    color: 'text-blue-400',
+    border: 'border-blue-500/20',
+    bg: 'bg-blue-500/5',
+  },
+  {
+    num: 2,
+    label: 'Generate your first script',
+    desc: 'Pick a persona, get a script in 30 seconds',
+    href: '/admin/content-studio',
+    icon: Sparkles,
+    color: 'text-teal-400',
+    border: 'border-teal-500/20',
+    bg: 'bg-teal-500/5',
+  },
+  {
+    num: 3,
+    label: 'Check your Winners Bank',
+    desc: 'See what hooks are beating benchmarks right now',
+    href: '/admin/intelligence/winners-bank',
+    icon: Trophy,
+    color: 'text-amber-400',
+    border: 'border-amber-500/20',
+    bg: 'bg-amber-500/5',
+  },
+];
+
+function StartHerePanel() {
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    if (localStorage.getItem('ff-start-dismissed')) setDismissed(true);
+  }, []);
+
+  if (dismissed) return null;
+
+  return (
+    <div className="bg-gradient-to-br from-zinc-900/80 to-zinc-900/40 border border-teal-500/20 rounded-2xl p-6">
+      <div className="flex items-start justify-between mb-5">
+        <div>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
+            <span className="text-xs text-teal-400 font-medium uppercase tracking-wide">Getting started</span>
+          </div>
+          <h2 className="text-lg font-bold text-white">3 steps to your first winning script</h2>
+          <p className="text-zinc-500 text-sm mt-0.5">Most creators see results within 10 minutes</p>
+        </div>
+        <button
+          onClick={() => {
+            localStorage.setItem('ff-start-dismissed', '1');
+            setDismissed(true);
+          }}
+          className="text-zinc-600 hover:text-zinc-400 text-xs transition-colors mt-1"
+        >
+          Dismiss
+        </button>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {START_STEPS.map((step) => {
+          const Icon = step.icon;
+          return (
+            <Link
+              key={step.num}
+              href={step.href}
+              className={`group flex flex-col gap-2 p-4 rounded-xl ${step.bg} border ${step.border} hover:scale-[1.02] transition-all`}
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-6 h-6 rounded-full bg-zinc-800 border border-white/10 flex items-center justify-center text-xs font-bold text-zinc-400">
+                  {step.num}
+                </span>
+                <Icon className={`w-4 h-4 ${step.color}`} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-white">{step.label}</p>
+                <p className="text-xs text-zinc-500 mt-0.5">{step.desc}</p>
+              </div>
+              <div className={`flex items-center gap-1 text-xs ${step.color} mt-auto`}>
+                Start <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function DashboardPage() {
@@ -109,16 +203,27 @@ export default function DashboardPage() {
   const scriptsCount = data.scriptsCount ?? 0;
   const campaignsCount = data.campaignsCount ?? 0;
   const submissionsCount = data.pipelineCounts?.posted ?? 0;
+  const isNewUser = scriptsCount === 0 && (data.pipelineCounts?.total ?? 0) === 0;
+
+  // Greeting: new user gets welcome, returning user gets "what's next"
+  const greeting = isNewUser
+    ? (userName ? `Welcome, ${userName} 👋` : 'Welcome to FlashFlow 👋')
+    : (userName ? `What's next, ${userName}?` : "What's next?");
+
+  const subtext = isNewUser
+    ? "You're set up. Here's how to get your first script live."
+    : 'Your content command center';
 
   return (
     <div className="pt-6 pb-24 lg:pb-8 max-w-5xl mx-auto px-4 space-y-8">
-      {/* Welcome Header */}
+      {/* Header */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white">
-          {userName ? `What's next, ${userName}?` : "What's next?"}
-        </h1>
-        <p className="text-zinc-500 text-sm mt-1">Your content command center</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-white">{greeting}</h1>
+        <p className="text-zinc-500 text-sm mt-1">{subtext}</p>
       </div>
+
+      {/* New user: Start Here panel */}
+      {isNewUser && <StartHerePanel />}
 
       {/* Key Stats */}
       <div className="grid grid-cols-3 gap-3">

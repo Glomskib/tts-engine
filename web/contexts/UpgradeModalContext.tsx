@@ -18,7 +18,7 @@ interface UpgradeModalContextValue {
 const DEFAULT_STATE: UpgradeModalState = {
   open: false,
   headline: "You're getting traction",
-  subtext: 'Unlock unlimited scripts, campaigns, and scaling tools.',
+  subtext: 'Upgrade to unlock unlimited scripts, Winners Bank, and full production tools.',
 };
 
 const UpgradeModalContext = createContext<UpgradeModalContextValue>({
@@ -70,10 +70,10 @@ export function useUpgradeModal() {
  */
 export function upgradePayloadToOpts(json: Record<string, unknown>) {
   const feature = typeof json.feature === 'string' ? json.feature : undefined;
-  const featureLabel = feature ? ` for ${feature}` : '';
+  const featureLabel = feature ? ` more ${feature}` : ' unlimited access';
   return {
-    headline: "You've hit your plan limit",
-    subtext: `Upgrade to unlock more${featureLabel} and keep scaling.`,
+    headline: "You're getting traction",
+    subtext: `Your free tier is full. Upgrade to unlock${featureLabel} and keep the momentum going.`,
     feature,
   };
 }

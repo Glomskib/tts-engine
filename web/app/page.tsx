@@ -234,31 +234,31 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-            Turn Winning TikTok Shop Content Into Your Own{' '}
-            <span className="bg-gradient-to-r from-emerald-400 via-blue-400 to-emerald-400 bg-clip-text text-transparent">
-              Money-Making Scripts
+            The Script Engine Built for{' '}
+            <span className="bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent">
+              TikTok Shop Affiliates
             </span>
           </h1>
 
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            For TikTok Shop affiliates: Find winning products. Write scripts that don't sound AI. Hit your retainer goals. Track what works.
+            Find winning products. Generate scripts that don&apos;t sound AI. Track retainer goals. Know exactly what&apos;s converting — and why.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
             <Link
-              href="/script-generator"
-              className="group px-8 py-4 rounded-xl bg-white text-zinc-900 font-semibold text-lg hover:bg-zinc-100 transition-all shadow-[0_0_0_1px_rgba(255,255,255,0.1),0_4px_24px_rgba(0,0,0,0.4)] hover:shadow-[0_0_0_1px_rgba(255,255,255,0.2),0_8px_32px_rgba(0,0,0,0.5)]"
+              href="/signup"
+              className="group px-8 py-4 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold text-lg hover:from-teal-400 hover:to-emerald-400 transition-all shadow-lg shadow-teal-500/25"
             >
-              Try the Script Generator Free
+              Start Free — No Card Needed
               <svg className="inline-block ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
               </svg>
             </Link>
             <Link
-              href="#pricing"
+              href="/script-generator"
               className="px-8 py-4 rounded-xl border border-white/10 text-zinc-300 font-medium text-lg hover:bg-white/5 hover:border-white/20 transition-all"
             >
-              See Pricing
+              Try the Tool First
             </Link>
           </div>
 

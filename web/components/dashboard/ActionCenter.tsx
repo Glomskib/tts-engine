@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import {
   Video, Upload, Scissors, Send, AlertTriangle, Sparkles,
+  Trophy, Mic, ArrowRight,
 } from 'lucide-react';
 import { getActionCardConfig } from '@/lib/videos/nextAction';
 
@@ -26,20 +27,61 @@ const ACTION_ICONS: Record<string, typeof Video> = {
   fix_blockers: AlertTriangle,
 };
 
+const NEXT_STEP_OPTIONS = [
+  {
+    label: 'Generate a script',
+    desc: 'Pick a product and persona. Done in 30 seconds.',
+    href: '/admin/content-studio',
+    icon: Sparkles,
+    color: 'text-teal-400',
+    bg: 'bg-teal-500/10',
+    border: 'border-teal-500/20',
+  },
+  {
+    label: 'Study a winning video',
+    desc: 'Paste a TikTok URL. Get the hook breakdown instantly.',
+    href: '/admin/transcribe',
+    icon: Mic,
+    color: 'text-violet-400',
+    bg: 'bg-violet-500/10',
+    border: 'border-violet-500/20',
+  },
+  {
+    label: 'See what\'s converting',
+    desc: 'Winners Bank shows the hooks driving real sales.',
+    href: '/admin/intelligence/winners-bank',
+    icon: Trophy,
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/20',
+  },
+];
+
 export function ActionCenter({ actions }: { actions: ActionItem[] }) {
   if (actions.length === 0) {
     return (
-      <div className="bg-zinc-900/50 rounded-xl border border-white/10 p-6">
-        <h2 className="text-lg font-semibold text-white mb-3">Action Center</h2>
-        <div className="text-center py-8">
-          <Sparkles className="w-10 h-10 text-teal-400 mx-auto mb-3" />
-          <p className="text-zinc-400 text-sm">All caught up! No pending actions.</p>
-          <Link
-            href="/admin/content-studio"
-            className="inline-block mt-4 px-5 py-3 min-h-[48px] bg-teal-500 text-white rounded-xl font-medium hover:bg-teal-600 transition-colors"
-          >
-            Create New Content
-          </Link>
+      <div>
+        <h2 className="text-lg font-semibold text-white mb-3">Where to start</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          {NEXT_STEP_OPTIONS.map((opt) => {
+            const Icon = opt.icon;
+            return (
+              <Link
+                key={opt.href}
+                href={opt.href}
+                className={`group flex flex-col gap-3 p-4 rounded-xl ${opt.bg} border ${opt.border} hover:scale-[1.02] transition-all active:scale-[0.98]`}
+              >
+                <Icon className={`w-5 h-5 ${opt.color}`} />
+                <div>
+                  <p className="text-sm font-semibold text-white">{opt.label}</p>
+                  <p className="text-xs text-zinc-500 mt-0.5 leading-relaxed">{opt.desc}</p>
+                </div>
+                <div className={`flex items-center gap-1 text-xs ${opt.color} mt-auto`}>
+                  Start <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+                </div>
+              </Link>
+            );
+          })}
         </div>
       </div>
     );
@@ -47,7 +89,7 @@ export function ActionCenter({ actions }: { actions: ActionItem[] }) {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-3">Action Center</h2>
+      <h2 className="text-lg font-semibold text-white mb-3">Your next moves</h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {actions.map((item) => {
           const config = getActionCardConfig(item.action);

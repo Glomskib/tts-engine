@@ -547,41 +547,32 @@ export default function ScriptGeneratorPage() {
             )}
 
             {/* Conversion CTA */}
-            <div className="p-6 rounded-xl border border-violet-500/20 bg-gradient-to-r from-violet-500/5 to-teal-500/5">
-              <div className="flex items-start gap-3">
-                <div className="p-2 rounded-lg bg-violet-500/20 shrink-0">
-                  <Zap size={18} className="text-violet-400" />
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-base font-semibold text-zinc-200 mb-1">
-                    Like this script? There&apos;s way more inside.
-                  </h3>
-                  <p className="text-sm text-zinc-400 mb-4">
-                    Free accounts get <span className="text-zinc-200 font-medium">5 scripts/day</span>,{' '}
-                    <span className="text-zinc-200 font-medium">all 20+ persona voices</span>, a script library to save your best work,
-                    and a TikTok transcriber to study viral content. No credit card required.
-                  </p>
-                  <div className="flex flex-wrap gap-3">
-                    <Link
-                      href="/login?mode=signup"
-                      className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg bg-white text-zinc-900 font-semibold text-sm hover:bg-zinc-100 transition-colors"
-                    >
-                      Create Free Account
-                      <ArrowRight size={14} />
-                    </Link>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setResult(null);
-                        setScore(null);
-                        window.scrollTo({ top: 0, behavior: 'smooth' });
-                      }}
-                      className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-lg border border-white/10 text-zinc-300 font-medium text-sm hover:bg-white/5 transition-colors"
-                    >
-                      Write Another
-                    </button>
-                  </div>
-                </div>
+            <div className="rounded-2xl border border-teal-500/20 bg-gradient-to-br from-teal-500/8 to-emerald-500/5 p-6">
+              <h3 className="text-base font-bold text-white mb-1">
+                This is the free version. The full platform is different.
+              </h3>
+              <p className="text-sm text-zinc-400 mb-4 leading-relaxed">
+                Free account unlocks: <span className="text-zinc-200">5 scripts/day</span> · <span className="text-zinc-200">20+ creator personas</span> · <span className="text-zinc-200">Winners Bank</span> (see which hooks are converting right now) · <span className="text-zinc-200">production pipeline</span> to track every video from script to posted.
+              </p>
+              <div className="flex flex-wrap gap-3">
+                <Link
+                  href="/login?mode=signup"
+                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold text-sm hover:from-teal-400 hover:to-emerald-400 transition-all shadow-lg shadow-teal-500/20"
+                >
+                  Start Free — No Card Needed
+                  <ArrowRight size={14} />
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setResult(null);
+                    setScore(null);
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }}
+                  className="inline-flex items-center gap-1.5 px-5 py-3 rounded-xl border border-white/10 text-zinc-300 font-medium text-sm hover:bg-white/5 transition-colors"
+                >
+                  Write Another
+                </button>
               </div>
             </div>
           </div>

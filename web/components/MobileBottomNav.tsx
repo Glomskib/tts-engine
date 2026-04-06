@@ -22,7 +22,7 @@ const AVAILABLE_NAV_ITEMS = [
   { id: 'transcribe', href: '/admin/transcribe', icon: FileText, label: 'Transcribe' },
   { id: 'youtube-transcribe', href: '/admin/youtube-transcribe', icon: Youtube, label: 'YT Transcribe' },
   { id: 'script-library', href: '/admin/script-library', icon: Folder, label: 'Library' },
-  { id: 'pipeline', href: '/admin/pipeline', icon: Video, label: 'Pipeline' },
+  { id: 'pipeline', href: '/admin/pipeline', icon: Video, label: 'Videos' },
   { id: 'calendar', href: '/admin/calendar', icon: Calendar, label: 'Planner' },
   { id: 'winners', href: '/admin/intelligence/winners-bank', icon: Trophy, label: 'Winners' },
   { id: 'analytics', href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },

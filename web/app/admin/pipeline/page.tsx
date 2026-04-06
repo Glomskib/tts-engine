@@ -29,7 +29,8 @@ import { getVideoDisplayTitle } from './types';
 import { getStatusConfig as getStatusConfigCentral, formatStatusLabel, RECORDING_STATUSES as RECORDING_STATUSES_CENTRAL } from '@/lib/status';
 import { PipelineSummaryBar } from '@/components/PipelineSummaryBar';
 import { getNextAction as getNextActionCentral } from '@/lib/nextAction';
-import { getUIStage } from '@/lib/ui/stages';
+import { getUIStage, type UIStage } from '@/lib/ui/stages';
+import { StageEmptyState } from '@/components/ui/StageEmptyState';
 import { PipelineWorkModeSwitcher, filterVideosByWorkMode, computeModeCounts, getWorkModeSummary, type WorkMode } from '@/components/PipelineWorkModeSwitcher';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { buildRecordingPack, formatRecordingPacksBatch, type RecordingPackVideo } from '@/lib/packs/buildRecordingPack';
@@ -2101,10 +2102,10 @@ function AdminPipelinePageInner() {
       }}>
         <div>
           <h1 style={{ fontSize: '18px', fontWeight: 600, color: colors.text, margin: 0 }}>
-            Work Queue
+            My Videos
           </h1>
           <p style={{ fontSize: '13px', color: colors.textMuted, margin: '4px 0 0 0' }}>
-            Everything currently in progress
+            Move videos from script to posted in a few simple steps.
           </p>
         </div>
 
@@ -2449,14 +2450,10 @@ function AdminPipelinePageInner() {
             }}
           >
             <option value="ALL">All Stages</option>
-            <option value="NEEDS_SCRIPT">Needs Script</option>
-            <option value="GENERATING_SCRIPT">Generating</option>
-            <option value="NOT_RECORDED">Scripted</option>
-            <option value="AI_RENDERING">AI Rendering</option>
-            <option value="READY_FOR_REVIEW">Ready for Review</option>
-            <option value="RECORDED">Recorded</option>
-            <option value="APPROVED_NEEDS_EDITS">Needs Edits</option>
-            <option value="READY_TO_POST">Approved</option>
+            <option value="NEEDS_SCRIPT">Needs Recording</option>
+            <option value="NOT_RECORDED">Ready to Record</option>
+            <option value="RECORDED">Needs Editing</option>
+            <option value="READY_TO_POST">Ready to Post</option>
             <option value="POSTED">Posted</option>
             <option value="REJECTED">Rejected</option>
           </select>
@@ -2842,56 +2839,59 @@ function AdminPipelinePageInner() {
         </div>
       )}
 
-      {/* Mobile: Header with Filter */}
-      <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-zinc-800 -mx-4 mb-4">
-        <h1 className="text-lg font-semibold text-white">Pipeline</h1>
-        <button type="button"
-          onClick={() => setFilterSheetOpen(true)}
-          className="flex items-center gap-2 px-3 h-10 rounded-lg bg-zinc-800 text-sm text-zinc-300"
-        >
-          <Filter className="w-4 h-4" />
-          Filter
-          {Object.keys(mobileFilters).filter(k => mobileFilters[k as keyof typeof mobileFilters]).length > 0 && (
-            <span className="w-5 h-5 rounded-full bg-teal-500 text-xs flex items-center justify-center text-white">
-              {Object.keys(mobileFilters).filter(k => mobileFilters[k as keyof typeof mobileFilters]).length}
-            </span>
-          )}
-        </button>
+      {/* Mobile: Header */}
+      <div className="lg:hidden px-4 pt-4 pb-2 -mx-4">
+        <div className="flex items-center justify-between mb-1">
+          <h1 className="text-lg font-semibold text-white">My Videos</h1>
+          <button type="button"
+            onClick={() => setFilterSheetOpen(true)}
+            className="flex items-center gap-1.5 px-3 h-9 rounded-lg bg-zinc-800/60 text-xs text-zinc-400"
+          >
+            <Filter className="w-3.5 h-3.5" />
+            Filter
+            {Object.keys(mobileFilters).filter(k => mobileFilters[k as keyof typeof mobileFilters]).length > 0 && (
+              <span className="w-4 h-4 rounded-full bg-teal-500 text-[10px] flex items-center justify-center text-white font-bold">
+                {Object.keys(mobileFilters).filter(k => mobileFilters[k as keyof typeof mobileFilters]).length}
+              </span>
+            )}
+          </button>
+        </div>
+        <p className="text-xs text-zinc-500">Move videos from script to posted in a few simple steps.</p>
       </div>
 
-      {/* Mobile: 4-stage filter tabs */}
-      <div className="lg:hidden flex gap-1.5 overflow-x-auto px-4 pb-3 -mx-4 scrollbar-none">
-        {([
-          { value: 'ALL', label: 'All' },
-          { value: 'needs_recording', label: 'Record' },
-          { value: 'needs_editing', label: 'Edit' },
-          { value: 'ready_to_post', label: 'Post' },
-          { value: 'posted', label: 'Done' },
-        ] as const).map(tab => {
-          const isActive = mobileStageFilter === tab.value;
-          const count = tab.value === 'ALL'
-            ? getIntentFilteredVideos().length
-            : getIntentFilteredVideos().filter(v => getUIStage(v.recording_status, v.status) === tab.value).length;
-          return (
-            <button
-              key={tab.value}
-              type="button"
-              onClick={() => setMobileStageFilter(tab.value)}
-              className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-medium transition-colors ${
-                isActive
-                  ? 'bg-white text-zinc-900'
-                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
-              }`}
-            >
-              {tab.label}
-              {count > 0 && (
-                <span className={`text-[10px] font-bold tabular-nums ${isActive ? 'text-zinc-600' : 'text-zinc-500'}`}>
+      {/* Mobile: 4-stage segmented control */}
+      <div className="lg:hidden px-4 pb-3 -mx-4">
+        <div className="bg-zinc-800/60 rounded-xl p-1 flex gap-0.5">
+          {([
+            { value: 'ALL', label: 'All', color: '' },
+            { value: 'needs_recording', label: 'Needs Recording', color: 'text-blue-400' },
+            { value: 'needs_editing', label: 'Needs Editing', color: 'text-amber-400' },
+            { value: 'ready_to_post', label: 'Ready to Post', color: 'text-teal-400' },
+            { value: 'posted', label: 'Posted', color: 'text-green-400' },
+          ] as const).map(tab => {
+            const isActive = mobileStageFilter === tab.value;
+            const count = tab.value === 'ALL'
+              ? getIntentFilteredVideos().length
+              : getIntentFilteredVideos().filter(v => getUIStage(v.recording_status, v.status) === tab.value).length;
+            return (
+              <button
+                key={tab.value}
+                type="button"
+                onClick={() => setMobileStageFilter(tab.value)}
+                className={`flex-1 flex flex-col items-center gap-0.5 py-2 rounded-lg text-[10px] font-medium transition-all min-w-0 ${
+                  isActive
+                    ? 'bg-zinc-700/80 text-white shadow-sm'
+                    : 'text-zinc-500 active:bg-zinc-700/40'
+                }`}
+              >
+                <span className={`tabular-nums text-sm font-bold ${isActive && tab.color ? tab.color : ''}`}>
                   {count}
                 </span>
-              )}
-            </button>
-          );
-        })}
+                <span className="truncate w-full text-center px-0.5">{tab.value === 'ALL' ? 'All' : tab.label.replace('Needs ', '').replace('Ready to ', '')}</span>
+              </button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Mobile: Stage description */}
@@ -2900,8 +2900,8 @@ function AdminPipelinePageInner() {
           <p className="text-xs text-zinc-500">
             {mobileStageFilter === 'needs_recording' && 'Pick up your phone and record these videos.'}
             {mobileStageFilter === 'needs_editing' && 'Footage is in — edit and upload the final cut.'}
-            {mobileStageFilter === 'ready_to_post' && "These are approved and ready to post on TikTok."}
-            {mobileStageFilter === 'posted' && 'Already live. Check performance in Winners.'}
+            {mobileStageFilter === 'ready_to_post' && "Approved and ready to post."}
+            {mobileStageFilter === 'posted' && 'Already live. Track performance.'}
           </p>
         </div>
       )}
@@ -2913,38 +2913,32 @@ function AdminPipelinePageInner() {
         ) : getIntentFilteredVideos().length === 0 ? (
           queueVideos.length === 0 ? (
             /* First-visit empty state */
-            <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-              <div className="w-16 h-16 rounded-full bg-blue-500/10 flex items-center justify-center mb-4">
-                <Film className="w-8 h-8 text-blue-400" />
+            <div className="flex flex-col items-center justify-center py-16 px-6 text-center">
+              <div className="w-14 h-14 rounded-2xl bg-teal-500/10 flex items-center justify-center mb-5">
+                <Video className="w-7 h-7 text-teal-400" />
               </div>
-              <h3 className="text-lg font-semibold text-white mb-2">Your Production Board</h3>
-              <p className="text-sm text-zinc-400 max-w-sm mb-6">
-                Track every video from script to posted. Generate a script first, then move it through your pipeline.
+              <h3 className="text-lg font-semibold text-white mb-2">Welcome to FlashFlow</h3>
+              <p className="text-sm text-zinc-400 max-w-[280px] mb-8 leading-relaxed">
+                Go from script to posted video in a few simple steps. Start by creating your first script.
               </p>
-              <div className="flex gap-3 flex-wrap justify-center">
-                <a
-                  href="/admin/content-studio"
-                  className="h-11 px-6 bg-teal-600 text-white rounded-xl font-medium hover:bg-teal-700 active:bg-teal-800 transition-colors inline-flex items-center gap-2"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  Generate a Script
-                </a>
-                <button
-                  type="button"
-                  onClick={() => setShowCreateDrawer(true)}
-                  className="h-11 px-6 bg-zinc-800 text-white rounded-xl font-medium hover:bg-zinc-700 active:bg-zinc-600 transition-colors border border-zinc-700 inline-flex items-center gap-2"
-                >
-                  <Video className="w-4 h-4" />
-                  Create Video
-                </button>
-              </div>
+              <a
+                href="/admin/content-studio"
+                className="h-12 px-8 bg-teal-600 text-white rounded-xl font-semibold hover:bg-teal-700 active:bg-teal-800 transition-colors inline-flex items-center gap-2 text-sm"
+              >
+                <Sparkles className="w-4 h-4" />
+                Create Your First Script
+              </a>
             </div>
+          ) : (
+            mobileStageFilter !== 'ALL' ? (
+            <StageEmptyState stage={mobileStageFilter as UIStage} />
           ) : (
             <EmptyState
               icon={Film}
               title="No videos match this filter"
-              description={`No videos with status "${activeRecordingTab.replace(/_/g, ' ').toLowerCase()}". Try changing your filter.`}
+              description="Try a different filter or create a new video."
             />
+          )
           )
         ) : (
           <PullToRefresh onRefresh={fetchQueueVideos} className="min-h-[calc(100vh-200px)]">

@@ -79,6 +79,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/content-studio': 'Content Studio',
       '/admin/script-library': 'Script Library',
       '/admin/pipeline': 'Production Board',
+      '/admin/launch-sync': 'LaunchSync',
       '/admin/calendar': 'Content Planner',
       '/admin/posting-queue': 'Posting Queue',
       '/admin/winners': 'Winners Bank',

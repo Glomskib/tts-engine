@@ -62,8 +62,8 @@ const STATUS_CONFIG: Record<RecordingStatus, StatusConfig> = {
   RECORDED:             { label: 'Ready for Editing',   bg: 'bg-blue-500/10',    text: 'text-blue-400',    dot: 'bg-blue-400',    emoji: '🎙️', boardBg: 'bg-blue-500/10 border-blue-500/20' },
   EDITED:               { label: 'Edited',              bg: 'bg-yellow-500/10',  text: 'text-yellow-400',  dot: 'bg-yellow-400',  emoji: '✂️', boardBg: 'bg-yellow-500/10 border-yellow-500/20' },
   APPROVED_NEEDS_EDITS: { label: 'Revisions Needed',    bg: 'bg-amber-500/10',   text: 'text-amber-400',   dot: 'bg-amber-400',   emoji: '✂️', boardBg: 'bg-amber-500/10 border-amber-500/20' },
-  READY_TO_POST:        { label: 'Ready to Publish',    bg: 'bg-teal-500/10',    text: 'text-teal-400',    dot: 'bg-teal-400',    emoji: '✅', boardBg: 'bg-teal-500/10 border-teal-500/20' },
-  POSTED:               { label: 'Published',           bg: 'bg-green-500/10',   text: 'text-green-400',   dot: 'bg-green-400',   emoji: '🟢', boardBg: 'bg-green-500/10 border-green-500/20' },
+  READY_TO_POST:        { label: 'Ready to Post',        bg: 'bg-teal-500/10',    text: 'text-teal-400',    dot: 'bg-teal-400',    emoji: '✅', boardBg: 'bg-teal-500/10 border-teal-500/20' },
+  POSTED:               { label: 'Posted',              bg: 'bg-green-500/10',   text: 'text-green-400',   dot: 'bg-green-400',   emoji: '🟢', boardBg: 'bg-green-500/10 border-green-500/20' },
   REJECTED:             { label: 'Rejected',            bg: 'bg-red-500/10',     text: 'text-red-400',     dot: 'bg-red-400',     emoji: '❌', boardBg: 'bg-red-500/10 border-red-500/20' },
 };
 

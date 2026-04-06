@@ -70,7 +70,8 @@
     "ri:fix-schema": "tsx scripts/revenue-intelligence/fix-schema-cache.ts",
     "tiktok:bootstrap:slot": "tsx scripts/slot/bootstrap-tiktok.ts",
     "ri:ingest:slot": "tsx scripts/slot/run-ri-ingest.ts",
-    "openclaw:worker:slot": "bash scripts/slot/run-worker.sh"
+    "openclaw:worker:slot": "bash scripts/slot/run-worker.sh",
+    "bootstrap:spiderbuttons": "tsx scripts/bootstrap-spiderbuttons.ts"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -95,7 +95,7 @@ export function getNextAction(video: VideoForAction): NextAction {
   if (status === 'NEEDS_SCRIPT' || (!hasScript && status === 'NOT_RECORDED')) {
     return {
       key: 'attach_script',
-      label: 'Attach Script',
+      label: 'Choose Script',
       shortLabel: 'Script',
       priority,
       buttonClass: 'bg-amber-600 hover:bg-amber-500 text-white',
@@ -208,7 +208,7 @@ export function getNextAction(video: VideoForAction): NextAction {
   if (status === 'POSTED') {
     return {
       key: 'done',
-      label: 'Complete',
+      label: 'Posted',
       shortLabel: 'Done',
       priority: 'low',
       buttonClass: 'bg-green-600/20 text-green-400',

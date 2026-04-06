@@ -140,8 +140,10 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Content Items', href: '/admin/content-items', icon: ListTodo, subtitle: 'All content in one place', tourId: 'nav-content-items' },
       { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, subtitle: 'Schedule and plan ahead', minPlan: 'creator_pro', tourId: 'nav-content-planner' },
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, subtitle: 'Track progress across stages', minPlan: 'creator_pro', tourId: 'nav-pipeline' },
+      { name: 'Footage Hub', href: '/admin/footage', icon: Film, subtitle: 'Upload and manage raw footage', minPlan: 'creator_pro' },
       { name: 'Drive Intake', href: '/admin/intake', icon: Download, subtitle: 'Import from Google Drive', minPlan: 'creator_pro' },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, subtitle: 'Ready to publish', minPlan: 'creator_pro', tourId: 'nav-posting-queue' },
+      { name: 'LaunchSync', href: '/admin/launch-sync', icon: Rocket, subtitle: 'Amazon → TikTok product launches', badge: 'New' },
     ],
   },
   {
@@ -185,6 +187,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Launch Check', href: '/admin/launch-check', icon: Rocket, adminOnly: true },
       { name: 'System Status', href: '/admin/settings/system-status', icon: Activity, adminOnly: true },
       { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, ownerOnly: true },
+      { name: 'Render Jobs', href: '/admin/render-jobs', icon: Server, adminOnly: true },
       { name: 'Feedback', href: '/admin/feedback', icon: MessageSquare, adminOnly: true },
       { name: 'Support', href: '/admin/support', icon: HelpCircle, adminOnly: true },
       { name: 'Users', href: '/admin/settings/users', icon: Users, adminOnly: true },

@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { BottomSheet } from './BottomSheet';
+import { StageChip } from '@/components/ui/StageChip';
+import { StepProgress } from '@/components/ui/StepProgress';
+import { getUIStage, STAGE_CONFIGS } from '@/lib/ui/stages';
 
 interface Video {
   id: string;
@@ -61,7 +64,7 @@ export function VideoDetailSheet({
     <BottomSheet
       isOpen={isOpen}
       onClose={onClose}
-      title="Review Video"
+      title="Video Details"
       size="large"
       stickyFooter={
         <div className="flex gap-3">
@@ -123,34 +126,34 @@ export function VideoDetailSheet({
         )}
       </div>
 
-      {/* Metadata */}
+      {/* Status & Progress */}
       <div className="space-y-4">
-        <div>
-          <label className="text-xs text-zinc-500 uppercase tracking-wide">Title</label>
-          <p className="text-base text-white mt-1">{video.title || 'Untitled'}</p>
-        </div>
-
-        <div>
-          <label className="text-xs text-zinc-500 uppercase tracking-wide">Brand / Product</label>
-          <p className="text-base text-white mt-1">{video.brand || '—'}</p>
-        </div>
-
-        <div>
-          <label className="text-xs text-zinc-500 uppercase tracking-wide">Status</label>
-          <div className="mt-1">
-            <StatusBadge status={video.workflow} />
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <StageChip recordingStatus={video.workflow} size="md" />
+            {video.brand && (
+              <span className="text-xs text-zinc-500">{video.brand}</span>
+            )}
           </div>
+          {(() => {
+            const stage = getUIStage(video.workflow, null);
+            const config = STAGE_CONFIGS[stage];
+            return <p className="text-sm text-zinc-400">{config.description}</p>;
+          })()}
+          <StepProgress recordingStatus={video.workflow} />
         </div>
 
         <div>
-          <label className="text-xs text-zinc-500 uppercase tracking-wide">Assigned To</label>
-          <p className="text-base text-white mt-1">{video.assignedTo || 'Unassigned'}</p>
+          <h3 className="text-base font-medium text-white mb-1">{video.title || 'Untitled'}</h3>
+          {video.assignedTo && (
+            <p className="text-xs text-zinc-500">Assigned to {video.assignedTo}</p>
+          )}
         </div>
 
         {video.script && (
           <div>
-            <label className="text-xs text-zinc-500 uppercase tracking-wide">Script</label>
-            <p className="text-base text-white mt-1 whitespace-pre-wrap bg-zinc-800 rounded-lg p-3">
+            <label className="text-xs text-zinc-500 mb-1 block">Script</label>
+            <p className="text-sm text-zinc-300 whitespace-pre-wrap bg-zinc-800 rounded-lg p-3 max-h-48 overflow-auto">
               {video.script}
             </p>
           </div>
@@ -158,8 +161,8 @@ export function VideoDetailSheet({
 
         {video.notes && (
           <div>
-            <label className="text-xs text-zinc-500 uppercase tracking-wide">Notes</label>
-            <p className="text-base text-white mt-1">{video.notes}</p>
+            <label className="text-xs text-zinc-500 mb-1 block">Notes</label>
+            <p className="text-sm text-zinc-300">{video.notes}</p>
           </div>
         )}
       </div>
@@ -167,28 +170,3 @@ export function VideoDetailSheet({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles: Record<string, string> = {
-    'Ready to Record': 'bg-teal-500/20 text-teal-400',
-    'ready_to_record': 'bg-teal-500/20 text-teal-400',
-    'Needs Review': 'bg-amber-500/20 text-amber-400',
-    'needs_review': 'bg-amber-500/20 text-amber-400',
-    'Approved': 'bg-green-500/20 text-green-400',
-    'approved': 'bg-green-500/20 text-green-400',
-    'Rejected': 'bg-red-500/20 text-red-400',
-    'rejected': 'bg-red-500/20 text-red-400',
-    'APPROVED_NEEDS_EDITS': 'bg-amber-500/20 text-amber-400',
-    'Approved Needs Edits': 'bg-amber-500/20 text-amber-400',
-  };
-
-  const displayStatus = status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
-
-  return (
-    <span className={`
-      inline-block px-3 py-1.5 rounded-full text-xs font-medium
-      ${styles[status] || 'bg-zinc-700 text-zinc-300'}
-    `}>
-      {displayStatus}
-    </span>
-  );
-}

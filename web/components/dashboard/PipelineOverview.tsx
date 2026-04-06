@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { TrendingUp } from 'lucide-react';
 
 interface PipelineCounts {
   draft: number;
@@ -55,11 +56,48 @@ const STAGES = [
   },
 ] as const;
 
+// Weekly posting goal: 5 videos/week is a healthy affiliate cadence
+const WEEKLY_GOAL = 5;
+
+function WeeklyVelocityBar({ posted }: { posted: number }) {
+  const pct = Math.min(100, Math.round((posted / WEEKLY_GOAL) * 100));
+  const isOnTrack = posted >= WEEKLY_GOAL;
+  const isBehind = posted < Math.floor(WEEKLY_GOAL / 2);
+
+  const barColor = isOnTrack ? 'bg-emerald-500' : isBehind ? 'bg-amber-500' : 'bg-teal-500';
+  const label = isOnTrack
+    ? `On pace 🔥 — ${posted}/${WEEKLY_GOAL} posted this week`
+    : isBehind
+    ? `${WEEKLY_GOAL - posted} more to hit your weekly goal`
+    : `${posted}/${WEEKLY_GOAL} posted — keep going`;
+
+  return (
+    <Link href="/admin/pipeline?status=posted" className="group block p-4 rounded-xl bg-zinc-900/50 border border-white/8 hover:border-white/15 transition-colors">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1.5">
+          <TrendingUp className="w-3.5 h-3.5 text-zinc-500" />
+          <span className="text-xs font-medium text-zinc-400">This week</span>
+        </div>
+        <span className={`text-xs font-semibold ${isOnTrack ? 'text-emerald-400' : isBehind ? 'text-amber-400' : 'text-teal-400'}`}>
+          {posted}/{WEEKLY_GOAL}
+        </span>
+      </div>
+      <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden mb-1.5">
+        <div
+          className={`h-full rounded-full transition-all ${barColor}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <p className="text-[11px] text-zinc-600">{label}</p>
+    </Link>
+  );
+}
+
 export function PipelineOverview({ counts }: { counts: PipelineCounts }) {
   return (
     <div>
       <h2 className="text-lg font-semibold text-white mb-3">Production Pipeline</h2>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
         {STAGES.map((stage) => {
           const count = stage.key === 'posted_this_week'
             ? counts.posted_this_week
@@ -82,6 +120,7 @@ export function PipelineOverview({ counts }: { counts: PipelineCounts }) {
           );
         })}
       </div>
+      <WeeklyVelocityBar posted={counts.posted_this_week} />
     </div>
   );
 }

@@ -26,6 +26,11 @@ import { Breadcrumbs } from '@/components/ui/Breadcrumbs';
 import AdminPageLayout, { AdminCard } from '@/app/admin/components/AdminPageLayout';
 import { getStatusConfig, formatStatusLabel } from '@/lib/status';
 import { VideoTimeline } from '@/components/VideoTimeline';
+import { StepProgress } from '@/components/ui/StepProgress';
+import { StageChip } from '@/components/ui/StageChip';
+import { AdvancedDetails } from '@/components/ui/AdvancedDetails';
+import { ShareActions } from '@/components/ui/ShareActions';
+import { getUIStage, STAGE_CONFIGS } from '@/lib/ui/stages';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -515,73 +520,117 @@ export default function VideoDetailPage() {
   const isPostedStatus = executionForm.recording_status === 'POSTED';
   const noNotesForReject = isRejectedStatus && !executionForm.recording_notes.trim() && !executionForm.editor_notes.trim() && !executionForm.uploader_notes.trim();
 
+  // ─── Derived UI state ───────────────────────────────────────
+  const currentStage = videoDetail ? getUIStage(videoDetail.recording_status, null) : null;
+  const stageConfig = currentStage ? STAGE_CONFIGS[currentStage] : null;
+
   // ─── Render ──────────────────────────────────────────────────
 
   return (
-    <AdminPageLayout title="Video Details" subtitle={`ID: ${videoId.slice(0, 8)}...`}>
-      {/* Back + Refresh */}
+    <AdminPageLayout title={linkedScript?.title || 'Video'} subtitle="">
+      {/* Back */}
       <div className="flex items-center gap-2 mb-4">
         <Link href="/admin/pipeline" className={btnGhost}>
           <ArrowLeft className="w-3.5 h-3.5" />
-          Pipeline
+          Back
         </Link>
-        <button onClick={fetchData} className={btnGhost}>
+        <button onClick={fetchData} className={`${btnGhost} ml-auto`}>
           <RefreshCw className="w-3 h-3" />
-          Refresh
         </button>
       </div>
 
       {error && <MessageBanner type="error">{error}</MessageBanner>}
       {releaseMessage && <MessageBanner type={releaseMessage.includes('released') ? 'success' : 'error'}>{releaseMessage}</MessageBanner>}
 
-      {/* Status Summary Card */}
+      {/* 1. STATUS & PROGRESS — top of page, clean and simple */}
       {videoDetail && (
-        <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5 mb-5">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-            <div className="flex items-center gap-3 flex-wrap">
-              <StatusBadge status={videoDetail.recording_status} />
-              {videoDetail.last_status_changed_at && (
-                <span className="text-xs text-zinc-500 flex items-center gap-1" title={formatDateString(videoDetail.last_status_changed_at)}>
-                  <Clock className="w-3 h-3" />
-                  {displayTime(videoDetail.last_status_changed_at)}
-                </span>
-              )}
-              {claimedInfo ? (
-                <span className="text-xs text-blue-400 flex items-center gap-1">
-                  <User className="w-3 h-3" />
-                  {claimedInfo.claimed_by.slice(0, 8)}
-                </span>
-              ) : (
-                <span className="text-xs text-zinc-600">Unassigned</span>
+        <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-4 sm:p-5 mb-5 space-y-4">
+          {/* Stage chip + one-line description */}
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-2">
+              <StageChip recordingStatus={videoDetail.recording_status} size="md" />
+              {stageConfig && (
+                <p className="text-sm text-zinc-400">{stageConfig.description}</p>
               )}
             </div>
-            <button onClick={() => copyToClipboard(videoId, 'vid')} className={btnGhost}>
-              {copiedId === 'vid' ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
-              {copiedId === 'vid' ? 'Copied' : videoId.slice(0, 8)}
-            </button>
+            {videoDetail.last_status_changed_at && (
+              <span className="text-[11px] text-zinc-600 flex items-center gap-1 shrink-0 mt-1" title={formatDateString(videoDetail.last_status_changed_at)}>
+                <Clock className="w-3 h-3" />
+                {displayTime(videoDetail.last_status_changed_at)}
+              </span>
+            )}
           </div>
+
+          {/* Step progress bar */}
+          <StepProgress recordingStatus={videoDetail.recording_status} />
         </div>
       )}
 
-      {/* Primary Actions */}
-      <div className="flex flex-wrap gap-2 mb-5">
-        <button onClick={releaseVideo} disabled={!claimedInfo || releasing} className={btnDanger}>
-          <Unlock className="w-3.5 h-3.5" />
-          {releasing ? 'Releasing...' : 'Release Claim'}
-        </button>
-        <button onClick={() => setShowAttachScript(!showAttachScript)} className={btnSecondary}>
-          <Paperclip className="w-3.5 h-3.5" />
-          {showAttachScript ? 'Cancel' : 'Attach Script'}
-        </button>
-        <Link href="/admin/script-library" className={btnGhost}>
-          <FileText className="w-3.5 h-3.5" />
-          Script Library
-        </Link>
-      </div>
+      {/* 2. PRIMARY ACTION — one obvious next step */}
+      {videoDetail && currentStage && currentStage !== 'posted' && (
+        <div className="mb-5">
+          {currentStage === 'needs_recording' && !videoDetail.script_locked_text && (
+            <button
+              onClick={() => setShowAttachScript(!showAttachScript)}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold rounded-xl transition-colors min-h-[48px]"
+            >
+              <Paperclip className="w-4 h-4" />
+              Choose Script
+            </button>
+          )}
+          {currentStage === 'needs_recording' && videoDetail.script_locked_text && (
+            <button
+              onClick={() => setTimestampNow('recorded_at')}
+              disabled={savingExecution}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold rounded-xl transition-colors min-h-[48px]"
+            >
+              Mark as Recorded
+            </button>
+          )}
+          {currentStage === 'needs_editing' && (
+            <button
+              onClick={() => setTimestampNow('ready_to_post_at')}
+              disabled={savingExecution}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold rounded-xl transition-colors min-h-[48px]"
+            >
+              Approve for Posting
+            </button>
+          )}
+          {currentStage === 'ready_to_post' && (
+            <button
+              onClick={() => setTimestampNow('posted_at')}
+              disabled={savingExecution || !executionForm.posted_url.trim() || !executionForm.posted_platform}
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold rounded-xl transition-colors min-h-[48px] disabled:opacity-50"
+            >
+              Post Video
+            </button>
+          )}
+          {executionMessage && (
+            <div className="mt-2">
+              <MessageBanner type={executionMessage.includes('success') || executionMessage.includes('Saved') || executionMessage.startsWith('Set ') ? 'success' : 'error'}>
+                {executionMessage}
+              </MessageBanner>
+            </div>
+          )}
+        </div>
+      )}
 
-      {/* Attach Script Form */}
+      {/* Share actions for posted videos */}
+      {videoDetail && currentStage === 'posted' && (
+        <div className="mb-5">
+          <ShareActions
+            title={linkedScript?.title || 'Video'}
+            caption={videoDetail.script_locked_text}
+            postedUrl={videoDetail.posted_url}
+            scriptText={videoDetail.script_locked_text}
+            showReferral={true}
+          />
+        </div>
+      )}
+
+      {/* Choose Script */}
       {showAttachScript && (
-        <AdminCard title="Attach Approved Script">
+        <AdminCard title="Choose a Script">
           {attachMessage && (
             <MessageBanner type={attachMessage.includes('successfully') ? 'success' : 'warning'}>
               {attachMessage}
@@ -630,23 +679,19 @@ export default function VideoDetailPage() {
         </AdminCard>
       )}
 
-      {/* Approved Script */}
+      {/* Script */}
       {videoDetail?.script_locked_text && (
-        <AdminCard title="Approved Script">
-          <MessageBanner type="info">
-            This video has a locked copy of its script. Edits to the source script won&apos;t affect this video.
-          </MessageBanner>
-          {videoDetail.script_id && (
-            <div className="flex flex-wrap items-center gap-3 mt-3">
-              <code className="text-xs bg-zinc-800 px-2 py-0.5 rounded font-mono text-zinc-400">{videoDetail.script_id.slice(0, 12)}...</code>
-              {linkedScript && (
-                <>
-                  <StatusBadge status={linkedScript.status} />
-                  <span className="text-xs text-zinc-500">v{linkedScript.version}</span>
-                </>
+        <AdminCard title="Script">
+          <p className="text-xs text-zinc-500 mb-3">
+            This is the final script for this video.
+          </p>
+          {videoDetail.script_id && linkedScript && (
+            <div className="flex flex-wrap items-center gap-3 mb-3">
+              {linkedScript.title && (
+                <span className="text-sm font-medium text-zinc-300">{linkedScript.title}</span>
               )}
               <Link href={`/admin/scripts/${videoDetail.script_id}`} className="text-xs text-teal-400 hover:text-teal-300 flex items-center gap-1">
-                View Script <ExternalLink className="w-3 h-3" />
+                View full script <ExternalLink className="w-3 h-3" />
               </Link>
             </div>
           )}
@@ -675,8 +720,28 @@ export default function VideoDetailPage() {
         </AdminCard>
       )}
 
-      {/* Execution Tracking */}
-      <AdminCard title="Execution Tracking">
+      {/* Posting Details — visible when ready to post */}
+      {videoDetail && currentStage === 'ready_to_post' && (
+        <AdminCard title="Posting Details">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Platform <span className="text-red-400">*</span></label>
+              <select value={executionForm.posted_platform} onChange={e => setExecutionForm(prev => ({ ...prev, posted_platform: e.target.value }))} className={selectClass}>
+                <option value="">Select...</option>
+                {PLATFORMS.map(p => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-400 mb-1">Post URL <span className="text-red-400">*</span></label>
+              <input type="text" value={executionForm.posted_url} onChange={e => setExecutionForm(prev => ({ ...prev, posted_url: e.target.value }))} className={inputClass} placeholder="https://..." />
+            </div>
+          </div>
+        </AdminCard>
+      )}
+
+      {/* Workflow Details — collapsed by default */}
+      <AdvancedDetails title="Workflow Details">
+        <AdminCard title="Status & Timestamps">
         {executionMessage && (
           <MessageBanner type={executionMessage.includes('success') || executionMessage.includes('Saved') || executionMessage.startsWith('Set ') ? 'success' : 'error'}>
             {executionMessage}
@@ -998,6 +1063,7 @@ export default function VideoDetailPage() {
           />
         </AdminCard>
       )}
+      </AdvancedDetails>
 
       {/* Bottom spacing for mobile nav */}
       <div className="h-20 lg:h-0" />

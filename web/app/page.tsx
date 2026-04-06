@@ -58,15 +58,28 @@ interface SkitResult {
   cta_overlay: string;
 }
 
+// Pre-loaded demo — shows proof before the visitor does anything
+const DEMO_SCRIPT: SkitResult = {
+  hook_line: "I was skeptical until I tried this for 30 days straight.",
+  beats: [
+    { t: "0:00", action: "Hold product up to camera, deadpan expression", dialogue: "Okay I was NOT going to buy this. But my For You page kept showing it." },
+    { t: "0:05", action: "Cut to 30 days later text overlay, smile", dialogue: "Here's what actually happened after a month." },
+    { t: "0:10", action: "Show before/after or result", dialogue: "I'm not exaggerating when I say this is the first one that actually worked." },
+  ],
+  cta_line: "Link in bio — it's still on sale today only.",
+  cta_overlay: "TAP THE LINK 👆",
+};
+
 export default function LandingPage() {
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [contactOpen, setContactOpen] = useState(false);
   const [referralBanner, setReferralBanner] = useState(false);
 
-  // Mini script generator state
+  // Mini script generator state — starts with demo so visitors see proof immediately
   const [miniProduct, setMiniProduct] = useState('');
   const [miniLoading, setMiniLoading] = useState(false);
-  const [miniResult, setMiniResult] = useState<SkitResult | null>(null);
+  const [miniResult, setMiniResult] = useState<SkitResult | null>(DEMO_SCRIPT);
+  const [miniIsDemo, setMiniIsDemo] = useState(true);
   const [miniError, setMiniError] = useState('');
 
   // FAQ state
@@ -100,6 +113,7 @@ export default function LandingPage() {
     setMiniLoading(true);
     setMiniError('');
     setMiniResult(null);
+    setMiniIsDemo(false);
 
     try {
       const res = await fetch('/api/public/generate-script', {
@@ -145,11 +159,6 @@ export default function LandingPage() {
               highPrice: '149',
               priceCurrency: 'USD',
               offerCount: 5,
-            },
-            aggregateRating: {
-              '@type': 'AggregateRating',
-              ratingValue: '4.8',
-              ratingCount: '500',
             },
           }),
         }}
@@ -476,7 +485,7 @@ export default function LandingPage() {
                 value={miniProduct}
                 onChange={(e) => setMiniProduct(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleMiniGenerate()}
-                placeholder="e.g. Matcha Energy Powder"
+                placeholder="Type your product — e.g. Matcha Energy Powder"
                 className="flex-1 px-4 py-3 rounded-xl bg-zinc-800 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all"
                 maxLength={100}
               />
@@ -496,13 +505,21 @@ export default function LandingPage() {
 
             {miniResult && (
               <div className="mt-6 space-y-4">
+                {/* Demo badge */}
+                {miniIsDemo && (
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 text-[11px] font-semibold uppercase tracking-wide">Example script</span>
+                    <span className="text-xs text-zinc-600">Type your product above to generate yours</span>
+                  </div>
+                )}
+
                 {/* Hook */}
                 <div className="p-4 rounded-xl bg-gradient-to-r from-violet-500/10 to-teal-500/10 border border-violet-500/20">
                   <div className="text-xs font-medium text-violet-400 uppercase tracking-wider mb-1">Hook</div>
                   <p className="text-lg font-semibold text-zinc-100">&ldquo;{miniResult.hook_line}&rdquo;</p>
                 </div>
 
-                {/* Beats preview (show first 3) */}
+                {/* Beats preview */}
                 <div className="space-y-2">
                   {miniResult.beats.slice(0, 3).map((beat, i) => (
                     <div key={i} className="flex items-start gap-3 p-3 rounded-lg bg-zinc-800/50">
@@ -520,34 +537,34 @@ export default function LandingPage() {
                   )}
                 </div>
 
-                {/* CTA */}
+                {/* CTA line */}
                 <div className="p-3 rounded-lg bg-zinc-800/50">
                   <span className="text-xs font-medium text-emerald-400 uppercase tracking-wider">CTA: </span>
                   <span className="text-sm text-zinc-200">{miniResult.cta_line}</span>
                 </div>
 
                 {/* Conversion CTA */}
-                <div className="pt-4 border-t border-white/5 text-center">
-                  <p className="text-sm text-zinc-400 mb-3">
-                    Want more? Sign up free for 5 daily scripts, 20+ persona voices, and a full script library.
-                  </p>
-                  <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                <div className="pt-4 border-t border-white/5">
+                  <div className="flex flex-col sm:flex-row items-center gap-3">
                     <Link
                       href="/login?mode=signup"
-                      className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-all"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold hover:from-teal-400 hover:to-emerald-400 transition-all shadow-lg shadow-teal-500/20"
                     >
-                      Create Free Account
+                      Get 5 Free Scripts Daily — No Card
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
                       </svg>
                     </Link>
                     <Link
                       href="/script-generator"
-                      className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
+                      className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors whitespace-nowrap"
                     >
-                      or try the full generator &rarr;
+                      Try full generator &rarr;
                     </Link>
                   </div>
+                  <p className="text-xs text-zinc-600 mt-2">
+                    Free: 20+ persona voices · script library · TikTok transcriber · Winners Bank access
+                  </p>
                 </div>
               </div>
             )}

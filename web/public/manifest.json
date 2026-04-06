@@ -26,9 +26,9 @@
   "screenshots": [],
   "shortcuts": [
     {
-      "name": "Video Queue",
-      "short_name": "Queue",
-      "description": "View video production queue",
+      "name": "Pipeline",
+      "short_name": "Pipeline",
+      "description": "Manage your video production pipeline",
       "url": "/admin/pipeline",
       "icons": [{ "src": "/FFAI.png", "sizes": "192x192" }]
     },

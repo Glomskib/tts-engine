@@ -122,7 +122,7 @@ export default function NotFound() {
       <footer className="p-6 text-center text-sm text-zinc-600">
         Need help?{' '}
         <a
-          href="mailto:support@flashflow.ai"
+          href="mailto:hello@flashflowai.com"
           className="text-zinc-400 hover:text-white transition-colors"
         >
           Contact support

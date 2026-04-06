@@ -36,9 +36,6 @@ interface ReferralRow {
   created_at: string;
 }
 
-// TODO: affiliate commission system (3rd party?)
-// The affiliate program (25% recurring commission) will be handled separately.
-
 export default function ReferralsPage() {
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [recent, setRecent] = useState<ReferralRow[]>([]);
@@ -231,17 +228,14 @@ export default function ReferralsPage() {
         )}
       </div>
 
-      {/* Affiliate Teaser */}
-      <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-5">
+      {/* Earn more */}
+      <div className="rounded-xl border border-teal-500/20 bg-teal-500/5 p-5">
         <div className="flex items-center gap-2 mb-2">
-          <DollarSign className="w-5 h-5 text-zinc-600" />
-          <h3 className="text-sm font-semibold text-zinc-400">Affiliate Program</h3>
-          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-zinc-800 text-zinc-500 uppercase tracking-wide">
-            Coming Soon
-          </span>
+          <DollarSign className="w-5 h-5 text-teal-400" />
+          <h3 className="text-sm font-semibold text-teal-300">Keep sharing</h3>
         </div>
-        <p className="text-sm text-zinc-500">
-          Earn 25% recurring commission on every paid subscriber you refer. Details coming soon.
+        <p className="text-sm text-zinc-400">
+          Every person who signs up with your link earns you free credits. Share your link in your TikTok bio, Discord, or anywhere your audience hangs out.
         </p>
       </div>
     </div>

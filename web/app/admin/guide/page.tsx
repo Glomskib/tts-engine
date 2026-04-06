@@ -20,7 +20,6 @@ import {
   Eye,
   HelpCircle,
   MessageSquare,
-  Play,
   ChevronRight,
   CheckCircle2,
   Circle,
@@ -82,16 +81,6 @@ const QUICK_LINKS = [
   { name: 'Billing & Credits', href: '/admin/billing', icon: Wallet, desc: 'Manage your plan and credits' },
 ] as const;
 
-// ─── Tutorial placeholders ───────────────────────────────────────────────────
-
-const TUTORIALS = [
-  { title: 'Getting Started with FlashFlow', duration: '3:45' },
-  { title: 'Generate Your First Script', duration: '2:30' },
-  { title: 'Using Winners Bank', duration: '4:15' },
-  { title: 'Setting Up Your Content Pipeline', duration: '5:00' },
-  { title: 'Mastering Customer Archetypes', duration: '3:20' },
-  { title: 'Content Calendar Deep Dive', duration: '4:50' },
-] as const;
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
@@ -276,36 +265,6 @@ export default function GuidePage() {
               </Link>
             );
           })}
-        </div>
-      </section>
-
-      {/* ════════════════════════════════════════════════════════════════════
-          SECTION 4 — VIDEO TUTORIALS (PLACEHOLDER)
-          ════════════════════════════════════════════════════════════════════ */}
-      <section>
-        <h2 className="text-lg font-semibold text-white mb-1">Video Tutorials</h2>
-        <p className="text-sm text-zinc-500 mb-4">Watch step-by-step walkthroughs of every feature.</p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {TUTORIALS.map((tut) => (
-            <div
-              key={tut.title}
-              className="relative bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden"
-            >
-              {/* Thumbnail placeholder */}
-              <div className="aspect-video bg-zinc-800 flex items-center justify-center relative">
-                <Play className="w-8 h-8 text-zinc-600" />
-                {/* Coming soon badge */}
-                <span className="absolute top-2 right-2 px-2 py-0.5 bg-zinc-700 text-zinc-400 text-[10px] font-semibold rounded-full uppercase tracking-wider">
-                  Coming soon
-                </span>
-              </div>
-              <div className="p-3">
-                <p className="text-sm font-medium text-zinc-300">{tut.title}</p>
-                <p className="text-xs text-zinc-600 mt-0.5">{tut.duration}</p>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
 

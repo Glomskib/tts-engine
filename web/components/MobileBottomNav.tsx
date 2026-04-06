@@ -24,7 +24,7 @@ const AVAILABLE_NAV_ITEMS = [
   { id: 'script-library', href: '/admin/script-library', icon: Folder, label: 'Library' },
   { id: 'pipeline', href: '/admin/pipeline', icon: Video, label: 'Pipeline' },
   { id: 'calendar', href: '/admin/calendar', icon: Calendar, label: 'Planner' },
-  { id: 'winners', href: '/admin/winners', icon: Trophy, label: 'Winners' },
+  { id: 'winners', href: '/admin/intelligence/winners-bank', icon: Trophy, label: 'Winners' },
   { id: 'analytics', href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
   { id: 'brands', href: '/admin/brands', icon: Package, label: 'Brands' },
   { id: 'content-items', href: '/admin/content-items', icon: ListTodo, label: 'Items' },

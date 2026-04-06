@@ -88,7 +88,7 @@ export default function Error({
       <footer className="p-6 text-center text-sm text-zinc-600">
         If this keeps happening,{' '}
         <a
-          href="mailto:support@flashflow.ai"
+          href="mailto:hello@flashflowai.com"
           className="text-zinc-400 hover:text-white transition-colors"
         >
           contact support

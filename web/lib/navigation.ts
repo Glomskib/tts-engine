@@ -150,8 +150,7 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Performance Loop', href: '/admin/performance-loop', icon: TrendingUp, subtitle: 'What works for you — learn and improve' },
       { name: 'Speak To Your Audience', href: '/admin/audience', icon: UserCheck },
-      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, minPlan: 'creator_pro', tourId: 'nav-winners' },
-      { name: 'Winner Patterns', href: '/admin/intelligence/winners-bank', icon: Activity, minPlan: 'creator_pro', badge: 'Beta' },
+      { name: 'Winners Bank', href: '/admin/intelligence/winners-bank', icon: Trophy, minPlan: 'creator_pro', tourId: 'nav-winners' },
       { name: 'Hook Library', href: '/admin/hooks', icon: Anchor, minPlan: 'creator_pro' },
       { name: 'Hook Performance', href: '/admin/intelligence/hooks', icon: Zap, minPlan: 'creator_pro', badge: 'Beta' },
       { name: 'Performance', href: '/admin/performance', icon: BarChart3, minPlan: 'creator_pro', badge: 'Beta' },
@@ -206,7 +205,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Analytics', href: '/client/analytics', icon: BarChart },
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
       { name: 'Comment Reply Creator', href: '/admin/tools/tok-comment', icon: MessageSquare },
-      { name: 'Winners Bank', href: '/admin/winners', icon: Trophy },
+      { name: 'Winners Bank', href: '/admin/intelligence/winners-bank', icon: Trophy },
     ],
   },
   {

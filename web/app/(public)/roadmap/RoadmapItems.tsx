@@ -25,16 +25,16 @@ const TYPE_COLORS: Record<string, string> = {
   other: 'bg-zinc-700 text-zinc-400',
 };
 
-// Hardcoded items shown when database is empty (bootstraps the page)
+// Displayed when database table is empty — keep accurate and up to date
 const SEED_ITEMS: RoadmapItem[] = [
-  { id: 's1', type: 'feature', title: 'AI-powered content calendar auto-fill', status: 'in_progress', updated_at: '' },
-  { id: 's2', type: 'feature', title: 'TikTok direct posting integration', status: 'in_progress', updated_at: '' },
-  { id: 's3', type: 'improvement', title: 'Plan-gated navigation with upgrade prompts', status: 'done', updated_at: new Date().toISOString() },
-  { id: 's4', type: 'feature', title: 'User feedback & bug reporting system', status: 'done', updated_at: new Date().toISOString() },
-  { id: 's5', type: 'feature', title: 'Multi-brand content management', status: 'planned', updated_at: '' },
-  { id: 's6', type: 'feature', title: 'Script A/B testing with performance tracking', status: 'planned', updated_at: '' },
-  { id: 's7', type: 'feature', title: 'Team collaboration & approval workflows', status: 'planned', updated_at: '' },
-  { id: 's8', type: 'improvement', title: 'AI rewrite personas for more niches', status: 'planned', updated_at: '' },
+  { id: 's1', type: 'feature', title: 'TikTok draft export — push finished videos directly to your drafts', status: 'done', updated_at: new Date().toISOString() },
+  { id: 's2', type: 'feature', title: 'Winners Bank — track which hooks beat your benchmarks', status: 'done', updated_at: new Date().toISOString() },
+  { id: 's3', type: 'feature', title: '4-stage production pipeline with mobile-first UI', status: 'done', updated_at: new Date().toISOString() },
+  { id: 's4', type: 'improvement', title: 'AI video rendering via Remotion — auto-edit raw footage', status: 'in_progress', updated_at: '' },
+  { id: 's5', type: 'feature', title: 'TikTok Shop sales sync — see which videos drive revenue', status: 'in_progress', updated_at: '' },
+  { id: 's6', type: 'feature', title: 'Hook performance scoring — auto-rank scripts by predicted CTR', status: 'planned', updated_at: '' },
+  { id: 's7', type: 'feature', title: 'Multi-brand content calendar with posting schedule', status: 'planned', updated_at: '' },
+  { id: 's8', type: 'improvement', title: 'YouTube transcribe → script remix in one click', status: 'planned', updated_at: '' },
 ];
 
 export function RoadmapItems() {
@@ -88,7 +88,7 @@ export function RoadmapItems() {
         <Section
           icon={<Clock className="w-5 h-5 text-violet-400" />}
           title="Planned"
-          description="Coming soon"
+          description="On the roadmap"
           color="violet"
           items={planned}
         />

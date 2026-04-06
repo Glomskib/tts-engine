@@ -20,8 +20,7 @@ export async function GET(request: Request) {
       return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
     }
 
-    // Analytics is admin-only for now (videos don't have user_id, would need complex product joins)
-    // TODO: Add user filtering via product_id -> products.user_id join for non-admin users
+    // Full analytics are admin-only; free/paid users get the plan-gated empty response below
     if (!authContext.isAdmin) {
       return NextResponse.json({
         ok: true,

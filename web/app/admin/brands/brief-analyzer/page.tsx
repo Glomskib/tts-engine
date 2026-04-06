@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import AdminPageLayout from '@/app/admin/components/AdminPageLayout';
-import { Upload, Loader2, CheckCircle, FileImage } from 'lucide-react';
+import { Upload, Loader2, CheckCircle, FileImage, Copy, Check } from 'lucide-react';
 import { useToast } from '@/contexts/ToastContext';
 
 interface ParsedBrief {
@@ -23,6 +23,7 @@ export default function BriefAnalyzerPage() {
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ParsedBrief | null>(null);
+  const [copied, setCopied] = useState(false);
   const { showSuccess, showError } = useToast();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,9 +195,27 @@ export default function BriefAnalyzerPage() {
               </div>
 
               <div className="pt-4">
-                <button className="w-full py-2 bg-emerald-500 hover:bg-emerald-600 rounded font-semibold flex items-center justify-center gap-2 transition">
-                  <CheckCircle className="w-4 h-4" />
-                  Save to Brand (Coming Soon)
+                <button
+                  onClick={() => {
+                    if (!result) return;
+                    const text = [
+                      `Brand: ${result.brand_name}`,
+                      `Voice: ${result.brand_voice}`,
+                      `Audience: ${result.target_audience}`,
+                      `Key Messages:\n${result.key_messages.map(m => `• ${m}`).join('\n')}`,
+                      `Guidelines:\n${result.content_guidelines.map(g => `• ${g}`).join('\n')}`,
+                      `Hashtags: ${result.hashtags.join(' ')}`,
+                      result.commission ? `Commission: ${result.commission}` : '',
+                      result.posting_requirements ? `Requirements: ${result.posting_requirements}` : '',
+                    ].filter(Boolean).join('\n\n');
+                    navigator.clipboard.writeText(text);
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 2000);
+                  }}
+                  className="w-full py-2.5 bg-teal-600 hover:bg-teal-500 rounded-lg font-semibold flex items-center justify-center gap-2 transition text-white text-sm"
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copied ? 'Copied to clipboard!' : 'Copy Brief Summary'}
                 </button>
               </div>
             </div>

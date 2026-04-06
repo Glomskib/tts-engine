@@ -296,7 +296,6 @@ export default function ContentItemsPage() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   <StatusBadge status={item.status as ContentStatus} size="xs" />
-                  <span className="text-[10px] text-zinc-600 font-mono">{item.short_id}</span>
                   {item.due_at && (
                     <span className="text-[10px] text-zinc-500">Due {new Date(item.due_at).toLocaleDateString()}</span>
                   )}

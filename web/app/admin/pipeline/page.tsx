@@ -29,6 +29,7 @@ import { getVideoDisplayTitle } from './types';
 import { getStatusConfig as getStatusConfigCentral, formatStatusLabel, RECORDING_STATUSES as RECORDING_STATUSES_CENTRAL } from '@/lib/status';
 import { PipelineSummaryBar } from '@/components/PipelineSummaryBar';
 import { getNextAction as getNextActionCentral } from '@/lib/nextAction';
+import { getUIStage } from '@/lib/ui/stages';
 import { PipelineWorkModeSwitcher, filterVideosByWorkMode, computeModeCounts, getWorkModeSummary, type WorkMode } from '@/components/PipelineWorkModeSwitcher';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { buildRecordingPack, formatRecordingPacksBatch, type RecordingPackVideo } from '@/lib/packs/buildRecordingPack';
@@ -141,7 +142,7 @@ const FILTER_OPTIONS: { value: FilterIntent; label: string }[] = [
   { value: 'needs_action', label: 'Needs Attention' },
   { value: 'overdue', label: 'Past Due' },
   { value: 'needs_mapping', label: 'Missing Info' },
-  { value: 'ready_to_post', label: 'Ready to Publish' },
+  { value: 'ready_to_post', label: 'Ready to Post' },
 ];
 
 // localStorage keys
@@ -445,6 +446,9 @@ function AdminPipelinePageInner() {
     }
     return 'all';
   });
+
+  // 4-stage mobile filter
+  const [mobileStageFilter, setMobileStageFilter] = useState<'ALL' | 'needs_recording' | 'needs_editing' | 'ready_to_post' | 'posted'>('ALL');
 
   // Enhanced filter state
   const [workflowFilter, setWorkflowFilter] = useState<RecordingStatusTab>('ALL');
@@ -2840,7 +2844,7 @@ function AdminPipelinePageInner() {
 
       {/* Mobile: Header with Filter */}
       <div className="lg:hidden flex items-center justify-between px-4 py-3 border-b border-zinc-800 -mx-4 mb-4">
-        <h1 className="text-lg font-semibold text-white">Work Queue</h1>
+        <h1 className="text-lg font-semibold text-white">Pipeline</h1>
         <button type="button"
           onClick={() => setFilterSheetOpen(true)}
           className="flex items-center gap-2 px-3 h-10 rounded-lg bg-zinc-800 text-sm text-zinc-300"
@@ -2854,6 +2858,53 @@ function AdminPipelinePageInner() {
           )}
         </button>
       </div>
+
+      {/* Mobile: 4-stage filter tabs */}
+      <div className="lg:hidden flex gap-1.5 overflow-x-auto px-4 pb-3 -mx-4 scrollbar-none">
+        {([
+          { value: 'ALL', label: 'All' },
+          { value: 'needs_recording', label: 'Record' },
+          { value: 'needs_editing', label: 'Edit' },
+          { value: 'ready_to_post', label: 'Post' },
+          { value: 'posted', label: 'Done' },
+        ] as const).map(tab => {
+          const isActive = mobileStageFilter === tab.value;
+          const count = tab.value === 'ALL'
+            ? getIntentFilteredVideos().length
+            : getIntentFilteredVideos().filter(v => getUIStage(v.recording_status, v.status) === tab.value).length;
+          return (
+            <button
+              key={tab.value}
+              type="button"
+              onClick={() => setMobileStageFilter(tab.value)}
+              className={`flex-shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-full text-[12px] font-medium transition-colors ${
+                isActive
+                  ? 'bg-white text-zinc-900'
+                  : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+              }`}
+            >
+              {tab.label}
+              {count > 0 && (
+                <span className={`text-[10px] font-bold tabular-nums ${isActive ? 'text-zinc-600' : 'text-zinc-500'}`}>
+                  {count}
+                </span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Mobile: Stage description */}
+      {mobileStageFilter !== 'ALL' && (
+        <div className="lg:hidden px-4 mb-3 -mt-1">
+          <p className="text-xs text-zinc-500">
+            {mobileStageFilter === 'needs_recording' && 'Pick up your phone and record these videos.'}
+            {mobileStageFilter === 'needs_editing' && 'Footage is in — edit and upload the final cut.'}
+            {mobileStageFilter === 'ready_to_post' && "These are approved and ready to post on TikTok."}
+            {mobileStageFilter === 'posted' && 'Already live. Check performance in Winners.'}
+          </p>
+        </div>
+      )}
 
       {/* Mobile: Card Layout */}
       <div className="lg:hidden pb-24">
@@ -2898,7 +2949,10 @@ function AdminPipelinePageInner() {
         ) : (
           <PullToRefresh onRefresh={fetchQueueVideos} className="min-h-[calc(100vh-200px)]">
             <VideoQueueMobile
-              videos={getIntentFilteredVideos().map(v => {
+              videos={(mobileStageFilter === 'ALL'
+                ? getIntentFilteredVideos()
+                : getIntentFilteredVideos().filter(v => getUIStage(v.recording_status, v.status) === mobileStageFilter)
+              ).map(v => {
                 const action = getNextActionCentral(v);
                 return {
                   id: v.id,
@@ -2906,6 +2960,7 @@ function AdminPipelinePageInner() {
                   thumbnail: undefined,
                   brand: v.brand_name || v.product_name || undefined,
                   workflow: v.recording_status || v.status || 'Unknown',
+                  recording_status: v.recording_status,
                   assignedTo: v.claimed_by || undefined,
                   updatedAt: v.last_status_changed_at || v.created_at,
                   hasScript: !!v.script_locked_text,

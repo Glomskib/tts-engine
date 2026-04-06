@@ -8,7 +8,7 @@ import {
   FileText, Clock, ChevronRight, Calendar, Send,
   Mic, Scissors, BarChart3, Package, Sparkles,
   Film, Play, AlertTriangle, RefreshCw, Download,
-  CheckCircle, RotateCcw,
+  CheckCircle, RotateCcw, ChevronDown,
 } from 'lucide-react';
 import type { EditStatus } from '@/lib/editing/types';
 import { useTheme, getThemeColors } from '@/app/components/ThemeProvider';
@@ -75,27 +75,62 @@ function formatDateTime(iso: string | null): string {
     ' at ' + d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 }
 
-// ── Status progress bar ───────────────────────────────────────────
+// ── 4-stage progress bar ─────────────────────────────────────────
 
-function StatusProgress({ status }: { status: ContentItemStatus }) {
-  const idx = CONTENT_ITEM_STATUSES.indexOf(status);
+const FOUR_STAGES = [
+  { key: 'scripted',       label: 'Script',   statuses: ['briefing', 'scripted', 'ready_to_record'] },
+  { key: 'recorded',       label: 'Recorded', statuses: ['recorded', 'editing'] },
+  { key: 'ready_to_post',  label: 'Edited',   statuses: ['scheduled', 'ready_to_post'] },
+  { key: 'posted',         label: 'Posted',   statuses: ['posted'] },
+] as const;
+
+function StageProgress({ status }: { status: ContentItemStatus }) {
+  // Determine how far through the 4 stages we are
+  let activeIdx = 0;
+  for (let i = 0; i < FOUR_STAGES.length; i++) {
+    if ((FOUR_STAGES[i].statuses as readonly string[]).includes(status)) {
+      activeIdx = i;
+      break;
+    }
+  }
+
+  const STAGE_COLORS = ['bg-blue-500', 'bg-amber-500', 'bg-teal-500', 'bg-green-500'];
+  const STAGE_ACTIVE_COLORS = ['bg-blue-400', 'bg-amber-400', 'bg-teal-400', 'bg-green-400'];
+
   return (
-    <div className="flex gap-1">
-      {CONTENT_ITEM_STATUSES.map((s, i) => {
-        const config = STATUS_CONFIG[s];
-        const active = i <= idx;
-        return (
-          <div key={s} className="flex-1 group relative">
-            <div
-              className={`h-2 rounded-full transition-colors ${active ? config.bg.split(' ')[0] : 'bg-zinc-800'}`}
-              style={{ opacity: active ? 1 : 0.3 }}
-            />
-            <div className="absolute -bottom-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] text-zinc-500 opacity-0 group-hover:opacity-100 transition pointer-events-none">
-              {config.label}
+    <div className="space-y-2">
+      <div className="flex gap-1.5">
+        {FOUR_STAGES.map((stage, i) => {
+          const isActive = i === activeIdx;
+          const isDone = i < activeIdx;
+          return (
+            <div key={stage.key} className="flex-1">
+              <div
+                className={`h-1.5 rounded-full transition-colors ${
+                  isDone ? STAGE_COLORS[i] :
+                  isActive ? STAGE_ACTIVE_COLORS[i] :
+                  'bg-zinc-800'
+                }`}
+              />
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
+      <div className="flex">
+        {FOUR_STAGES.map((stage, i) => {
+          const isActive = i === activeIdx;
+          const isDone = i < activeIdx;
+          return (
+            <div key={stage.key} className="flex-1 text-center">
+              <span className={`text-[10px] font-medium ${
+                isActive ? 'text-white' : isDone ? 'text-zinc-400' : 'text-zinc-700'
+              }`}>
+                {stage.label}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -351,6 +386,8 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
 
   if (!item) return null;
 
+  const [advancedOpen, setAdvancedOpen] = useState(false);
+
   const statusConfig = STATUS_CONFIG[item.status] || STATUS_CONFIG.briefing;
   const nextAction = getNextAction({
     id: item.id,
@@ -366,7 +403,7 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
   });
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
+    <div className="max-w-3xl mx-auto px-4 py-6 pb-28 lg:pb-8 space-y-6">
       {/* Back nav */}
       <button
         onClick={() => router.back()}
@@ -376,34 +413,56 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
       </button>
 
       {/* Header */}
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-start justify-between gap-4">
-          <div className="min-w-0 flex-1">
-            <h1 className="text-xl font-bold" style={{ color: colors.text }}>{item.title}</h1>
-            <p className="text-xs font-mono mt-1" style={{ color: colors.textMuted }}>{item.short_id}</p>
-          </div>
-          <span className={`px-3 py-1 rounded-lg text-xs font-semibold border ${statusConfig.bg} ${statusConfig.color}`}>
+          <h1 className="text-xl font-bold leading-snug min-w-0 flex-1" style={{ color: colors.text }}>{item.title}</h1>
+          <span className={`px-3 py-1 rounded-lg text-xs font-semibold border shrink-0 ${statusConfig.bg} ${statusConfig.color}`}>
             {statusConfig.label}
           </span>
         </div>
 
-        {/* Progress bar */}
-        <StatusProgress status={item.status} />
+        {/* 4-stage progress */}
+        <StageProgress status={item.status} />
       </div>
 
-      {/* Next Action CTA */}
-      <div
-        className="rounded-xl p-4 space-y-2"
-        style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}` }}
-      >
-        <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: colors.textMuted }}>
-          Next Step
-        </p>
-        <div className="flex items-center gap-3">
+      {/* Next Action CTA — prominent card */}
+      <div className="rounded-2xl p-5 space-y-3 bg-zinc-900 border border-white/8">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-wider text-zinc-500 mb-0.5">What to do next</p>
+          {nextAction.reason && (
+            <p className="text-sm text-zinc-400">{nextAction.reason}</p>
+          )}
+        </div>
+        {nextAction.href ? (
+          <Link
+            href={nextAction.href}
+            className={`w-full flex items-center justify-center gap-2 min-h-[52px] rounded-xl text-[15px] font-bold transition-all shadow-sm ${getActionButtonClasses(nextAction.variant)}`}
+          >
+            {nextAction.label}
+          </Link>
+        ) : (
+          <button
+            onClick={() => {
+              if (nextAction.onClickType === 'mark_ready_to_post') {
+                handleStatusChange('ready_to_post');
+              }
+            }}
+            disabled={updating}
+            className={`w-full flex items-center justify-center gap-2 min-h-[52px] rounded-xl text-[15px] font-bold transition-all shadow-sm ${getActionButtonClasses(nextAction.variant)} disabled:opacity-50`}
+          >
+            {updating && <Loader2 size={14} className="animate-spin" />}
+            {nextAction.label}
+          </button>
+        )}
+      </div>
+
+      {/* Sticky bottom CTA for mobile */}
+      <div className="fixed bottom-16 left-0 right-0 px-4 pb-safe lg:hidden z-20 pointer-events-none">
+        <div className="max-w-3xl mx-auto pointer-events-auto">
           {nextAction.href ? (
             <Link
               href={nextAction.href}
-              className={`flex-1 flex items-center justify-center gap-2 min-h-[48px] rounded-xl text-sm font-semibold transition-colors ${getActionButtonClasses(nextAction.variant)}`}
+              className={`w-full flex items-center justify-center gap-2 min-h-[52px] rounded-xl text-[15px] font-bold transition-all shadow-2xl ${getActionButtonClasses(nextAction.variant)}`}
             >
               {nextAction.label}
             </Link>
@@ -413,19 +472,15 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
                 if (nextAction.onClickType === 'mark_ready_to_post') {
                   handleStatusChange('ready_to_post');
                 }
-                // Other callback types handled inline or via navigation
               }}
               disabled={updating}
-              className={`flex-1 flex items-center justify-center gap-2 min-h-[48px] rounded-xl text-sm font-semibold transition-colors ${getActionButtonClasses(nextAction.variant)} disabled:opacity-50`}
+              className={`w-full flex items-center justify-center gap-2 min-h-[52px] rounded-xl text-[15px] font-bold transition-all shadow-2xl ${getActionButtonClasses(nextAction.variant)} disabled:opacity-50`}
             >
               {updating && <Loader2 size={14} className="animate-spin" />}
               {nextAction.label}
             </button>
           )}
         </div>
-        {nextAction.reason && (
-          <p className="text-xs" style={{ color: colors.textMuted }}>{nextAction.reason}</p>
-        )}
       </div>
 
       {/* Two-column details */}
@@ -436,22 +491,6 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
           style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}` }}
         >
           <h2 className="text-sm font-semibold" style={{ color: colors.text }}>Details</h2>
-
-          {/* Status selector */}
-          <div>
-            <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: colors.textMuted }}>Status</label>
-            <select
-              value={item.status}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              disabled={updating}
-              className="w-full min-h-[40px] rounded-lg text-sm px-3 py-2 border focus:outline-none focus:border-teal-500 disabled:opacity-50"
-              style={{ backgroundColor: isDark ? '#27272a' : '#f4f4f5', borderColor: colors.border, color: colors.text }}
-            >
-              {CONTENT_ITEM_STATUSES.map(s => (
-                <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
-              ))}
-            </select>
-          </div>
 
           {/* Product */}
           {item.product_id && (
@@ -864,19 +903,57 @@ export default function ContentItemDetailPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {/* Event Timeline */}
-      <div
-        className="rounded-xl p-4"
-        style={{ backgroundColor: colors.surface, border: `1px solid ${colors.border}` }}
-      >
-        <h2 className="text-sm font-semibold mb-3" style={{ color: colors.text }}>Timeline</h2>
-        <EventTimeline events={events} loading={eventsLoading} />
-      </div>
+      {/* Advanced — collapsible */}
+      <div className="rounded-xl overflow-hidden" style={{ border: `1px solid ${colors.border}` }}>
+        <button
+          onClick={() => setAdvancedOpen(o => !o)}
+          className="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-zinc-400 hover:text-zinc-200 transition-colors"
+          style={{ backgroundColor: colors.surface }}
+        >
+          Advanced
+          <ChevronDown
+            size={14}
+            className={`transition-transform ${advancedOpen ? 'rotate-180' : ''}`}
+          />
+        </button>
 
-      {/* Timestamps */}
-      <div className="flex items-center gap-4 text-[10px]" style={{ color: colors.textMuted }}>
-        <span>Created {formatEventTime(item.created_at)}</span>
-        <span>Updated {formatEventTime(item.updated_at)}</span>
+        {advancedOpen && (
+          <div className="px-4 pb-4 pt-2 space-y-4" style={{ backgroundColor: colors.surface }}>
+            {/* Internal ID */}
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: colors.textMuted }}>Item ID</label>
+              <p className="text-xs font-mono" style={{ color: colors.textMuted }}>{item.short_id || item.id}</p>
+            </div>
+
+            {/* Status selector (manual override) */}
+            <div>
+              <label className="text-[10px] font-semibold uppercase tracking-wider block mb-1" style={{ color: colors.textMuted }}>Status Override</label>
+              <select
+                value={item.status}
+                onChange={(e) => handleStatusChange(e.target.value)}
+                disabled={updating}
+                className="w-full min-h-[40px] rounded-lg text-sm px-3 py-2 border focus:outline-none focus:border-teal-500 disabled:opacity-50"
+                style={{ backgroundColor: isDark ? '#27272a' : '#f4f4f5', borderColor: colors.border, color: colors.text }}
+              >
+                {CONTENT_ITEM_STATUSES.map(s => (
+                  <option key={s} value={s}>{STATUS_CONFIG[s].label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Timeline */}
+            <div>
+              <h3 className="text-[10px] font-semibold uppercase tracking-wider mb-2" style={{ color: colors.textMuted }}>Timeline</h3>
+              <EventTimeline events={events} loading={eventsLoading} />
+            </div>
+
+            {/* Timestamps */}
+            <div className="flex items-center gap-4 text-[10px]" style={{ color: colors.textMuted }}>
+              <span>Created {formatEventTime(item.created_at)}</span>
+              <span>Updated {formatEventTime(item.updated_at)}</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

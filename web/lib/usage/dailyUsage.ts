@@ -8,29 +8,36 @@
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
-export type UsageKind = 'scripts_generated' | 'pipeline_items' | 'renders';
+export type UsageKind = 'scripts_generated' | 'pipeline_items' | 'renders' | 'variations';
 
 export interface DailyUsage {
   scripts_generated: number;
   pipeline_items: number;
   renders: number;
+  variations: number;
 }
 
-const EMPTY: DailyUsage = { scripts_generated: 0, pipeline_items: 0, renders: 0 };
+const EMPTY: DailyUsage = { scripts_generated: 0, pipeline_items: 0, renders: 0, variations: 0 };
 
 export interface DailyLimits {
   scripts_generated: number | null; // null = unlimited
   pipeline_items: number | null;
   renders: number | null;
+  variations: number | null;
+}
+
+const PAID_PLANS = new Set(['admin', 'pro', 'team', 'scale']);
+
+export function isPaidPlan(plan: string | null | undefined): boolean {
+  return PAID_PLANS.has((plan || 'free').toLowerCase());
 }
 
 function limitsForPlan(plan: string): DailyLimits {
-  const p = (plan || 'free').toLowerCase();
-  if (p === 'admin' || p === 'pro' || p === 'team' || p === 'scale') {
-    return { scripts_generated: null, pipeline_items: null, renders: null };
+  if (isPaidPlan(plan)) {
+    return { scripts_generated: null, pipeline_items: null, renders: null, variations: null };
   }
   // Free tier soft limits
-  return { scripts_generated: 10, pipeline_items: 10, renders: 3 };
+  return { scripts_generated: 10, pipeline_items: 10, renders: 3, variations: 1 };
 }
 
 function today(): string {
@@ -41,7 +48,7 @@ export async function getDailyUsage(userId: string): Promise<DailyUsage> {
   try {
     const { data, error } = await supabaseAdmin
       .from('daily_usage')
-      .select('scripts_generated, pipeline_items, renders')
+      .select('scripts_generated, pipeline_items, renders, variations')
       .eq('user_id', userId)
       .eq('usage_date', today())
       .maybeSingle();
@@ -52,6 +59,7 @@ export async function getDailyUsage(userId: string): Promise<DailyUsage> {
       scripts_generated: data.scripts_generated ?? 0,
       pipeline_items: data.pipeline_items ?? 0,
       renders: data.renders ?? 0,
+      variations: data.variations ?? 0,
     };
   } catch {
     return { ...EMPTY };
@@ -76,6 +84,10 @@ export async function incrementUsage(userId: string, kind: UsageKind): Promise<v
   } catch {
     // Fail open — usage tracking is best-effort; never block the user.
   }
+}
+
+export async function getUserPlan(userId: string): Promise<string> {
+  return getPlan(userId);
 }
 
 async function getPlan(userId: string): Promise<string> {

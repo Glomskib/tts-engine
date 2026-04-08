@@ -20,6 +20,13 @@ const ffmpegPath: string = require('ffmpeg-static');
 export const BUCKET_NAME = 'edit-jobs';
 
 export type EditMode = 'quick' | 'hook' | 'ugc' | 'talking_head';
+export type CaptionStyle = 'normal' | 'kinetic';
+export type PaceSetting = 'normal' | 'fast';
+
+export interface EditModeOptions {
+  caption_style?: CaptionStyle;
+  pace?: PaceSetting;
+}
 
 export type AssetKind = 'raw' | 'broll' | 'product' | 'music';
 
@@ -135,10 +142,16 @@ function secToAss(t: number): string {
   return `${h}:${m.toString().padStart(2, '0')}:${ss.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`;
 }
 
-function buildAss(transcript: EditJobTranscript, mode: EditMode, videoHeight = 1920): string {
-  // Styling
-  const baseFontSize = Math.round(videoHeight * 0.045);
-  const hookFontSize = Math.round(videoHeight * 0.075);
+function buildAss(
+  transcript: EditJobTranscript,
+  mode: EditMode,
+  videoHeight = 1920,
+  captionStyle: CaptionStyle = 'normal',
+): string {
+  const isKinetic = captionStyle === 'kinetic';
+  // Styling — kinetic = bigger font, shorter chunks
+  const baseFontSize = Math.round(videoHeight * (isKinetic ? 0.065 : 0.045));
+  const hookFontSize = Math.round(videoHeight * (isKinetic ? 0.09 : 0.075));
 
   const header = `[Script Info]
 ScriptType: v4.00+
@@ -165,8 +178,9 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     }
   } else {
     let i = 0;
+    // Kinetic = 2-word flashes for faster cadence
+    const chunkSize = isKinetic ? 2 : 4;
     while (i < words.length) {
-      const chunkSize = 4;
       const chunk = words.slice(i, i + chunkSize);
       if (chunk.length === 0) break;
       const start = chunk[0].start;
@@ -196,16 +210,19 @@ interface ModeConfig {
   jumpCuts: boolean;
 }
 
-function modeConfig(mode: EditMode): ModeConfig {
+function modeConfig(mode: EditMode, options: EditModeOptions = {}): ModeConfig {
+  const fast = options.pace === 'fast';
+  // Fast pace = tighter silence threshold so more "dead air" is cut.
+  const base = (normal: number) => (fast ? Math.min(normal, 0.4) : normal);
   switch (mode) {
     case 'quick':
-      return { silenceTrim: true, minSilence: 0.7, captions: false, music: false, productOverlay: false, jumpCuts: false };
+      return { silenceTrim: true, minSilence: base(0.7), captions: false, music: false, productOverlay: false, jumpCuts: false };
     case 'hook':
-      return { silenceTrim: true, minSilence: 0.7, captions: true, music: false, productOverlay: false, jumpCuts: true };
+      return { silenceTrim: true, minSilence: base(0.7), captions: true, music: false, productOverlay: false, jumpCuts: true };
     case 'ugc':
-      return { silenceTrim: true, minSilence: 0.7, captions: true, music: true, productOverlay: true, jumpCuts: false };
+      return { silenceTrim: true, minSilence: base(0.7), captions: true, music: true, productOverlay: true, jumpCuts: false };
     case 'talking_head':
-      return { silenceTrim: true, minSilence: 0.4, captions: true, music: false, productOverlay: false, jumpCuts: false };
+      return { silenceTrim: true, minSilence: base(0.4), captions: true, music: false, productOverlay: false, jumpCuts: false };
   }
 }
 
@@ -280,7 +297,16 @@ export function humanizeEditJobError(err: unknown): string {
   return raw.length > 400 ? raw.slice(0, 400) + '…' : raw;
 }
 
-export async function processEditJob(jobId: string): Promise<void> {
+export interface ProcessEditJobOptions {
+  /** Whether the user is on a paid plan. Free users get a watermark. */
+  isPaid?: boolean;
+}
+
+export async function processEditJob(
+  jobId: string,
+  options: ProcessEditJobOptions = {},
+): Promise<void> {
+  const isPaid = options.isPaid === true;
   // Load job
   const { data: job, error: jobErr } = await supabaseAdmin
     .from('edit_jobs')
@@ -291,7 +317,11 @@ export async function processEditJob(jobId: string): Promise<void> {
   if (jobErr || !job) throw new Error(`Job ${jobId} not found`);
 
   const mode = job.mode as EditMode;
-  const cfg = modeConfig(mode);
+  const modeOptions: EditModeOptions = (job.mode_options && typeof job.mode_options === 'object')
+    ? (job.mode_options as EditModeOptions)
+    : {};
+  const captionStyle: CaptionStyle = modeOptions.caption_style === 'kinetic' ? 'kinetic' : 'normal';
+  const cfg = modeConfig(mode, modeOptions);
   const assets: EditJobAsset[] = Array.isArray(job.assets) ? job.assets : [];
   const rawAssets = assets.filter((a) => a.kind === 'raw');
   if (rawAssets.length === 0) {
@@ -414,7 +444,7 @@ export async function processEditJob(jobId: string): Promise<void> {
     // 5. Burn captions
     if (cfg.captions) {
       const assFile = path.join(workDir, 'captions.ass');
-      await fs.writeFile(assFile, buildAss(transcript, mode, 1920));
+      await fs.writeFile(assFile, buildAss(transcript, mode, 1920, captionStyle));
       const withCaps = path.join(workDir, 'with_caps.mp4');
       // ffmpeg ass filter needs escaped path
       const escapedAss = assFile.replace(/\\/g, '/').replace(/:/g, '\\:');
@@ -476,6 +506,23 @@ export async function processEditJob(jobId: string): Promise<void> {
         ]);
         currentFile = withMusic;
       }
+    }
+
+    // 7.5 Watermark for free-tier users (Phase 7.2)
+    if (!isPaid) {
+      const wmFile = path.join(workDir, 'watermarked.mp4');
+      const drawtext = "drawtext=text='FlashFlow':fontcolor=white@0.55:fontsize=42:x=w-tw-30:y=h-th-30:box=1:boxcolor=black@0.3:boxborderw=8";
+      await runFfmpeg([
+        '-y',
+        '-i', currentFile,
+        '-vf', drawtext,
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '23',
+        '-c:a', 'copy',
+        wmFile,
+      ]);
+      currentFile = wmFile;
     }
 
     // 8. Upload output

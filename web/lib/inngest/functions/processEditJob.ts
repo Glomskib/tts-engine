@@ -11,7 +11,7 @@
 import { inngest } from '../client';
 import { processEditJob, humanizeEditJobError } from '@/lib/editor/pipeline';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { incrementUsage } from '@/lib/usage/dailyUsage';
+import { incrementUsage, getUserPlan, isPaidPlan } from '@/lib/usage/dailyUsage';
 
 export const processEditJobFn = inngest.createFunction(
   {
@@ -30,8 +30,10 @@ export const processEditJobFn = inngest.createFunction(
       // the function is retried Inngest will re-run this step from scratch,
       // which is the safe thing to do for a multi-phase ffmpeg pipeline.
       await step.run('run-pipeline', async () => {
-        logger.info('Starting edit pipeline', { jobId });
-        await processEditJob(jobId);
+        const plan = await getUserPlan(userId);
+        const isPaid = isPaidPlan(plan);
+        logger.info('Starting edit pipeline', { jobId, plan, isPaid });
+        await processEditJob(jobId, { isPaid });
       });
 
       await step.run('increment-usage', async () => {

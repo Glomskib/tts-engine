@@ -38,10 +38,19 @@ export async function POST(
     );
   }
 
+  // Defense-in-depth: refuse to start a job that has no raw footage attached.
+  // This mirrors the check in from-pipeline / upload and guarantees the Inngest
+  // pipeline never runs on an empty draft, no matter which flow created the job.
   const assets = Array.isArray(job.assets) ? job.assets : [];
-  const hasRaw = assets.some((a: { kind?: string }) => a.kind === 'raw');
-  if (!hasRaw) {
-    return NextResponse.json({ error: 'NO_RAW_FOOTAGE' }, { status: 400 });
+  const rawCount = assets.filter((a: { kind?: string }) => a.kind === 'raw').length;
+  if (rawCount === 0) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: 'No raw footage attached to this job. Upload a video before starting.',
+      },
+      { status: 400 },
+    );
   }
 
   if (['queued', 'transcribing', 'building_timeline', 'rendering'].includes(job.status)) {

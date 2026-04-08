@@ -10,46 +10,10 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { BUCKET_NAME, ensureEditJobsBucket, type EditJobAsset, type AssetKind } from '@/lib/editor/pipeline';
+import { VALID_KINDS, validateEditorAsset, sanitizeAssetName } from '@/lib/editor/validation';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
-
-const VALID_KINDS = new Set<AssetKind>(['raw', 'broll', 'product', 'music']);
-
-// Per-kind limits — keep in sync with client-side validation.
-const LIMITS: Record<AssetKind, { maxBytes: number; mimes: string[]; label: string }> = {
-  raw: {
-    maxBytes: 500 * 1024 * 1024,
-    mimes: ['video/mp4', 'video/quicktime', 'video/webm'],
-    label: 'Raw footage',
-  },
-  broll: {
-    maxBytes: 500 * 1024 * 1024,
-    mimes: [
-      'video/mp4', 'video/quicktime', 'video/webm',
-      'image/jpeg', 'image/png', 'image/webp',
-    ],
-    label: 'B-roll',
-  },
-  product: {
-    maxBytes: 10 * 1024 * 1024,
-    mimes: ['image/jpeg', 'image/png', 'image/webp'],
-    label: 'Product image',
-  },
-  music: {
-    maxBytes: 20 * 1024 * 1024,
-    mimes: ['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a', 'audio/mp3'],
-    label: 'Music bed',
-  },
-};
-
-function formatMB(bytes: number) {
-  return `${Math.round(bytes / (1024 * 1024))} MB`;
-}
-
-function sanitize(name: string) {
-  return name.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120);
-}
 
 export async function POST(
   request: Request,
@@ -79,29 +43,19 @@ export async function POST(
     return NextResponse.json({ ok: false, error: `Invalid asset kind "${kindRaw}".` }, { status: 400 });
   }
   const kind = kindRaw as AssetKind;
-  const rule = LIMITS[kind];
 
   if (!file || typeof file === 'string') {
     return NextResponse.json({ ok: false, error: 'No file was attached to the upload.' }, { status: 400 });
   }
   const blob = file as unknown as Blob & { name?: string; type?: string };
 
-  if (blob.size > rule.maxBytes) {
-    return NextResponse.json({
-      ok: false,
-      error: `${rule.label} is ${formatMB(blob.size)} — the limit for this slot is ${formatMB(rule.maxBytes)}. Trim or compress the file and try again.`,
-    }, { status: 400 });
+  const validationError = validateEditorAsset(kind, { size: blob.size, type: blob.type, name: blob.name });
+  if (validationError) {
+    return NextResponse.json({ ok: false, error: validationError }, { status: 400 });
   }
-
   const mime = (blob.type || '').toLowerCase();
-  if (mime && !rule.mimes.includes(mime)) {
-    return NextResponse.json({
-      ok: false,
-      error: `${rule.label} must be one of: ${rule.mimes.join(', ')}. Got "${mime}".`,
-    }, { status: 400 });
-  }
 
-  const name = sanitize(blob.name ?? `file_${Date.now()}`);
+  const name = sanitizeAssetName(blob.name ?? `file_${Date.now()}`);
   const storagePath = `${auth.user.id}/${id}/${kind}/${Date.now()}_${name}`;
   const buf = Buffer.from(await blob.arrayBuffer());
 

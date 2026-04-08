@@ -31,6 +31,7 @@ import { StageChip } from '@/components/ui/StageChip';
 import { AdvancedDetails } from '@/components/ui/AdvancedDetails';
 import { ShareActions } from '@/components/ui/ShareActions';
 import { getUIStage, STAGE_CONFIGS } from '@/lib/ui/stages';
+import SendToEditorModal from '@/components/SendToEditorModal';
 
 // ─── Types ──────────────────────────────────────────────────────
 
@@ -164,6 +165,7 @@ export default function VideoDetailPage() {
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [releasing, setReleasing] = useState(false);
   const [releaseMessage, setReleaseMessage] = useState<string | null>(null);
+  const [showSendToEditor, setShowSendToEditor] = useState(false);
 
   // Script attachment state
   const [showAttachScript, setShowAttachScript] = useState(false);
@@ -539,19 +541,7 @@ export default function VideoDetailPage() {
         </button>
         {linkedScript && videoDetail?.script_id && (
           <button
-            onClick={async () => {
-              try {
-                const res = await fetch('/api/editor/jobs', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ title: linkedScript?.title ?? 'Edit', mode: 'quick', script_id: videoDetail?.script_id ?? null }),
-                });
-                if (res.ok) {
-                  const j = await res.json();
-                  window.location.href = `/admin/editor/new?job=${j.job.id}`;
-                }
-              } catch {}
-            }}
+            onClick={() => setShowSendToEditor(true)}
             className={btnGhost}
             title="Send to AI Video Editor"
           >
@@ -1088,6 +1078,13 @@ export default function VideoDetailPage() {
 
       {/* Bottom spacing for mobile nav */}
       <div className="h-20 lg:h-0" />
+
+      <SendToEditorModal
+        isOpen={showSendToEditor}
+        onClose={() => setShowSendToEditor(false)}
+        pipelineId={videoId}
+        defaultTitle={linkedScript?.title ?? undefined}
+      />
     </AdminPageLayout>
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, use } from 'react';
 import Link from 'next/link';
 import AdminPageLayout from '../../components/AdminPageLayout';
-import { ArrowLeft, Download, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Download, RefreshCw, AlertCircle, Share2, Sparkles, Plus, Send } from 'lucide-react';
 
 interface JobAsset { kind: string; path: string; name: string }
 interface Transcript { text?: string }
@@ -39,6 +39,69 @@ export default function EditJobDetailPage({ params }: { params: Promise<{ id: st
   const [job, setJob] = useState<Job | null>(null);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const [variationsLoading, setVariationsLoading] = useState(false);
+  const [tiktokLoading, setTiktokLoading] = useState(false);
+
+  function showToast(msg: string) {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3500);
+  }
+
+  async function copyToClipboard(text: string): Promise<boolean> {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async function handlePostToTikTok() {
+    setTiktokLoading(true);
+    try {
+      const res = await fetch(`/api/editor/jobs/${id}/post-to-tiktok`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(data.error || 'Failed to prepare TikTok post');
+        return;
+      }
+      if (data.fallback && data.mp4_url) {
+        const copied = await copyToClipboard(data.mp4_url);
+        window.open(data.tiktok_upload_url || 'https://www.tiktok.com/upload', '_blank', 'noopener');
+        showToast(copied ? 'MP4 link copied — paste into TikTok upload' : 'Opened TikTok upload (copy MP4 link from the player)');
+      } else {
+        showToast('Scheduled to TikTok');
+      }
+    } finally {
+      setTiktokLoading(false);
+    }
+  }
+
+  async function handleVariations() {
+    setVariationsLoading(true);
+    try {
+      const res = await fetch(`/api/editor/jobs/${id}/variations`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.upgrade) {
+          showToast(`Daily variation limit reached (${data.used}/${data.limit}) — upgrade for more`);
+        } else {
+          showToast(data.error || 'Failed to create variations');
+        }
+        return;
+      }
+      showToast(`Created ${data.count} variation${data.count === 1 ? '' : 's'} — check your jobs list`);
+    } finally {
+      setVariationsLoading(false);
+    }
+  }
+
+  async function handleShare() {
+    const url = typeof window !== 'undefined' ? window.location.href : '';
+    const ok = await copyToClipboard(url);
+    showToast(ok ? 'Link copied' : 'Could not copy link');
+  }
 
   const fetchJob = useCallback(async () => {
     try {
@@ -130,30 +193,64 @@ export default function EditJobDetailPage({ params }: { params: Promise<{ id: st
       </div>
 
       {job.status === 'completed' && job.output_url && (
-        <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 mb-5">
-          <div className="font-medium text-zinc-100 mb-3">Preview</div>
+        <div className="bg-gradient-to-br from-zinc-900/80 to-zinc-950/80 border border-teal-900/40 rounded-2xl p-6 mb-5 shadow-lg shadow-teal-950/20">
           <video
+            key={job.output_url}
             src={job.output_url}
+            autoPlay
+            muted
+            loop
+            playsInline
             controls
-            className="w-full max-w-sm mx-auto rounded-lg bg-black"
+            className="w-full rounded-xl bg-black mb-5"
+            style={{ maxHeight: '70vh' }}
           />
-          <div className="mt-4 flex gap-2 justify-center">
+          <h2 className="text-2xl font-bold text-center text-zinc-50 mb-5">
+            <span role="img" aria-label="party">🎉</span> Your video is ready
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <a
               href={job.output_url}
               download
-              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 hover:bg-teal-500 px-4 py-2 text-sm font-medium text-white"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-3 text-sm font-semibold text-white transition"
             >
               <Download className="w-4 h-4" /> Download MP4
             </a>
-            <a
-              href={job.output_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 px-4 py-2 text-sm text-zinc-200"
+            <button
+              onClick={handlePostToTikTok}
+              disabled={tiktokLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-60 px-4 py-3 text-sm font-medium text-white transition"
             >
-              <ExternalLink className="w-4 h-4" /> Open in New Tab
-            </a>
+              <Send className="w-4 h-4" /> {tiktokLoading ? 'Preparing…' : 'Post to TikTok'}
+            </button>
+            <Link
+              href="/admin/editor/new"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 px-4 py-3 text-sm font-medium text-white transition"
+            >
+              <Plus className="w-4 h-4" /> Create Another
+            </Link>
+            <button
+              onClick={handleVariations}
+              disabled={variationsLoading}
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-violet-600 hover:bg-violet-500 disabled:opacity-60 px-4 py-3 text-sm font-semibold text-white transition"
+            >
+              <Sparkles className="w-4 h-4" /> {variationsLoading ? 'Starting…' : 'Make 3 Variations'}
+            </button>
           </div>
+          <div className="mt-4 flex justify-center">
+            <button
+              onClick={handleShare}
+              className="inline-flex items-center gap-1.5 text-xs text-zinc-400 hover:text-zinc-200"
+            >
+              <Share2 className="w-3.5 h-3.5" /> Share preview
+            </button>
+          </div>
+        </div>
+      )}
+
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-zinc-900 border border-zinc-700 text-zinc-100 text-sm px-4 py-2 rounded-lg shadow-xl">
+          {toast}
         </div>
       )}
 

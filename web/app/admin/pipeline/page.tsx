@@ -1144,7 +1144,7 @@ function AdminPipelinePageInner() {
       setLastRefresh(new Date());
       setError('');
     } catch {
-      setError('Failed to fetch observability data');
+      setError("Couldn't load pipeline health metrics. Refresh to retry.");
     } finally {
       setLoading(false);
     }
@@ -1351,8 +1351,8 @@ function AdminPipelinePageInner() {
         showError(data.error || 'Failed to attach script');
       }
     } catch {
-      setAttachMessage('Error: Failed to attach script');
-      showError('Failed to attach script');
+      setAttachMessage("Error: Couldn't attach script. Refresh and try again.");
+      showError("Couldn't attach script. Refresh the page and try again.");
     } finally {
       setAttaching(false);
     }
@@ -1467,7 +1467,7 @@ function AdminPipelinePageInner() {
         fetchQueueVideos();
         closeRejectModal();
       } else {
-        showError(data.error || 'Failed to reject video');
+        showError(data.error || "Couldn't reject this video. Try again in a moment.");
       }
     } catch {
       showError('Network error - please try again');
@@ -1517,7 +1517,7 @@ function AdminPipelinePageInner() {
         closePostModal();
       } else {
         setPostMessage(`Error: ${data.error || 'Failed to mark as posted'}`);
-        showError(data.error || 'Failed to mark as posted');
+        showError(data.error || "Couldn't mark this as posted. Refresh and try again.");
       }
     } catch {
       setPostMessage('Error: Network error');
@@ -1635,7 +1635,7 @@ function AdminPipelinePageInner() {
         showError(json.error || 'Failed to create content item');
       }
     } catch {
-      showError('Failed to create content item');
+      showError("Couldn't create the video. Check required fields and try again.");
     }
   };
 
@@ -1651,10 +1651,10 @@ function AdminPipelinePageInner() {
         setRecordingKitItem(itemJson.data as ContentItem);
         setRecordingKitBrief(briefJson.ok && briefJson.data?.data ? briefJson.data.data as CreatorBriefData : null);
       } else {
-        showError('Failed to load content item');
+        showError("Couldn't load this video's details. Refresh and try again.");
       }
     } catch {
-      showError('Failed to load content item');
+      showError("Couldn't load this video's details. Refresh and try again.");
     }
   };
 

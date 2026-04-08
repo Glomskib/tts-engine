@@ -1170,7 +1170,7 @@ export default function ContentStudioPage() {
         }
       }
     } catch {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect. Try again.' }]);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: "Couldn't reach the assistant. Check your connection and try again." }]);
     } finally {
       setChatLoading(false);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
@@ -1483,7 +1483,7 @@ export default function ContentStudioPage() {
       }
     } catch (err) {
       console.error('Failed to save:', err);
-      showError('Failed to save script');
+      showError("Couldn't save script to your library. Check your connection and try again.");
     } finally {
       setSavingToLibrary(false);
     }
@@ -1685,7 +1685,7 @@ export default function ContentStudioPage() {
       setError({
         ok: false,
         error_code: 'INTERNAL',
-        message: err instanceof Error ? err.message : 'Failed to approve and send to pipeline',
+        message: err instanceof Error ? err.message : "Couldn't send this script to the pipeline. Try Approve & Send again in a moment.",
         correlation_id: '',
         httpStatus: 0,
       });
@@ -1734,7 +1734,7 @@ export default function ContentStudioPage() {
       }
     } catch (err) {
       console.error('Save variation failed:', err);
-      showError('Failed to save variation');
+      showError("Couldn't save this variation. Try again in a second.");
     } finally {
       setSavingVariation(null);
     }
@@ -1856,7 +1856,7 @@ export default function ContentStudioPage() {
       }
     } catch (err) {
       console.error('Share failed:', err);
-      showError('Failed to create share link');
+      showError("Couldn't create a share link. Check your connection and try again.");
     } finally {
       setSharingVariation(null);
     }
@@ -1983,7 +1983,7 @@ export default function ContentStudioPage() {
       showSuccess('Variation created!');
     } catch (err) {
       console.error('Make variation failed:', err);
-      showError('Failed to create variation');
+      showError("Couldn't generate a new variation. Try again in a second.");
     } finally {
       setVariatingIndex(null);
     }

@@ -200,6 +200,19 @@ interface AIScore {
   improvements: string[];
 }
 
+interface PainPointAddressed {
+  pain_point: string;
+  addressed_in: string;
+  how: string;
+}
+
+interface ScriptScoreBreakdown {
+  hook_strength: number;
+  emotional_trigger: number;
+  format_match: number;
+  total: number;
+}
+
 interface SkitVariation {
   skit: SkitData;
   ai_score: AIScore | null;
@@ -208,6 +221,10 @@ interface SkitVariation {
   risk_flags?: string[];
   variation_angle?: string;
   pain_points_covered?: string[];
+  // Phase 3
+  pain_points_addressed?: PainPointAddressed[];
+  winners_referenced?: string[];
+  script_score?: ScriptScoreBreakdown;
 }
 
 interface GenerationResult {
@@ -240,6 +257,10 @@ interface GenerationResult {
     level: 'high' | 'medium' | 'low';
     reason: string;
   } | null;
+  // Phase 3 script quality metadata (legacy top-level mirror)
+  pain_points_addressed?: PainPointAddressed[];
+  winners_referenced?: string[];
+  script_score?: ScriptScoreBreakdown;
 }
 
 type RiskTier = 'SAFE' | 'BALANCED' | 'SPICY';
@@ -1050,12 +1071,17 @@ export default function ContentStudioPage() {
         }),
       });
 
-      if (res.ok) {
+      const json: { ok?: boolean; data?: unknown; hook?: unknown; message?: string; error?: string } = await res.json().catch(() => ({}));
+      const persisted = res.ok && (json.ok === true || !!json.hook || !!json.data);
+
+      if (persisted) {
         setHookSaved(true);
         setTimeout(() => setHookSaved(false), 4000);
+        showSuccess('Hook saved to library');
       } else {
         setHookSaveError(true);
         setTimeout(() => setHookSaveError(false), 3000);
+        showError(json.message || json.error || 'Failed to save hook');
       }
     } catch {
       setHookSaveError(true);
@@ -1144,7 +1170,7 @@ export default function ContentStudioPage() {
         }
       }
     } catch {
-      setChatMessages(prev => [...prev, { role: 'assistant', content: 'Failed to connect. Try again.' }]);
+      setChatMessages(prev => [...prev, { role: 'assistant', content: "Couldn't reach the assistant. Check your connection and try again." }]);
     } finally {
       setChatLoading(false);
       setTimeout(() => chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
@@ -1408,6 +1434,9 @@ export default function ContentStudioPage() {
         },
         ai_score: result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score,
         strategy_metadata: result.strategy_metadata || null,
+        pain_points_addressed: (result.variations?.[selectedVariationIndex]?.pain_points_addressed || result.pain_points_addressed) ?? null,
+        winners_referenced: (result.variations?.[selectedVariationIndex]?.winners_referenced || result.winners_referenced) ?? null,
+        script_score: (result.variations?.[selectedVariationIndex]?.script_score || result.script_score) ?? null,
       });
 
       if (!isApiError(response)) {
@@ -1454,7 +1483,7 @@ export default function ContentStudioPage() {
       }
     } catch (err) {
       console.error('Failed to save:', err);
-      showError('Failed to save script');
+      showError("Couldn't save script to your library. Check your connection and try again.");
     } finally {
       setSavingToLibrary(false);
     }
@@ -1483,6 +1512,9 @@ export default function ContentStudioPage() {
             risk_tier: riskTier,
           },
           strategy_metadata: result.strategy_metadata || null,
+        pain_points_addressed: (result.variations?.[selectedVariationIndex]?.pain_points_addressed || result.pain_points_addressed) ?? null,
+        winners_referenced: (result.variations?.[selectedVariationIndex]?.winners_referenced || result.winners_referenced) ?? null,
+        script_score: (result.variations?.[selectedVariationIndex]?.script_score || result.script_score) ?? null,
         },
       });
       if (!isApiError(res)) {
@@ -1592,6 +1624,9 @@ export default function ContentStudioPage() {
         },
         ai_score: result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score || undefined,
         strategy_metadata: result.strategy_metadata || null,
+        pain_points_addressed: (result.variations?.[selectedVariationIndex]?.pain_points_addressed || result.pain_points_addressed) ?? null,
+        winners_referenced: (result.variations?.[selectedVariationIndex]?.winners_referenced || result.winners_referenced) ?? null,
+        script_score: (result.variations?.[selectedVariationIndex]?.script_score || result.script_score) ?? null,
       });
 
       if (isApiError(saveRes)) {
@@ -1602,16 +1637,16 @@ export default function ContentStudioPage() {
       if (!approvedSkitId) throw new Error('No script ID returned');
       setSavedSkitId(approvedSkitId);
 
-      // 2. Send to pipeline
-      let pipelineOk = true;
+      // 2. Send to pipeline — surface real errors instead of fake success
+      let pipelineErrorMessage: string | null = null;
       if (selectedProductId) {
         // Product-based: use send-to-video (creates via createVideoFromProduct)
         const pipelineRes = await postJson(`/api/skits/${approvedSkitId}/send-to-video`, {
           priority: 'normal',
         });
         if (isApiError(pipelineRes)) {
-          console.error('Send to pipeline failed:', pipelineRes.message);
-          pipelineOk = false;
+          console.error('Send to pipeline failed:', pipelineRes.message, pipelineRes.correlation_id);
+          pipelineErrorMessage = pipelineRes.message || 'Failed to send to pipeline';
         }
       } else {
         // Manual product: use lightweight create-from-script
@@ -1623,24 +1658,34 @@ export default function ContentStudioPage() {
           hook_line: currentSkit.hook_line,
         });
         if (isApiError(pipelineRes)) {
-          console.error('Create video from script failed:', pipelineRes.message);
-          pipelineOk = false;
+          console.error('Create video from script failed:', pipelineRes.message, pipelineRes.correlation_id);
+          pipelineErrorMessage = pipelineRes.message || 'Failed to create video from script';
         }
+      }
+
+      if (pipelineErrorMessage) {
+        // Real failure — do NOT show celebratory success modal
+        setApprovedToPipeline(false);
+        setError({
+          ok: false,
+          error_code: 'INTERNAL',
+          message: `Script saved as approved, but pipeline step failed: ${pipelineErrorMessage}`,
+          correlation_id: '',
+          httpStatus: 0,
+        });
+        showError(`Pipeline add failed: ${pipelineErrorMessage}`);
+        return;
       }
 
       setApprovedToPipeline(true);
       setPipelineSuccessOpen(true);
-      if (pipelineOk) {
-        showSuccess('Script approved and sent to pipeline!');
-      } else {
-        showSuccess('Script saved, but pipeline step had an issue. Check the script library.');
-      }
+      showSuccess('Script approved and sent to pipeline!');
     } catch (err) {
       console.error('Approve and send failed:', err);
       setError({
         ok: false,
         error_code: 'INTERNAL',
-        message: err instanceof Error ? err.message : 'Failed to approve and send to pipeline',
+        message: err instanceof Error ? err.message : "Couldn't send this script to the pipeline. Try Approve & Send again in a moment.",
         correlation_id: '',
         httpStatus: 0,
       });
@@ -1677,6 +1722,9 @@ export default function ContentStudioPage() {
         },
         ai_score: result.variations![variationIndex]?.ai_score || null,
         strategy_metadata: result.strategy_metadata || null,
+        pain_points_addressed: (result.variations?.[selectedVariationIndex]?.pain_points_addressed || result.pain_points_addressed) ?? null,
+        winners_referenced: (result.variations?.[selectedVariationIndex]?.winners_referenced || result.winners_referenced) ?? null,
+        script_score: (result.variations?.[selectedVariationIndex]?.script_score || result.script_score) ?? null,
       });
 
       if (!isApiError(res)) {
@@ -1686,7 +1734,7 @@ export default function ContentStudioPage() {
       }
     } catch (err) {
       console.error('Save variation failed:', err);
-      showError('Failed to save variation');
+      showError("Couldn't save this variation. Try again in a second.");
     } finally {
       setSavingVariation(null);
     }
@@ -1720,6 +1768,9 @@ export default function ContentStudioPage() {
         },
         ai_score: result.variations![variationIndex]?.ai_score || null,
         strategy_metadata: result.strategy_metadata || null,
+        pain_points_addressed: (result.variations?.[selectedVariationIndex]?.pain_points_addressed || result.pain_points_addressed) ?? null,
+        winners_referenced: (result.variations?.[selectedVariationIndex]?.winners_referenced || result.winners_referenced) ?? null,
+        script_score: (result.variations?.[selectedVariationIndex]?.script_score || result.script_score) ?? null,
       });
 
       if (isApiError(saveRes)) throw new Error(saveRes.message || 'Failed to save');
@@ -1805,7 +1856,7 @@ export default function ContentStudioPage() {
       }
     } catch (err) {
       console.error('Share failed:', err);
-      showError('Failed to create share link');
+      showError("Couldn't create a share link. Check your connection and try again.");
     } finally {
       setSharingVariation(null);
     }
@@ -1932,7 +1983,7 @@ export default function ContentStudioPage() {
       showSuccess('Variation created!');
     } catch (err) {
       console.error('Make variation failed:', err);
-      showError('Failed to create variation');
+      showError("Couldn't generate a new variation. Try again in a second.");
     } finally {
       setVariatingIndex(null);
     }
@@ -3784,6 +3835,61 @@ export default function ContentStudioPage() {
                   </div>
                 </div>
               )}
+
+              {/* Phase 3: Pain-point targets + winners badge + deterministic score */}
+              {(() => {
+                const v = result.variations?.[selectedVariationIndex];
+                const painTargets = v?.pain_points_addressed || result.pain_points_addressed || [];
+                const winnersRef = v?.winners_referenced || result.winners_referenced || [];
+                const sScore = v?.script_score || result.script_score;
+                if (!painTargets.length && !winnersRef.length && !sScore) return null;
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    {painTargets.length > 0 && (
+                      <div style={{
+                        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px',
+                        padding: '8px 12px', borderRadius: '10px',
+                        backgroundColor: 'rgba(20, 184, 166, 0.08)',
+                        border: '1px solid rgba(20, 184, 166, 0.25)',
+                      }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#5eead4', textTransform: 'uppercase' }}>
+                          🎯 This script targets:
+                        </span>
+                        {painTargets.map((p, i) => (
+                          <span key={i} title={`${p.addressed_in ? `[${p.addressed_in}] ` : ''}${p.how || ''}`}
+                                style={{
+                                  padding: '3px 8px', borderRadius: '999px', fontSize: '11px',
+                                  backgroundColor: 'rgba(20, 184, 166, 0.15)', color: '#5eead4',
+                                  border: '1px solid rgba(20, 184, 166, 0.3)', cursor: 'help',
+                                }}>
+                            {p.pain_point}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {winnersRef.length > 0 && (
+                      <Link href="/admin/winners-bank" style={{
+                        padding: '6px 10px', borderRadius: '10px', fontSize: '11px',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)', color: '#c4b5fd',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                        textDecoration: 'none', fontWeight: 500,
+                      }}>
+                        ✨ Based on {winnersRef.length} winning pattern{winnersRef.length === 1 ? '' : 's'}
+                      </Link>
+                    )}
+                    {sScore && (
+                      <span title={`Hook ${sScore.hook_strength}/30 · Emotional ${sScore.emotional_trigger}/30 · Format ${sScore.format_match}/40`}
+                            style={{
+                              padding: '6px 10px', borderRadius: '10px', fontSize: '11px',
+                              backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#93c5fd',
+                              border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 600, cursor: 'help',
+                            }}>
+                        Score {sScore.total}/100
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Clawbot Strategy Card — collapsible */}
               {result.strategy_metadata && (

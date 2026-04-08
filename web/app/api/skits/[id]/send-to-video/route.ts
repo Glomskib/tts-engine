@@ -7,6 +7,7 @@ import { createImageToVideo, createTextToVideo } from "@/lib/runway";
 import { buildRunwayPrompt } from "@/lib/runway-prompt-builder";
 import { logVideoActivity } from "@/lib/videoActivity";
 import { z } from "zod";
+import { checkDailyLimit, incrementUsage } from "@/lib/usage/dailyUsage";
 
 export const runtime = "nodejs";
 
@@ -38,6 +39,21 @@ export async function POST(
 
   if (!skitId || skitId.trim() === "") {
     return createApiErrorResponse("BAD_REQUEST", "Skit ID is required", 400, correlationId);
+  }
+
+  // Phase 3: enforce daily pipeline limit for free plan
+  const dailyCheck = await checkDailyLimit(authContext.user.id, authContext.isAdmin, 'pipeline_items');
+  if (!dailyCheck.allowed) {
+    return NextResponse.json({
+      ok: false,
+      error_code: 'DAILY_LIMIT_REACHED',
+      error: `You've hit today's limit of ${dailyCheck.limit} pipeline items on the ${dailyCheck.plan} plan.`,
+      upgrade: true,
+      headline: 'Your pipeline is filling up.',
+      subtext: 'Upgrade to push more scripts into production every day.',
+      feature: 'pipeline_items',
+      correlation_id: correlationId,
+    }, { status: 429 });
   }
 
   // Parse optional input
@@ -213,8 +229,21 @@ export async function POST(
     const isUgcShort = generationConfig?.content_type === "ugc_short";
     let renderTaskId: string | null = null;
     let renderProvider: string | null = null;
+    let renderSkipped = false;
+    let renderError: string | null = null;
 
-    if (isUgcShort && skitData.beats?.length > 0) {
+    // Phase 2: degraded mode — if Runway credentials are missing, skip the
+    // auto-render but still create the pipeline item successfully. The video
+    // is left in NOT_RECORDED so a human can pick it up.
+    const runwayCredsMissing = !process.env.RUNWAY_API_KEY;
+    if (isUgcShort && runwayCredsMissing) {
+      renderSkipped = true;
+      console.warn(
+        `[${correlationId}] Runway auto-render SKIPPED — RUNWAY_API_KEY missing. Video ${videoResult.data.video.id} created in NOT_RECORDED state for manual handling.`
+      );
+    }
+
+    if (isUgcShort && !runwayCredsMissing && skitData.beats?.length > 0) {
       try {
         // Fetch product details for image and name
         const { data: product } = await supabaseAdmin
@@ -330,10 +359,17 @@ export async function POST(
           }
         }
       } catch (renderErr) {
-        // Runway failure should NOT fail the send-to-video operation
+        // Runway failure should NOT fail the send-to-video operation.
+        // Pipeline item still exists; render error is reported separately.
+        renderError = renderErr instanceof Error ? renderErr.message : String(renderErr);
         console.error(`[${correlationId}] Runway auto-render failed (non-blocking):`, renderErr);
       }
     }
+
+    // Phase 3: increment daily pipeline usage (fire-and-forget)
+    incrementUsage(authContext.user.id, 'pipeline_items').catch((e) =>
+      console.error(`[${correlationId}] incrementUsage failed:`, e)
+    );
 
     const response = NextResponse.json({
       ok: true,
@@ -343,9 +379,15 @@ export async function POST(
         video_code: videoResult.data.video.video_code,
         render_task_id: renderTaskId,
         render_provider: renderProvider,
+        render_skipped: renderSkipped,
+        render_error: renderError,
         message: isUgcShort && renderTaskId
           ? "Skit sent to video queue — Runway render triggered"
-          : "Skit sent to video queue successfully",
+          : isUgcShort && renderSkipped
+            ? "Skit sent to video queue — Runway render skipped (credentials not configured)"
+            : isUgcShort && renderError
+              ? "Skit sent to video queue — Runway render failed (will need manual handling)"
+              : "Skit sent to video queue successfully",
       },
       correlation_id: correlationId,
     });

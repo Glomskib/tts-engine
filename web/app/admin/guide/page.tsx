@@ -71,7 +71,7 @@ const QUICK_LINKS = [
   { name: 'Script Library', href: '/admin/script-library', icon: FileText, desc: 'Browse and manage saved scripts' },
   { name: 'Products', href: '/admin/products', icon: Package, desc: 'Add and manage your product catalog' },
   { name: 'Customer Archetypes', href: '/admin/audience', icon: UserCheck, desc: 'Create target audience personas' },
-  { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, desc: 'Study top-performing viral content' },
+  { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy, desc: 'Study top-performing viral content' },
   { name: 'Content Calendar', href: '/admin/calendar', icon: Calendar, desc: 'Plan and schedule your posts' },
   { name: 'Production Board', href: '/admin/pipeline', icon: Video, desc: 'Track videos from script to posted' },
   { name: 'Transcriber', href: '/admin/transcribe', icon: Mic, desc: 'Convert TikTok videos to scripts' },
@@ -195,7 +195,7 @@ export default function GuidePage() {
         <div className="grid gap-4 sm:grid-cols-3">
           {/* Winners Bank */}
           <Link
-            href="/admin/winners"
+            href="/admin/winners-bank"
             className="group bg-zinc-900 border border-zinc-800 rounded-xl p-5 hover:border-amber-500/30 transition-colors"
           >
             <div className="w-9 h-9 rounded-lg bg-amber-500/15 flex items-center justify-center mb-3">

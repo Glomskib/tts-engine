@@ -36,7 +36,7 @@ export function WinnersPanel({ winners }: { winners: Winner[] }) {
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold text-white">Winning Content</h2>
         <Link
-          href="/admin/winners"
+          href="/admin/winners-bank"
           className="text-xs text-teal-400 hover:text-teal-300 transition-colors min-h-[44px] flex items-center"
         >
           View all
@@ -46,7 +46,7 @@ export function WinnersPanel({ winners }: { winners: Winner[] }) {
         {winners.map((w) => (
           <Link
             key={w.id}
-            href="/admin/winners"
+            href="/admin/winners-bank"
             className="flex items-start gap-3 bg-yellow-500/5 border border-yellow-500/10 rounded-xl p-4 hover:bg-yellow-500/10 transition-colors min-h-[64px]"
           >
             <Trophy className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />

@@ -168,11 +168,11 @@ export default function WinnersBankPage() {
         setSelectedWinner(null);
         showSuccess('Winner deleted');
       } else {
-        showError('Failed to delete winner');
+        showError("Couldn't delete this winner. Refresh and try again.");
       }
     } catch (err) {
       console.error('Failed to delete winner:', err);
-      showError('Failed to delete winner');
+      showError("Couldn't delete this winner. Refresh and try again.");
     }
   };
 
@@ -293,7 +293,7 @@ export default function WinnersBankPage() {
         setError(data.message || 'Failed to generate scripts');
       }
     } catch {
-      setError('Failed to generate scripts from winner');
+      setError("Couldn't generate scripts from this winner. Try again in a moment.");
     } finally {
       setGeneratingLike(false);
     }
@@ -739,13 +739,23 @@ export default function WinnersBankPage() {
             <h2 className="text-xl font-semibold text-zinc-300 mb-2">
               {hasActiveFilters
                 ? 'No winners found'
-                : 'Start Building Your Winners Bank'}
+                : 'No winners yet'}
             </h2>
             <p className="text-zinc-500 mb-6 max-w-md mx-auto">
               {hasActiveFilters
                 ? 'Try adjusting your search or filters.'
-                : 'Add your best-performing scripts and reference videos to help AI generate better content.'}
+                : 'Mark a top-performing script as a winner from your Script Library to start building proven patterns.'}
             </p>
+            {!hasActiveFilters && (
+              <div className="mb-4">
+                <a
+                  href="/admin/script-library"
+                  className="inline-flex items-center gap-2 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium text-zinc-200 transition-colors"
+                >
+                  Go to Script Library
+                </a>
+              </div>
+            )}
             {hasActiveFilters && (
               <button type="button" onClick={clearAllFilters}
                 className="mb-6 px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg text-sm font-medium text-zinc-300 transition-colors">

@@ -57,7 +57,7 @@ export function buildTourSteps({ planId, hasProducts }: BuildTourStepsOptions): 
       title: 'Winners Bank',
       content: 'Add winning videos here. Patterns from winners automatically improve your script generation.',
       disableBeacon: true,
-      data: { route: '/admin/winners' },
+      data: { route: '/admin/winners-bank' },
     });
   }
 

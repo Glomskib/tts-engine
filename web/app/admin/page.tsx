@@ -379,7 +379,7 @@ export default function CommandCenter() {
               {data.recent_winners.map((winner) => (
                 <Link
                   key={winner.id}
-                  href="/admin/winners"
+                  href="/admin/winners-bank"
                   className="flex items-start gap-3 py-2 px-2 -mx-2 rounded-lg hover:bg-white/5 transition-colors group"
                 >
                   <div className="flex items-center justify-center w-7 h-7 rounded-lg bg-yellow-500/10 flex-shrink-0 mt-0.5">

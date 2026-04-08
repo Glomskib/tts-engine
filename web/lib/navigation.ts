@@ -140,6 +140,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Content Items', href: '/admin/content-items', icon: ListTodo, subtitle: 'All content in one place', tourId: 'nav-content-items' },
       { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, subtitle: 'Schedule and plan ahead', minPlan: 'creator_pro', tourId: 'nav-content-planner' },
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, subtitle: 'Track progress across stages', minPlan: 'creator_pro', tourId: 'nav-pipeline' },
+      { name: 'AI Video Editor', href: '/admin/editor', icon: Clapperboard, subtitle: 'Upload footage → edited 9:16 MP4', badge: 'New' },
       { name: 'Footage Hub', href: '/admin/footage', icon: Film, subtitle: 'Upload and manage raw footage', minPlan: 'creator_pro' },
       { name: 'Drive Intake', href: '/admin/intake', icon: Download, subtitle: 'Import from Google Drive', minPlan: 'creator_pro' },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, subtitle: 'Ready to publish', minPlan: 'creator_pro', tourId: 'nav-posting-queue' },
@@ -152,10 +153,11 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Performance Loop', href: '/admin/performance-loop', icon: TrendingUp, subtitle: 'What works for you — learn and improve' },
       { name: 'Speak To Your Audience', href: '/admin/audience', icon: UserCheck },
-      { name: 'Winners Bank', href: '/admin/intelligence/winners-bank', icon: Trophy, minPlan: 'creator_pro', tourId: 'nav-winners' },
+      { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy, minPlan: 'creator_pro', tourId: 'nav-winners' },
       { name: 'Hook Library', href: '/admin/hooks', icon: Anchor, minPlan: 'creator_pro' },
       { name: 'Hook Performance', href: '/admin/intelligence/hooks', icon: Zap, minPlan: 'creator_pro', badge: 'Beta' },
-      { name: 'Performance', href: '/admin/performance', icon: BarChart3, minPlan: 'creator_pro', badge: 'Beta' },
+      // Phase 2: 'Performance' renamed to 'AI Insights' (BUG_AUDIT item 20). Route unchanged.
+      { name: 'AI Insights', href: '/admin/performance', icon: BarChart3, minPlan: 'creator_pro', badge: 'Beta' },
       { name: 'Clip Index', href: '/admin/clip-index', icon: Film, minPlan: 'creator_pro', badge: 'Beta' },
     ],
   },
@@ -208,7 +210,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Analytics', href: '/client/analytics', icon: BarChart },
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
       { name: 'Comment Reply Creator', href: '/admin/tools/tok-comment', icon: MessageSquare },
-      { name: 'Winners Bank', href: '/admin/intelligence/winners-bank', icon: Trophy },
+      { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy },
     ],
   },
   {

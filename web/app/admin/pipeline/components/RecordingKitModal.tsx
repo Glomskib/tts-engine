@@ -67,10 +67,10 @@ export default function RecordingKitModal({ item, brief: initialBrief, onClose, 
         setBrief(json.data.data as CreatorBriefData);
         showSuccess('Brief generated');
       } else {
-        showError(json.error || 'Failed to generate brief');
+        showError(json.error || "Couldn't generate the recording brief. Try again in a moment.");
       }
     } catch {
-      showError('Failed to generate brief');
+      showError("Couldn't generate the recording brief. Try again in a moment.");
     } finally {
       setGeneratingBrief(false);
     }

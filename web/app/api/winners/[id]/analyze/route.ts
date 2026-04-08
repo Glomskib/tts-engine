@@ -31,16 +31,25 @@ export async function POST(
 
   const { id } = await params;
 
-  // Fetch the winner directly (no auth check since this is internal/async)
+  // Ownership enforcement: winners are per-user. Never analyze someone
+  // else's winner, even via an internal/async trigger.
   const { data: winner, error: fetchError } = await supabaseAdmin
     .from('winners_bank')
     .select('*')
     .eq('id', id)
+    .eq('user_id', authContext.user.id)
     .single();
 
   if (fetchError || !winner) {
-    console.error(`[${correlationId}] Winner not found for analysis:`, id);
+    console.error(`[${correlationId}] Winner not found or not owned:`, id);
     return createApiErrorResponse('NOT_FOUND', 'Winner not found', 404, correlationId);
+  }
+
+  if (winner.user_id !== authContext.user.id) {
+    return NextResponse.json(
+      { ok: false, error: 'You do not have access to this resource.' },
+      { status: 403 },
+    );
   }
 
   // Check if already analyzed recently (within 24 hours)
@@ -118,12 +127,20 @@ export async function GET(
 
   const { data: winner, error } = await supabaseAdmin
     .from('winners_bank')
-    .select('id, ai_analysis, patterns')
+    .select('id, user_id, ai_analysis, patterns')
     .eq('id', id)
+    .eq('user_id', authContext.user.id)
     .single();
 
   if (error || !winner) {
     return createApiErrorResponse('NOT_FOUND', 'Winner not found', 404, correlationId);
+  }
+
+  if (winner.user_id !== authContext.user.id) {
+    return NextResponse.json(
+      { ok: false, error: 'You do not have access to this resource.' },
+      { status: 403 },
+    );
   }
 
   const response = NextResponse.json({

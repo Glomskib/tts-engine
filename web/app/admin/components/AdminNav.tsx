@@ -96,7 +96,7 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
       {/* Insights Group */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
         <span style={groupLabelStyle}>Insights</span>
-        <Link href="/admin/winners" style={linkStyle('/admin/winners')}>
+        <Link href="/admin/winners-bank" style={linkStyle('/admin/winners-bank')}>
           Winners
         </Link>
         <span style={separatorStyle}>|</span>

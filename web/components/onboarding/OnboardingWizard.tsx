@@ -484,7 +484,7 @@ export default function OnboardingWizard({ onComplete }: OnboardingWizardProps) 
         {[
           { label: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, color: 'text-teal-400' },
           { label: 'Products', href: '/admin/products', icon: Package, color: 'text-cyan-400' },
-          { label: 'Winners Bank', href: '/admin/winners', icon: Trophy, color: 'text-amber-400' },
+          { label: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy, color: 'text-amber-400' },
           { label: 'Pipeline', href: '/admin/pipeline', icon: Video, color: 'text-teal-400' },
         ].map(link => {
           const Icon = link.icon;

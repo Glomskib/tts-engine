@@ -156,7 +156,7 @@ export async function GET(request: Request) {
         type: 'need_winners',
         title: 'Save more winners',
         message: `You have ${winners.length} winner${winners.length !== 1 ? 's' : ''} saved. Save more to improve AI quality`,
-        action: { label: 'Winners Bank', href: '/admin/winners' },
+        action: { label: 'Winners Bank', href: '/admin/winners-bank' },
       });
     }
 

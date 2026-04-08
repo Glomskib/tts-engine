@@ -28,10 +28,11 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     console.error(`[${correlationId}] Saved Hooks GET error:`, error);
-    return NextResponse.json({ hooks: [] });
+    return createApiErrorResponse('DB_ERROR', 'Failed to fetch saved hooks', 500, correlationId);
   }
 
-  return NextResponse.json({ hooks: data || [] });
+  // Return both shapes for backwards compat: { hooks } and { ok, data }
+  return NextResponse.json({ ok: true, data: data || [], hooks: data || [], correlation_id: correlationId });
 }
 
 export async function POST(request: NextRequest) {
@@ -75,9 +76,9 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    console.error(`[${correlationId}] Saved Hooks POST error:`, error);
-    return createApiErrorResponse('DB_ERROR', 'Failed to save hook', 500, correlationId);
+    console.error(`[${correlationId}] Saved Hooks POST error:`, error.message, error.details);
+    return createApiErrorResponse('DB_ERROR', `Failed to save hook: ${error.message}`, 500, correlationId);
   }
 
-  return NextResponse.json({ hook: data });
+  return NextResponse.json({ ok: true, data, hook: data, correlation_id: correlationId });
 }

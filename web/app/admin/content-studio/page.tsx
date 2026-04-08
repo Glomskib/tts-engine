@@ -1050,12 +1050,17 @@ export default function ContentStudioPage() {
         }),
       });
 
-      if (res.ok) {
+      const json: { ok?: boolean; data?: unknown; hook?: unknown; message?: string; error?: string } = await res.json().catch(() => ({}));
+      const persisted = res.ok && (json.ok === true || !!json.hook || !!json.data);
+
+      if (persisted) {
         setHookSaved(true);
         setTimeout(() => setHookSaved(false), 4000);
+        showSuccess('Hook saved to library');
       } else {
         setHookSaveError(true);
         setTimeout(() => setHookSaveError(false), 3000);
+        showError(json.message || json.error || 'Failed to save hook');
       }
     } catch {
       setHookSaveError(true);
@@ -1602,16 +1607,16 @@ export default function ContentStudioPage() {
       if (!approvedSkitId) throw new Error('No script ID returned');
       setSavedSkitId(approvedSkitId);
 
-      // 2. Send to pipeline
-      let pipelineOk = true;
+      // 2. Send to pipeline — surface real errors instead of fake success
+      let pipelineErrorMessage: string | null = null;
       if (selectedProductId) {
         // Product-based: use send-to-video (creates via createVideoFromProduct)
         const pipelineRes = await postJson(`/api/skits/${approvedSkitId}/send-to-video`, {
           priority: 'normal',
         });
         if (isApiError(pipelineRes)) {
-          console.error('Send to pipeline failed:', pipelineRes.message);
-          pipelineOk = false;
+          console.error('Send to pipeline failed:', pipelineRes.message, pipelineRes.correlation_id);
+          pipelineErrorMessage = pipelineRes.message || 'Failed to send to pipeline';
         }
       } else {
         // Manual product: use lightweight create-from-script
@@ -1623,18 +1628,28 @@ export default function ContentStudioPage() {
           hook_line: currentSkit.hook_line,
         });
         if (isApiError(pipelineRes)) {
-          console.error('Create video from script failed:', pipelineRes.message);
-          pipelineOk = false;
+          console.error('Create video from script failed:', pipelineRes.message, pipelineRes.correlation_id);
+          pipelineErrorMessage = pipelineRes.message || 'Failed to create video from script';
         }
+      }
+
+      if (pipelineErrorMessage) {
+        // Real failure — do NOT show celebratory success modal
+        setApprovedToPipeline(false);
+        setError({
+          ok: false,
+          error_code: 'INTERNAL',
+          message: `Script saved as approved, but pipeline step failed: ${pipelineErrorMessage}`,
+          correlation_id: '',
+          httpStatus: 0,
+        });
+        showError(`Pipeline add failed: ${pipelineErrorMessage}`);
+        return;
       }
 
       setApprovedToPipeline(true);
       setPipelineSuccessOpen(true);
-      if (pipelineOk) {
-        showSuccess('Script approved and sent to pipeline!');
-      } else {
-        showSuccess('Script saved, but pipeline step had an issue. Check the script library.');
-      }
+      showSuccess('Script approved and sent to pipeline!');
     } catch (err) {
       console.error('Approve and send failed:', err);
       setError({

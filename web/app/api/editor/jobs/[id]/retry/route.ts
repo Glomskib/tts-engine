@@ -1,14 +1,12 @@
 /**
- * POST /api/editor/jobs/[id]/retry — reset error and re-run pipeline.
+ * POST /api/editor/jobs/[id]/retry — re-enqueue a failed edit job via Inngest.
  */
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
-import { processEditJob } from '@/lib/editor/pipeline';
-import { incrementUsage } from '@/lib/usage/dailyUsage';
+import { inngest } from '@/lib/inngest/client';
 
 export const runtime = 'nodejs';
-export const maxDuration = 300;
 
 export async function POST(
   request: Request,
@@ -28,19 +26,13 @@ export async function POST(
 
   await supabaseAdmin
     .from('edit_jobs')
-    .update({ status: 'transcribing', error: null })
+    .update({ status: 'queued', error: null, started_at: null, finished_at: null })
     .eq('id', id);
 
-  try {
-    await processEditJob(id);
-    await incrementUsage(auth.user.id, 'renders').catch(() => {});
-    return NextResponse.json({ ok: true });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
-    await supabaseAdmin
-      .from('edit_jobs')
-      .update({ status: 'failed', error: msg })
-      .eq('id', id);
-    return NextResponse.json({ error: 'PIPELINE_FAILED', message: msg }, { status: 500 });
-  }
+  await inngest.send({
+    name: 'editor/job.process',
+    data: { jobId: id, userId: auth.user.id },
+  });
+
+  return NextResponse.json({ ok: true, queued: true });
 }

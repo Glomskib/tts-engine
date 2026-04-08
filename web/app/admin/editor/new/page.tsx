@@ -8,6 +8,52 @@ import { Upload, ArrowLeft, Zap, Target, ShoppingBag, Mic } from 'lucide-react';
 
 type Mode = 'quick' | 'hook' | 'ugc' | 'talking_head';
 
+// Keep in sync with server validation in /api/editor/jobs/[id]/upload/route.ts
+const RAW_MAX = 500 * 1024 * 1024;
+const MUSIC_MAX = 20 * 1024 * 1024;
+const IMAGE_MAX = 10 * 1024 * 1024;
+const RAW_MIMES = new Set(['video/mp4', 'video/quicktime', 'video/webm']);
+const MUSIC_MIMES = new Set(['audio/mpeg', 'audio/wav', 'audio/mp4', 'audio/x-m4a', 'audio/mp3']);
+const IMAGE_MIMES = new Set(['image/jpeg', 'image/png', 'image/webp']);
+const BROLL_MIMES = new Set([...RAW_MIMES, ...IMAGE_MIMES]);
+
+function mb(b: number) { return `${Math.round(b / (1024 * 1024))} MB`; }
+
+async function probeDurationSeconds(file: File): Promise<number | null> {
+  if (!file.type.startsWith('video/')) return null;
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const v = document.createElement('video');
+    v.preload = 'metadata';
+    v.onloadedmetadata = () => {
+      URL.revokeObjectURL(url);
+      resolve(isFinite(v.duration) ? v.duration : null);
+    };
+    v.onerror = () => { URL.revokeObjectURL(url); resolve(null); };
+    v.src = url;
+  });
+}
+
+function validateFile(
+  file: File,
+  kind: 'raw' | 'broll' | 'product' | 'music',
+): string | null {
+  if (kind === 'raw') {
+    if (file.size > RAW_MAX) return `${file.name} is ${mb(file.size)} — raw clips must be under ${mb(RAW_MAX)}.`;
+    if (file.type && !RAW_MIMES.has(file.type)) return `${file.name}: raw clips must be .mp4, .mov, or .webm (got ${file.type}).`;
+  } else if (kind === 'broll') {
+    if (file.size > RAW_MAX) return `${file.name} is ${mb(file.size)} — b-roll must be under ${mb(RAW_MAX)}.`;
+    if (file.type && !BROLL_MIMES.has(file.type)) return `${file.name}: b-roll must be video or image (got ${file.type}).`;
+  } else if (kind === 'product') {
+    if (file.size > IMAGE_MAX) return `${file.name} is ${mb(file.size)} — product images must be under ${mb(IMAGE_MAX)}.`;
+    if (file.type && !IMAGE_MIMES.has(file.type)) return `${file.name}: product must be a jpeg/png/webp image (got ${file.type}).`;
+  } else if (kind === 'music') {
+    if (file.size > MUSIC_MAX) return `${file.name} is ${mb(file.size)} — music files must be under ${mb(MUSIC_MAX)}.`;
+    if (file.type && !MUSIC_MIMES.has(file.type)) return `${file.name}: music must be mp3/wav/m4a (got ${file.type}).`;
+  }
+  return null;
+}
+
 const MODES: { id: Mode; name: string; desc: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { id: 'quick', name: 'Quick Edit', desc: 'Trim long silences. Straight cut concat. No captions.', icon: Zap },
   { id: 'hook', name: 'Hook-Focused', desc: 'Big yellow hook caption in first 3s, jump cuts, burned captions.', icon: Target },
@@ -31,6 +77,29 @@ export default function NewEditJobPage() {
 
   async function handleSubmit() {
     if (rawFiles.length === 0) { setStatus('Please upload at least one raw footage file.'); return; }
+
+    // Client-side validation — fail fast before we hit storage.
+    const allPairs: Array<{ kind: 'raw' | 'broll' | 'product' | 'music'; file: File }> = [
+      ...rawFiles.map((f) => ({ kind: 'raw' as const, file: f })),
+      ...brollFiles.map((f) => ({ kind: 'broll' as const, file: f })),
+    ];
+    if (productFile) allPairs.push({ kind: 'product', file: productFile });
+    if (musicFile) allPairs.push({ kind: 'music', file: musicFile });
+
+    for (const p of allPairs) {
+      const err = validateFile(p.file, p.kind);
+      if (err) { setStatus(err); return; }
+    }
+
+    // Duration warning (non-blocking) for long raw clips.
+    for (const f of rawFiles) {
+      const dur = await probeDurationSeconds(f);
+      if (dur && dur > 300) {
+        setStatus(`Heads up: "${f.name}" is ${Math.round(dur)}s — clips over 5 minutes may take a while to process or fail. Consider trimming first.`);
+        break;
+      }
+    }
+
     setSubmitting(true);
     setStatus('Creating job…');
     try {

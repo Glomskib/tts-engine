@@ -7,6 +7,11 @@
     "app/api/content-items/[id]/analyze/route.ts": {
       "maxDuration": 300,
       "memory": 1024
+    },
+    "app/api/inngest/route.ts": {
+      "maxDuration": 300,
+      "memory": 3008,
+      "includeFiles": "node_modules/ffmpeg-static/**"
     }
   },
   "crons": [
@@ -165,6 +170,18 @@
     {
       "path": "/api/cron/weekly-summaries",
       "schedule": "30 18 * * 1"
+    },
+    {
+      "path": "/api/cron/reset-monthly-credits",
+      "schedule": "0 3 1 * *"
+    },
+    {
+      "path": "/api/cron/expire-past-due",
+      "schedule": "0 4 * * *"
+    },
+    {
+      "path": "/api/cron/editor-cleanup",
+      "schedule": "*/15 * * * *"
     }
   ]
 }

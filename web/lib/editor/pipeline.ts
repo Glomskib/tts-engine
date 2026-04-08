@@ -249,6 +249,37 @@ async function setStatus(jobId: string, status: string, extra: Record<string, un
 
 // ---------- main pipeline ----------
 
+/**
+ * Convert a raw error into a human-friendly, actionable message.
+ * Used by both the sync path and the Inngest function so failures always
+ * surface a concrete next action instead of a stack trace.
+ */
+export function humanizeEditJobError(err: unknown): string {
+  const raw = err instanceof Error ? err.message : String(err);
+  if (/OPENAI_API_KEY/i.test(raw)) {
+    return 'Transcription is unavailable because OPENAI_API_KEY is not set. Contact support or set the key in environment settings.';
+  }
+  if (/file too large|413|Maximum content size|25\s*MB|payload/i.test(raw)) {
+    return 'Audio extracted from this clip is larger than Whisper\'s 25 MB limit. Try a shorter clip or trim before uploading.';
+  }
+  if (/No raw footage/i.test(raw)) {
+    return 'No raw footage attached to this job. Upload at least one .mp4 or .mov clip and try again.';
+  }
+  if (/Silence trim produced no usable segments/i.test(raw)) {
+    return 'Silence detection removed the entire clip. Try a different edit mode or a longer clip with clearer audio.';
+  }
+  if (/ffmpeg exited/i.test(raw)) {
+    return `ffmpeg failed while processing the video. The clip may be corrupted or use an unsupported codec. (${raw.slice(-200)})`;
+  }
+  if (/Download failed|Upload failed/i.test(raw)) {
+    return `Storage transfer failed: ${raw}. Try again in a moment.`;
+  }
+  if (/not found/i.test(raw) && /Job/i.test(raw)) {
+    return 'Job record was deleted before processing could start.';
+  }
+  return raw.length > 400 ? raw.slice(0, 400) + '…' : raw;
+}
+
 export async function processEditJob(jobId: string): Promise<void> {
   // Load job
   const { data: job, error: jobErr } = await supabaseAdmin
@@ -282,7 +313,7 @@ export async function processEditJob(jobId: string): Promise<void> {
     }
 
     // 2. Transcribe (transcribe first raw for now — combining audio is overkill for MVP)
-    await setStatus(jobId, 'transcribing');
+    await setStatus(jobId, 'transcribing', { started_at: new Date().toISOString() });
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const primary = localRaws[0];
 
@@ -458,6 +489,7 @@ export async function processEditJob(jobId: string): Promise<void> {
         output_url: publicUrl,
         preview_url: publicUrl,
         error: null,
+        finished_at: new Date().toISOString(),
       })
       .eq('id', jobId);
   } finally {

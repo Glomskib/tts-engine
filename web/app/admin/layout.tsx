@@ -14,6 +14,7 @@ import { MobileNavSheet } from '@/components/MobileNavSheet';
 import { ToastProvider } from '@/contexts/ToastContext';
 import { UpgradeModalProvider } from '@/contexts/UpgradeModalContext';
 import { UpgradeModal } from '@/components/UpgradeModal';
+import { FirstWinBanner } from '@/components/FirstWinBanner';
 import { OfflineIndicator } from '@/components/ui/OfflineIndicator';
 import { MobileTestChecklist } from '@/components/dev/MobileTestChecklist';
 import { ErrorBoundary } from '@/components/ui/ErrorBoundary';
@@ -510,6 +511,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               )}
               <LowCreditBanner className="mb-4" />
               <ReferralPromptBanner />
+              <div className="px-4"><FirstWinBanner /></div>
               <ErrorBoundary>{children}</ErrorBoundary>
             </div>
           </main>
@@ -642,6 +644,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
               )}
               <LowCreditBanner className="mb-6" />
               <ReferralPromptBanner />
+              <FirstWinBanner />
               <ErrorBoundary>{children}</ErrorBoundary>
             </div>
           </main>

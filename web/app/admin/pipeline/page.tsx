@@ -28,9 +28,11 @@ import type { BoardFilters } from './types';
 import { getVideoDisplayTitle } from './types';
 import { getStatusConfig as getStatusConfigCentral, formatStatusLabel, RECORDING_STATUSES as RECORDING_STATUSES_CENTRAL } from '@/lib/status';
 import { PipelineSummaryBar } from '@/components/PipelineSummaryBar';
+import { PIPELINE_LEGEND } from '@/lib/pipeline/status';
 import { getNextAction as getNextActionCentral } from '@/lib/nextAction';
 import { getUIStage, type UIStage } from '@/lib/ui/stages';
 import { StageEmptyState } from '@/components/ui/StageEmptyState';
+import { ReferralProgressBanner } from '@/components/ReferralProgressBanner';
 import { PipelineWorkModeSwitcher, filterVideosByWorkMode, computeModeCounts, getWorkModeSummary, type WorkMode } from '@/components/PipelineWorkModeSwitcher';
 import { useSearchParams, usePathname } from 'next/navigation';
 import { buildRecordingPack, formatRecordingPacksBatch, type RecordingPackVideo } from '@/lib/packs/buildRecordingPack';
@@ -1735,6 +1737,67 @@ function AdminPipelinePageInner() {
     }
   }, [activeRecordingTab, claimedFilter, activeRoleTab, myWorkOnly, activeUser, adminEnabled, fetchQueueVideos]);
 
+  // Keyboard shortcuts for pipeline — MUST be declared before any early returns
+  // to keep hook order stable (React error #310 fix).
+  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
+  const [recordingSessionOpen, setRecordingSessionOpen] = useState(false);
+  const [editingSessionOpen, setEditingSessionOpen] = useState(false);
+
+  const pipelineShortcutDefs = useMemo(() => [
+    { key: 'j', description: 'Next video (open drawer)' },
+    { key: 'k', description: 'Previous video' },
+    { key: '/', description: 'Focus search' },
+    { key: 'Escape', description: 'Close drawer / modal' },
+    { key: '?', description: 'Toggle shortcuts help' },
+  ], []);
+
+  useKeyboardShortcuts([
+    {
+      key: 'j',
+      handler: () => {
+        const videos = getIntentFilteredVideos();
+        if (videos.length === 0) return;
+        const currentIdx = drawerVideo ? videos.findIndex(v => v.id === drawerVideo.id) : -1;
+        const nextIdx = currentIdx < videos.length - 1 ? currentIdx + 1 : 0;
+        setDrawerVideo(videos[nextIdx]);
+      },
+      description: 'Next video',
+    },
+    {
+      key: 'k',
+      handler: () => {
+        const videos = getIntentFilteredVideos();
+        if (videos.length === 0) return;
+        const currentIdx = drawerVideo ? videos.findIndex(v => v.id === drawerVideo.id) : 0;
+        const prevIdx = currentIdx > 0 ? currentIdx - 1 : videos.length - 1;
+        setDrawerVideo(videos[prevIdx]);
+      },
+      description: 'Previous video',
+    },
+    {
+      key: '/',
+      handler: () => {
+        const searchInput = document.querySelector<HTMLInputElement>('input[placeholder="Search..."]');
+        if (searchInput) searchInput.focus();
+      },
+      description: 'Focus search',
+    },
+    {
+      key: 'Escape',
+      handler: () => {
+        if (showShortcutHelp) { setShowShortcutHelp(false); return; }
+        if (drawerVideo) setDrawerVideo(null);
+      },
+      description: 'Close drawer / modal',
+    },
+    {
+      key: '?',
+      handler: () => setShowShortcutHelp(prev => !prev),
+      description: 'Toggle shortcuts help',
+      modifiers: ['shift'],
+    },
+  ]);
+
   if (adminEnabled === null || authLoading) {
     return (
       <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -1962,66 +2025,6 @@ function AdminPipelinePageInner() {
     return groups;
   };
 
-  // Keyboard shortcuts for pipeline
-  const [showShortcutHelp, setShowShortcutHelp] = useState(false);
-  const [recordingSessionOpen, setRecordingSessionOpen] = useState(false);
-  const [editingSessionOpen, setEditingSessionOpen] = useState(false);
-
-  const pipelineShortcutDefs = useMemo(() => [
-    { key: 'j', description: 'Next video (open drawer)' },
-    { key: 'k', description: 'Previous video' },
-    { key: '/', description: 'Focus search' },
-    { key: 'Escape', description: 'Close drawer / modal' },
-    { key: '?', description: 'Toggle shortcuts help' },
-  ], []);
-
-  useKeyboardShortcuts([
-    {
-      key: 'j',
-      handler: () => {
-        const videos = getIntentFilteredVideos();
-        if (videos.length === 0) return;
-        const currentIdx = drawerVideo ? videos.findIndex(v => v.id === drawerVideo.id) : -1;
-        const nextIdx = currentIdx < videos.length - 1 ? currentIdx + 1 : 0;
-        setDrawerVideo(videos[nextIdx]);
-      },
-      description: 'Next video',
-    },
-    {
-      key: 'k',
-      handler: () => {
-        const videos = getIntentFilteredVideos();
-        if (videos.length === 0) return;
-        const currentIdx = drawerVideo ? videos.findIndex(v => v.id === drawerVideo.id) : 0;
-        const prevIdx = currentIdx > 0 ? currentIdx - 1 : videos.length - 1;
-        setDrawerVideo(videos[prevIdx]);
-      },
-      description: 'Previous video',
-    },
-    {
-      key: '/',
-      handler: () => {
-        const searchInput = document.querySelector<HTMLInputElement>('input[placeholder="Search..."]');
-        if (searchInput) searchInput.focus();
-      },
-      description: 'Focus search',
-    },
-    {
-      key: 'Escape',
-      handler: () => {
-        if (showShortcutHelp) { setShowShortcutHelp(false); return; }
-        if (drawerVideo) setDrawerVideo(null);
-      },
-      description: 'Close drawer / modal',
-    },
-    {
-      key: '?',
-      handler: () => setShowShortcutHelp(prev => !prev),
-      description: 'Toggle shortcuts help',
-      modifiers: ['shift'],
-    },
-  ]);
-
   return (
     <div style={{ padding: '24px', maxWidth: '1400px', margin: '0 auto' }}>
       {/* Keyboard Shortcut Help Modal */}
@@ -2033,6 +2036,9 @@ function AdminPipelinePageInner() {
       )}
       {/* Upsell Banner */}
       <UpsellBanner creditsRemaining={creditsInfo?.remaining} />
+
+      {/* Growth: Referral progress banner */}
+      <ReferralProgressBanner />
 
       {/* Incident Mode Banner */}
       <IncidentBanner />
@@ -2052,6 +2058,21 @@ function AdminPipelinePageInner() {
           </a>
         );
       })()}
+
+      {/* Phase 3: Simplified status legend */}
+      <div className="mb-3 flex flex-wrap items-center gap-2 text-[11px] text-zinc-400">
+        <span className="uppercase tracking-wide font-semibold text-zinc-500">Statuses:</span>
+        {PIPELINE_LEGEND.map((s) => (
+          <span
+            key={s.key}
+            title={s.explanation}
+            className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full border ${s.color}`}
+          >
+            <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+            {s.label}
+          </span>
+        ))}
+      </div>
 
       {/* Pipeline Intelligence Header */}
       <PipelineSummaryBar videos={queueVideos} />

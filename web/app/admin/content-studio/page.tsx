@@ -200,6 +200,19 @@ interface AIScore {
   improvements: string[];
 }
 
+interface PainPointAddressed {
+  pain_point: string;
+  addressed_in: string;
+  how: string;
+}
+
+interface ScriptScoreBreakdown {
+  hook_strength: number;
+  emotional_trigger: number;
+  format_match: number;
+  total: number;
+}
+
 interface SkitVariation {
   skit: SkitData;
   ai_score: AIScore | null;
@@ -208,6 +221,10 @@ interface SkitVariation {
   risk_flags?: string[];
   variation_angle?: string;
   pain_points_covered?: string[];
+  // Phase 3
+  pain_points_addressed?: PainPointAddressed[];
+  winners_referenced?: string[];
+  script_score?: ScriptScoreBreakdown;
 }
 
 interface GenerationResult {
@@ -240,6 +257,10 @@ interface GenerationResult {
     level: 'high' | 'medium' | 'low';
     reason: string;
   } | null;
+  // Phase 3 script quality metadata (legacy top-level mirror)
+  pain_points_addressed?: PainPointAddressed[];
+  winners_referenced?: string[];
+  script_score?: ScriptScoreBreakdown;
 }
 
 type RiskTier = 'SAFE' | 'BALANCED' | 'SPICY';
@@ -1413,6 +1434,9 @@ export default function ContentStudioPage() {
         },
         ai_score: result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score,
         strategy_metadata: result.strategy_metadata || null,
+        pain_points_addressed: (result.variations?.[selectedVariationIndex]?.pain_points_addressed || result.pain_points_addressed) ?? null,
+        winners_referenced: (result.variations?.[selectedVariationIndex]?.winners_referenced || result.winners_referenced) ?? null,
+        script_score: (result.variations?.[selectedVariationIndex]?.script_score || result.script_score) ?? null,
       });
 
       if (!isApiError(response)) {
@@ -1488,6 +1512,9 @@ export default function ContentStudioPage() {
             risk_tier: riskTier,
           },
           strategy_metadata: result.strategy_metadata || null,
+        pain_points_addressed: (result.variations?.[selectedVariationIndex]?.pain_points_addressed || result.pain_points_addressed) ?? null,
+        winners_referenced: (result.variations?.[selectedVariationIndex]?.winners_referenced || result.winners_referenced) ?? null,
+        script_score: (result.variations?.[selectedVariationIndex]?.script_score || result.script_score) ?? null,
         },
       });
       if (!isApiError(res)) {
@@ -1597,6 +1624,9 @@ export default function ContentStudioPage() {
         },
         ai_score: result.variations?.[selectedVariationIndex]?.ai_score || result.ai_score || undefined,
         strategy_metadata: result.strategy_metadata || null,
+        pain_points_addressed: (result.variations?.[selectedVariationIndex]?.pain_points_addressed || result.pain_points_addressed) ?? null,
+        winners_referenced: (result.variations?.[selectedVariationIndex]?.winners_referenced || result.winners_referenced) ?? null,
+        script_score: (result.variations?.[selectedVariationIndex]?.script_score || result.script_score) ?? null,
       });
 
       if (isApiError(saveRes)) {
@@ -1692,6 +1722,9 @@ export default function ContentStudioPage() {
         },
         ai_score: result.variations![variationIndex]?.ai_score || null,
         strategy_metadata: result.strategy_metadata || null,
+        pain_points_addressed: (result.variations?.[selectedVariationIndex]?.pain_points_addressed || result.pain_points_addressed) ?? null,
+        winners_referenced: (result.variations?.[selectedVariationIndex]?.winners_referenced || result.winners_referenced) ?? null,
+        script_score: (result.variations?.[selectedVariationIndex]?.script_score || result.script_score) ?? null,
       });
 
       if (!isApiError(res)) {
@@ -1735,6 +1768,9 @@ export default function ContentStudioPage() {
         },
         ai_score: result.variations![variationIndex]?.ai_score || null,
         strategy_metadata: result.strategy_metadata || null,
+        pain_points_addressed: (result.variations?.[selectedVariationIndex]?.pain_points_addressed || result.pain_points_addressed) ?? null,
+        winners_referenced: (result.variations?.[selectedVariationIndex]?.winners_referenced || result.winners_referenced) ?? null,
+        script_score: (result.variations?.[selectedVariationIndex]?.script_score || result.script_score) ?? null,
       });
 
       if (isApiError(saveRes)) throw new Error(saveRes.message || 'Failed to save');
@@ -3799,6 +3835,61 @@ export default function ContentStudioPage() {
                   </div>
                 </div>
               )}
+
+              {/* Phase 3: Pain-point targets + winners badge + deterministic score */}
+              {(() => {
+                const v = result.variations?.[selectedVariationIndex];
+                const painTargets = v?.pain_points_addressed || result.pain_points_addressed || [];
+                const winnersRef = v?.winners_referenced || result.winners_referenced || [];
+                const sScore = v?.script_score || result.script_score;
+                if (!painTargets.length && !winnersRef.length && !sScore) return null;
+                return (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                    {painTargets.length > 0 && (
+                      <div style={{
+                        display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '6px',
+                        padding: '8px 12px', borderRadius: '10px',
+                        backgroundColor: 'rgba(20, 184, 166, 0.08)',
+                        border: '1px solid rgba(20, 184, 166, 0.25)',
+                      }}>
+                        <span style={{ fontSize: '11px', fontWeight: 600, color: '#5eead4', textTransform: 'uppercase' }}>
+                          🎯 This script targets:
+                        </span>
+                        {painTargets.map((p, i) => (
+                          <span key={i} title={`${p.addressed_in ? `[${p.addressed_in}] ` : ''}${p.how || ''}`}
+                                style={{
+                                  padding: '3px 8px', borderRadius: '999px', fontSize: '11px',
+                                  backgroundColor: 'rgba(20, 184, 166, 0.15)', color: '#5eead4',
+                                  border: '1px solid rgba(20, 184, 166, 0.3)', cursor: 'help',
+                                }}>
+                            {p.pain_point}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    {winnersRef.length > 0 && (
+                      <Link href="/admin/winners-bank" style={{
+                        padding: '6px 10px', borderRadius: '10px', fontSize: '11px',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)', color: '#c4b5fd',
+                        border: '1px solid rgba(168, 85, 247, 0.3)',
+                        textDecoration: 'none', fontWeight: 500,
+                      }}>
+                        ✨ Based on {winnersRef.length} winning pattern{winnersRef.length === 1 ? '' : 's'}
+                      </Link>
+                    )}
+                    {sScore && (
+                      <span title={`Hook ${sScore.hook_strength}/30 · Emotional ${sScore.emotional_trigger}/30 · Format ${sScore.format_match}/40`}
+                            style={{
+                              padding: '6px 10px', borderRadius: '10px', fontSize: '11px',
+                              backgroundColor: 'rgba(59, 130, 246, 0.1)', color: '#93c5fd',
+                              border: '1px solid rgba(59, 130, 246, 0.3)', fontWeight: 600, cursor: 'help',
+                            }}>
+                        Score {sScore.total}/100
+                      </span>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Clawbot Strategy Card — collapsible */}
               {result.strategy_metadata && (

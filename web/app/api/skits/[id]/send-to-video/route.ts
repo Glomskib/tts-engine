@@ -7,6 +7,7 @@ import { createImageToVideo, createTextToVideo } from "@/lib/runway";
 import { buildRunwayPrompt } from "@/lib/runway-prompt-builder";
 import { logVideoActivity } from "@/lib/videoActivity";
 import { z } from "zod";
+import { checkDailyLimit, incrementUsage } from "@/lib/usage/dailyUsage";
 
 export const runtime = "nodejs";
 
@@ -38,6 +39,21 @@ export async function POST(
 
   if (!skitId || skitId.trim() === "") {
     return createApiErrorResponse("BAD_REQUEST", "Skit ID is required", 400, correlationId);
+  }
+
+  // Phase 3: enforce daily pipeline limit for free plan
+  const dailyCheck = await checkDailyLimit(authContext.user.id, authContext.isAdmin, 'pipeline_items');
+  if (!dailyCheck.allowed) {
+    return NextResponse.json({
+      ok: false,
+      error_code: 'DAILY_LIMIT_REACHED',
+      error: `You've hit today's limit of ${dailyCheck.limit} pipeline items on the ${dailyCheck.plan} plan.`,
+      upgrade: true,
+      headline: 'Your pipeline is filling up.',
+      subtext: 'Upgrade to push more scripts into production every day.',
+      feature: 'pipeline_items',
+      correlation_id: correlationId,
+    }, { status: 429 });
   }
 
   // Parse optional input
@@ -349,6 +365,11 @@ export async function POST(
         console.error(`[${correlationId}] Runway auto-render failed (non-blocking):`, renderErr);
       }
     }
+
+    // Phase 3: increment daily pipeline usage (fire-and-forget)
+    incrementUsage(authContext.user.id, 'pipeline_items').catch((e) =>
+      console.error(`[${correlationId}] incrementUsage failed:`, e)
+    );
 
     const response = NextResponse.json({
       ok: true,

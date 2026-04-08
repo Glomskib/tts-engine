@@ -70,6 +70,19 @@ const SaveSkitInputSchema = z.object({
   user_rating: z.number().int().min(1).max(5).optional(),
   ai_score: AIScoreSchema.nullable(),
   strategy_metadata: z.record(z.string(), z.unknown()).nullable().optional(),
+  // Phase 3 script quality metadata
+  pain_points_addressed: z.array(z.object({
+    pain_point: z.string(),
+    addressed_in: z.string(),
+    how: z.string(),
+  })).nullable().optional(),
+  winners_referenced: z.array(z.string()).nullable().optional(),
+  script_score: z.object({
+    hook_strength: z.number(),
+    emotional_trigger: z.number(),
+    format_match: z.number(),
+    total: z.number(),
+  }).nullable().optional(),
 });
 
 type SaveSkitInput = z.infer<typeof SaveSkitInputSchema>;
@@ -116,6 +129,9 @@ export async function POST(request: Request) {
         user_rating: input.user_rating || null,
         ai_score: input.ai_score || null,
         strategy_metadata: input.strategy_metadata || null,
+        pain_points_addressed: input.pain_points_addressed ?? null,
+        winners_referenced: input.winners_referenced ?? null,
+        script_score: input.script_score ?? null,
         user_id: authContext.user.id,
       })
       .select("id, title, status, created_at")

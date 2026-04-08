@@ -47,6 +47,8 @@ import {
   buildBrandContextPrompt,
 } from "@/lib/ai/brandContext";
 import { buildPainPointsPrompt } from "@/lib/ai/productContext";
+import { checkDailyLimit, incrementUsage } from "@/lib/usage/dailyUsage";
+import { scoreScript } from "@/lib/scoring/scriptScore";
 import {
   getOutputFormatConfig,
   HUMAN_VOICE_INSTRUCTIONS,
@@ -1068,6 +1070,21 @@ export async function POST(request: Request) {
   );
   if (rateLimitResponse) return rateLimitResponse;
 
+  // Phase 3: soft daily limit by plan tier (free = 10 scripts/day)
+  const dailyCheck = await checkDailyLimit(authContext.user.id, authContext.isAdmin, 'scripts_generated');
+  if (!dailyCheck.allowed) {
+    return NextResponse.json({
+      ok: false,
+      error_code: 'DAILY_LIMIT_REACHED',
+      error: `You've hit today's limit of ${dailyCheck.limit} scripts on the ${dailyCheck.plan} plan.`,
+      upgrade: true,
+      headline: "You're getting traction.",
+      subtext: 'Upgrade to keep scaling — unlimited scripts, winners bank, and the production board.',
+      feature: 'scripts_generated',
+      correlation_id: correlationId,
+    }, { status: 429 });
+  }
+
   // Admin bypass: Admins don't need credits
   let creditResult: { success: boolean; credits_remaining: number }[] | null = null;
   if (!authContext.isAdmin) {
@@ -1561,9 +1578,17 @@ export async function POST(request: Request) {
       return createApiErrorResponse("AI_ERROR", "Failed to generate any skit variations", 500, correlationId);
     }
 
+    // Phase 3: winner IDs actually referenced in the prompt (for audit + UI badge)
+    const winnersReferenced: string[] = [
+      ...(winnerVariation ? [winnerVariation.id] : []),
+      ...((winnersIntelligence?.winners || []).slice(0, 5).map(w => w.id)),
+    ];
+
     // Post-process and score all variations in parallel
     const processedVariations = await Promise.all(
       successfulVariations.map(async (rawSkit, idx) => {
+        const painPointsAddressed =
+          (rawSkit as Skit & { pain_points_addressed?: unknown }).pain_points_addressed;
         const processed = postProcessSkit(rawSkit, input.risk_tier);
 
         // Validate against template if used
@@ -1580,6 +1605,9 @@ export async function POST(request: Request) {
           console.error(`[${correlationId}] Variation ${idx} scoring failed:`, scoreError);
         }
 
+        // Phase 3: deterministic script score (no LLM cost)
+        const scriptScore = scoreScript(processed.skit);
+
         return {
           skit: processed.skit,
           ai_score: aiScore,
@@ -1587,6 +1615,10 @@ export async function POST(request: Request) {
           risk_score: processed.riskScore,
           risk_flags: processed.riskFlags,
           template_validation: templateValidation,
+          // Phase 3 additions
+          pain_points_addressed: Array.isArray(painPointsAddressed) ? painPointsAddressed : [],
+          winners_referenced: winnersReferenced,
+          script_score: scriptScore,
         };
       })
     );
@@ -1657,7 +1689,15 @@ export async function POST(request: Request) {
       risk_score: sortedVariations[0].risk_score,
       risk_flags: sortedVariations[0].risk_flags,
       template_validation: sortedVariations[0].template_validation,
+      pain_points_addressed: sortedVariations[0].pain_points_addressed,
+      winners_referenced: sortedVariations[0].winners_referenced,
+      script_score: sortedVariations[0].script_score,
     };
+
+    // Phase 3: increment daily usage (fire-and-forget)
+    incrementUsage(authContext.user.id, 'scripts_generated').catch((e) =>
+      console.error(`[${correlationId}] incrementUsage failed:`, e)
+    );
 
     // Include diagnostics only in debug mode
     if (debugMode) {
@@ -1851,6 +1891,22 @@ ${formatConfig.structureTemplate}
 
 ${BROLL_INSTRUCTIONS}
 
+=== PAIN POINT REFLECTION (REQUIRED) ===
+You MUST explicitly address EACH of the pain points listed above (user-selected pain points
+and/or product pain points). Each pain point must be woven into the HOOK, BODY, or CTA —
+not merely implied. In your JSON output, include a top-level key "pain_points_addressed"
+that is an array, one entry per pain point you addressed, shaped like:
+  {
+    "pain_point": "<the pain point, in a short phrase>",
+    "addressed_in": "hook" | "body" | "cta",
+    "how": "<one sentence describing how this specific pain point is addressed>"
+  }
+If no pain points were provided, return an empty array for "pain_points_addressed".
+
+=== WINNING PATTERNS (IF PROVIDED) ===
+If winning scripts were provided above, emulate their STRUCTURE, ENERGY, and EMOTIONAL TRIGGERS
+— do not copy their exact words. Write fresh content that lands the same way.
+
 Generate a creative, compliant script now. Output ONLY valid JSON, no explanation.`;
 }
 
@@ -1942,7 +1998,8 @@ Make this skit DISTINCTLY DIFFERENT from other variations - don't just change wo
       return null;
     }
 
-    return parsed as Skit;
+    // Phase 3: keep pain_points_addressed on the object if the model returned it
+    return parsed as Skit & { pain_points_addressed?: Array<{ pain_point: string; addressed_in: string; how: string }> };
   } catch (parseErr) {
     console.error(`[${correlationId}] Failed to parse variation ${variationIndex}:`, parseErr);
     console.error(`[${correlationId}] Raw content (first 500 chars):`, content.slice(0, 500));

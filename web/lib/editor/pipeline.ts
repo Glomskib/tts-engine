@@ -261,7 +261,7 @@ export async function ensureEditJobsBucket(): Promise<void> {
 // ---------- job status updater ----------
 
 async function setStatus(jobId: string, status: string, extra: Record<string, unknown> = {}) {
-  await supabaseAdmin.from('edit_jobs').update({ status, ...extra }).eq('id', jobId);
+  await supabaseAdmin.from('ai_edit_jobs').update({ status, ...extra }).eq('id', jobId);
 }
 
 // ---------- main pipeline ----------
@@ -309,7 +309,7 @@ export async function processEditJob(
   const isPaid = options.isPaid === true;
   // Load job
   const { data: job, error: jobErr } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .select('*')
     .eq('id', jobId)
     .single();
@@ -375,7 +375,7 @@ export async function processEditJob(
       segments: (tResp.segments ?? []).map((s: any) => ({ start: s.start, end: s.end, text: s.text })),
     };
 
-    await supabaseAdmin.from('edit_jobs').update({ transcript }).eq('id', jobId);
+    await supabaseAdmin.from('ai_edit_jobs').update({ transcript }).eq('id', jobId);
 
     // 3. Build timeline
     await setStatus(jobId, 'building_timeline');
@@ -538,7 +538,7 @@ export async function processEditJob(
     const publicUrl = await uploadToStorage(outputPath, currentFile, 'video/mp4');
 
     await supabaseAdmin
-      .from('edit_jobs')
+      .from('ai_edit_jobs')
       .update({
         status: 'completed',
         output_url: publicUrl,

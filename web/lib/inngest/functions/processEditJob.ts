@@ -6,7 +6,7 @@
  *
  * Retries: step.run gives us automatic retries for transient failures.
  * Terminal failures (missing key, bad codec, etc.) are caught and written
- * to `edit_jobs.error` as a human-readable sentence via humanizeEditJobError.
+ * to `ai_edit_jobs.error` as a human-readable sentence via humanizeEditJobError.
  */
 import { inngest } from '../client';
 import { processEditJob, humanizeEditJobError } from '@/lib/editor/pipeline';
@@ -45,7 +45,7 @@ export const processEditJobFn = inngest.createFunction(
       const message = humanizeEditJobError(err);
       logger.error('Edit pipeline failed', { jobId, message });
       await supabaseAdmin
-        .from('edit_jobs')
+        .from('ai_edit_jobs')
         .update({
           status: 'failed',
           error: message,

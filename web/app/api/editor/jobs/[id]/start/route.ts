@@ -23,7 +23,7 @@ export async function POST(
   const { id } = await params;
 
   const { data: job, error: jobErr } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .select('id,user_id,assets,status')
     .eq('id', id)
     .eq('user_id', auth.user.id)
@@ -76,7 +76,7 @@ export async function POST(
   }
 
   await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .update({ status: 'queued', error: null, started_at: null, finished_at: null })
     .eq('id', id);
 

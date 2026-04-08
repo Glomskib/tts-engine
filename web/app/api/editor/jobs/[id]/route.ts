@@ -16,7 +16,7 @@ export async function GET(
   const { id } = await params;
 
   const { data, error } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .select('*')
     .eq('id', id)
     .eq('user_id', auth.user.id)

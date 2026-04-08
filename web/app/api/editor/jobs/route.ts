@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   });
 
   const { data, error } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .insert({
       user_id: auth.user.id,
       title,
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
   if (!auth.user) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
 
   const { data, error } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .select('id,title,mode,status,error,output_url,preview_url,created_at,updated_at')
     .eq('user_id', auth.user.id)
     .order('created_at', { ascending: false })

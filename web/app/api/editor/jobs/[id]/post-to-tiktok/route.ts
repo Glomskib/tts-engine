@@ -25,7 +25,7 @@ export async function POST(
   const { id } = await params;
 
   const { data: job, error } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .select('id,user_id,status,output_url')
     .eq('id', id)
     .eq('user_id', auth.user.id)

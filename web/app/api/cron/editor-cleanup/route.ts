@@ -38,7 +38,7 @@ export async function GET(request: Request) {
 
   // --- 1. Timeout sweep ---
   const { data: stuck, error: stuckErr } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .select('id')
     .in('status', ACTIVE_STATUSES)
     .lt('started_at', timeoutCutoff);
@@ -47,7 +47,7 @@ export async function GET(request: Request) {
   if (!stuckErr && stuck) {
     for (const row of stuck) {
       await supabaseAdmin
-        .from('edit_jobs')
+        .from('ai_edit_jobs')
         .update({
           status: 'failed',
           error: 'Job timed out after 30 minutes. Try again with a shorter clip.',
@@ -60,7 +60,7 @@ export async function GET(request: Request) {
 
   // --- 2. Storage GC for old terminal jobs ---
   const { data: oldJobs } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .select('id,user_id,assets,output_url')
     .in('status', ['completed', 'failed'])
     .lt('updated_at', gcCutoff)
@@ -80,7 +80,7 @@ export async function GET(request: Request) {
     }
     // Clear assets + output_url from the row so we don't try again.
     await supabaseAdmin
-      .from('edit_jobs')
+      .from('ai_edit_jobs')
       .update({ assets: [], output_url: null, preview_url: null })
       .eq('id', job.id);
   }

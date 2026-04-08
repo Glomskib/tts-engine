@@ -119,7 +119,7 @@ export async function POST(request: Request) {
   // The job starts as `uploading` — it is NEVER persisted as `draft` without
   // assets attached — and is flipped to `queued` only after all uploads land.
   const { data: job, error: insertErr } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .insert({
       user_id: auth.user.id,
       title,
@@ -151,7 +151,7 @@ export async function POST(request: Request) {
       });
     if (upErr) {
       // Clean up the half-populated job so we don't leave empty drafts behind.
-      await supabaseAdmin.from('edit_jobs').delete().eq('id', jobId);
+      await supabaseAdmin.from('ai_edit_jobs').delete().eq('id', jobId);
       return NextResponse.json({ ok: false, error: `Upload failed for ${p.kind}: ${upErr.message}` }, { status: 500 });
     }
     uploadedAssets.push({ kind: p.kind, path: storagePath, name });
@@ -160,7 +160,7 @@ export async function POST(request: Request) {
   // Guarantee we actually wrote a raw asset.
   const hasRaw = uploadedAssets.some((a) => a.kind === 'raw');
   if (!hasRaw) {
-    await supabaseAdmin.from('edit_jobs').delete().eq('id', jobId);
+    await supabaseAdmin.from('ai_edit_jobs').delete().eq('id', jobId);
     return NextResponse.json({
       ok: false,
       error: 'No raw footage was uploaded — aborting job creation.',
@@ -169,7 +169,7 @@ export async function POST(request: Request) {
 
   // Flip to queued and persist the assets in a single update.
   const { error: updErr } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .update({
       assets: uploadedAssets,
       status: 'queued',

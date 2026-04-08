@@ -60,7 +60,7 @@ export async function POST(
 
   // Load source job
   const { data: source, error: srcErr } = await supabaseAdmin
-    .from('edit_jobs')
+    .from('ai_edit_jobs')
     .select('id,user_id,title,mode,mode_options,assets,script_id,status')
     .eq('id', id)
     .eq('user_id', auth.user.id)
@@ -104,7 +104,7 @@ export async function POST(
   const createdIds: string[] = [];
   for (const spec of specs) {
     const { data: inserted, error: insErr } = await supabaseAdmin
-      .from('edit_jobs')
+      .from('ai_edit_jobs')
       .insert({
         user_id: auth.user.id,
         title: `${source.title} — ${spec.label}`,

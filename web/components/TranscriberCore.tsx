@@ -1823,7 +1823,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                   <span className="text-lg font-semibold">Added to Winners Bank</span>
                 </div>
                 <Link
-                  href="/admin/winners"
+                  href="/admin/winners-bank"
                   className="text-green-400 hover:text-green-300 underline underline-offset-2 text-sm transition-colors"
                 >
                   View in your Winners Bank &rarr;

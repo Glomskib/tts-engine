@@ -145,7 +145,7 @@ export async function evaluateWinner(postId: string, workspaceId: string): Promi
     type: 'new_winner',
     title: 'New Winner Detected',
     message: `AI detected a winning post: ${evaluation.reasons[0] || 'meets winner criteria'}.`,
-    link: '/admin/winners',
+    link: '/admin/winners-bank',
   }).catch(() => {});
 
   return { id: winner.id };

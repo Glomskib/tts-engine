@@ -82,7 +82,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       '/admin/launch-sync': 'LaunchSync',
       '/admin/calendar': 'Content Planner',
       '/admin/posting-queue': 'Posting Queue',
-      '/admin/winners': 'Winners Bank',
+      '/admin/winners-bank': 'Winners Bank',
       '/admin/audience': 'Customer Archetypes',
       '/admin/demographics': 'Demographics',
       '/admin/winners/patterns': 'Patterns',
@@ -320,7 +320,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {/* Mobile Header - Simplified with proper overflow handling */}
           <header className="
             fixed top-0 left-0 right-0 h-14 z-40
-            bg-[var(--bg)] backdrop-blur-sm border-b border-[var(--border)]
+            bg-[var(--bg)] border-b border-[var(--border)]
             flex items-center justify-between px-3 gap-2
           ">
             <Link href="/admin" className="flex items-center gap-2 flex-shrink-0 min-w-0">
@@ -555,7 +555,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           </aside>
 
           {/* Desktop Header */}
-          <header className="fixed top-0 left-72 right-0 z-30 bg-[var(--bg)] backdrop-blur border-b border-[var(--border)]">
+          <header className="fixed top-0 left-72 right-0 z-30 bg-[var(--bg)] border-b border-[var(--border)]">
             <div className="flex items-center justify-end px-6 h-16">
               <div className="flex items-center gap-4">
                 {/* Search trigger */}

@@ -64,7 +64,7 @@ const PAGES: PageEntry[] = [
   { name: 'Content Studio', href: '/admin/content-studio', icon: Clapperboard, keywords: ['studio', 'compose', 'create', 'content'] },
   { name: 'Skit Library', href: '/admin/script-library', icon: BookOpen, keywords: ['scripts', 'skits', 'library', 'browse'] },
   { name: 'Products', href: '/admin/products', icon: Package, keywords: ['product', 'brand', 'catalog'] },
-  { name: 'Winners Bank', href: '/admin/winners', icon: Trophy, keywords: ['winners', 'bank', 'winning', 'hooks'] },
+  { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy, keywords: ['winners', 'bank', 'winning', 'hooks'] },
   { name: 'Audience', href: '/admin/audience', icon: Users, keywords: ['audience', 'persona', 'target', 'demographic'] },
   { name: 'Settings', href: '/admin/settings', icon: Settings, keywords: ['settings', 'config', 'preferences', 'account'] },
   { name: 'Posting Queue', href: '/admin/posting-queue', icon: CalendarClock, keywords: ['posting', 'queue', 'schedule', 'post'] },

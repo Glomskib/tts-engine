@@ -213,8 +213,21 @@ export async function POST(
     const isUgcShort = generationConfig?.content_type === "ugc_short";
     let renderTaskId: string | null = null;
     let renderProvider: string | null = null;
+    let renderSkipped = false;
+    let renderError: string | null = null;
 
-    if (isUgcShort && skitData.beats?.length > 0) {
+    // Phase 2: degraded mode — if Runway credentials are missing, skip the
+    // auto-render but still create the pipeline item successfully. The video
+    // is left in NOT_RECORDED so a human can pick it up.
+    const runwayCredsMissing = !process.env.RUNWAY_API_KEY;
+    if (isUgcShort && runwayCredsMissing) {
+      renderSkipped = true;
+      console.warn(
+        `[${correlationId}] Runway auto-render SKIPPED — RUNWAY_API_KEY missing. Video ${videoResult.data.video.id} created in NOT_RECORDED state for manual handling.`
+      );
+    }
+
+    if (isUgcShort && !runwayCredsMissing && skitData.beats?.length > 0) {
       try {
         // Fetch product details for image and name
         const { data: product } = await supabaseAdmin
@@ -330,7 +343,9 @@ export async function POST(
           }
         }
       } catch (renderErr) {
-        // Runway failure should NOT fail the send-to-video operation
+        // Runway failure should NOT fail the send-to-video operation.
+        // Pipeline item still exists; render error is reported separately.
+        renderError = renderErr instanceof Error ? renderErr.message : String(renderErr);
         console.error(`[${correlationId}] Runway auto-render failed (non-blocking):`, renderErr);
       }
     }
@@ -343,9 +358,15 @@ export async function POST(
         video_code: videoResult.data.video.video_code,
         render_task_id: renderTaskId,
         render_provider: renderProvider,
+        render_skipped: renderSkipped,
+        render_error: renderError,
         message: isUgcShort && renderTaskId
           ? "Skit sent to video queue — Runway render triggered"
-          : "Skit sent to video queue successfully",
+          : isUgcShort && renderSkipped
+            ? "Skit sent to video queue — Runway render skipped (credentials not configured)"
+            : isUgcShort && renderError
+              ? "Skit sent to video queue — Runway render failed (will need manual handling)"
+              : "Skit sent to video queue successfully",
       },
       correlation_id: correlationId,
     });

@@ -537,6 +537,27 @@ export default function VideoDetailPage() {
         <button onClick={fetchData} className={`${btnGhost} ml-auto`}>
           <RefreshCw className="w-3 h-3" />
         </button>
+        {linkedScript && videoDetail?.script_id && (
+          <button
+            onClick={async () => {
+              try {
+                const res = await fetch('/api/editor/jobs', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ title: linkedScript?.title ?? 'Edit', mode: 'quick', script_id: videoDetail?.script_id ?? null }),
+                });
+                if (res.ok) {
+                  const j = await res.json();
+                  window.location.href = `/admin/editor/new?job=${j.job.id}`;
+                }
+              } catch {}
+            }}
+            className={btnGhost}
+            title="Send to AI Video Editor"
+          >
+            Send to AI Video Editor
+          </button>
+        )}
       </div>
 
       {error && <MessageBanner type="error">{error}</MessageBanner>}

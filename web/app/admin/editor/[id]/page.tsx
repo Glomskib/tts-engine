@@ -1,0 +1,186 @@
+'use client';
+
+import { useEffect, useState, useCallback, use } from 'react';
+import Link from 'next/link';
+import AdminPageLayout from '../../components/AdminPageLayout';
+import { ArrowLeft, Download, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react';
+
+interface JobAsset { kind: string; path: string; name: string }
+interface Transcript { text?: string }
+interface Job {
+  id: string;
+  title: string;
+  mode: string;
+  status: string;
+  error: string | null;
+  output_url: string | null;
+  preview_url: string | null;
+  assets: JobAsset[];
+  transcript: Transcript | null;
+  created_at: string;
+  updated_at: string;
+}
+
+const TERMINAL = new Set(['completed', 'failed']);
+const STAGES = ['draft', 'uploading', 'transcribing', 'building_timeline', 'rendering', 'completed'];
+
+const STATUS_STYLES: Record<string, string> = {
+  draft: 'bg-zinc-800 text-zinc-300',
+  uploading: 'bg-blue-900/60 text-blue-200',
+  transcribing: 'bg-purple-900/60 text-purple-200',
+  building_timeline: 'bg-indigo-900/60 text-indigo-200',
+  rendering: 'bg-amber-900/60 text-amber-200',
+  completed: 'bg-green-900/60 text-green-200',
+  failed: 'bg-red-900/60 text-red-200',
+};
+
+export default function EditJobDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params);
+  const [job, setJob] = useState<Job | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [retrying, setRetrying] = useState(false);
+
+  const fetchJob = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/editor/jobs/${id}`, { cache: 'no-store' });
+      if (res.ok) {
+        const j = await res.json();
+        setJob(j.job);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => { fetchJob(); }, [fetchJob]);
+
+  useEffect(() => {
+    if (!job || TERMINAL.has(job.status)) return;
+    const t = setInterval(fetchJob, 3000);
+    return () => clearInterval(t);
+  }, [job, fetchJob]);
+
+  async function retry() {
+    setRetrying(true);
+    await fetch(`/api/editor/jobs/${id}/retry`, { method: 'POST' });
+    setRetrying(false);
+    fetchJob();
+  }
+
+  if (loading && !job) {
+    return <AdminPageLayout title="Edit Job"><div className="text-sm text-zinc-500">Loading…</div></AdminPageLayout>;
+  }
+  if (!job) {
+    return <AdminPageLayout title="Not found"><div className="text-sm text-zinc-500">Job not found.</div></AdminPageLayout>;
+  }
+
+  const stageIdx = STAGES.indexOf(job.status);
+
+  return (
+    <AdminPageLayout title={job.title} subtitle={`Mode: ${job.mode}`}>
+      <div className="mb-4 flex items-center gap-2">
+        <Link href="/admin/editor" className="inline-flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200">
+          <ArrowLeft className="w-4 h-4" /> Back
+        </Link>
+        <button
+          onClick={fetchJob}
+          className="ml-auto inline-flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200"
+        >
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
+        </button>
+      </div>
+
+      <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 mb-5">
+        <div className="flex items-center gap-3 mb-4">
+          <span className={`text-[11px] px-2 py-1 rounded-full uppercase tracking-wide ${STATUS_STYLES[job.status] ?? 'bg-zinc-800 text-zinc-300'}`}>
+            {job.status.replace(/_/g, ' ')}
+          </span>
+          <span className="text-xs text-zinc-500">Updated {new Date(job.updated_at).toLocaleString()}</span>
+        </div>
+
+        {/* State machine progress */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {STAGES.slice(0, -1).map((s, i) => (
+            <div key={s} className="flex items-center gap-2">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] ${i <= stageIdx && job.status !== 'failed' ? 'bg-teal-600 text-white' : job.status === 'failed' && i < stageIdx ? 'bg-red-700 text-white' : 'bg-zinc-800 text-zinc-500'}`}>
+                {i + 1}
+              </div>
+              <span className="text-xs text-zinc-400 capitalize">{s.replace(/_/g, ' ')}</span>
+              {i < STAGES.length - 2 && <span className="text-zinc-700">→</span>}
+            </div>
+          ))}
+        </div>
+
+        {job.error && (
+          <div className="mt-4 rounded-lg bg-red-950/40 border border-red-900 p-3 text-sm text-red-200 flex items-start gap-2">
+            <AlertCircle className="w-4 h-4 mt-0.5 shrink-0" />
+            <div className="min-w-0">
+              <div className="font-medium">Job failed</div>
+              <div className="text-xs break-words">{job.error}</div>
+              <button
+                onClick={retry}
+                disabled={retrying}
+                className="mt-2 inline-flex items-center gap-1 rounded bg-red-800 hover:bg-red-700 px-3 py-1 text-xs text-white"
+              >
+                <RefreshCw className="w-3 h-3" /> {retrying ? 'Retrying…' : 'Retry'}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {job.status === 'completed' && job.output_url && (
+        <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 mb-5">
+          <div className="font-medium text-zinc-100 mb-3">Preview</div>
+          <video
+            src={job.output_url}
+            controls
+            className="w-full max-w-sm mx-auto rounded-lg bg-black"
+          />
+          <div className="mt-4 flex gap-2 justify-center">
+            <a
+              href={job.output_url}
+              download
+              className="inline-flex items-center gap-2 rounded-lg bg-teal-600 hover:bg-teal-500 px-4 py-2 text-sm font-medium text-white"
+            >
+              <Download className="w-4 h-4" /> Download MP4
+            </a>
+            <a
+              href={job.output_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 px-4 py-2 text-sm text-zinc-200"
+            >
+              <ExternalLink className="w-4 h-4" /> Open in New Tab
+            </a>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 mb-5">
+        <div className="font-medium text-zinc-100 mb-3">Assets ({job.assets?.length ?? 0})</div>
+        {(!job.assets || job.assets.length === 0) ? (
+          <div className="text-sm text-zinc-500">No assets attached.</div>
+        ) : (
+          <ul className="space-y-1 text-sm">
+            {job.assets.map((a, i) => (
+              <li key={i} className="flex items-center gap-2 text-zinc-300">
+                <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">{a.kind}</span>
+                <span className="truncate">{a.name}</span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {job.transcript?.text && (
+        <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5">
+          <div className="font-medium text-zinc-100 mb-2">Transcript</div>
+          <div className="text-sm text-zinc-400 whitespace-pre-wrap max-h-64 overflow-auto">
+            {job.transcript.text}
+          </div>
+        </div>
+      )}
+    </AdminPageLayout>
+  );
+}

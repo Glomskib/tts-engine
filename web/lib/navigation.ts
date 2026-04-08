@@ -140,6 +140,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Content Items', href: '/admin/content-items', icon: ListTodo, subtitle: 'All content in one place', tourId: 'nav-content-items' },
       { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, subtitle: 'Schedule and plan ahead', minPlan: 'creator_pro', tourId: 'nav-content-planner' },
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, subtitle: 'Track progress across stages', minPlan: 'creator_pro', tourId: 'nav-pipeline' },
+      { name: 'AI Video Editor', href: '/admin/editor', icon: Clapperboard, subtitle: 'Upload footage → edited 9:16 MP4', badge: 'New' },
       { name: 'Footage Hub', href: '/admin/footage', icon: Film, subtitle: 'Upload and manage raw footage', minPlan: 'creator_pro' },
       { name: 'Drive Intake', href: '/admin/intake', icon: Download, subtitle: 'Import from Google Drive', minPlan: 'creator_pro' },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, subtitle: 'Ready to publish', minPlan: 'creator_pro', tourId: 'nav-posting-queue' },

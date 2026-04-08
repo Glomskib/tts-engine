@@ -70,10 +70,15 @@ export function useUpgradeModal() {
  */
 export function upgradePayloadToOpts(json: Record<string, unknown>) {
   const feature = typeof json.feature === 'string' ? json.feature : undefined;
-  const featureLabel = feature ? ` more ${feature}` : ' unlimited access';
-  return {
-    headline: "You're getting traction",
-    subtext: `Your free tier is full. Upgrade to unlock${featureLabel} and keep the momentum going.`,
-    feature,
-  };
+  // Prefer explicit headline/subtext from the API payload so each
+  // trigger can ship its own conversion-tuned copy.
+  const headline =
+    typeof json.headline === 'string' && json.headline.length > 0
+      ? json.headline
+      : "You're getting traction";
+  const subtext =
+    typeof json.subtext === 'string' && json.subtext.length > 0
+      ? json.subtext
+      : `Your free tier is full. Upgrade to unlock${feature ? ` more ${feature}` : ' unlimited access'} and keep the momentum going.`;
+  return { headline, subtext, feature };
 }

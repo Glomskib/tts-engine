@@ -9,7 +9,7 @@
 import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
-import { checkDailyLimit } from '@/lib/usage/dailyUsage';
+import { checkDailyLimit, incrementUsage } from '@/lib/usage/dailyUsage';
 import { inngest } from '@/lib/inngest/client';
 
 export const runtime = 'nodejs';
@@ -30,10 +30,28 @@ export async function POST(
     .single();
   if (jobErr || !job) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
 
-  const limit = await checkDailyLimit(auth.user.id, auth.isAdmin, 'renders');
-  if (!limit.allowed) {
+  if (process.env.NODE_ENV !== 'production' || process.env.EDITOR_DEBUG === '1') {
+    console.log('[editor]', { route: 'start', user_id: auth.user.id, job_id: id });
+  }
+
+  // Enforce both the legacy `renders` cap and the new `edits` cap — whichever
+  // trips first. `edits` is the Phase 3 monetization kind sourced from PLANS.
+  const [renderLimit, editLimit] = await Promise.all([
+    checkDailyLimit(auth.user.id, auth.isAdmin, 'renders'),
+    checkDailyLimit(auth.user.id, auth.isAdmin, 'edits'),
+  ]);
+  const blocked = !renderLimit.allowed ? renderLimit : !editLimit.allowed ? editLimit : null;
+  if (blocked) {
     return NextResponse.json(
-      { error: 'LIMIT_REACHED', upgrade: true, limit: limit.limit, used: limit.used },
+      {
+        error: 'LIMIT_REACHED',
+        upgrade: true,
+        feature: 'edits',
+        headline: "You've hit your daily limit. Upgrade to keep creating.",
+        subtext: `You used ${blocked.used} of ${blocked.limit} edits today. Unlock more on Creator ($29/mo).`,
+        limit: blocked.limit,
+        used: blocked.used,
+      },
       { status: 429 },
     );
   }
@@ -66,6 +84,12 @@ export async function POST(
     name: 'editor/job.process',
     data: { jobId: id, userId: auth.user.id },
   });
+
+  // Count this as both a render (legacy) and an edit (Phase 3).
+  await Promise.all([
+    incrementUsage(auth.user.id, 'renders').catch(() => {}),
+    incrementUsage(auth.user.id, 'edits').catch(() => {}),
+  ]);
 
   return NextResponse.json({ ok: true, queued: true });
 }

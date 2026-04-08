@@ -316,6 +316,14 @@ export async function processEditJob(
 
   if (jobErr || !job) throw new Error(`Job ${jobId} not found`);
 
+  if (process.env.NODE_ENV !== 'production' || process.env.EDITOR_DEBUG === '1') {
+    console.log('[editor]', {
+      route: 'pipeline.processEditJob',
+      user_id: job.user_id,
+      job_id: jobId,
+    });
+  }
+
   const mode = job.mode as EditMode;
   const modeOptions: EditModeOptions = (job.mode_options && typeof job.mode_options === 'object')
     ? (job.mode_options as EditModeOptions)

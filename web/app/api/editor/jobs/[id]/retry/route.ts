@@ -24,10 +24,15 @@ export async function POST(
     .single();
   if (jobErr || !job) return NextResponse.json({ error: 'NOT_FOUND' }, { status: 404 });
 
+  if (process.env.NODE_ENV !== 'production' || process.env.EDITOR_DEBUG === '1') {
+    console.log('[editor]', { route: 'retry', user_id: auth.user.id, job_id: id });
+  }
+
   await supabaseAdmin
     .from('edit_jobs')
     .update({ status: 'queued', error: null, started_at: null, finished_at: null })
-    .eq('id', id);
+    .eq('id', id)
+    .eq('user_id', auth.user.id);
 
   await inngest.send({
     name: 'editor/job.process',

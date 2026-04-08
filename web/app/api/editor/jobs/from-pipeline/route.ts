@@ -60,19 +60,31 @@ export async function POST(request: Request) {
   const musicFile = form.get('music');
 
   // Look up the pipeline item so we can stamp script_id onto the new job.
-  // The pipeline table is `videos`; we also accept the call if the id doesn't
-  // resolve but we still create the job (script_id null) because the user
-  // already has the footage selected and shouldn't be blocked.
+  // OWNERSHIP: we scope by client_user_id so a user cannot reference a
+  // pipeline row they do not own — even if they guessed its id. If the id
+  // doesn't resolve for the current user we still create the job (script_id
+  // null) because the user already has footage selected and shouldn't be
+  // blocked; we just refuse to copy any script linkage from a row that
+  // isn't theirs.
   let scriptId: string | null = null;
   try {
     const { data: video } = await supabaseAdmin
       .from('videos')
-      .select('id, script_id')
+      .select('id, script_id, client_user_id')
       .eq('id', pipelineId)
+      .eq('client_user_id', auth.user.id)
       .maybeSingle();
     if (video?.script_id) scriptId = video.script_id;
   } catch {
     // Non-fatal — we keep script_id null.
+  }
+
+  if (process.env.NODE_ENV !== 'production' || process.env.EDITOR_DEBUG === '1') {
+    console.log('[editor]', {
+      route: 'from-pipeline',
+      user_id: auth.user.id,
+      pipeline_id: pipelineId,
+    });
   }
 
   // Build the (kind, blob) pairs we intend to upload.

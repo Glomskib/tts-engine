@@ -75,7 +75,15 @@ export async function POST(
   const limit = await checkDailyLimit(auth.user.id, auth.isAdmin, 'variations');
   if (!limit.allowed) {
     return NextResponse.json(
-      { error: 'LIMIT_REACHED', upgrade: true, limit: limit.limit, used: limit.used },
+      {
+        error: 'LIMIT_REACHED',
+        upgrade: true,
+        feature: 'variations',
+        headline: 'Variations are how creators scale.',
+        subtext: 'Unlock unlimited variations on Creator ($29/mo).',
+        limit: limit.limit,
+        used: limit.used,
+      },
       { status: 429 },
     );
   }

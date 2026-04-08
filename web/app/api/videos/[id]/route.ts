@@ -100,6 +100,28 @@ export async function PATCH(
   const actor = authContext.user?.id || "api";
   const isAdmin = authContext.isAdmin;
 
+  // Ownership enforcement: non-admin callers may only mutate their own
+  // pipeline videos. Admins fall through so cross-user ops keep working.
+  if (!authContext.user) {
+    return createApiErrorResponse("UNAUTHORIZED", "Authentication required", 401, correlationId);
+  }
+  if (!isAdmin) {
+    const { data: ownerRow } = await supabaseAdmin
+      .from("videos")
+      .select("id, client_user_id")
+      .eq("id", id)
+      .maybeSingle();
+    if (!ownerRow) {
+      return createApiErrorResponse("NOT_FOUND", "Video not found", 404, correlationId, { video_id: id });
+    }
+    if (ownerRow.client_user_id && ownerRow.client_user_id !== authContext.user.id) {
+      return NextResponse.json(
+        { ok: false, error: "You do not have access to this resource." },
+        { status: 403 },
+      );
+    }
+  }
+
   // If status is changing, use the centralized transition function
   if (status !== undefined) {
     // Build additional updates for non-status fields

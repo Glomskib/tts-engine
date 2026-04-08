@@ -30,11 +30,14 @@ export async function POST(
     return createApiErrorResponse('NOT_FOUND', 'Hook not found', 404, correlationId);
   }
 
-  // Increment times_used
+  // Increment times_used — scope update by user_id defense-in-depth so
+  // even if the ownership check above ever drifts, we cannot mutate
+  // another user's row.
   const { data, error } = await supabaseAdmin
     .from('saved_hooks')
     .update({ times_used: (hook.times_used || 0) + 1 })
     .eq('id', id)
+    .eq('user_id', authContext.user.id)
     .select()
     .single();
 

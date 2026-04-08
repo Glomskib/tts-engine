@@ -1,0 +1,477 @@
+-- 20260427100000_ownership_rls_hardening.sql
+--
+-- Ownership + RLS hardening pass for the AI Video Editor + FlashFlow core
+-- tables.  This migration is strictly ADDITIVE — it does not drop or modify
+-- pre-existing policies.  It is safe to run repeatedly (idempotent) via
+-- DO-blocks that check pg_policies before CREATE POLICY.
+--
+-- Covers:
+--   * edit_jobs      — full CRUD ownership + same-owner parent_job_id trigger
+--   * daily_usage    — missing INSERT/UPDATE/DELETE policies
+--   * saved_skits    — confirms CRUD policies, adds them if absent
+--   * saved_hooks    — splits the FOR ALL "manage" policy into explicit
+--                      SELECT/INSERT/UPDATE/DELETE so policy auditing tools
+--                      see a complete set (additive — old policy stays)
+--   * winners_bank   — confirms CRUD policies, adds them if absent
+--   * videos         — adds strict client_user_id=auth.uid() policies for
+--                      INSERT/UPDATE/DELETE.  SELECT is already handled by
+--                      the API layer (admin client) and pre-existing policies
+--                      remain in place; we add an owner SELECT policy too.
+--   * storage.objects (bucket `edit-jobs`) — path-prefix ownership policies
+--
+-- Orphan cleanup (section at bottom):
+--   * edit_jobs with NULL user_id → deleted if no assets, otherwise marked
+--     'failed' with a clear error.  NEVER reassigns ownership.
+--   * saved_skits with NULL user_id → logged via RAISE NOTICE; the table
+--     declares user_id NOT NULL so there should be zero matches.
+
+-- =========================================================================
+-- 1) edit_jobs
+-- =========================================================================
+
+ALTER TABLE IF EXISTS public.edit_jobs ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  -- Explicit per-verb policies in addition to the existing "FOR ALL" policy.
+  -- Having both is fine: RLS takes the OR of matching permissive policies.
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'edit_jobs'
+      AND policyname = 'edit_jobs_select_own'
+  ) THEN
+    CREATE POLICY edit_jobs_select_own ON public.edit_jobs
+      FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'edit_jobs'
+      AND policyname = 'edit_jobs_insert_own'
+  ) THEN
+    CREATE POLICY edit_jobs_insert_own ON public.edit_jobs
+      FOR INSERT WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'edit_jobs'
+      AND policyname = 'edit_jobs_update_own'
+  ) THEN
+    CREATE POLICY edit_jobs_update_own ON public.edit_jobs
+      FOR UPDATE USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'edit_jobs'
+      AND policyname = 'edit_jobs_delete_own'
+  ) THEN
+    CREATE POLICY edit_jobs_delete_own ON public.edit_jobs
+      FOR DELETE USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- Same-owner parent_job_id trigger.  Prevents a user from pointing a
+-- variation job at a source job owned by someone else.
+CREATE OR REPLACE FUNCTION public.edit_jobs_enforce_parent_owner()
+RETURNS trigger
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  parent_owner uuid;
+BEGIN
+  IF NEW.parent_job_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT user_id INTO parent_owner
+  FROM public.edit_jobs
+  WHERE id = NEW.parent_job_id;
+
+  IF parent_owner IS NULL THEN
+    -- Parent was deleted (parent_job_id FK is ON DELETE SET NULL) — allow.
+    RETURN NEW;
+  END IF;
+
+  IF parent_owner <> NEW.user_id THEN
+    RAISE EXCEPTION
+      'edit_jobs.parent_job_id (%) is owned by a different user (%), cannot link from job owned by %',
+      NEW.parent_job_id, parent_owner, NEW.user_id
+      USING ERRCODE = 'check_violation';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_edit_jobs_enforce_parent_owner ON public.edit_jobs;
+CREATE TRIGGER trg_edit_jobs_enforce_parent_owner
+  BEFORE INSERT OR UPDATE OF parent_job_id, user_id ON public.edit_jobs
+  FOR EACH ROW EXECUTE FUNCTION public.edit_jobs_enforce_parent_owner();
+
+-- =========================================================================
+-- 2) daily_usage — base migration only had SELECT
+-- =========================================================================
+
+ALTER TABLE IF EXISTS public.daily_usage ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'daily_usage'
+      AND policyname = 'daily_usage_insert_self'
+  ) THEN
+    CREATE POLICY daily_usage_insert_self ON public.daily_usage
+      FOR INSERT WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'daily_usage'
+      AND policyname = 'daily_usage_update_self'
+  ) THEN
+    CREATE POLICY daily_usage_update_self ON public.daily_usage
+      FOR UPDATE USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'daily_usage'
+      AND policyname = 'daily_usage_delete_self'
+  ) THEN
+    CREATE POLICY daily_usage_delete_self ON public.daily_usage
+      FOR DELETE USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- =========================================================================
+-- 3) saved_skits — confirm CRUD, add only what's missing
+-- =========================================================================
+
+ALTER TABLE IF EXISTS public.saved_skits ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'saved_skits'
+      AND cmd = 'SELECT'
+  ) THEN
+    CREATE POLICY saved_skits_select_own ON public.saved_skits
+      FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'saved_skits'
+      AND cmd = 'INSERT'
+  ) THEN
+    CREATE POLICY saved_skits_insert_own ON public.saved_skits
+      FOR INSERT WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'saved_skits'
+      AND cmd = 'UPDATE'
+  ) THEN
+    CREATE POLICY saved_skits_update_own ON public.saved_skits
+      FOR UPDATE USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'saved_skits'
+      AND cmd = 'DELETE'
+  ) THEN
+    CREATE POLICY saved_skits_delete_own ON public.saved_skits
+      FOR DELETE USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- =========================================================================
+-- 4) saved_hooks — base migration only had a single FOR ALL policy.
+-- Add explicit verb policies so auditors see a full set.
+-- =========================================================================
+
+ALTER TABLE IF EXISTS public.saved_hooks ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'saved_hooks'
+      AND policyname = 'saved_hooks_select_own'
+  ) THEN
+    CREATE POLICY saved_hooks_select_own ON public.saved_hooks
+      FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'saved_hooks'
+      AND policyname = 'saved_hooks_insert_own'
+  ) THEN
+    CREATE POLICY saved_hooks_insert_own ON public.saved_hooks
+      FOR INSERT WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'saved_hooks'
+      AND policyname = 'saved_hooks_update_own'
+  ) THEN
+    CREATE POLICY saved_hooks_update_own ON public.saved_hooks
+      FOR UPDATE USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'saved_hooks'
+      AND policyname = 'saved_hooks_delete_own'
+  ) THEN
+    CREATE POLICY saved_hooks_delete_own ON public.saved_hooks
+      FOR DELETE USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- =========================================================================
+-- 5) winners_bank — confirm CRUD (original migration already has them;
+--    we re-assert for drift safety).
+-- =========================================================================
+
+ALTER TABLE IF EXISTS public.winners_bank ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'winners_bank'
+      AND cmd = 'SELECT'
+  ) THEN
+    CREATE POLICY winners_bank_select_own ON public.winners_bank
+      FOR SELECT USING (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'winners_bank'
+      AND cmd = 'INSERT'
+  ) THEN
+    CREATE POLICY winners_bank_insert_own ON public.winners_bank
+      FOR INSERT WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'winners_bank'
+      AND cmd = 'UPDATE'
+  ) THEN
+    CREATE POLICY winners_bank_update_own ON public.winners_bank
+      FOR UPDATE USING (auth.uid() = user_id)
+      WITH CHECK (auth.uid() = user_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public' AND tablename = 'winners_bank'
+      AND cmd = 'DELETE'
+  ) THEN
+    CREATE POLICY winners_bank_delete_own ON public.winners_bank
+      FOR DELETE USING (auth.uid() = user_id);
+  END IF;
+END $$;
+
+-- =========================================================================
+-- 6) videos — pre-existing RLS only scopes SELECT via assigned_to.
+-- Add strict client_user_id=auth.uid() policies.  Additive: existing
+-- "Users can view their assigned videos" policy is left alone.
+-- =========================================================================
+
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'videos'
+      AND column_name = 'client_user_id'
+  ) THEN
+    EXECUTE 'ALTER TABLE public.videos ENABLE ROW LEVEL SECURITY';
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = 'videos'
+        AND policyname = 'videos_select_own_client'
+    ) THEN
+      EXECUTE $POL$
+        CREATE POLICY videos_select_own_client ON public.videos
+          FOR SELECT USING (client_user_id = auth.uid())
+      $POL$;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = 'videos'
+        AND policyname = 'videos_insert_own_client'
+    ) THEN
+      EXECUTE $POL$
+        CREATE POLICY videos_insert_own_client ON public.videos
+          FOR INSERT WITH CHECK (client_user_id = auth.uid())
+      $POL$;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = 'videos'
+        AND policyname = 'videos_update_own_client'
+    ) THEN
+      EXECUTE $POL$
+        CREATE POLICY videos_update_own_client ON public.videos
+          FOR UPDATE USING (client_user_id = auth.uid())
+          WITH CHECK (client_user_id = auth.uid())
+      $POL$;
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1 FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = 'videos'
+        AND policyname = 'videos_delete_own_client'
+    ) THEN
+      EXECUTE $POL$
+        CREATE POLICY videos_delete_own_client ON public.videos
+          FOR DELETE USING (client_user_id = auth.uid())
+      $POL$;
+    END IF;
+  ELSE
+    RAISE NOTICE 'public.videos.client_user_id not found — skipping videos RLS hardening';
+  END IF;
+END $$;
+
+-- =========================================================================
+-- 7) Storage bucket `edit-jobs` — path-prefix ownership policies.
+-- Paths are of form `<user_id>/<job_id>/<kind>/<filename>` so the user_id
+-- is always the first path segment.  storage.foldername(name)[1] returns it.
+-- =========================================================================
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'edit_jobs_bucket_select_own'
+  ) THEN
+    CREATE POLICY edit_jobs_bucket_select_own ON storage.objects
+      FOR SELECT TO authenticated
+      USING (
+        bucket_id = 'edit-jobs'
+        AND auth.uid()::text = (storage.foldername(name))[1]
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'edit_jobs_bucket_insert_own'
+  ) THEN
+    CREATE POLICY edit_jobs_bucket_insert_own ON storage.objects
+      FOR INSERT TO authenticated
+      WITH CHECK (
+        bucket_id = 'edit-jobs'
+        AND auth.uid()::text = (storage.foldername(name))[1]
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'edit_jobs_bucket_update_own'
+  ) THEN
+    CREATE POLICY edit_jobs_bucket_update_own ON storage.objects
+      FOR UPDATE TO authenticated
+      USING (
+        bucket_id = 'edit-jobs'
+        AND auth.uid()::text = (storage.foldername(name))[1]
+      )
+      WITH CHECK (
+        bucket_id = 'edit-jobs'
+        AND auth.uid()::text = (storage.foldername(name))[1]
+      );
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'storage' AND tablename = 'objects'
+      AND policyname = 'edit_jobs_bucket_delete_own'
+  ) THEN
+    CREATE POLICY edit_jobs_bucket_delete_own ON storage.objects
+      FOR DELETE TO authenticated
+      USING (
+        bucket_id = 'edit-jobs'
+        AND auth.uid()::text = (storage.foldername(name))[1]
+      );
+  END IF;
+
+EXCEPTION WHEN insufficient_privilege THEN
+  RAISE NOTICE 'Insufficient privilege to create storage policies — apply via Supabase dashboard if needed';
+END $$;
+
+-- =========================================================================
+-- 8) Orphan cleanup — NEVER reassigns, only deletes or marks failed.
+-- =========================================================================
+
+DO $$
+DECLARE
+  deleted_count int := 0;
+  failed_count  int := 0;
+BEGIN
+  -- Delete NULL-owner edit_jobs that have no assets — nothing to preserve.
+  WITH del AS (
+    DELETE FROM public.edit_jobs
+    WHERE user_id IS NULL
+      AND (assets IS NULL OR assets = '[]'::jsonb OR jsonb_array_length(assets) = 0)
+    RETURNING 1
+  )
+  SELECT count(*) INTO deleted_count FROM del;
+
+  -- Mark the rest as failed with a clear error message.
+  WITH upd AS (
+    UPDATE public.edit_jobs
+    SET status = 'failed',
+        error  = 'Orphaned job — no owner. Please re-create.',
+        finished_at = COALESCE(finished_at, now())
+    WHERE user_id IS NULL
+      AND status <> 'failed'
+    RETURNING 1
+  )
+  SELECT count(*) INTO failed_count FROM upd;
+
+  RAISE NOTICE 'edit_jobs orphan sweep: % deleted (no assets), % marked failed',
+    deleted_count, failed_count;
+
+EXCEPTION WHEN undefined_column THEN
+  -- user_id cannot actually be NULL because the column is NOT NULL. If a
+  -- schema drift caused that to change, surface it but don't block the
+  -- migration.
+  RAISE NOTICE 'edit_jobs orphan sweep skipped — column drift detected';
+END $$;
+
+-- saved_skits.user_id is declared NOT NULL, so we only check for drift.
+DO $$
+DECLARE
+  orphan_skits int := 0;
+BEGIN
+  SELECT count(*) INTO orphan_skits
+  FROM public.saved_skits
+  WHERE user_id IS NULL;
+
+  IF orphan_skits > 0 THEN
+    RAISE NOTICE 'saved_skits has % rows with NULL user_id — investigate schema drift', orphan_skits;
+  END IF;
+EXCEPTION WHEN undefined_table THEN
+  NULL;
+END $$;

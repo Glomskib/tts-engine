@@ -14,8 +14,8 @@ import AffiliateCalculator from '@/components/AffiliateCalculator';
 
 const FAQ_ITEMS = [
   {
-    q: 'How do I find products that actually convert?',
-    a: 'Winners Bank shows you the highest-performing products with actual engagement metrics. See what angles work, what hooks land, and which products have the best commission potential. Build scripts from proven winners instead of guessing.',
+    q: 'How do I study what actually works on TikTok?',
+    a: 'Winners Bank is your library of proven viral TikToks. Connect your TikTok account to auto-sync real engagement metrics daily, or paste any public TikTok URL and AI breaks down the hook, pacing, and triggers that made it work — so you can replicate the pattern in your own scripts.',
   },
   {
     q: "How do I write scripts that don't sound AI-generated?",
@@ -23,7 +23,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How do I hit my retainer video goals on time?',
-    a: "Content Calendar tracks your monthly targets by brand. Set video goals, see what you've posted, and get reminders when you're behind. For retainer deals, FlashFlow helps you stay on pace and hit your payouts.",
+    a: "Content Calendar tracks your monthly targets by brand. Set video goals, see what you've posted, and see at a glance when you're behind pace. For retainer deals, FlashFlow helps you stay on pace and hit your payouts.",
   },
   {
     q: 'Can I manage multiple TikTok Shop brands?',
@@ -35,7 +35,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Is it really free?',
-    a: 'Yes! The free plan includes 5 scripts/month, free TikTok and YouTube transcribers, and access to 3 products. No credit card needed, no time limit.',
+    a: 'Yes! The free plan includes 5 scripts/month, free TikTok and YouTube transcribers, and 1 brand. No credit card needed, no time limit.',
   },
   {
     q: 'Can I cancel anytime?',

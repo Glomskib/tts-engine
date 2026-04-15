@@ -34,7 +34,7 @@ export function getNextAction(video: VideoForAction): NextActionResult {
   // If there are hard blockers, override next action
   if (blockers.length > 0 && video.status !== 'posted' && video.status !== 'archived') {
     return {
-      label: 'Fix Blockers',
+      label: 'Fix what\'s missing',
       action: 'fix_blockers',
       href: `/admin/pipeline/${video.id}`,
       blockers,
@@ -48,44 +48,44 @@ export function getNextAction(video: VideoForAction): NextActionResult {
       // Check recording status
       const rs = video.recording_status;
       if (!rs || rs === 'NOT_RECORDED') {
-        return { label: 'Record Now', action: 'record', href: detailHref, blockers };
+        return { label: 'Record it', action: 'record', href: detailHref, blockers };
       }
       if (rs === 'AI_RENDERING') {
-        return { label: 'Rendering...', action: 'wait_render', href: detailHref, blockers };
+        return { label: 'Generating…', action: 'wait_render', href: detailHref, blockers };
       }
       if (rs === 'RECORDED') {
-        return { label: 'Upload Footage', action: 'upload', href: detailHref, blockers };
+        return { label: 'Upload footage', action: 'upload', href: detailHref, blockers };
       }
       if (rs === 'EDITED' || rs === 'READY_FOR_REVIEW') {
-        return { label: 'Review Edit', action: 'review_edit', href: detailHref, blockers };
+        return { label: 'Review the edit', action: 'review_edit', href: detailHref, blockers };
       }
-      return { label: 'Continue Draft', action: 'continue_draft', href: detailHref, blockers };
+      return { label: 'Finish draft', action: 'continue_draft', href: detailHref, blockers };
     }
 
     case 'needs_edit':
       if (!video.google_drive_url) {
         blockers.push('drive_folder_missing');
       }
-      return { label: 'Edit Video', action: 'edit', href: detailHref, blockers };
+      return { label: 'Finish editing', action: 'edit', href: detailHref, blockers };
 
     case 'ready_to_post': {
       const hasCaptionPackage = video.posting_meta &&
         typeof video.posting_meta === 'object' &&
         'caption' in video.posting_meta;
       if (!hasCaptionPackage) {
-        return { label: 'Generate Post Package', action: 'generate_post_package', href: detailHref, blockers };
+        return { label: 'Get it ready to post', action: 'generate_post_package', href: detailHref, blockers };
       }
-      return { label: 'Post Now', action: 'post', href: detailHref, blockers };
+      return { label: 'Post it', action: 'post', href: detailHref, blockers };
     }
 
     case 'posted':
       if (!video.posted_url) {
-        return { label: 'Add Post URL', action: 'add_post_url', href: detailHref, blockers };
+        return { label: 'Add the live link', action: 'add_post_url', href: detailHref, blockers };
       }
-      return { label: 'View Insights', action: 'view_insights', href: detailHref, blockers };
+      return { label: 'See how it\'s doing', action: 'view_insights', href: detailHref, blockers };
 
     case 'failed':
-      return { label: 'Retry', action: 'retry', href: detailHref, blockers };
+      return { label: 'Try again', action: 'retry', href: detailHref, blockers };
 
     case 'archived':
       return { label: 'Archived', action: 'none', blockers };
@@ -106,19 +106,19 @@ export function getActionCardConfig(action: string): {
 } {
   switch (action) {
     case 'record':
-      return { title: 'Record Next Video', color: 'text-red-400', bgColor: 'bg-red-500/10', borderColor: 'border-red-500/20' };
+      return { title: 'Record this one', color: 'text-red-400', bgColor: 'bg-red-500/10', borderColor: 'border-red-500/20' };
     case 'upload':
-      return { title: 'Upload Footage', color: 'text-amber-400', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/20' };
+      return { title: 'Upload footage', color: 'text-amber-400', bgColor: 'bg-amber-500/10', borderColor: 'border-amber-500/20' };
     case 'edit':
-      return { title: 'Edit Video', color: 'text-blue-400', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-500/20' };
+      return { title: 'Finish editing', color: 'text-blue-400', bgColor: 'bg-blue-500/10', borderColor: 'border-blue-500/20' };
     case 'review_edit':
-      return { title: 'Approve Edit', color: 'text-purple-400', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/20' };
+      return { title: 'Review the edit', color: 'text-purple-400', bgColor: 'bg-purple-500/10', borderColor: 'border-purple-500/20' };
     case 'generate_post_package':
-      return { title: 'Generate Post Package', color: 'text-teal-400', bgColor: 'bg-teal-500/10', borderColor: 'border-teal-500/20' };
+      return { title: 'Get it ready to post', color: 'text-teal-400', bgColor: 'bg-teal-500/10', borderColor: 'border-teal-500/20' };
     case 'post':
-      return { title: 'Post Today', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20' };
+      return { title: 'Post it today', color: 'text-emerald-400', bgColor: 'bg-emerald-500/10', borderColor: 'border-emerald-500/20' };
     case 'fix_blockers':
-      return { title: 'Fix Blockers', color: 'text-orange-400', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/20' };
+      return { title: 'Fix what\'s missing', color: 'text-orange-400', bgColor: 'bg-orange-500/10', borderColor: 'border-orange-500/20' };
     default:
       return { title: 'Continue', color: 'text-zinc-400', bgColor: 'bg-zinc-500/10', borderColor: 'border-zinc-500/20' };
   }

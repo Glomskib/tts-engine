@@ -22,10 +22,10 @@ export function WinnersPanel({ winners }: { winners: Winner[] }) {
   if (winners.length === 0) {
     return (
       <div className="bg-zinc-900/50 rounded-xl border border-white/10 p-6">
-        <h2 className="text-lg font-semibold text-white mb-3">Winning Content</h2>
+        <h2 className="text-lg font-semibold text-white mb-3">Top ideas right now</h2>
         <div className="text-center py-6">
           <Trophy className="w-10 h-10 text-yellow-400/50 mx-auto mb-3" />
-          <p className="text-zinc-500 text-sm">No winners yet. Post content to discover what works!</p>
+          <p className="text-zinc-500 text-sm">Post a few videos and we'll surface the hooks that are working best.</p>
         </div>
       </div>
     );
@@ -34,12 +34,12 @@ export function WinnersPanel({ winners }: { winners: Winner[] }) {
   return (
     <div>
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-lg font-semibold text-white">Winning Content</h2>
+        <h2 className="text-lg font-semibold text-white">Top ideas right now</h2>
         <Link
           href="/admin/winners-bank"
           className="text-xs text-teal-400 hover:text-teal-300 transition-colors min-h-[44px] flex items-center"
         >
-          View all
+          See all ideas
         </Link>
       </div>
       <div className="space-y-2">
@@ -52,7 +52,7 @@ export function WinnersPanel({ winners }: { winners: Winner[] }) {
             <Trophy className="w-5 h-5 text-yellow-400 flex-shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
               <p className="text-sm text-white leading-snug line-clamp-2">
-                {w.hook || 'Untitled winner'}
+                {w.hook || 'Untitled idea'}
               </p>
               <div className="flex items-center gap-3 mt-1.5">
                 {w.view_count != null && (

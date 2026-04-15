@@ -3361,24 +3361,24 @@ function AdminPipelinePageInner() {
         }}>
           <Film size={40} style={{ margin: '0 auto 12px', opacity: 0.3, color: colors.textMuted }} />
           <h3 style={{ fontSize: '18px', fontWeight: 600, color: colors.text, marginBottom: '8px' }}>
-            Your Production Board
+            Your videos live here
           </h3>
           <p style={{ fontSize: '14px', color: colors.textMuted, marginBottom: '24px', maxWidth: '400px', margin: '0 auto 24px' }}>
-            Track every video from script to posted. Generate a script first, then move it through your pipeline.
+            Track every video from draft to posted. Write a script first, then walk it through each step.
           </p>
           <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
             <a
               href="/admin/content-studio"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', backgroundColor: '#0d9488', color: 'white', borderRadius: '12px', fontWeight: 500, fontSize: '14px', textDecoration: 'none' }}
             >
-              Generate a Script
+              Write a script
             </a>
             <button
               type="button"
               onClick={() => setShowCreateDrawer(true)}
               style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', padding: '10px 24px', backgroundColor: colors.surface, color: colors.text, borderRadius: '12px', fontWeight: 500, fontSize: '14px', border: `1px solid ${colors.border}`, cursor: 'pointer' }}
             >
-              Create Video
+              Create a video
             </button>
           </div>
         </div>

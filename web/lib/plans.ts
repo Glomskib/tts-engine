@@ -89,6 +89,74 @@ export const PRICING_PLANS: Record<string, PricingPlan> = {
   },
 };
 
+// ── Ops Service Plans (Mission Control as a Service) ──────────────────────────
+// Separate product line: AI-powered operational dashboards for businesses.
+// Price IDs are read from env vars so you never need to edit code:
+//   STRIPE_OPS_STARTER_MONTHLY, STRIPE_OPS_STARTER_ANNUAL
+//   STRIPE_OPS_PRO_MONTHLY,     STRIPE_OPS_PRO_ANNUAL
+export const OPS_PLANS: Record<string, PricingPlan> = {
+  ops_starter: {
+    name: 'Ops Starter',
+    monthly: { price: 99, display: '$99', stripePriceId: process.env.STRIPE_OPS_STARTER_MONTHLY || null },
+    annual: {
+      price: 948,
+      display: '$948',
+      monthlyEquiv: '$79',
+      stripePriceId: process.env.STRIPE_OPS_STARTER_ANNUAL || null,
+      savings: '$240',
+    },
+    features: [
+      'System health verdict',
+      'Up to 3 lanes',
+      'Up to 5 agents',
+      'Integration health monitoring',
+      'Daily ops brief',
+      'Client view (shareable)',
+    ],
+  },
+  ops_pro: {
+    name: 'Ops Pro',
+    monthly: { price: 299, display: '$299', stripePriceId: process.env.STRIPE_OPS_PRO_MONTHLY || null },
+    annual: {
+      price: 2868,
+      display: '$2,868',
+      monthlyEquiv: '$239',
+      stripePriceId: process.env.STRIPE_OPS_PRO_ANNUAL || null,
+      savings: '$720',
+    },
+    badge: 'Most Popular',
+    features: [
+      'Everything in Starter',
+      'Unlimited lanes & agents',
+      'Intelligence insights (stale detection, revenue blockers)',
+      'Intervention queue with quick actions',
+      'Trust signals & proof tracking',
+      'API access',
+      'Slack/email alerts',
+    ],
+  },
+  ops_enterprise: {
+    name: 'Ops Enterprise',
+    contactUs: true,
+    contactEmail: 'brandon@flashflowai.com',
+    features: [
+      'Everything in Pro',
+      'Custom integrations',
+      'Multi-org management',
+      'White-label client portal',
+      'SLA-backed uptime',
+      'Dedicated onboarding',
+    ],
+  },
+};
+
+export function isOpsPlanConfigured(): boolean {
+  return Boolean(
+    OPS_PLANS.ops_starter.monthly?.stripePriceId &&
+    OPS_PLANS.ops_pro.monthly?.stripePriceId
+  );
+}
+
 // Legacy plan structure for backwards compatibility
 export const PLANS = {
   FREE: {

@@ -2002,7 +2002,7 @@ export default function ContentStudioPage() {
   if (!authUser) {
     return (
       <div style={{ padding: '40px', textAlign: 'center', color: colors.textSecondary }}>
-        Please log in to access Content Studio.
+        Please log in to create a video.
       </div>
     );
   }
@@ -2025,10 +2025,10 @@ export default function ContentStudioPage() {
           <div>
             <h1 className="text-2xl lg:text-3xl font-bold text-white flex items-center gap-3">
               <Sparkles className="w-7 h-7 text-teal-500" />
-              Content Studio
+              Create a video
             </h1>
             <p className="mt-1 text-base text-zinc-400">
-              Write scripts for any content type — pick a format, add your product, and go
+              Pick a format, add your product, and we'll write the script.
             </p>
           </div>
           {/* Winner Pattern Banner */}
@@ -2119,11 +2119,11 @@ export default function ContentStudioPage() {
               <Sparkles size={18} className="text-teal-400" />
             </div>
             <div>
-              <h3 className="text-white font-semibold text-sm mb-1">Welcome to Content Studio</h3>
+              <h3 className="text-white font-semibold text-sm mb-1">Welcome — let's make your first video</h3>
               <p className="text-zinc-400 text-sm leading-relaxed">
-                Type a product name below, pick a content style, and hit <span className="text-teal-400 font-medium">Write Script</span> to get
-                your first script. Or <Link href="/admin/products" className="text-teal-400 hover:text-teal-300 underline">add products</Link> first
-                for smarter audience targeting.
+                Type a product name below, pick a style, and tap <span className="text-teal-400 font-medium">Write script</span> to get your
+                first script. Or <Link href="/admin/products" className="text-teal-400 hover:text-teal-300 underline">add products</Link> first
+                so we can tailor it to your audience.
               </p>
             </div>
           </div>

@@ -20,12 +20,12 @@ import {
 // All available nav items for middle slots (content-studio is the fixed first slot)
 const AVAILABLE_NAV_ITEMS = [
   { id: 'transcribe', href: '/admin/transcribe', icon: FileText, label: 'Transcribe' },
-  { id: 'youtube-transcribe', href: '/admin/youtube-transcribe', icon: Youtube, label: 'YT Transcribe' },
-  { id: 'script-library', href: '/admin/script-library', icon: Folder, label: 'Library' },
+  { id: 'youtube-transcribe', href: '/admin/youtube-transcribe', icon: Youtube, label: 'YouTube' },
+  { id: 'script-library', href: '/admin/script-library', icon: Folder, label: 'Scripts' },
   { id: 'pipeline', href: '/admin/pipeline', icon: Video, label: 'Videos' },
-  { id: 'calendar', href: '/admin/calendar', icon: Calendar, label: 'Planner' },
-  { id: 'winners', href: '/admin/intelligence/winners-bank', icon: Trophy, label: 'Winners' },
-  { id: 'analytics', href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
+  { id: 'calendar', href: '/admin/calendar', icon: Calendar, label: 'Plan' },
+  { id: 'winners', href: '/admin/intelligence/winners-bank', icon: Trophy, label: 'Ideas' },
+  { id: 'analytics', href: '/admin/analytics', icon: BarChart3, label: 'Stats' },
   { id: 'brands', href: '/admin/brands', icon: Package, label: 'Brands' },
   { id: 'content-items', href: '/admin/content-items', icon: ListTodo, label: 'Items' },
 ];
@@ -63,7 +63,7 @@ export function MobileBottomNav({ onMoreClick, unreadCount = 0 }: MobileBottomNa
     .filter((item): item is typeof AVAILABLE_NAV_ITEMS[0] => item !== undefined);
 
   const NAV_ITEMS = [
-    { href: '/admin/content-studio', icon: Sparkles, label: 'Studio', isDrawerTrigger: false },
+    { href: '/admin/content-studio', icon: Sparkles, label: 'Create', isDrawerTrigger: false },
     ...middleItems.map(item => ({ ...item, isDrawerTrigger: false })),
     { href: '#more', icon: Menu, label: 'More', isDrawerTrigger: true },
   ];

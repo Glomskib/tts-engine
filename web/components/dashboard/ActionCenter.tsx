@@ -29,8 +29,8 @@ const ACTION_ICONS: Record<string, typeof Video> = {
 
 const NEXT_STEP_OPTIONS = [
   {
-    label: 'Generate a script',
-    desc: 'Pick a product and persona. Done in 30 seconds.',
+    label: 'Write a script',
+    desc: 'Pick a product and a persona. Ready in 30 seconds.',
     href: '/admin/content-studio',
     icon: Sparkles,
     color: 'text-teal-400',
@@ -38,8 +38,8 @@ const NEXT_STEP_OPTIONS = [
     border: 'border-teal-500/20',
   },
   {
-    label: 'Study a winning video',
-    desc: 'Paste a TikTok URL. Get the hook breakdown instantly.',
+    label: 'Break down a TikTok',
+    desc: 'Paste a URL. We\'ll pull apart the hook for you.',
     href: '/admin/transcribe',
     icon: Mic,
     color: 'text-violet-400',
@@ -47,8 +47,8 @@ const NEXT_STEP_OPTIONS = [
     border: 'border-violet-500/20',
   },
   {
-    label: 'See what\'s converting',
-    desc: 'Winners Bank shows the hooks driving real sales.',
+    label: 'See what\'s working',
+    desc: 'Top ideas and hooks driving real sales right now.',
     href: '/admin/intelligence/winners-bank',
     icon: Trophy,
     color: 'text-amber-400',
@@ -61,7 +61,10 @@ export function ActionCenter({ actions }: { actions: ActionItem[] }) {
   if (actions.length === 0) {
     return (
       <div>
-        <h2 className="text-lg font-semibold text-white mb-3">Where to start</h2>
+        <div className="mb-3">
+          <h2 className="text-lg font-semibold text-white">Your next step</h2>
+          <p className="text-zinc-500 text-xs mt-0.5">Pick one to get moving.</p>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           {NEXT_STEP_OPTIONS.map((opt) => {
             const Icon = opt.icon;
@@ -89,7 +92,10 @@ export function ActionCenter({ actions }: { actions: ActionItem[] }) {
 
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-3">Your next moves</h2>
+      <div className="mb-3">
+        <h2 className="text-lg font-semibold text-white">What to do next</h2>
+        <p className="text-zinc-500 text-xs mt-0.5">Pick up where you left off.</p>
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {actions.map((item) => {
           const config = getActionCardConfig(item.action);

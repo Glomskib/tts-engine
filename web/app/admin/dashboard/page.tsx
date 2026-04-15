@@ -59,8 +59,8 @@ const START_STEPS = [
   },
   {
     num: 2,
-    label: 'Generate your first script',
-    desc: 'Pick a persona, get a script in 30 seconds',
+    label: 'Write your first script',
+    desc: 'Pick a persona. Get a script in 30 seconds.',
     href: '/admin/content-studio',
     icon: Sparkles,
     color: 'text-teal-400',
@@ -69,8 +69,8 @@ const START_STEPS = [
   },
   {
     num: 3,
-    label: 'Check your Winners Bank',
-    desc: 'See what hooks are beating benchmarks right now',
+    label: 'See top ideas',
+    desc: 'Find hooks that are working right now.',
     href: '/admin/intelligence/winners-bank',
     icon: Trophy,
     color: 'text-amber-400',
@@ -96,8 +96,8 @@ function StartHerePanel() {
             <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse" />
             <span className="text-xs text-teal-400 font-medium uppercase tracking-wide">Getting started</span>
           </div>
-          <h2 className="text-lg font-bold text-white">3 steps to your first winning script</h2>
-          <p className="text-zinc-500 text-sm mt-0.5">Most creators see results within 10 minutes</p>
+          <h2 className="text-lg font-bold text-white">Start here — 3 quick steps</h2>
+          <p className="text-zinc-500 text-sm mt-0.5">Most creators post their first video within 10 minutes.</p>
         </div>
         <button
           onClick={() => {
@@ -205,14 +205,14 @@ export default function DashboardPage() {
   const submissionsCount = data.pipelineCounts?.posted ?? 0;
   const isNewUser = scriptsCount === 0 && (data.pipelineCounts?.total ?? 0) === 0;
 
-  // Greeting: new user gets welcome, returning user gets "what's next"
+  // Greeting: new user gets welcome, returning user gets a friendly nudge
   const greeting = isNewUser
     ? (userName ? `Welcome, ${userName} 👋` : 'Welcome to FlashFlow 👋')
-    : (userName ? `What's next, ${userName}?` : "What's next?");
+    : (userName ? `Hey ${userName} — let's keep it moving` : "Let's keep it moving");
 
   const subtext = isNewUser
-    ? "You're set up. Here's how to get your first script live."
-    : 'Your content command center';
+    ? "You're all set. Let's get your first video out the door."
+    : "Here's what needs your attention today.";
 
   return (
     <div className="pt-6 pb-24 lg:pb-8 max-w-5xl mx-auto px-4 space-y-8">
@@ -233,7 +233,7 @@ export default function DashboardPage() {
         >
           <FileText className="w-4 h-4 text-violet-400 mb-1" />
           <p className="text-2xl font-bold text-white tabular-nums">{scriptsCount}</p>
-          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">Scripts</p>
+          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">Scripts written</p>
         </Link>
         <Link
           href="/admin/campaigns"
@@ -241,7 +241,7 @@ export default function DashboardPage() {
         >
           <Rocket className="w-4 h-4 text-teal-400 mb-1" />
           <p className="text-2xl font-bold text-white tabular-nums">{campaignsCount}</p>
-          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">Campaigns</p>
+          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">Content plans</p>
         </Link>
         <Link
           href="/admin/pipeline?status=posted"
@@ -249,26 +249,26 @@ export default function DashboardPage() {
         >
           <Video className="w-4 h-4 text-emerald-400 mb-1" />
           <p className="text-2xl font-bold text-white tabular-nums">{submissionsCount}</p>
-          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">Posted</p>
+          <p className="text-xs text-zinc-500 group-hover:text-zinc-400">Videos posted</p>
         </Link>
       </div>
 
-      {/* 1. Action Center */}
+      {/* 1. Next moves for the user */}
       <ActionCenter actions={data.nextActions} />
 
-      {/* 2. Production Pipeline */}
+      {/* 2. Where the user's videos are right now */}
       <PipelineOverview counts={data.pipelineCounts} />
 
-      {/* 3. Today's Assignments */}
+      {/* 3. What's up next today */}
       <TodayAssignments assignments={data.todayAssignments} />
 
-      {/* 4. Winning Content */}
+      {/* 4. Top ideas worth copying */}
       <WinnersPanel winners={data.winners} />
 
-      {/* 5. Quick Tools */}
+      {/* 5. Shortcuts */}
       <QuickTools />
 
-      {/* 6. Usage Meter */}
+      {/* 6. Plan usage */}
       <UsageMeter />
     </div>
   );

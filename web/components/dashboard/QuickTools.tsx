@@ -6,10 +6,10 @@ import {
 } from 'lucide-react';
 
 const QUICK_TOOLS = [
-  { label: 'Create Content', href: '/admin/content-studio', icon: Sparkles, color: 'text-teal-400' },
-  { label: 'Hook Generator', href: '/admin/hook-generator', icon: Zap, color: 'text-violet-400' },
-  { label: 'Winners Bank', href: '/admin/intelligence/winners-bank', icon: Trophy, color: 'text-amber-400' },
-  { label: 'Pipeline', href: '/admin/pipeline', icon: Video, color: 'text-emerald-400' },
+  { label: 'Create a video', href: '/admin/content-studio', icon: Sparkles, color: 'text-teal-400' },
+  { label: 'Hook ideas', href: '/admin/hook-generator', icon: Zap, color: 'text-violet-400' },
+  { label: 'Top ideas', href: '/admin/intelligence/winners-bank', icon: Trophy, color: 'text-amber-400' },
+  { label: 'My videos', href: '/admin/pipeline', icon: Video, color: 'text-emerald-400' },
   { label: 'Scripts', href: '/admin/scripts', icon: FileText, color: 'text-purple-400' },
   { label: 'Products', href: '/admin/products', icon: Package, color: 'text-blue-400' },
 ];
@@ -17,7 +17,7 @@ const QUICK_TOOLS = [
 export function QuickTools() {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-3">Quick Access</h2>
+      <h2 className="text-lg font-semibold text-white mb-3">Shortcuts</h2>
       <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
         {QUICK_TOOLS.map((tool) => {
           const Icon = tool.icon;

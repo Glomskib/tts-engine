@@ -1093,8 +1093,8 @@ export default function ContentPlannerPage() {
         <div className="mb-5 max-w-7xl mx-auto space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">Content Planner</h1>
-              <p className="text-zinc-400 text-xs md:text-sm hidden sm:block">Plan, schedule, and manage your content pipeline</p>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-white">Plan</h1>
+              <p className="text-zinc-400 text-xs md:text-sm hidden sm:block">Schedule your videos and map out the week ahead.</p>
             </div>
             <div className="flex items-center gap-1 sm:gap-1.5 flex-shrink-0">
               {/* View Toggle: Calendar / Grid */}

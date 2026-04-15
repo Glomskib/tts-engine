@@ -32,7 +32,7 @@ const STAGES = [
   },
   {
     key: 'needs_edit',
-    label: 'Editing Queue',
+    label: 'In editing',
     color: 'text-blue-400',
     bgColor: 'bg-blue-500/10',
     borderColor: 'border-blue-500/20',
@@ -40,7 +40,7 @@ const STAGES = [
   },
   {
     key: 'ready_to_post',
-    label: 'Ready to Post',
+    label: 'Ready to post',
     color: 'text-emerald-400',
     bgColor: 'bg-emerald-500/10',
     borderColor: 'border-emerald-500/20',
@@ -48,7 +48,7 @@ const STAGES = [
   },
   {
     key: 'posted_this_week',
-    label: 'Posted This Week',
+    label: 'Posted this week',
     color: 'text-purple-400',
     bgColor: 'bg-purple-500/10',
     borderColor: 'border-purple-500/20',
@@ -66,10 +66,10 @@ function WeeklyVelocityBar({ posted }: { posted: number }) {
 
   const barColor = isOnTrack ? 'bg-emerald-500' : isBehind ? 'bg-amber-500' : 'bg-teal-500';
   const label = isOnTrack
-    ? `On pace 🔥 — ${posted}/${WEEKLY_GOAL} posted this week`
+    ? `On pace 🔥 — ${posted} of ${WEEKLY_GOAL} posted this week`
     : isBehind
     ? `${WEEKLY_GOAL - posted} more to hit your weekly goal`
-    : `${posted}/${WEEKLY_GOAL} posted — keep going`;
+    : `${posted} of ${WEEKLY_GOAL} posted — keep going`;
 
   return (
     <Link href="/admin/pipeline?status=posted" className="group block p-4 rounded-xl bg-zinc-900/50 border border-white/8 hover:border-white/15 transition-colors">
@@ -96,7 +96,10 @@ function WeeklyVelocityBar({ posted }: { posted: number }) {
 export function PipelineOverview({ counts }: { counts: PipelineCounts }) {
   return (
     <div>
-      <h2 className="text-lg font-semibold text-white mb-3">Production Pipeline</h2>
+      <div className="mb-3">
+        <h2 className="text-lg font-semibold text-white">Where your videos are</h2>
+        <p className="text-zinc-500 text-xs mt-0.5">Tap a stage to jump in.</p>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
         {STAGES.map((stage) => {
           const count = stage.key === 'posted_this_week'

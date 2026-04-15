@@ -34,14 +34,48 @@ interface Beat {
   on_screen_text?: string;
 }
 
+interface HookVariant {
+  tier: 'SAFE' | 'BALANCED' | 'SPICY';
+  spoken: string;
+  visual: string;
+  on_screen: string;
+}
+
 interface SkitResult {
   hook_line: string;
+  hook_variants?: HookVariant[];
   beats: Beat[];
   cta_line: string;
   cta_overlay: string;
   b_roll: string[];
   overlays: string[];
 }
+
+const TIER_META: Record<HookVariant['tier'], {
+  label: string;
+  emoji: string;
+  badgeFeatured: string;
+  badgeAlt: string;
+}> = {
+  SAFE: {
+    label: 'Safe',
+    emoji: '🌱',
+    badgeFeatured: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30',
+    badgeAlt: 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20',
+  },
+  BALANCED: {
+    label: 'Balanced',
+    emoji: '⚖️',
+    badgeFeatured: 'bg-blue-500/15 text-blue-300 border border-blue-500/30',
+    badgeAlt: 'bg-blue-500/10 text-blue-400 border border-blue-500/20',
+  },
+  SPICY: {
+    label: 'Spicy',
+    emoji: '🔥',
+    badgeFeatured: 'bg-orange-500/15 text-orange-300 border border-orange-500/30',
+    badgeAlt: 'bg-orange-500/10 text-orange-400 border border-orange-500/20',
+  },
+};
 
 // ============================================================================
 // FAQ Data
@@ -90,6 +124,7 @@ export default function ScriptGeneratorPage() {
   const [error, setError] = useState('');
   const [errorDetails, setErrorDetails] = useState('');
   const [result, setResult] = useState<SkitResult | null>(null);
+  const [featuredTier, setFeaturedTier] = useState<HookVariant['tier']>('BALANCED');
   const [score, setScore] = useState<number | null>(null);
   const [copied, setCopied] = useState(false);
   const [showSignup, setShowSignup] = useState(false);
@@ -159,6 +194,7 @@ export default function ScriptGeneratorPage() {
       }
 
       setResult(data.skit);
+      setFeaturedTier((selectedTone as HookVariant['tier']) || 'BALANCED');
       setScore(data.score);
       if (data.generationsRemaining !== undefined) {
         setRemaining(data.generationsRemaining);
@@ -178,8 +214,17 @@ export default function ScriptGeneratorPage() {
 
   const copyScript = () => {
     if (!result) return;
+    const featured = result.hook_variants?.find((v) => v.tier === featuredTier)
+      || result.hook_variants?.[0];
     const lines: string[] = [];
-    lines.push(`HOOK: ${result.hook_line}`);
+    if (featured) {
+      lines.push(`HOOK (${featured.tier})`);
+      lines.push(`  SAY: "${featured.spoken}"`);
+      if (featured.visual) lines.push(`  DO: ${featured.visual}`);
+      if (featured.on_screen) lines.push(`  ON SCREEN: ${featured.on_screen}`);
+    } else {
+      lines.push(`HOOK: ${result.hook_line}`);
+    }
     lines.push('');
     for (const beat of result.beats) {
       lines.push(`[${beat.t}] ${beat.action}`);
@@ -481,15 +526,80 @@ export default function ScriptGeneratorPage() {
 
             {/* Script Card */}
             <div className="rounded-xl border border-white/10 bg-zinc-900/80 overflow-hidden">
-              {/* Hook */}
-              <div className="p-4 bg-gradient-to-r from-violet-500/10 to-teal-500/10 border-b border-white/10">
-                <div className="text-xs font-medium text-violet-400 uppercase tracking-wider mb-1">
-                  Hook
-                </div>
-                <p className="text-lg font-semibold text-zinc-100 leading-snug">
-                  &ldquo;{result.hook_line}&rdquo;
-                </p>
-              </div>
+              {/* Hook — featured variant */}
+              {(() => {
+                const variants = result.hook_variants && result.hook_variants.length > 0
+                  ? result.hook_variants
+                  : [{ tier: 'BALANCED' as const, spoken: result.hook_line, visual: '', on_screen: '' }];
+                const featured = variants.find((v) => v.tier === featuredTier) || variants[0];
+                const alternates = variants.filter((v) => v.tier !== featured.tier);
+                const meta = TIER_META[featured.tier];
+                return (
+                  <>
+                    <div className="p-5 bg-gradient-to-r from-violet-500/15 to-teal-500/15 border-b border-white/10">
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold text-violet-300 uppercase tracking-wider">
+                            Hook
+                          </span>
+                          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase tracking-wider ${meta.badgeFeatured}`}>
+                            {meta.emoji} {meta.label}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xl sm:text-2xl font-bold text-white leading-snug mb-3">
+                        &ldquo;{featured.spoken}&rdquo;
+                      </p>
+                      {featured.visual && (
+                        <div className="text-xs text-zinc-400 mb-1">
+                          <span className="text-violet-400 font-semibold uppercase tracking-wider">Visual:</span>{' '}
+                          {featured.visual}
+                        </div>
+                      )}
+                      {featured.on_screen && (
+                        <div className="text-xs text-teal-300 font-medium">
+                          <span className="text-teal-400 uppercase tracking-wider">On screen:</span>{' '}
+                          {featured.on_screen}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Alternative hooks */}
+                    {alternates.length > 0 && (
+                      <div className="px-4 py-3 bg-zinc-950/60 border-b border-white/5">
+                        <div className="text-[10px] font-semibold text-zinc-500 uppercase tracking-wider mb-2">
+                          Alternative hooks — click to swap in
+                        </div>
+                        <div className="grid sm:grid-cols-2 gap-2">
+                          {alternates.map((v) => {
+                            const m = TIER_META[v.tier];
+                            return (
+                              <button
+                                key={v.tier}
+                                type="button"
+                                onClick={() => setFeaturedTier(v.tier)}
+                                className="text-left p-3 rounded-lg border border-white/10 bg-zinc-900/60 hover:border-white/30 hover:bg-zinc-900 transition-colors group"
+                              >
+                                <div className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-semibold uppercase tracking-wider mb-1.5 ${m.badgeAlt}`}>
+                                  {m.emoji} {m.label}
+                                </div>
+                                <p className="text-sm text-zinc-200 font-medium leading-snug group-hover:text-white">
+                                  &ldquo;{v.spoken}&rdquo;
+                                </p>
+                                {v.on_screen && (
+                                  <p className="text-[10px] text-zinc-500 mt-1 line-clamp-1">
+                                    On screen: {v.on_screen}
+                                  </p>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              })()}
 
               {/* Beats */}
               <div className="divide-y divide-white/5">

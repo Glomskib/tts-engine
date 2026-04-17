@@ -102,9 +102,11 @@ export default function UploadCard() {
   }
 
   function onPick(file: File) {
+    console.log('[UploadCard] ONPICK_ENTER', { name: file.name, type: file.type, size: file.size, ext: file.name.split('.').pop()?.toLowerCase() });
     setError(null);
     const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
     if (!ALLOWED_EXT.includes(ext)) {
+      console.warn('[UploadCard] ONPICK_REJECT_EXT', { ext, allowed: ALLOWED_EXT });
       setState('error');
       setError({
         title: 'That file type isn\u2019t supported.',
@@ -113,19 +115,21 @@ export default function UploadCard() {
       return;
     }
     if (file.size > MAX_SIZE_BYTES) {
-      console.warn('[UploadCard] OVERSIZE_REJECT', { name: file.name, size: file.size, limit: MAX_SIZE_BYTES });
+      console.warn('[UploadCard] ONPICK_REJECT_SIZE', { name: file.name, size: file.size, limit: MAX_SIZE_BYTES });
       setState('error');
       setError({
         title: `This file is ${formatBytes(file.size)}. The current limit is ${MAX_SIZE_LABEL}.`,
-        hint: 'Choose a smaller file or export a lighter version.',
+        hint: 'Choose a smaller export or compress the file before uploading.',
       });
       return;
     }
+    console.log('[UploadCard] ONPICK_ACCEPTED', { name: file.name });
 
     setFilename(file.name);
     setState('uploading');
     setProgress(0);
 
+    console.log('[UploadCard] DOUPLOAD_CALL');
     void doUpload(file);
   }
 
@@ -349,11 +353,18 @@ function DropZone({
         else console.warn('[UploadCard] DROP_NO_FILE');
       }}
       onClick={() => {
-        console.log('[UploadCard] CLICK_START', { busy, state });
-        if (!busy) {
-          if (inputRef.current) inputRef.current.value = '';
-          inputRef.current?.click();
+        console.log('[UploadCard] CLICK_START', { busy, state, input_attached: !!inputRef.current });
+        if (busy) {
+          console.warn('[UploadCard] CLICK_IGNORED_BUSY', { state });
+          return;
         }
+        if (!inputRef.current) {
+          console.error('[UploadCard] CLICK_NO_INPUT_REF');
+          return;
+        }
+        inputRef.current.value = '';
+        inputRef.current.click();
+        console.log('[UploadCard] INPUT_CLICKED');
       }}
       onKeyDown={(e) => {
         if (busy) return;
@@ -395,6 +406,9 @@ function DropZone({
           <p className="mt-1.5 text-xs sm:text-sm text-zinc-500">
             Or drop a file here. MP4, MOV, WebM, AVI &middot; up to {maxSizeLabel}
           </p>
+          <p className="mt-1 text-[11px] text-zinc-600">
+            Full creator exports welcome. Bigger files take longer to upload &mdash; processing keeps going after the upload finishes.
+          </p>
         </>
       )}
 
@@ -408,6 +422,9 @@ function DropZone({
             <div className="h-full bg-zinc-100 transition-all" style={{ width: `${progress}%` }} />
           </div>
           <p className="mt-2 text-xs text-zinc-400">{progress}%</p>
+          <p className="mt-2 text-[11px] text-zinc-500">
+            Large files take a few minutes. Processing continues after the upload finishes.
+          </p>
         </>
       )}
 

@@ -76,6 +76,28 @@ export default function RunDetail({ runId }: { runId: string }) {
   // Ordered list of clip ids the user has picked for "Combine into one video".
   const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
   const [combineBusy, setCombineBusy] = useState(false);
+  // User-selected "in-hero" clip; null means the top-ranked best clip is shown.
+  const [activeClipId, setActiveClipId] = useState<string | null>(null);
+  // Ephemeral coming-soon banner fired by QuickActionBar.
+  const [iterateToast, setIterateToast] = useState<string | null>(null);
+
+  async function handleIterate(type: string) {
+    console.log('[RunDetail] handleIterate', { type, run_id: runId });
+    // Optimistic toast — API is still a placeholder that acknowledges without queueing.
+    setIterateToast('Coming soon — iteration launching this week');
+    window.setTimeout(() => setIterateToast(null), 2600);
+    const clipId = activeClipId ?? data?.rendered?.find((r) => r.status === 'complete')?.id;
+    if (!clipId) return;
+    try {
+      await fetch('/api/video-engine/iterate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ run_id: runId, clip_id: clipId, type }),
+      });
+    } catch (e) {
+      console.warn('[RunDetail] iterate POST failed', e);
+    }
+  }
 
   function toggleSelected(clipId: string) {
     setSelectedClipIds((prev) =>
@@ -167,144 +189,411 @@ export default function RunDetail({ runId }: { runId: string }) {
   const intentMismatch = run.detected_intent && run.detected_intent !== 'unknown' && run.detected_intent !== run.mode;
   const candidateById = new Map(candidates.map((c) => [c.id, c]));
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-start justify-between gap-3 flex-wrap">
+  const combinedClips = rendered.filter((r) => r.template_key === 'combined');
+  const sourceClips = rendered.filter((r) => r.template_key !== 'combined');
+  const ranked = rankRendered(sourceClips, candidateById);
+  const best = ranked[0] ?? null;
+  const alternates = ranked.slice(1);
+  const completeBest = best && best.status === 'complete' ? best : null;
+  // Every finished clip — drives the visible "Other versions" carousel.
+  const completeClips = ranked.filter((r) => r.status === 'complete');
+  // User's chosen hero clip falls back to the top-ranked best when unset.
+  const activeClip =
+    (activeClipId ? completeClips.find((r) => r.id === activeClipId) ?? null : null) ??
+    completeBest;
+
+  // In-progress / failed / edge states keep a minimal status view.
+  if (!isTerminal || !completeBest) {
+    return (
+      <div className="space-y-6">
         <div>
           <h1 className="text-xl font-semibold text-zinc-100">
-            {asset?.original_filename ?? 'Generation run'}
+            {asset?.original_filename ?? 'Your video'}
           </h1>
           <div className="mt-1.5 flex items-center gap-2 text-sm text-zinc-500 flex-wrap">
             <StatusPill status={run.status} />
             <span>·</span>
             <span>{modeToWorkspaceLabel(run.mode)}</span>
-            {run.watermark && (
-              <>
-                <span>·</span>
-                <span className="inline-flex items-center gap-1 text-amber-300/90"><Crown className="w-3.5 h-3.5" /> Watermark on</span>
-              </>
-            )}
           </div>
         </div>
 
-        {isTerminal && (
-          <div className="flex gap-2">
-            <button
-              onClick={regenerateInOtherMode}
-              disabled={!!regenBusy}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-sm px-3 py-1.5 disabled:opacity-50"
-            >
-              {regenBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              Try as {modeToWorkspaceLabel(otherMode)}
-            </button>
-            <Link
-              href={`/video-engine/${runId}/compare`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-sm px-3 py-1.5"
-            >
-              <GitCompareArrows className="w-4 h-4" />
-              Compare
-            </Link>
+        {intentMismatch && (
+          <IntentMismatchBanner currentMode={run.mode} detected={run.detected_intent as Mode} />
+        )}
+
+        {run.error_message && (
+          <div className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-300">
+            {run.error_message}
+          </div>
+        )}
+
+        {!isTerminal && <ProgressTrack status={run.status} rendered={rendered} />}
+
+        {isTerminal && !completeBest && ranked.length > 0 && (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-6 text-center text-sm text-zinc-400">
+            We couldn’t finish rendering a clip from this video. Try again from the home screen.
           </div>
         )}
       </div>
+    );
+  }
 
-      {run.status === 'complete' && rendered.length > 0 && (
-        <ReadyBanner count={rendered.filter((r) => r.status === 'complete').length} />
-      )}
-
+  // Guided outcome: one hero clip, quick-iterate pills, visible versions carousel.
+  const hero = activeClip!;
+  return (
+    <div className="space-y-4 sm:space-y-6">
       {intentMismatch && (
         <IntentMismatchBanner currentMode={run.mode} detected={run.detected_intent as Mode} />
       )}
 
-      {isTerminal && <UpgradeNudges planId={run.plan_id_at_run} watermark={run.watermark} />}
+      <HeroClip
+        clip={hero}
+        candidate={hero.candidate_id ? candidateById.get(hero.candidate_id) ?? null : null}
+        onIterate={handleIterate}
+      />
 
-      {run.error_message && (
-        <div className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-          {run.error_message}
-        </div>
+      {completeClips.length > 1 && (
+        <OtherVersions
+          clips={completeClips}
+          activeId={hero.id}
+          candidateById={candidateById}
+          onSelect={setActiveClipId}
+        />
       )}
 
-      {!isTerminal && <ProgressTrack status={run.status} rendered={rendered} />}
+      {/* Power-user editor: preserves regen / combine access without dominating the guided flow. */}
+      {alternates.length > 0 && (
+        <details className="group rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+          <summary className="cursor-pointer list-none px-4 py-2.5 text-xs text-zinc-400 hover:bg-zinc-900 flex items-center justify-between">
+            <span>Edit variations &amp; combine</span>
+            <span className="text-zinc-500 text-xs transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="px-4 pb-4 pt-2">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+              {alternates.map((rc) => (
+                <RenderedClipCard
+                  key={rc.id}
+                  clip={rc}
+                  candidate={rc.candidate_id ? candidateById.get(rc.candidate_id) ?? null : null}
+                  selected={selectedClipIds.includes(rc.id)}
+                  selectionIndex={selectedClipIds.indexOf(rc.id)}
+                  onToggleSelect={toggleSelected}
+                />
+              ))}
+            </div>
+          </div>
+        </details>
+      )}
+
+      {combinedClips.length > 0 && (
+        <details className="group rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+          <summary className="cursor-pointer list-none px-4 py-2.5 text-xs text-zinc-400 hover:bg-zinc-900 flex items-center justify-between">
+            <span>Your combined videos ({combinedClips.length})</span>
+            <span className="text-zinc-500 text-xs transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="px-4 pb-4 pt-2 grid gap-4 grid-cols-1 sm:grid-cols-2">
+            {combinedClips.map((rc) => (
+              <CombinedClipCard key={rc.id} clip={rc} />
+            ))}
+          </div>
+        </details>
+      )}
 
       {asset?.storage_url && (
-        <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-3">
-          <div className="text-xs text-zinc-500 mb-2">Source</div>
-          <video src={asset.storage_url} controls preload="metadata" className="w-full max-h-72 rounded-lg bg-black" />
-        </div>
+        <details className="group rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
+          <summary className="cursor-pointer list-none px-4 py-2.5 text-xs text-zinc-400 hover:bg-zinc-900 flex items-center justify-between">
+            <span>Show source video</span>
+            <span className="text-zinc-500 text-xs transition-transform group-open:rotate-180">▾</span>
+          </summary>
+          <div className="px-4 pb-4 pt-2">
+            <video src={asset.storage_url} controls preload="metadata" className="w-full max-h-72 rounded-lg bg-black" />
+          </div>
+        </details>
       )}
 
-      {rendered.length > 0 && (() => {
-        // Split combined renders out into their own section so they don't
-        // pollute the Recommended/Alternates ranking of the source clips.
-        const combinedClips = rendered.filter((r) => r.template_key === 'combined');
-        const sourceClips = rendered.filter((r) => r.template_key !== 'combined');
-        const ranked = rankRendered(sourceClips, candidateById);
-        const best = ranked[0] ?? null;
-        const alternates = ranked.slice(1);
-        const completeBest = best && best.status === 'complete' ? best : null;
-        return (
-          <>
-            {combinedClips.length > 0 && (
-              <section>
-                <div className="flex items-baseline justify-between mb-3">
-                  <h2 className="text-sm font-medium text-zinc-100">Your combined videos</h2>
-                </div>
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
-                  {combinedClips.map((rc) => (
-                    <CombinedClipCard key={rc.id} clip={rc} />
-                  ))}
-                </div>
-              </section>
-            )}
-            {completeBest && (
-              <section>
-                <div className="flex items-baseline justify-between mb-3">
-                  <h2 className="text-sm font-medium text-zinc-100">Recommended</h2>
-                  <span className="text-[10px] uppercase tracking-wide text-emerald-400">Ready to post</span>
-                </div>
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-[minmax(0,1fr)]">
-                  <RenderedClipCard
-                    clip={completeBest}
-                    candidate={completeBest.candidate_id ? candidateById.get(completeBest.candidate_id) ?? null : null}
-                    featured
-                    selected={selectedClipIds.includes(completeBest.id)}
-                    selectionIndex={selectedClipIds.indexOf(completeBest.id)}
-                    onToggleSelect={toggleSelected}
-                  />
-                </div>
-              </section>
-            )}
-            {alternates.length > 0 && (
-              <section>
-                <h2 className="text-sm font-medium text-zinc-300 mb-3">
-                  {completeBest ? `Alternates (${alternates.length})` : `Your clips (${ranked.length})`}
-                </h2>
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {(completeBest ? alternates : ranked).map((rc) => (
-                    <RenderedClipCard
-                      key={rc.id}
-                      clip={rc}
-                      candidate={rc.candidate_id ? candidateById.get(rc.candidate_id) ?? null : null}
-                      selected={selectedClipIds.includes(rc.id)}
-                      selectionIndex={selectedClipIds.indexOf(rc.id)}
-                      onToggleSelect={toggleSelected}
-                    />
-                  ))}
-                </div>
-              </section>
-            )}
-            {selectedClipIds.length >= 1 && (
-              <CombineActionBar
-                count={selectedClipIds.length}
-                busy={combineBusy}
-                onCombine={combineSelected}
-                onClear={clearSelected}
-              />
-            )}
-          </>
-        );
-      })()}
+      <UpgradeNudges planId={run.plan_id_at_run} watermark={run.watermark} />
+
+      <div className="flex items-center justify-center gap-4 sm:gap-5 pt-1 sm:pt-2 text-xs text-zinc-500">
+        <button
+          type="button"
+          onClick={regenerateInOtherMode}
+          disabled={!!regenBusy}
+          className="inline-flex items-center gap-1 hover:text-zinc-200 disabled:opacity-50"
+        >
+          {regenBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+          Try as {modeToWorkspaceLabel(otherMode)}
+        </button>
+        <Link
+          href={`/video-engine/${runId}/compare`}
+          className="inline-flex items-center gap-1 hover:text-zinc-200"
+        >
+          <GitCompareArrows className="w-3.5 h-3.5" />
+          Compare versions
+        </Link>
+        {run.watermark && (
+          <span className="inline-flex items-center gap-1 text-amber-300/70">
+            <Crown className="w-3.5 h-3.5" /> Watermark on
+          </span>
+        )}
+      </div>
+
+      {selectedClipIds.length >= 1 && (
+        <CombineActionBar
+          count={selectedClipIds.length}
+          busy={combineBusy}
+          onCombine={combineSelected}
+          onClear={clearSelected}
+        />
+      )}
+
+      {iterateToast && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="fixed inset-x-4 bottom-4 z-50 mx-auto max-w-md rounded-xl border border-zinc-700 bg-zinc-900/95 backdrop-blur px-4 py-3 text-sm text-zinc-100 shadow-[0_20px_60px_rgba(0,0,0,0.6)] flex items-center gap-2"
+        >
+          <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+          <span>{iterateToast}</span>
+        </div>
+      )}
     </div>
+  );
+}
+
+function HeroClip({
+  clip,
+  candidate,
+  onIterate,
+}: {
+  clip: RenderedClip;
+  candidate: Candidate | null;
+  onIterate: (action: string) => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const [showTips, setShowTips] = useState(false);
+
+  const fullCaption = [
+    clip.caption_text,
+    clip.hashtags?.length ? clip.hashtags.map((h) => `#${h}`).join(' ') : '',
+  ].filter(Boolean).join('\n\n');
+
+  async function copyCaption() {
+    if (!fullCaption) return;
+    try {
+      await navigator.clipboard.writeText(fullCaption);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1600);
+    } catch { /* noop */ }
+  }
+
+  return (
+    <section className="space-y-3 sm:space-y-5">
+      <header className="text-center space-y-1.5 sm:space-y-2">
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-800/50 bg-emerald-950/40 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
+          <Check className="w-3 h-3" /> Ready
+        </div>
+        <h1 className="text-xl sm:text-3xl font-semibold text-zinc-50 tracking-tight">
+          Your clip is ready to post
+        </h1>
+      </header>
+
+      <div className="mx-auto w-full sm:max-w-sm">
+        <div className="aspect-[9/16] max-h-[70vh] bg-black sm:rounded-2xl overflow-hidden sm:border sm:border-zinc-800 sm:shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
+          {clip.output_url ? (
+            <video
+              key={clip.id}
+              src={clip.output_url}
+              controls
+              playsInline
+              preload="metadata"
+              className="w-full h-full object-contain"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-zinc-500 text-xs">
+              No output
+            </div>
+          )}
+        </div>
+        <p className="mt-2 sm:mt-3 text-center text-xs sm:text-sm text-zinc-400">
+          Optimized for hook + conversion
+        </p>
+      </div>
+
+      <div className="mx-auto w-full max-w-md grid grid-cols-3 gap-2">
+        <a
+          href={clip.output_url ?? '#'}
+          download
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-900 text-xs sm:text-sm font-semibold px-2 py-2.5 sm:py-3"
+        >
+          <Download className="w-4 h-4 shrink-0" />
+          <span className="truncate">Download</span>
+        </a>
+        <button
+          type="button"
+          onClick={copyCaption}
+          disabled={!fullCaption}
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-xs sm:text-sm font-medium px-2 py-2.5 sm:py-3 disabled:opacity-50"
+        >
+          {copied ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <Copy className="w-4 h-4 shrink-0" />}
+          <span className="truncate">{copied ? 'Copied' : 'Copy Caption'}</span>
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowTips((v) => !v)}
+          aria-expanded={showTips}
+          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-zinc-300 hover:text-zinc-100 text-xs sm:text-sm font-medium px-2 py-2.5 sm:py-3"
+        >
+          <Sparkles className="w-4 h-4 shrink-0" />
+          <span className="truncate">{showTips ? 'Hide Tips' : 'Posting Tips'}</span>
+        </button>
+      </div>
+
+      <QuickActionBar onIterate={onIterate} />
+
+      {showTips && (
+        <div className="mx-auto max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-300 space-y-3">
+          <div className="text-[11px] uppercase tracking-wide text-zinc-500">Posting tips</div>
+          <ul className="space-y-2 leading-relaxed">
+            <li>Post during your audience&rsquo;s peak window &mdash; the first 1&ndash;2 hours drive most of the reach.</li>
+            <li>Paste the full caption including hashtags. They&rsquo;re part of the hook.</li>
+            <li>Pin a comment with your link so it sits above the fold.</li>
+            <li>Cross-post to Reels and Shorts the same day for free extra reach.</li>
+          </ul>
+          {(clip.suggested_title || clip.cta_suggestion || candidate?.hook_text) && (
+            <div className="pt-3 border-t border-zinc-800 space-y-3">
+              {candidate?.hook_text && (
+                <div>
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-0.5">Lead the caption with</div>
+                  <div className="text-zinc-200 leading-relaxed">{candidate.hook_text}</div>
+                </div>
+              )}
+              {clip.suggested_title && (
+                <div>
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-0.5">Suggested title</div>
+                  <div className="text-zinc-200">{clip.suggested_title}</div>
+                </div>
+              )}
+              {clip.cta_suggestion && (
+                <div>
+                  <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-0.5">On-screen CTA</div>
+                  <div className="text-zinc-200">{clip.cta_suggestion}</div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function QuickActionBar({ onIterate }: { onIterate: (type: string) => void }) {
+  const actions: Array<{ key: string; label: string }> = [
+    { key: 'shorter',          label: 'Make shorter' },
+    { key: 'stronger_hook',    label: 'Stronger hook' },
+    { key: 'change_tone',      label: 'Change tone' },
+    { key: 'generate_3_more',  label: 'Generate 3 more versions' },
+  ];
+  return (
+    <div className="mx-auto max-w-md">
+      <div className="text-[10px] uppercase tracking-wide text-zinc-500 px-1 mb-1.5">
+        Quick changes
+      </div>
+      <div className="-mx-4 sm:mx-0 px-4 sm:px-0">
+        <div className="flex gap-2 overflow-x-auto flex-nowrap scrollbar-hide py-0.5">
+          {actions.map((a) => (
+            <button
+              key={a.key}
+              type="button"
+              onClick={() => onIterate(a.key)}
+              className="shrink-0 whitespace-nowrap inline-flex items-center gap-1.5 rounded-full bg-zinc-800 hover:bg-zinc-700 text-zinc-200 text-xs font-medium px-3.5 py-1.5 transition-colors"
+            >
+              {a.label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function OtherVersions({
+  clips,
+  activeId,
+  candidateById,
+  onSelect,
+}: {
+  clips: RenderedClip[];
+  activeId: string;
+  candidateById: Map<string, Candidate>;
+  onSelect: (id: string) => void;
+}) {
+  const otherCount = clips.filter((c) => c.id !== activeId).length;
+  return (
+    <section className="space-y-2 sm:space-y-3">
+      <div className="flex items-baseline justify-between px-1">
+        <h2 className="text-sm font-medium text-zinc-100">Other versions</h2>
+        <span className="text-[11px] text-zinc-500">{otherCount}</span>
+      </div>
+      <div className="-mx-4 sm:mx-0 px-4 sm:px-0">
+        <div className="flex gap-3 overflow-x-auto flex-nowrap snap-x snap-mandatory pb-2 scrollbar-hide">
+          {clips.map((c) => {
+            const isActive = c.id === activeId;
+            const cand = c.candidate_id ? candidateById.get(c.candidate_id) ?? null : null;
+            const subtitle = [
+              c.template_key,
+              c.duration_sec ? `${c.duration_sec.toFixed(0)}s` : null,
+            ].filter(Boolean).join(' · ');
+            return (
+              <button
+                key={c.id}
+                type="button"
+                onClick={() => onSelect(c.id)}
+                aria-pressed={isActive}
+                aria-label={`Show ${c.template_key} version`}
+                className={`group shrink-0 snap-start text-left w-28 sm:w-32 transition-transform ${
+                  isActive ? '' : 'hover:-translate-y-0.5'
+                }`}
+              >
+                <div
+                  className={`relative aspect-[9/16] rounded-lg overflow-hidden bg-black border transition-colors ${
+                    isActive ? 'border-emerald-500/70 ring-2 ring-emerald-500/40' : 'border-zinc-800 group-hover:border-zinc-600'
+                  }`}
+                >
+                  {c.thumbnail_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={c.thumbnail_url} alt="" className="w-full h-full object-cover" />
+                  ) : c.output_url ? (
+                    <video
+                      src={c.output_url}
+                      muted
+                      playsInline
+                      preload="metadata"
+                      className="w-full h-full object-cover pointer-events-none"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-[10px] text-zinc-500">
+                      preview
+                    </div>
+                  )}
+                  {isActive && (
+                    <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-950">
+                      <Check className="w-2.5 h-2.5" /> Viewing
+                    </span>
+                  )}
+                </div>
+                <div className="mt-1.5 text-[11px] text-zinc-300 truncate">
+                  {subtitle || 'Clip'}
+                </div>
+                {cand?.hook_strength === 'high' && (
+                  <div className="text-[10px] text-emerald-400/90">Strong hook</div>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -388,20 +677,6 @@ function ProgressTrack({ status, rendered }: { status: RunStatus; rendered: Rend
   );
 }
 
-function ReadyBanner({ count }: { count: number }) {
-  return (
-    <div className="rounded-xl border border-emerald-800/50 bg-gradient-to-r from-emerald-950/40 to-emerald-900/20 px-4 py-3 flex items-center gap-3">
-      <Check className="w-5 h-5 text-emerald-300" />
-      <div>
-        <div className="text-emerald-100 font-medium text-sm">Your clips are ready.</div>
-        <div className="text-emerald-300/80 text-xs mt-0.5">
-          {count} post-ready {count === 1 ? 'clip' : 'clips'} below — copy the caption, download the MP4, and post.
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // Pick the dominant intent from best_for[]. Priority: conversion > engagement >
 // awareness, so the most action-oriented signal wins when multiple apply.
 function primaryIntent(bestFor: string[] | null | undefined): 'conversion' | 'engagement' | 'awareness' | null {
@@ -438,7 +713,7 @@ function IntentMismatchBanner({ currentMode, detected }: { currentMode: Mode; de
         <div className="font-medium">Heads up: this looks more like a {detectedLabel} video.</div>
         <div className="text-xs text-blue-300/80 mt-0.5">
           You picked {currentLabel}. The transcript leans the other way — try
-          re-running as {detectedLabel} for clips that match the content's intent.
+          re-running as {detectedLabel} for clips that match the content&rsquo;s intent.
         </div>
       </div>
     </div>

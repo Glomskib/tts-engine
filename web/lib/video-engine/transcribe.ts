@@ -38,13 +38,25 @@ export async function transcribeStorageAsset(params: {
 
   // Whisper accepts video files directly — no ffmpeg extraction needed.
   // This avoids the ffmpeg binary dependency entirely on serverless (Vercel).
+  // Whisper only accepts: flac, m4a, mp3, mp4, mpeg, mpga, oga, ogg, wav, webm.
+  // Map unsupported extensions (e.g. .mov, .avi) to .mp4 so Whisper accepts them.
+  const WHISPER_EXTS = new Set(['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']);
   const id = randomUUID();
-  const ext = params.storage_path.split('.').pop()?.toLowerCase() || 'mp4';
+  const rawExt = params.storage_path.split('.').pop()?.toLowerCase() || 'mp4';
+  const ext = WHISPER_EXTS.has(rawExt) ? rawExt : 'mp4';
   const videoPath = join(tmpdir(), `ve-${id}.${ext}`);
 
   try {
     const buf = Buffer.from(await blob.arrayBuffer());
     await writeFile(videoPath, buf);
+
+    // Whisper has a 25MB file limit. If the file is larger, we need to note this
+    // but still attempt — OpenAI may accept slightly over or the server-side
+    // compression may bring it under.
+    const fileSizeMB = buf.length / (1024 * 1024);
+    if (fileSizeMB > 25) {
+      console.warn(`[transcribe] File is ${fileSizeMB.toFixed(1)}MB — exceeds Whisper 25MB limit, attempting anyway`);
+    }
 
     const openai = new OpenAI({ apiKey: openaiKey });
     const transcription = await openai.audio.transcriptions.create({

@@ -1,8 +1,12 @@
 /**
  * Whisper transcription for assets stored in Supabase Storage.
  *
- * Downloads video from Supabase Storage and sends it directly to OpenAI Whisper.
- * Whisper accepts video files natively — no ffmpeg audio extraction needed.
+ * Strategy:
+ *   ≤ 25 MB  → send video directly to Whisper (no ffmpeg needed)
+ *   > 25 MB  → extract compressed audio via ffmpeg, then send to Whisper
+ *
+ * Whisper accepted formats: flac, m4a, mp3, mp4, mpeg, mpga, oga, ogg, wav, webm.
+ * .MOV and .avi are mapped to .mp4 so Whisper accepts them.
  */
 
 import { tmpdir } from 'os';
@@ -10,9 +14,33 @@ import { join } from 'path';
 import { writeFile, unlink } from 'fs/promises';
 import { createReadStream, existsSync } from 'fs';
 import { randomUUID } from 'crypto';
+import { execFile } from 'child_process';
+import { promisify } from 'util';
 import OpenAI from 'openai';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import type { TranscriptSegment } from './types';
+
+const execFileAsync = promisify(execFile);
+
+const WHISPER_MAX_BYTES = 25 * 1024 * 1024; // 25 MB
+const WHISPER_EXTS = new Set(['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']);
+
+/** Resolve an ffmpeg binary path. Used only for files > 25MB. */
+function getFFmpegPath(): string {
+  // 1. System ffmpeg (local dev, Mac mini render nodes)
+  try {
+    const { execSync } = require('child_process');
+    const sys = execSync('which ffmpeg', { encoding: 'utf8', timeout: 3000 }).trim();
+    if (sys) return sys;
+  } catch { /* not on PATH */ }
+  // 2. @ffmpeg-installer ships a binary inside the npm package (works on Vercel)
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require('@ffmpeg-installer/ffmpeg').path;
+  } catch { /* not installed */ }
+  // 3. Last resort
+  return 'ffmpeg';
+}
 
 export interface AssetTranscriptResult {
   transcript: string;
@@ -36,31 +64,40 @@ export async function transcribeStorageAsset(params: {
     throw new Error(`Failed to download asset ${params.storage_path}: ${dlError?.message ?? 'no blob'}`);
   }
 
-  // Whisper accepts video files directly — no ffmpeg extraction needed.
-  // This avoids the ffmpeg binary dependency entirely on serverless (Vercel).
-  // Whisper only accepts: flac, m4a, mp3, mp4, mpeg, mpga, oga, ogg, wav, webm.
-  // Map unsupported extensions (e.g. .mov, .avi) to .mp4 so Whisper accepts them.
-  const WHISPER_EXTS = new Set(['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga', 'ogg', 'wav', 'webm']);
   const id = randomUUID();
   const rawExt = params.storage_path.split('.').pop()?.toLowerCase() || 'mp4';
-  const ext = WHISPER_EXTS.has(rawExt) ? rawExt : 'mp4';
-  const videoPath = join(tmpdir(), `ve-${id}.${ext}`);
+  const safeExt = WHISPER_EXTS.has(rawExt) ? rawExt : 'mp4';
+  const videoPath = join(tmpdir(), `ve-${id}.${safeExt}`);
+  const audioPath = join(tmpdir(), `ve-${id}.mp3`);
+  const cleanup: string[] = [videoPath];
 
   try {
     const buf = Buffer.from(await blob.arrayBuffer());
     await writeFile(videoPath, buf);
 
-    // Whisper has a 25MB file limit. If the file is larger, we need to note this
-    // but still attempt — OpenAI may accept slightly over or the server-side
-    // compression may bring it under.
-    const fileSizeMB = buf.length / (1024 * 1024);
-    if (fileSizeMB > 25) {
-      console.warn(`[transcribe] File is ${fileSizeMB.toFixed(1)}MB — exceeds Whisper 25MB limit, attempting anyway`);
+    let transcribePath = videoPath;
+
+    // Files over 25MB: extract compressed audio so Whisper can handle them
+    if (buf.length > WHISPER_MAX_BYTES) {
+      console.log(`[transcribe] File is ${(buf.length / 1024 / 1024).toFixed(1)}MB — extracting audio for Whisper`);
+      const ffmpeg = getFFmpegPath();
+      await execFileAsync(
+        ffmpeg,
+        ['-i', videoPath, '-vn', '-acodec', 'libmp3lame', '-ab', '64k', '-ar', '16000', '-ac', '1', '-y', audioPath],
+        { timeout: 120_000 },
+      );
+      if (existsSync(audioPath)) {
+        transcribePath = audioPath;
+        cleanup.push(audioPath);
+        console.log(`[transcribe] Audio extracted: ${((await import('fs')).statSync(audioPath).size / 1024 / 1024).toFixed(1)}MB`);
+      } else {
+        console.warn('[transcribe] Audio extraction produced no file — falling back to direct upload');
+      }
     }
 
     const openai = new OpenAI({ apiKey: openaiKey });
     const transcription = await openai.audio.transcriptions.create({
-      file: createReadStream(videoPath),
+      file: createReadStream(transcribePath),
       model: 'whisper-1',
       response_format: 'verbose_json',
       timestamp_granularities: ['segment'],
@@ -79,6 +116,8 @@ export async function transcribeStorageAsset(params: {
       duration_sec: transcription.duration || 0,
     };
   } finally {
-    try { if (existsSync(videoPath)) await unlink(videoPath); } catch { /* ignore */ }
+    for (const p of cleanup) {
+      try { if (existsSync(p)) await unlink(p); } catch { /* ignore */ }
+    }
   }
 }

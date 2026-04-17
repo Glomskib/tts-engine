@@ -156,11 +156,24 @@ const HARD_MAX_SEC = 45;
 /**
  * Absolute cap applied to every generated candidate regardless of source length
  * or segment packing. A "short" must never exceed this duration — if a candidate
- * somehow slips through longer, its end is trimmed to start + SHORT_MAX_SEC.
+ * somehow slips through longer, its end is trimmed to start + cap.
  * Paired with the ≥80%-of-source reject in generateCandidates() so the engine
  * cannot silently emit the full source as a "short".
+ *
+ * Affiliate (TikTok Shop) is capped more aggressively than Nonprofit —
+ * product-content shorts live or die in the first 15s, so we favor punchier
+ * output even if it means leaving useful material on the cutting-room floor.
  */
 export const SHORT_MAX_SEC = 30;
+// Partial map — unknown modes (e.g. a future 'clipper' lane) fall through to
+// the 30s default. Touching the clipper lane is out of scope for this operator.
+const SHORT_MAX_BY_MODE: Partial<Record<Mode, number>> = {
+  affiliate: 20,
+  nonprofit: 30,
+};
+export function getShortMaxSec(mode: Mode): number {
+  return SHORT_MAX_BY_MODE[mode] ?? SHORT_MAX_SEC;
+}
 
 /**
  * Minimum delta between source duration and chosen candidate duration for the
@@ -452,26 +465,25 @@ function buildSubChunks(segments: TranscriptSegment[]): ChunkInput[] {
  */
 /**
  * Snap `candidate.end` to the last segment boundary at or before
- * `candidate.start + SHORT_MAX_SEC`. Avoids cutting mid-word while still
+ * `candidate.start + maxSec`. Avoids cutting mid-word while still
  * enforcing the hard cap.
  */
 function clampCandidateToShort<T extends { start: number; end: number }>(
   cand: T,
   segments: TranscriptSegment[],
+  maxSec: number,
 ): T {
   const dur = cand.end - cand.start;
-  if (dur <= SHORT_MAX_SEC) return cand;
-  const budget = cand.start + SHORT_MAX_SEC;
-  // Find the last segment ending at-or-before budget, after candidate.start.
+  if (dur <= maxSec) return cand;
+  const budget = cand.start + maxSec;
   let snappedEnd = budget;
   for (const seg of segments) {
     if (seg.end <= cand.start) continue;
     if (seg.end > budget) break;
     snappedEnd = seg.end;
   }
-  // Never undershoot the hard minimum
   if (snappedEnd < cand.start + TARGET_MIN_SEC) snappedEnd = cand.start + TARGET_MIN_SEC;
-  console.log(`[scoring] Clamped candidate from ${cand.start.toFixed(1)}-${cand.end.toFixed(1)}s (${dur.toFixed(1)}s) → ${cand.start.toFixed(1)}-${snappedEnd.toFixed(1)}s`);
+  console.log(`[scoring] Clamped candidate from ${cand.start.toFixed(1)}-${cand.end.toFixed(1)}s (${dur.toFixed(1)}s) → ${cand.start.toFixed(1)}-${snappedEnd.toFixed(1)}s (cap=${maxSec}s)`);
   return { ...cand, end: Number(snappedEnd.toFixed(3)) };
 }
 
@@ -542,9 +554,11 @@ export function generateCandidates(
   picked = picked.map((c, i) => ({ ...c, rank: i + 1 }));
 
   const refined = refineCandidateStarts(picked, segments);
-  // Final safety: no candidate may exceed SHORT_MAX_SEC regardless of how it
-  // got here. Clamp end to segment boundary at/before start + SHORT_MAX_SEC.
-  const clamped = refined.map((c) => clampCandidateToShort(c, segments));
+  // Final safety: no candidate may exceed the mode-specific cap regardless of
+  // how it got here. Affiliate/TTS mode is capped tighter (20s) than Nonprofit
+  // (30s) to match TikTok Shop pacing.
+  const maxSec = getShortMaxSec(mode);
+  const clamped = refined.map((c) => clampCandidateToShort(c, segments, maxSec));
 
   return { chunks, selected: clamped };
 }

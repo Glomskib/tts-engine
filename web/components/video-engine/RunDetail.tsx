@@ -1116,9 +1116,10 @@ function CombineActionBar({
   );
 }
 
-const STYLE_CYCLE: Record<Mode, string[]> = {
+const STYLE_CYCLE: Record<string, string[]> = {
   affiliate: ['aff_tiktok_shop', 'aff_ugc_review', 'aff_talking_head'],
   nonprofit: ['np_event_recap', 'np_join_us', 'np_why_this_matters', 'np_sponsor_highlight', 'np_testimonial'],
+  clipper: ['aff_tiktok_shop'],
 };
 function otherStyleKey(current: string, mode: Mode): string {
   const list = STYLE_CYCLE[mode];

@@ -5,10 +5,15 @@ import { useRouter } from 'next/navigation';
 import { Upload, Loader2, AlertCircle, ChevronDown } from 'lucide-react';
 import WorkspaceSelector, {
   GoalSelector,
+  ClipperPresetSelector,
+  clipperPresetToTemplateKey,
   workspaceToMode,
   type Workspace,
   type Goal,
+  type ClipperPreset,
 } from './WorkspaceSelector';
+
+export type Lane = 'product' | 'clipper';
 
 // Matches the backend cap in app/api/creator/upload-urls/route.ts (MAX_FILE_BYTES).
 const MAX_SIZE_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
@@ -98,11 +103,18 @@ function humanizeError(raw: string): FriendlyError {
   };
 }
 
-export default function UploadCard() {
+interface UploadCardProps {
+  /** Which workflow this card is serving. Defaults to the existing product lane. */
+  lane?: Lane;
+}
+
+export default function UploadCard({ lane = 'product' }: UploadCardProps) {
   const router = useRouter();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [workspace, setWorkspace] = useState<Workspace>('creator');
+  const isClipper = lane === 'clipper';
+  const [workspace, setWorkspace] = useState<Workspace>(isClipper ? 'clipper' : 'creator');
   const [goal, setGoal] = useState<Goal | null>(null);
+  const [clipperPreset, setClipperPreset] = useState<ClipperPreset | null>(null);
   const [contextText, setContextText] = useState<string>('');
   const [showMore, setShowMore] = useState(false);
   const [state, setState] = useState<State>('idle');
@@ -191,8 +203,9 @@ export default function UploadCard() {
 
       setState('creating');
       const mode = workspaceToMode(workspace);
-      const context = parseContext(contextText, workspace, goal);
-      console.log('[UploadCard] CREATE_RUN', { storage_path: upload.path, mode, workspace, goal });
+      const context = parseContext(contextText, workspace, goal, clipperPreset);
+      const presetKeys = isClipper && clipperPreset ? [clipperPresetToTemplateKey(clipperPreset)] : undefined;
+      console.log('[UploadCard] CREATE_RUN', { storage_path: upload.path, mode, workspace, goal, lane, clipperPreset });
       const runRes = await fetch('/api/video-engine/runs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -206,6 +219,7 @@ export default function UploadCard() {
           workspace,
           goal,
           context,
+          preset_keys: presetKeys,
         }),
       });
       const runJson = await runRes.json();
@@ -231,17 +245,28 @@ export default function UploadCard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-zinc-100 mb-2">Who is this for?</label>
-        <WorkspaceSelector value={workspace} onChange={setWorkspace} disabled={busy} />
-      </div>
+      {isClipper ? (
+        <div>
+          <label className="block text-sm font-medium text-zinc-100 mb-2">
+            What kind of clips? <span className="text-zinc-500 font-normal text-xs">(optional — pick one or let the engine decide)</span>
+          </label>
+          <ClipperPresetSelector value={clipperPreset} onChange={setClipperPreset} disabled={busy} />
+        </div>
+      ) : (
+        <>
+          <div>
+            <label className="block text-sm font-medium text-zinc-100 mb-2">Who is this for?</label>
+            <WorkspaceSelector value={workspace} onChange={setWorkspace} disabled={busy} />
+          </div>
 
-      <div>
-        <label className="block text-sm font-medium text-zinc-100 mb-2">
-          What should this video do? <span className="text-zinc-500 font-normal text-xs">(optional)</span>
-        </label>
-        <GoalSelector value={goal} onChange={setGoal} disabled={busy} />
-      </div>
+          <div>
+            <label className="block text-sm font-medium text-zinc-100 mb-2">
+              What should this video do? <span className="text-zinc-500 font-normal text-xs">(optional)</span>
+            </label>
+            <GoalSelector value={goal} onChange={setGoal} disabled={busy} />
+          </div>
+        </>
+      )}
 
       <DropZone
         busy={busy}
@@ -251,6 +276,7 @@ export default function UploadCard() {
         onPick={onPick}
         inputRef={inputRef}
         maxSizeLabel={MAX_SIZE_LABEL}
+        lane={lane}
       />
 
       {error && (
@@ -283,19 +309,27 @@ export default function UploadCard() {
         aria-expanded={showMore}
       >
         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMore ? 'rotate-180' : ''}`} />
-        {showMore ? 'Hide details' : 'Add product or brand name (optional)'}
+        {showMore
+          ? 'Hide details'
+          : isClipper
+            ? 'Add channel or show name (optional)'
+            : 'Add product or brand name (optional)'}
       </button>
       {showMore && (
         <div>
           <label className="block text-xs font-medium text-zinc-300 mb-1.5">
-            {workspace === 'creator' ? 'Product or brand name' : 'Brand, campaign, or event'}
+            {isClipper
+              ? 'Channel, show, or series'
+              : workspace === 'creator' ? 'Product or brand name' : 'Brand, campaign, or event'}
           </label>
           <input
             type="text"
             value={contextText}
             onChange={(e) => setContextText(e.target.value)}
             disabled={busy}
-            placeholder={workspace === 'creator' ? 'e.g. Acme Hydration Tabs' : 'e.g. Spring launch'}
+            placeholder={isClipper
+              ? 'e.g. The Daily Pod'
+              : workspace === 'creator' ? 'e.g. Acme Hydration Tabs' : 'e.g. Spring launch'}
             className="w-full rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-100 text-base sm:text-sm px-3 py-2.5 placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
           />
           <p className="mt-1.5 text-[11px] text-zinc-500">
@@ -307,19 +341,26 @@ export default function UploadCard() {
   );
 }
 
-function parseContext(text: string, workspace: Workspace, goal: Goal | null): Record<string, string> {
+function parseContext(
+  text: string,
+  workspace: Workspace,
+  goal: Goal | null,
+  clipperPreset: ClipperPreset | null,
+): Record<string, string> {
   const out: Record<string, string> = {};
   const trimmed = text.trim();
   if (trimmed) {
     if (workspace === 'creator') out.product_name = trimmed;
+    else if (workspace === 'clipper') out.channel_name = trimmed;
     else { out.event_name = trimmed; out.brand_name = trimmed; }
   }
   if (goal) out.goal = goal;
+  if (clipperPreset) out.clipper_preset = clipperPreset;
   return out;
 }
 
 function DropZone({
-  busy, progress, state, filename, onPick, inputRef, maxSizeLabel,
+  busy, progress, state, filename, onPick, inputRef, maxSizeLabel, lane,
 }: {
   busy: boolean;
   progress: number;
@@ -328,6 +369,7 @@ function DropZone({
   onPick: (file: File) => void;
   inputRef: React.RefObject<HTMLInputElement | null>;
   maxSizeLabel: string;
+  lane: Lane;
 }) {
   const [dragOver, setDragOver] = useState(false);
 
@@ -397,12 +439,16 @@ function DropZone({
           <div className="mx-auto w-14 h-14 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center">
             <Upload className="w-6 h-6 text-zinc-300" />
           </div>
-          <p className="mt-4 text-zinc-50 font-semibold text-base sm:text-lg">Tap to upload a video</p>
+          <p className="mt-4 text-zinc-50 font-semibold text-base sm:text-lg">
+            {lane === 'clipper' ? 'Upload a long-form video' : 'Tap to upload a video'}
+          </p>
           <p className="mt-1.5 text-xs sm:text-sm text-zinc-500">
             Or drop a file here. MP4, MOV, WebM, AVI &middot; up to {maxSizeLabel}
           </p>
           <p className="mt-1 text-[11px] text-zinc-600">
-            Full creator exports welcome. Bigger files take longer to upload &mdash; processing keeps going after the upload finishes.
+            {lane === 'clipper'
+              ? 'Podcasts, streams, interviews, long YouTubes. We find the best moments and cut them into multiple short clips.'
+              : 'Full creator exports welcome. Bigger files take longer to upload — processing keeps going after the upload finishes.'}
           </p>
         </>
       )}

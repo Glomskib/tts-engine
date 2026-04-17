@@ -73,9 +73,36 @@ const NONPROFIT: ModeConfig = {
   defaultCTAKey: 'register_now',
 };
 
+const CLIPPER: ModeConfig = {
+  key: 'clipper',
+  label: 'Long-Form Clipper',
+  description:
+    'Volume-first clipping for long-form creators and repurposers. Optimizes for hook strength, retention potential, and specific moments — not product mentions or donation asks.',
+  scoreWeights: {
+    ...zeroWeights(),
+    hookStrength: 1.5,
+    retentionPotential: 1.4,
+    emotionalIntensity: 1.1,
+    specificity: 1.0,
+    durationFit: 1.0,
+    testimonialPhrase: 0.8,
+    benefitStatement: 0.6,
+    celebrationLanguage: 0.5,
+    // productMention and ctaLikelihood stay at 0 — clipper mode ignores sales signals.
+  },
+  defaultTemplateKeys: [
+    'clip_viral_moment',
+    'clip_fast_highlight',
+    'clip_educational_cut',
+    'clip_clean_talking_head',
+  ],
+  defaultCTAKey: 'watch_full',
+};
+
 const REGISTRY: Record<Mode, ModeConfig> = {
   affiliate: AFFILIATE,
   nonprofit: NONPROFIT,
+  clipper: CLIPPER,
 };
 
 export function getMode(mode: Mode): ModeConfig {
@@ -89,5 +116,5 @@ export function listModes(): ModeConfig[] {
 }
 
 export function isMode(value: unknown): value is Mode {
-  return value === 'affiliate' || value === 'nonprofit';
+  return value === 'affiliate' || value === 'nonprofit' || value === 'clipper';
 }

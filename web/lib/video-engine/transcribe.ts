@@ -12,9 +12,9 @@
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { writeFile, unlink } from 'fs/promises';
-import { createReadStream, existsSync } from 'fs';
+import { createReadStream, existsSync, statSync } from 'fs';
 import { randomUUID } from 'crypto';
-import { execFile } from 'child_process';
+import { execFile, execSync } from 'child_process';
 import { promisify } from 'util';
 import OpenAI from 'openai';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
@@ -29,7 +29,6 @@ const WHISPER_EXTS = new Set(['flac', 'm4a', 'mp3', 'mp4', 'mpeg', 'mpga', 'oga'
 function getFFmpegPath(): string {
   // 1. System ffmpeg (local dev, Mac mini render nodes)
   try {
-    const { execSync } = require('child_process');
     const sys = execSync('which ffmpeg', { encoding: 'utf8', timeout: 3000 }).trim();
     if (sys) return sys;
   } catch { /* not on PATH */ }
@@ -77,19 +76,33 @@ export async function transcribeStorageAsset(params: {
 
     let transcribePath = videoPath;
 
-    // Files over 25MB: extract compressed audio so Whisper can handle them
+    // Files over 25MB: extract compressed audio so Whisper can handle them.
+    // Use very aggressive compression (32kbps mono) to ensure the audio stays
+    // well under 25MB even for long videos (~14MB/hour at 32kbps).
     if (buf.length > WHISPER_MAX_BYTES) {
       console.log(`[transcribe] File is ${(buf.length / 1024 / 1024).toFixed(1)}MB — extracting audio for Whisper`);
       const ffmpeg = getFFmpegPath();
       await execFileAsync(
         ffmpeg,
-        ['-i', videoPath, '-vn', '-acodec', 'libmp3lame', '-ab', '64k', '-ar', '16000', '-ac', '1', '-y', audioPath],
-        { timeout: 120_000 },
+        ['-i', videoPath, '-vn', '-acodec', 'libmp3lame', '-ab', '32k', '-ar', '16000', '-ac', '1', '-y', audioPath],
+        { timeout: 180_000 },
       );
       if (existsSync(audioPath)) {
-        transcribePath = audioPath;
+        const audioSize = statSync(audioPath).size;
+        const audioMB = audioSize / (1024 * 1024);
         cleanup.push(audioPath);
-        console.log(`[transcribe] Audio extracted: ${((await import('fs')).statSync(audioPath).size / 1024 / 1024).toFixed(1)}MB`);
+        console.log(`[transcribe] Audio extracted: ${audioMB.toFixed(1)}MB`);
+
+        if (audioSize <= WHISPER_MAX_BYTES) {
+          transcribePath = audioPath;
+        } else {
+          // Still too large — should be extremely rare at 32kbps mono.
+          // Truncate error so the user gets a clear message.
+          throw new Error(
+            `Video is too long for transcription. The extracted audio is ${audioMB.toFixed(0)}MB ` +
+            `(limit: 25MB). Try uploading a shorter clip.`
+          );
+        }
       } else {
         console.warn('[transcribe] Audio extraction produced no file — falling back to direct upload');
       }
@@ -102,6 +115,14 @@ export async function transcribeStorageAsset(params: {
       response_format: 'verbose_json',
       timestamp_granularities: ['segment'],
     });
+
+    // Handle empty transcripts (silence, music-only, no speech)
+    if (!transcription.text?.trim() && (!transcription.segments || transcription.segments.length === 0)) {
+      throw new Error(
+        'No speech detected in this video. FlashFlow needs spoken content to find the best clips. ' +
+        'Try uploading a video with talking or voiceover.'
+      );
+    }
 
     const segments: TranscriptSegment[] = (transcription.segments || []).map((s) => ({
       start: s.start,

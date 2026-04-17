@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
@@ -80,12 +80,14 @@ export default function RunDetail({ runId }: { runId: string }) {
   const [activeClipId, setActiveClipId] = useState<string | null>(null);
   // Ephemeral coming-soon banner fired by QuickActionBar.
   const [iterateToast, setIterateToast] = useState<string | null>(null);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   async function handleIterate(type: string) {
     console.log('[RunDetail] handleIterate', { type, run_id: runId });
     // Optimistic toast — API is still a placeholder that acknowledges without queueing.
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
     setIterateToast('Coming soon — iteration launching this week');
-    window.setTimeout(() => setIterateToast(null), 2600);
+    toastTimerRef.current = setTimeout(() => setIterateToast(null), 2600);
     const clipId = activeClipId ?? data?.rendered?.find((r) => r.status === 'complete')?.id;
     if (!clipId) return;
     try {
@@ -119,11 +121,15 @@ export default function RunDetail({ runId }: { runId: string }) {
       if (!res.ok || !json.ok) throw new Error(json?.error?.message || 'Combine failed');
       clearSelected();
     } catch (e) {
-      alert(e instanceof Error ? e.message : String(e));
+      setIterateToast(e instanceof Error ? e.message : String(e));
     } finally {
       setCombineBusy(false);
     }
   }
+
+  useEffect(() => () => {
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,7 +176,7 @@ export default function RunDetail({ runId }: { runId: string }) {
       if (!res.ok || !json.ok) throw new Error(json?.error?.message || 'Regenerate failed');
       router.push(`/video-engine/${runId}/compare`);
     } catch (e) {
-      alert(e instanceof Error ? e.message : String(e));
+      setIterateToast(e instanceof Error ? e.message : String(e));
     } finally {
       setRegenBusy(null);
     }
@@ -222,8 +228,9 @@ export default function RunDetail({ runId }: { runId: string }) {
         )}
 
         {run.error_message && (
-          <div className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2 text-sm text-red-300">
-            {run.error_message}
+          <div className="rounded-lg border border-red-900/50 bg-red-950/30 px-3 py-2.5 text-sm text-red-300 space-y-1">
+            <div className="font-medium">{humanizeRunError(run.error_message)}</div>
+            <div className="text-xs text-red-400/70">Try uploading a different video or a shorter clip.</div>
           </div>
         )}
 
@@ -416,12 +423,15 @@ function HeroClip({
             </div>
           )}
         </div>
-        <p className="mt-2 sm:mt-3 text-center text-xs sm:text-sm text-zinc-500">
-          Ready for TikTok &middot; Hook optimized &middot; Captions included
+        <p className="mt-2 sm:mt-3 text-center text-xs sm:text-sm text-zinc-300">
+          Optimized for hook + conversion
+        </p>
+        <p className="mt-0.5 text-center text-[11px] text-zinc-500">
+          Built for fast TikTok-style posting
         </p>
       </div>
 
-      <div className="mx-auto w-full max-w-md grid grid-cols-3 gap-2">
+      <div className="mx-auto w-full max-w-md grid grid-cols-3 gap-1.5 sm:gap-2">
         <a
           href={clip.output_url ?? '#'}
           download
@@ -449,6 +459,13 @@ function HeroClip({
           <span className="truncate">{showTips ? 'Hide Tips' : 'Posting Tips'}</span>
         </button>
       </div>
+
+      {!postText && clip.package_status === 'pending' && clip.status !== 'failed' && (
+        <div className="mx-auto max-w-md -mt-1 text-center text-[11px] text-zinc-500 flex items-center justify-center gap-1.5">
+          <Loader2 className="w-3 h-3 animate-spin" />
+          Caption &amp; hashtags generating&hellip;
+        </div>
+      )}
 
       <QuickActionBar onIterate={onIterate} />
 
@@ -493,7 +510,7 @@ function QuickActionBar({ onIterate }: { onIterate: (type: string) => void }) {
   const actions: Array<{ key: string; label: string }> = [
     { key: 'shorter',          label: 'Make shorter' },
     { key: 'stronger_hook',    label: 'Stronger hook' },
-    { key: 'change_tone',      label: 'Change tone' },
+    { key: 'aggressive',       label: 'More aggressive cuts' },
     { key: 'generate_3_more',  label: 'Generate 3 more versions' },
   ];
   return (
@@ -607,6 +624,21 @@ function OtherVersions({
  *   3. Hook strength: high(2) > med(1) > low/null(0)
  *   4. Shorter duration breaks ties (more post-ready)
  */
+/** Convert raw pipeline error strings into user-friendly messages. */
+function humanizeRunError(raw: string): string {
+  if (raw.includes('No speech detected')) return raw; // already friendly
+  if (raw.includes('too long for transcription')) return raw; // already friendly
+  if (raw.includes('OPENAI_API_KEY')) return 'Our transcription service is temporarily unavailable. Please try again later.';
+  if (raw.includes('Failed to download asset')) return 'We couldn\u2019t access your uploaded video. Try uploading again.';
+  if (raw.includes('ffmpeg') || raw.includes('Audio extraction')) return 'We had trouble processing your video\u2019s audio. Try a different file format (MP4 works best).';
+  if (raw.includes('Scoring produced zero candidates')) return 'We couldn\u2019t find any usable clips in this video. Try a longer video with more spoken content.';
+  if (raw.includes('No selected candidates')) return 'No strong moments found. Try a video with clearer hooks or talking points.';
+  if (raw.includes('Shotstack') || raw.includes('render failed')) return 'Clip rendering failed. Our team has been notified. Please try again.';
+  if (raw.includes('duplicate key')) return 'This video was already processed. Check your previous results.';
+  if (raw.length > 120) return 'Something went wrong processing your video. Please try again with a different file.';
+  return raw;
+}
+
 function rankRendered(
   rendered: RenderedClip[],
   candidateById: Map<string, Candidate>,
@@ -817,7 +849,7 @@ function RenderedClipCard({
       if (!res.ok || !json.ok) throw new Error(json?.error?.message || 'Regenerate failed');
       // The polling loop in RunDetail will pick up the new variant automatically.
     } catch (e) {
-      alert(e instanceof Error ? e.message : String(e));
+      console.error('[RunDetail] clip regen failed:', e);
     } finally {
       setRegenBusy(null);
     }

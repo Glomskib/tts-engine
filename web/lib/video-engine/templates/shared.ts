@@ -66,6 +66,7 @@ export function captionClips(
   totalLength: number,
   style: CaptionStyle,
 ): Array<Record<string, unknown>> {
+  if (totalLength <= 0) return []; // Guard against zero/negative duration clips
   const words = text.split(/\s+/).filter(Boolean);
   if (!words.length) return [];
 
@@ -75,7 +76,7 @@ export function captionClips(
   }
   if (phrases.length === 0) return [];
 
-  const perPhrase = totalLength / phrases.length;
+  const perPhrase = Math.max(0.1, totalLength / phrases.length);
 
   return phrases.map((phrase, i) => {
     const display = style.textCase === 'upper' ? phrase.toUpperCase() : phrase;

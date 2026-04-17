@@ -51,7 +51,7 @@ export type UpdateIdeaInput = z.infer<typeof UpdateIdeaSchema>;
 
 // ── Tasks ──────────────────────────────────────────────────────
 export const CreateTaskSchema = z.object({
-  project_id: z.string().uuid(),
+  project_id: z.string().uuid().nullable().optional(),
   title: z.string().min(1).max(500),
   description: z.string().max(10000).default(''),
   assigned_agent: z.string().min(1).default('unassigned'),

@@ -11,12 +11,13 @@
  * The old dense operator console moved to /admin/command-center/deep.
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
   TrendingUp, TrendingDown, Activity, Zap, Bot, AlertCircle,
   Mail, Calendar as CalendarIcon, Check, X, ChevronRight, RefreshCw,
   DollarSign, Package, Bell, Flag, Info, ArrowRight, Layers,
+  Plus, Send, ListTodo,
 } from 'lucide-react';
 import CCSubnav from './_components/CCSubnav';
 
@@ -130,6 +131,10 @@ export default function GlanceDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
+  const [quickText, setQuickText] = useState('');
+  const [quickMode, setQuickMode] = useState<'task' | 'note'>('task');
+  const [quickSending, setQuickSending] = useState(false);
+  const quickRef = useRef<HTMLInputElement>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -168,6 +173,36 @@ export default function GlanceDashboard() {
     }
   }
 
+  async function handleQuickSubmit() {
+    const text = quickText.trim();
+    if (!text || quickSending) return;
+    setQuickSending(true);
+    try {
+      if (quickMode === 'task') {
+        await fetch('/api/admin/cc-projects/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: text, status: 'queued', priority: 5 }),
+        });
+      } else {
+        await fetch('/api/mc/operator-feed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'fyi',
+            urgency: 'normal',
+            title: text,
+            source_agent: 'owner',
+          }),
+        });
+      }
+      setQuickText('');
+      await fetchData();
+    } finally {
+      setQuickSending(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="max-w-6xl mx-auto px-6 py-8">
@@ -198,6 +233,54 @@ export default function GlanceDashboard() {
   return (
     <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
       <CCSubnav />
+
+      {/* ── Quick Action Bar ─────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2">
+        <div className="flex rounded-lg border border-zinc-800 overflow-hidden text-xs">
+          <button
+            type="button"
+            onClick={() => { setQuickMode('task'); quickRef.current?.focus(); }}
+            className={`px-2.5 py-1.5 flex items-center gap-1 transition-colors ${
+              quickMode === 'task'
+                ? 'bg-teal-500/15 text-teal-400 border-r border-zinc-700'
+                : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300 border-r border-zinc-800'
+            }`}
+          >
+            <ListTodo className="w-3 h-3" /> Task
+          </button>
+          <button
+            type="button"
+            onClick={() => { setQuickMode('note'); quickRef.current?.focus(); }}
+            className={`px-2.5 py-1.5 flex items-center gap-1 transition-colors ${
+              quickMode === 'note'
+                ? 'bg-violet-500/15 text-violet-400'
+                : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Plus className="w-3 h-3" /> Note
+          </button>
+        </div>
+        <form
+          className="flex-1 flex items-center gap-2"
+          onSubmit={(e) => { e.preventDefault(); handleQuickSubmit(); }}
+        >
+          <input
+            ref={quickRef}
+            type="text"
+            placeholder={quickMode === 'task' ? 'Quick-add a task...' : 'Drop a note on your plate...'}
+            value={quickText}
+            onChange={(e) => setQuickText(e.target.value)}
+            className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600"
+          />
+          <button
+            type="submit"
+            disabled={!quickText.trim() || quickSending}
+            className="p-2 rounded-lg bg-teal-500/15 border border-teal-500/30 text-teal-400 hover:bg-teal-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+          >
+            <Send className="w-4 h-4" />
+          </button>
+        </form>
+      </div>
 
       {/* ── Zone 1: The Strip ────────────────────────────────────────────── */}
       <section className="grid grid-cols-2 md:grid-cols-6 gap-3">

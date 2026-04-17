@@ -14,7 +14,7 @@ import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors'
 export const runtime = 'nodejs';
 
 const BUCKET = 'renders';
-const MAX_FILE_BYTES = 500 * 1024 * 1024;
+const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
 
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
@@ -34,13 +34,15 @@ export async function POST(request: NextRequest) {
   try { body = await request.json(); }
   catch { return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON', 400, correlationId); }
 
+  console.log('[creator/upload-urls] REQUEST BODY:', JSON.stringify({ ...body, user_id: userId, correlation_id: correlationId }));
+
   if (!body.files?.length || body.files.length > 6) {
     return createApiErrorResponse('BAD_REQUEST', 'files must be 1-6 items', 400, correlationId);
   }
 
   for (const f of body.files) {
     if (f.size_bytes > MAX_FILE_BYTES) {
-      return createApiErrorResponse('BAD_REQUEST', `File ${f.filename} exceeds 500MB limit`, 400, correlationId);
+      return createApiErrorResponse('BAD_REQUEST', `File ${f.filename} exceeds 2GB limit`, 400, correlationId);
     }
   }
 
@@ -55,6 +57,8 @@ export async function POST(request: NextRequest) {
       const { data, error } = await supabaseAdmin.storage
         .from(BUCKET)
         .createSignedUploadUrl(storagePath);
+
+      console.log('[creator/upload-urls] SIGNED URL:', { path: storagePath, ok: !!data, error: error?.message ?? null, correlation_id: correlationId });
 
       if (error || !data) {
         return { error: error?.message || 'Failed to create upload URL', path: storagePath };

@@ -15,6 +15,21 @@ const MAX_SIZE_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
 const MAX_SIZE_LABEL = '2 GB';
 const ALLOWED_EXT = ['mp4', 'mov', 'webm', 'avi'];
 
+/** Map extension → MIME when browser returns empty file.type (common for .mov, .avi). */
+const EXT_TO_MIME: Record<string, string> = {
+  mp4: 'video/mp4',
+  mov: 'video/quicktime',
+  webm: 'video/webm',
+  avi: 'video/x-msvideo',
+};
+function resolveContentType(file: File): string {
+  if (file.type) return file.type;
+  const ext = file.name.split('.').pop()?.toLowerCase() ?? '';
+  return EXT_TO_MIME[ext] || 'video/mp4';
+}
+
+const UPLOAD_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
+
 function formatBytes(n: number): string {
   const GB = 1024 * 1024 * 1024;
   const MB = 1024 * 1024;
@@ -140,7 +155,7 @@ export default function UploadCard() {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          files: [{ filename: file.name, content_type: file.type || 'video/mp4', size_bytes: file.size }],
+          files: [{ filename: file.name, content_type: resolveContentType(file), size_bytes: file.size }],
           source_type: 'video_engine',
         }),
       });
@@ -153,43 +168,23 @@ export default function UploadCard() {
       console.log('[UploadCard] PRESIGN_OK', { path: upload.path, signed_url_head: upload.signed_url.substring(0, 80) });
 
       await new Promise<void>((resolve, reject) => {
-        const contentType = file.type || 'video/mp4';
+        const contentType = resolveContentType(file);
         const xhr = new XMLHttpRequest();
         xhr.open('PUT', upload.signed_url, true);
         xhr.setRequestHeader('content-type', contentType);
         xhr.setRequestHeader('x-upsert', 'true');
+        xhr.timeout = UPLOAD_TIMEOUT_MS;
         xhr.upload.onprogress = (e) => {
           if (e.lengthComputable) setProgress(Math.round((e.loaded / e.total) * 100));
         };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) return resolve();
-          console.error('[UploadCard] PUT_FAIL', {
-            status: xhr.status,
-            statusText: xhr.statusText,
-            body: xhr.responseText,
-            response_headers: xhr.getAllResponseHeaders(),
-            request: {
-              url: upload.signed_url,
-              method: 'PUT',
-              content_type_sent: contentType,
-              file_name: file.name,
-              file_type: file.type,
-              file_size: file.size,
-            },
-          });
-          reject(new Error(`Upload failed (${xhr.status} ${xhr.statusText}): ${xhr.responseText || '<empty body>'}`));
+          console.error('[UploadCard] PUT_FAIL', { status: xhr.status, body: xhr.responseText?.substring(0, 300) });
+          reject(new Error(`Upload failed (${xhr.status})`));
         };
-        xhr.onerror = () => {
-          console.error('[UploadCard] PUT_NETERR', { url: upload.signed_url });
-          reject(new Error('Network error during upload'));
-        };
-        console.log('[UploadCard] PUT_START', {
-          path: upload.path,
-          bytes: file.size,
-          content_type: contentType,
-          file_type_raw: file.type,
-          signed_url: upload.signed_url,
-        });
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.ontimeout = () => reject(new Error('Upload timed out. Check your connection and try again.'));
+        console.log('[UploadCard] PUT_START', { path: upload.path, bytes: file.size, content_type: contentType });
         xhr.send(file);
       });
       console.log('[UploadCard] PUT_OK', { path: upload.path });

@@ -40,9 +40,23 @@ export async function POST(request: NextRequest) {
     return createApiErrorResponse('BAD_REQUEST', 'files must be 1-6 items', 400, correlationId);
   }
 
+  const ALLOWED_VIDEO_TYPES = new Set([
+    'video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo',
+    'video/mpeg', 'video/ogg', 'video/3gpp',
+  ]);
+  const ALLOWED_EXTS = new Set(['mp4', 'mov', 'webm', 'avi', 'mpeg', 'mpg', 'ogg', '3gp']);
+
   for (const f of body.files) {
     if (f.size_bytes > MAX_FILE_BYTES) {
       return createApiErrorResponse('BAD_REQUEST', `File ${f.filename} exceeds 2GB limit`, 400, correlationId);
+    }
+    const ext = f.filename?.split('.').pop()?.toLowerCase() ?? '';
+    if (!ALLOWED_EXTS.has(ext)) {
+      return createApiErrorResponse('BAD_REQUEST', `Unsupported file type ".${ext}". Use MP4, MOV, WebM, or AVI.`, 400, correlationId);
+    }
+    if (f.content_type && !ALLOWED_VIDEO_TYPES.has(f.content_type)) {
+      // Warn but don't block — browser MIME detection is unreliable
+      console.warn('[creator/upload-urls] unexpected content_type:', { filename: f.filename, content_type: f.content_type });
     }
   }
 

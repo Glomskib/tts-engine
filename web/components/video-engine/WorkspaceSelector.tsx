@@ -63,11 +63,11 @@ export default function WorkspaceSelector({ value, onChange, disabled }: Props) 
   );
 }
 
-const GOALS: Array<{ key: Goal; label: string }> = [
-  { key: 'sell', label: 'Sell a product' },
-  { key: 'promote', label: 'Promote something' },
-  { key: 'reach', label: 'Grow reach' },
-  { key: 'story', label: 'Tell a story' },
+const GOALS: Array<{ key: Goal; label: string; hint: string }> = [
+  { key: 'sell', label: 'Sell a product', hint: 'Hook → demo → CTA. Optimized for clicks and conversions.' },
+  { key: 'promote', label: 'Promote something', hint: 'Highlight features and benefits. Great for launches and announcements.' },
+  { key: 'reach', label: 'Grow reach', hint: 'Attention-first editing. Punchier cuts, trending pacing, shareable moments.' },
+  { key: 'story', label: 'Tell a story', hint: 'Longer flow, natural pacing. Best for founder stories and behind-the-scenes.' },
 ];
 
 interface GoalProps {
@@ -78,7 +78,7 @@ interface GoalProps {
 
 export function GoalSelector({ value, onChange, disabled }: GoalProps) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid gap-2 grid-cols-2 sm:grid-cols-4">
       {GOALS.map((g) => {
         const active = value === g.key;
         return (
@@ -88,14 +88,15 @@ export function GoalSelector({ value, onChange, disabled }: GoalProps) {
             onClick={() => !disabled && onChange(active ? null : g.key)}
             disabled={disabled}
             className={[
-              'rounded-full border px-3 py-1.5 text-xs font-medium transition-colors',
+              'text-left rounded-xl border px-3 py-2.5 transition-all',
               active
-                ? 'border-zinc-100 bg-zinc-100 text-zinc-900'
-                : 'border-zinc-800 bg-zinc-950 text-zinc-300 hover:border-zinc-700',
+                ? 'border-zinc-100 bg-zinc-900'
+                : 'border-zinc-800 bg-zinc-950 hover:border-zinc-700',
               disabled ? 'opacity-50 cursor-not-allowed' : '',
             ].join(' ')}
           >
-            {g.label}
+            <div className="text-xs font-semibold text-zinc-100">{g.label}</div>
+            <p className="mt-1 text-[11px] leading-snug text-zinc-500">{g.hint}</p>
           </button>
         );
       })}

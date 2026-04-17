@@ -372,15 +372,17 @@ function HeroClip({
   const [copied, setCopied] = useState(false);
   const [showTips, setShowTips] = useState(false);
 
-  const fullCaption = [
+  // "Copy Post" = description + hashtags — what the creator pastes into TikTok
+  const postText = [
     clip.caption_text,
+    '',
     clip.hashtags?.length ? clip.hashtags.map((h) => `#${h}`).join(' ') : '',
-  ].filter(Boolean).join('\n\n');
+  ].filter((line) => line !== undefined).join('\n').trim();
 
   async function copyCaption() {
-    if (!fullCaption) return;
+    if (!postText) return;
     try {
-      await navigator.clipboard.writeText(fullCaption);
+      await navigator.clipboard.writeText(postText);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch { /* noop */ }
@@ -414,8 +416,8 @@ function HeroClip({
             </div>
           )}
         </div>
-        <p className="mt-2 sm:mt-3 text-center text-xs sm:text-sm text-zinc-400">
-          Optimized for hook + conversion
+        <p className="mt-2 sm:mt-3 text-center text-xs sm:text-sm text-zinc-500">
+          Ready for TikTok &middot; Hook optimized &middot; Captions included
         </p>
       </div>
 
@@ -431,11 +433,11 @@ function HeroClip({
         <button
           type="button"
           onClick={copyCaption}
-          disabled={!fullCaption}
+          disabled={!postText}
           className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-xs sm:text-sm font-medium px-2 py-2.5 sm:py-3 disabled:opacity-50"
         >
           {copied ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <Copy className="w-4 h-4 shrink-0" />}
-          <span className="truncate">{copied ? 'Copied' : 'Copy Caption'}</span>
+          <span className="truncate">{copied ? 'Copied!' : 'Copy Post'}</span>
         </button>
         <button
           type="button"

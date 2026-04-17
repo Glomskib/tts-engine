@@ -217,9 +217,24 @@ async function stageAnalyze(run: RunRow): Promise<RunStatus> {
     throw new Error('Transcript had no segments — source may have no audible speech');
   }
 
-  const { selected } = generateCandidates(segments, run.mode, run.target_clip_count);
+  const sourceDuration = asset.duration_sec ? Number(asset.duration_sec) : undefined;
+  console.log(`[ve-pipeline] analyze run=${run.id} source_duration=${sourceDuration?.toFixed(1) ?? 'unknown'}s segments=${segments.length} mode=${run.mode} target=${run.target_clip_count}`);
+
+  const { selected } = generateCandidates(segments, run.mode, run.target_clip_count, sourceDuration);
   if (!selected.length) {
-    throw new Error('Scoring produced zero candidates');
+    // Distinguish "no candidates at all" from "every candidate was effectively
+    // the full source" — the latter is the common case when footage has no
+    // distinct beats and we refuse to ship the source re-exported as a "short".
+    throw new Error("We couldn't find a strong shorter cut from this video yet. Try a longer take with clear intro / payoff moments.");
+  }
+
+  if (sourceDuration) {
+    for (const c of selected) {
+      const candDur = c.end - c.start;
+      const pct = ((candDur / sourceDuration) * 100).toFixed(0);
+      const trimDelta = (sourceDuration - candDur).toFixed(1);
+      console.log(`[ve-pipeline] Candidate #${c.rank}: ${c.start.toFixed(1)}-${c.end.toFixed(1)}s duration=${candDur.toFixed(1)}s pct=${pct}% trimmed=${trimDelta}s score=${c.score.toFixed(2)}`);
+    }
   }
 
   const candidateRows = selected.map((c) => {

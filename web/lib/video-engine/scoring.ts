@@ -153,6 +153,28 @@ const TARGET_MIN_SEC = 6;
 const TARGET_MAX_SEC = 30;
 const HARD_MAX_SEC = 45;
 
+/**
+ * Absolute cap applied to every generated candidate regardless of source length
+ * or segment packing. A "short" must never exceed this duration — if a candidate
+ * somehow slips through longer, its end is trimmed to start + SHORT_MAX_SEC.
+ * Paired with the ≥80%-of-source reject in generateCandidates() so the engine
+ * cannot silently emit the full source as a "short".
+ */
+export const SHORT_MAX_SEC = 30;
+
+/**
+ * Minimum delta between source duration and chosen candidate duration for the
+ * output to count as a real transformation. A 60s source with a 59s candidate
+ * is effectively a full re-export — we reject that.
+ */
+export const MIN_TRIM_DELTA_SEC = 3;
+
+/**
+ * Reject candidates whose duration is within this fraction of the source. A
+ * 0-29s candidate from a 30s source (97%) is not a real short.
+ */
+export const MAX_CANDIDATE_SOURCE_RATIO = 0.8;
+
 interface CombinedChunk {
   startIdx: number;
   endIdx: number;
@@ -385,21 +407,144 @@ export function selectTopCandidates(
 }
 
 /**
+ * Build finer-grained sub-chunks from a short video where combineSegments
+ * would produce only 1-2 chunks spanning the whole source.
+ *
+ * For a 19s video with segments [0-3, 3-7, 7-12, 12-19], combineSegments
+ * returns one chunk 0-19. This function instead generates overlapping windows
+ * of TARGET_MIN_SEC..TARGET_MAX_SEC that give the selector real variety.
+ */
+function buildSubChunks(segments: TranscriptSegment[]): ChunkInput[] {
+  if (segments.length < 2) return [];
+  const sourceDuration = segments[segments.length - 1].end - segments[0].start;
+  // Only activate for short videos where combineSegments produces too few chunks
+  if (sourceDuration > HARD_MAX_SEC * 1.5) return [];
+
+  const out: ChunkInput[] = [];
+  let idx = 0;
+
+  // Sliding window: start from each segment, extend to TARGET_MIN..TARGET_MAX
+  for (let i = 0; i < segments.length; i++) {
+    let text = '';
+    for (let j = i; j < segments.length; j++) {
+      const duration = segments[j].end - segments[i].start;
+      text = (text + ' ' + segments[j].text).trim();
+      if (duration >= TARGET_MIN_SEC && duration <= TARGET_MAX_SEC) {
+        out.push({
+          idx: idx++,
+          start: segments[i].start,
+          end: segments[j].end,
+          text,
+          features: extractFeatures(text, duration),
+        });
+      }
+      if (duration > TARGET_MAX_SEC) break;
+    }
+  }
+
+  return out;
+}
+
+/**
  * Convenience pipeline: segments → top N candidates for a given mode,
  * with hook-first start refinement applied (snaps each candidate's start to
  * the strongest opener inside its first 5s).
  */
+/**
+ * Snap `candidate.end` to the last segment boundary at or before
+ * `candidate.start + SHORT_MAX_SEC`. Avoids cutting mid-word while still
+ * enforcing the hard cap.
+ */
+function clampCandidateToShort<T extends { start: number; end: number }>(
+  cand: T,
+  segments: TranscriptSegment[],
+): T {
+  const dur = cand.end - cand.start;
+  if (dur <= SHORT_MAX_SEC) return cand;
+  const budget = cand.start + SHORT_MAX_SEC;
+  // Find the last segment ending at-or-before budget, after candidate.start.
+  let snappedEnd = budget;
+  for (const seg of segments) {
+    if (seg.end <= cand.start) continue;
+    if (seg.end > budget) break;
+    snappedEnd = seg.end;
+  }
+  // Never undershoot the hard minimum
+  if (snappedEnd < cand.start + TARGET_MIN_SEC) snappedEnd = cand.start + TARGET_MIN_SEC;
+  console.log(`[scoring] Clamped candidate from ${cand.start.toFixed(1)}-${cand.end.toFixed(1)}s (${dur.toFixed(1)}s) → ${cand.start.toFixed(1)}-${snappedEnd.toFixed(1)}s`);
+  return { ...cand, end: Number(snappedEnd.toFixed(3)) };
+}
+
 export function generateCandidates(
   segments: TranscriptSegment[],
   mode: Mode,
   targetCount: number,
+  sourceDurationSec?: number,
 ): {
   chunks: ChunkInput[];
   selected: Array<CandidateOutput & { rank: number; hookStartSec?: number }>;
 } {
-  const chunks = buildChunks(segments);
+  let chunks = buildChunks(segments);
+  const subChunks = buildSubChunks(segments);
+
+  // Merge sub-chunks first, then filter.
+  if (subChunks.length > 0) {
+    chunks = [...chunks, ...subChunks];
+    const seen = new Set<string>();
+    chunks = chunks.filter((c) => {
+      const key = `${c.start.toFixed(2)}-${c.end.toFixed(2)}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }
+
+  // Drop chunks that span ≥80% of source BEFORE scoring/selection.
+  // The greedy non-overlap picker would otherwise select the full-source chunk
+  // first and block every shorter sub-window from being considered.
+  if (sourceDurationSec && sourceDurationSec > 0) {
+    const threshold = sourceDurationSec * MAX_CANDIDATE_SOURCE_RATIO;
+    const before = chunks.length;
+    chunks = chunks.filter((c) => (c.end - c.start) < threshold);
+    if (chunks.length !== before) {
+      console.log(`[scoring] Dropped ${before - chunks.length} near-full-source chunk(s) (source=${sourceDurationSec.toFixed(1)}s, threshold=${threshold.toFixed(1)}s, remaining=${chunks.length})`);
+    }
+  }
+
   const scored = scoreChunks(chunks, mode);
-  const picked = selectTopCandidates(scored, targetCount);
+  let picked = selectTopCandidates(scored, Math.max(targetCount, targetCount * 2));
+
+  // GUARD: reject candidates that are effectively the full source.
+  //   - span ≥ MAX_CANDIDATE_SOURCE_RATIO of source duration
+  //   - OR leave less than MIN_TRIM_DELTA_SEC of trimmed material
+  // Unlike the earlier code path, we do NOT silently fall back to the
+  // least-bad offender — if every candidate fails, we return zero selected
+  // and let stageAnalyze surface a clean product message.
+  if (sourceDurationSec && sourceDurationSec > 0) {
+    const ratioThreshold = sourceDurationSec * MAX_CANDIDATE_SOURCE_RATIO;
+    const filtered = picked.filter((c) => {
+      const candDuration = c.end - c.start;
+      const trimDelta = sourceDurationSec - candDuration;
+      if (candDuration >= ratioThreshold) {
+        console.log(`[scoring] Rejected: ${c.start.toFixed(1)}-${c.end.toFixed(1)}s (${candDuration.toFixed(1)}s = ${((candDuration / sourceDurationSec) * 100).toFixed(0)}% of ${sourceDurationSec.toFixed(1)}s source)`);
+        return false;
+      }
+      if (trimDelta < MIN_TRIM_DELTA_SEC) {
+        console.log(`[scoring] Rejected: ${c.start.toFixed(1)}-${c.end.toFixed(1)}s (trim delta only ${trimDelta.toFixed(1)}s, min ${MIN_TRIM_DELTA_SEC}s)`);
+        return false;
+      }
+      return true;
+    });
+    picked = filtered;
+  }
+
+  picked = picked.slice(0, targetCount);
+  picked = picked.map((c, i) => ({ ...c, rank: i + 1 }));
+
   const refined = refineCandidateStarts(picked, segments);
-  return { chunks, selected: refined };
+  // Final safety: no candidate may exceed SHORT_MAX_SEC regardless of how it
+  // got here. Clamp end to segment boundary at/before start + SHORT_MAX_SEC.
+  const clamped = refined.map((c) => clampCandidateToShort(c, segments));
+
+  return { chunks, selected: clamped };
 }

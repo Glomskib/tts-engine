@@ -16,7 +16,7 @@ import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors'
 
 export const runtime = 'nodejs';
 
-const ALLOWED_TYPES = ['shorter', 'stronger_hook', 'change_tone', 'generate_3_more'] as const;
+const ALLOWED_TYPES = ['shorter', 'stronger_hook', 'aggressive', 'generate_3_more'] as const;
 type IterationType = (typeof ALLOWED_TYPES)[number];
 
 interface Body {

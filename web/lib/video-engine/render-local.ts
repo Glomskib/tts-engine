@@ -77,13 +77,26 @@ export async function renderClipLocal(input: LocalRenderInput): Promise<LocalRen
 
     // Slice with re-encode. -ss AFTER -i gives accurate seeking (slower but
     // more reliable than fast-seek for clips that start mid-keyframe).
+    //
+    // Perceived-edit polish applied to every TTS render:
+    //   - 0.25s video fade-in + 0.3s fade-out so clips don't jolt in/out
+    //   - EBU R128 loudnorm matches TikTok/Reels target (-14 LUFS) so the
+    //     clip doesn't play noticeably quieter than neighboring feed videos.
+    //     Single-pass is good enough for ≤30s clips.
     const ffmpeg = getFFmpegPath();
+    const fadeInSec = 0.25;
+    const fadeOutSec = Math.min(0.3, Math.max(0, lengthSec - fadeInSec - 0.1));
+    const fadeOutStart = Math.max(0, lengthSec - fadeOutSec).toFixed(3);
+    const vFilter = `fade=t=in:st=0:d=${fadeInSec}${fadeOutSec > 0 ? `,fade=t=out:st=${fadeOutStart}:d=${fadeOutSec.toFixed(3)}` : ''}`;
+    const aFilter = `loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=in:st=0:d=${fadeInSec}${fadeOutSec > 0 ? `,afade=t=out:st=${fadeOutStart}:d=${fadeOutSec.toFixed(3)}` : ''}`;
     await execFileAsync(
       ffmpeg,
       [
         '-i', srcPath,
         '-ss', startSec.toFixed(3),
         '-t', lengthSec.toFixed(3),
+        '-vf', vFilter,
+        '-af', aFilter,
         '-c:v', 'libx264',
         '-preset', 'veryfast',
         '-crf', '23',

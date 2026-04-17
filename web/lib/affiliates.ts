@@ -445,3 +445,9 @@ export async function getAffiliateDashboard(userId: string) {
     milestones: (milestones || []) as Milestone[],
   };
 }
+
+/** Stub: returns credit balance for an affiliate user. */
+export async function getAffiliateCreditBalance(userId: string): Promise<{ balance: number; currency: string }> {
+  // TODO: implement actual credit balance lookup
+  return { balance: 0, currency: 'usd' };
+}

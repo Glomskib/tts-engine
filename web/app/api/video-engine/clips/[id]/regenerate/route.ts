@@ -28,6 +28,7 @@ import { getTemplateOrDefault } from '@/lib/video-engine/templates';
 import { getCTAOrDefault } from '@/lib/video-engine/ctas';
 import { resolveVEPlan, WATERMARK_TEXT, filterTemplatesByPlan } from '@/lib/video-engine/limits';
 import { watermarkClip } from '@/lib/video-engine/templates/shared';
+import { renderClipLocal } from '@/lib/video-engine/render-local';
 import type { Mode } from '@/lib/video-engine/types';
 
 export const runtime = 'nodejs';
@@ -85,7 +86,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
 
   const { data: assetRow } = await supabaseAdmin
     .from('ve_assets')
-    .select('storage_url,duration_sec,width,height')
+    .select('storage_url,storage_bucket,storage_path,duration_sec,width,height')
     .eq('run_id', original.run_id)
     .order('created_at', { ascending: true })
     .limit(1)
@@ -199,6 +200,13 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
   }
 
   // Insert new variant + enqueue fresh ff_render_job.
+  // Capability-based routing mirrors pipeline.ts::stageAssemble — local renderer
+  // is slice-only so the variant must be tagged clip_render or it'll never get
+  // picked up for rendering. Without this the variant sat as status=pending forever.
+  const renderer = (process.env.VIDEO_ENGINE_RENDERER || 'local').toLowerCase();
+  const jobKind: 'shotstack_timeline' | 'clip_render' =
+    renderer === 'shotstack' ? 'shotstack_timeline' : 'clip_render';
+
   const newClipId = crypto.randomUUID();
   const newJobId = crypto.randomUUID();
 
@@ -223,7 +231,7 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     id: newJobId,
     user_id: auth.user.id,
     correlation_id: `ve:${original.run_id}:${newClipId}`,
-    kind: 'shotstack_timeline',
+    kind: jobKind,
     priority: plan.renderPriority,
     timeline,
     output_spec: { format: 'mp4', resolution: 'sd', aspectRatio: '9:16', fps: 30 },
@@ -248,6 +256,24 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
       .eq('id', original.run_id);
   }
 
+  // Inline render for the local path — mirrors stageAssemble. Without this
+  // the variant job sits pending forever because nothing else dispatches
+  // ff_render_jobs during a run that's already past stageAssemble.
+  // Fire-and-forget so the client gets a fast 200 and the polling loop
+  // observes the status transitions (queued → rendering → complete) as the
+  // render completes in the background.
+  if (jobKind === 'clip_render' && assetRow.storage_bucket && assetRow.storage_path) {
+    void runLocalVariantRender({
+      jobId: newJobId,
+      clipId: newClipId,
+      sourceBucket: assetRow.storage_bucket as string,
+      sourcePath: assetRow.storage_path as string,
+      startSec,
+      endSec,
+      userId: auth.user.id,
+    });
+  }
+
   return NextResponse.json({
     ok: true,
     data: {
@@ -260,4 +286,66 @@ export async function POST(request: NextRequest, context: { params: Promise<{ id
     },
     correlation_id: correlationId,
   });
+}
+
+async function runLocalVariantRender(args: {
+  jobId: string;
+  clipId: string;
+  sourceBucket: string;
+  sourcePath: string;
+  startSec: number;
+  endSec: number;
+  userId: string;
+}): Promise<void> {
+  const { jobId, clipId, sourceBucket, sourcePath, startSec, endSec, userId } = args;
+  try {
+    await supabaseAdmin
+      .from('ff_render_jobs')
+      .update({ status: 'rendering', started_at: new Date().toISOString() })
+      .eq('id', jobId);
+    await supabaseAdmin
+      .from('ve_rendered_clips')
+      .update({ status: 'rendering' })
+      .eq('id', clipId);
+
+    const result = await renderClipLocal({
+      sourceBucket,
+      sourcePath,
+      startSec,
+      endSec,
+      userId,
+      clipId,
+    });
+    const completedAt = new Date().toISOString();
+    await supabaseAdmin
+      .from('ff_render_jobs')
+      .update({
+        status: 'done',
+        output_url: result.outputUrl,
+        duration_ms: Math.round(result.durationSec * 1000),
+        completed_at: completedAt,
+      })
+      .eq('id', jobId);
+    await supabaseAdmin
+      .from('ve_rendered_clips')
+      .update({
+        status: 'complete',
+        output_url: result.outputUrl,
+        duration_sec: result.durationSec,
+        completed_at: completedAt,
+      })
+      .eq('id', clipId);
+    console.log(`[regenerate] variant render done ${clipId}: ${result.outputUrl}`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[regenerate] variant render failed ${clipId}:`, msg);
+    await supabaseAdmin
+      .from('ff_render_jobs')
+      .update({ status: 'failed', error: msg.slice(0, 1000) })
+      .eq('id', jobId);
+    await supabaseAdmin
+      .from('ve_rendered_clips')
+      .update({ status: 'failed', error_message: msg.slice(0, 500) })
+      .eq('id', clipId);
+  }
 }

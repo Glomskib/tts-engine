@@ -37,7 +37,10 @@ function shouldUseLocalFleet(): boolean {
 export async function enqueueRender(input: EnqueueRenderInput): Promise<EnqueueRenderResult> {
   const output = { ...DEFAULT_OUTPUT, ...(input.output || {}) };
 
-  // Local fleet only supports clip_render jobs, not shotstack_timeline (which needs video asset support).
+  // Capability gate: local Mac-mini fleet can ONLY process clip_render jobs.
+  // Timeline renders (overlays/captions/CTA) require Shotstack's video-asset
+  // feature and would fail on-worker with "unsupported_feature: asset type 'video'".
+  // This check is the single source of truth for render routing.
   const kind = input.kind || 'shotstack_timeline';
   const canUseLocal = kind === 'clip_render';
 

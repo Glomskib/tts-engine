@@ -297,6 +297,14 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   const renderedRows: Array<Record<string, unknown>> = [];
   const ffJobRows: Array<Record<string, unknown>> = [];
 
+  // Tag each ff_render_jobs row with the kind that matches our dispatch path.
+  // If a local render crashes and leaves a row in 'pending', this tag ensures
+  // the claim endpoint will (or won't) let a Mac mini worker pick it up — the
+  // local fleet is only capable of clip_render slices.
+  const dispatchRenderer = (process.env.VIDEO_ENGINE_RENDERER || 'local').toLowerCase();
+  const dispatchJobKind: 'shotstack_timeline' | 'clip_render' =
+    dispatchRenderer === 'shotstack' ? 'shotstack_timeline' : 'clip_render';
+
   for (let i = 0; i < candidates.length; i++) {
     const cand = candidates[i];
     const templateKey = templateKeys[i % templateKeys.length];
@@ -352,7 +360,7 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
       id: ffJobId,
       user_id: run.user_id,
       correlation_id: `ve:${run.id}:${renderedId}`,
-      kind: 'shotstack_timeline',
+      kind: dispatchJobKind,
       priority: planForPriority.renderPriority,
       timeline,
       output_spec: { format: 'mp4', resolution: 'sd', aspectRatio: '9:16', fps: 30 },

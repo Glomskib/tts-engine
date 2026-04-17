@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Loader2, Download, RefreshCw, GitCompareArrows, Copy, Check, Sparkles,
-  AlertTriangle, Wand2, Scissors, Crown, Flame, Layers, X,
+  AlertTriangle, Wand2, Scissors, Crown, Flame, Layers, X, Upload,
 } from 'lucide-react';
 import StatusPill from './StatusPill';
 import { modeToWorkspaceLabel } from './WorkspaceSelector';
@@ -84,12 +84,49 @@ export default function RunDetail({ runId }: { runId: string }) {
 
   async function handleIterate(type: string) {
     console.log('[RunDetail] handleIterate', { type, run_id: runId });
-    // Optimistic toast — API is still a placeholder that acknowledges without queueing.
-    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
-    setIterateToast('Coming soon — iteration launching this week');
-    toastTimerRef.current = setTimeout(() => setIterateToast(null), 2600);
     const clipId = activeClipId ?? data?.rendered?.find((r) => r.status === 'complete')?.id;
     if (!clipId) return;
+
+    // "shorter", "aggressive", and "talking_head" map to the real per-clip
+    // regenerate endpoint. Other actions don't have a server path yet — keep
+    // the placeholder banner so we acknowledge the click without lying.
+    const regenBody: { action: 'shorter' | 'aggressive' | 'restyle'; template_key?: string } | null =
+      type === 'shorter'      ? { action: 'shorter' }
+      : type === 'aggressive' ? { action: 'aggressive' }
+      : type === 'talking_head' ? { action: 'restyle', template_key: 'clip_clean_talking_head' }
+      : null;
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+
+    if (regenBody) {
+      const toast =
+        regenBody.action === 'shorter'  ? 'Cutting a tighter version…'
+        : regenBody.action === 'restyle' ? 'Restyling as a clean talking-head…'
+        : 'Making a punchier cut…';
+      setIterateToast(toast);
+      toastTimerRef.current = setTimeout(() => setIterateToast(null), 3200);
+      try {
+        const res = await fetch(`/api/video-engine/clips/${clipId}/regenerate`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify(regenBody),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) {
+          const msg = json?.error?.message || json?.error || 'Regenerate failed';
+          setIterateToast(msg);
+          toastTimerRef.current = setTimeout(() => setIterateToast(null), 3200);
+        }
+        // The polling loop picks up the new variant automatically.
+      } catch (e) {
+        console.warn('[RunDetail] regenerate POST failed', e);
+        setIterateToast('Network error. Try again.');
+        toastTimerRef.current = setTimeout(() => setIterateToast(null), 3200);
+      }
+      return;
+    }
+
+    setIterateToast('Coming soon — iteration launching this week');
+    toastTimerRef.current = setTimeout(() => setIterateToast(null), 2600);
     try {
       await fetch('/api/video-engine/iterate', {
         method: 'POST',
@@ -191,8 +228,16 @@ export default function RunDetail({ runId }: { runId: string }) {
 
   const { run, asset, candidates, rendered } = data;
   const isTerminal = run.status === 'complete' || run.status === 'failed';
-  const otherMode: Mode = run.mode === 'affiliate' ? 'nonprofit' : 'affiliate';
-  const intentMismatch = run.detected_intent && run.detected_intent !== 'unknown' && run.detected_intent !== run.mode;
+  const isClipper = run.mode === 'clipper';
+  const otherMode: Mode | null = isClipper
+    ? null
+    : run.mode === 'affiliate' ? 'nonprofit' : 'affiliate';
+  // Clipper mode doesn't have a paired "opposite" — suppress the detect/mismatch nudge.
+  const intentMismatch =
+    !isClipper
+    && run.detected_intent
+    && run.detected_intent !== 'unknown'
+    && run.detected_intent !== run.mode;
   const candidateById = new Map(candidates.map((c) => [c.id, c]));
 
   const combinedClips = rendered.filter((r) => r.template_key === 'combined');
@@ -223,7 +268,7 @@ export default function RunDetail({ runId }: { runId: string }) {
           </div>
         </div>
 
-        {intentMismatch && (
+        {intentMismatch && !isClipper && (
           <IntentMismatchBanner currentMode={run.mode} detected={run.detected_intent as Mode} />
         )}
 
@@ -249,7 +294,7 @@ export default function RunDetail({ runId }: { runId: string }) {
   const hero = activeClip!;
   return (
     <div className="space-y-4 sm:space-y-6">
-      {intentMismatch && (
+      {intentMismatch && !isClipper && (
         <IntentMismatchBanner currentMode={run.mode} detected={run.detected_intent as Mode} />
       )}
 
@@ -257,6 +302,7 @@ export default function RunDetail({ runId }: { runId: string }) {
         clip={hero}
         candidate={hero.candidate_id ? candidateById.get(hero.candidate_id) ?? null : null}
         onIterate={handleIterate}
+        mode={run.mode}
       />
 
       {completeClips.length > 1 && (
@@ -265,6 +311,7 @@ export default function RunDetail({ runId }: { runId: string }) {
           activeId={hero.id}
           candidateById={candidateById}
           onSelect={setActiveClipId}
+          mode={run.mode}
         />
       )}
 
@@ -272,7 +319,7 @@ export default function RunDetail({ runId }: { runId: string }) {
       {alternates.length > 0 && (
         <details className="group rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
           <summary className="cursor-pointer list-none px-4 py-2.5 text-xs text-zinc-400 hover:bg-zinc-900 flex items-center justify-between">
-            <span>Edit variations &amp; combine</span>
+            <span>{isClipper ? 'Edit moments & stitch into one reel' : 'Edit variations & combine'}</span>
             <span className="text-zinc-500 text-xs transition-transform group-open:rotate-180">▾</span>
           </summary>
           <div className="px-4 pb-4 pt-2">
@@ -318,31 +365,35 @@ export default function RunDetail({ runId }: { runId: string }) {
         </details>
       )}
 
-      <UpgradeNudges planId={run.plan_id_at_run} watermark={run.watermark} />
+      <UpgradeNudges planId={run.plan_id_at_run} watermark={run.watermark} isClipper={isClipper} />
 
-      <div className="flex items-center justify-center gap-4 sm:gap-5 pt-1 sm:pt-2 text-xs text-zinc-500">
-        <button
-          type="button"
-          onClick={regenerateInOtherMode}
-          disabled={!!regenBusy}
-          className="inline-flex items-center gap-1 hover:text-zinc-200 disabled:opacity-50"
-        >
-          {regenBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
-          Try as {modeToWorkspaceLabel(otherMode)}
-        </button>
-        <Link
-          href={`/video-engine/${runId}/compare`}
-          className="inline-flex items-center gap-1 hover:text-zinc-200"
-        >
-          <GitCompareArrows className="w-3.5 h-3.5" />
-          Compare versions
-        </Link>
-        {run.watermark && (
-          <span className="inline-flex items-center gap-1 text-amber-300/70">
-            <Crown className="w-3.5 h-3.5" /> Watermark on
-          </span>
-        )}
-      </div>
+      {isClipper ? (
+        <ClipperNextSourceBar runId={runId} watermark={run.watermark} />
+      ) : (
+        <div className="flex items-center justify-center gap-4 sm:gap-5 pt-1 sm:pt-2 text-xs text-zinc-500">
+          <button
+            type="button"
+            onClick={regenerateInOtherMode}
+            disabled={!!regenBusy || !otherMode}
+            className="inline-flex items-center gap-1 hover:text-zinc-200 disabled:opacity-50"
+          >
+            {regenBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+            Try as {otherMode ? modeToWorkspaceLabel(otherMode) : ''}
+          </button>
+          <Link
+            href={`/video-engine/${runId}/compare`}
+            className="inline-flex items-center gap-1 hover:text-zinc-200"
+          >
+            <GitCompareArrows className="w-3.5 h-3.5" />
+            Compare versions
+          </Link>
+          {run.watermark && (
+            <span className="inline-flex items-center gap-1 text-amber-300/70">
+              <Crown className="w-3.5 h-3.5" /> Watermark on
+            </span>
+          )}
+        </div>
+      )}
 
       {selectedClipIds.length >= 1 && (
         <CombineActionBar
@@ -371,13 +422,16 @@ function HeroClip({
   clip,
   candidate,
   onIterate,
+  mode,
 }: {
   clip: RenderedClip;
   candidate: Candidate | null;
   onIterate: (action: string) => void;
+  mode: Mode;
 }) {
   const [copied, setCopied] = useState(false);
   const [showTips, setShowTips] = useState(false);
+  const isClipper = mode === 'clipper';
 
   // "Copy Post" = description + hashtags — what the creator pastes into TikTok
   const postText = [
@@ -399,11 +453,16 @@ function HeroClip({
     <section className="space-y-3 sm:space-y-5">
       <header className="text-center space-y-1.5 sm:space-y-2">
         <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-800/50 bg-emerald-950/40 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
-          <Check className="w-3 h-3" /> Ready
+          <Check className="w-3 h-3" /> {isClipper ? 'Best moment' : 'Ready'}
         </div>
         <h1 className="text-xl sm:text-3xl font-semibold text-zinc-50 tracking-tight">
-          Your clip is ready to post
+          {isClipper ? 'Your strongest clip from this source' : 'Your clip is ready to post'}
         </h1>
+        {isClipper && (
+          <p className="text-xs sm:text-sm text-zinc-400">
+            Ranked top for hook strength and retention
+          </p>
+        )}
       </header>
 
       <div className="mx-auto w-full sm:max-w-sm">
@@ -424,10 +483,12 @@ function HeroClip({
           )}
         </div>
         <p className="mt-2 sm:mt-3 text-center text-xs sm:text-sm text-zinc-300">
-          Optimized for hook + conversion
+          {isClipper ? 'Hook-first cut, vertical-ready' : 'Optimized for hook + conversion'}
         </p>
         <p className="mt-0.5 text-center text-[11px] text-zinc-500">
-          Built for fast TikTok-style posting
+          {isClipper
+            ? 'Post to TikTok, Reels, and Shorts as-is'
+            : 'Built for fast TikTok-style posting'}
         </p>
       </div>
 
@@ -467,7 +528,7 @@ function HeroClip({
         </div>
       )}
 
-      <QuickActionBar onIterate={onIterate} />
+      <QuickActionBar onIterate={onIterate} mode={mode} />
 
       {showTips && (
         <div className="mx-auto max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-300 space-y-3">
@@ -506,17 +567,32 @@ function HeroClip({
   );
 }
 
-function QuickActionBar({ onIterate }: { onIterate: (type: string) => void }) {
-  const actions: Array<{ key: string; label: string }> = [
-    { key: 'shorter',          label: 'Make shorter' },
-    { key: 'stronger_hook',    label: 'Stronger hook' },
-    { key: 'aggressive',       label: 'More aggressive cuts' },
-    { key: 'generate_3_more',  label: 'Generate 3 more versions' },
-  ];
+function QuickActionBar({
+  onIterate,
+  mode,
+}: {
+  onIterate: (type: string) => void;
+  mode: Mode;
+}) {
+  const isClipper = mode === 'clipper';
+  const actions: Array<{ key: string; label: string }> = isClipper
+    ? [
+        { key: 'shorter',           label: 'Tighter cut' },
+        { key: 'stronger_hook',     label: 'Stronger hook' },
+        { key: 'cleaner_captions',  label: 'Cleaner captions' },
+        { key: 'talking_head',      label: 'Clean talking-head' },
+        { key: 'generate_3_more',   label: 'Find 3 more moments' },
+      ]
+    : [
+        { key: 'shorter',          label: 'Make shorter' },
+        { key: 'stronger_hook',    label: 'Stronger hook' },
+        { key: 'aggressive',       label: 'More aggressive cuts' },
+        { key: 'generate_3_more',  label: 'Generate 3 more versions' },
+      ];
   return (
     <div className="mx-auto max-w-md">
       <div className="text-[10px] uppercase tracking-wide text-zinc-500 px-1 mb-1.5">
-        Quick changes
+        {isClipper ? 'Quick iterate' : 'Quick changes'}
       </div>
       <div className="-mx-4 sm:mx-0 px-4 sm:px-0">
         <div className="flex gap-2 overflow-x-auto flex-nowrap scrollbar-hide py-0.5">
@@ -541,36 +617,57 @@ function OtherVersions({
   activeId,
   candidateById,
   onSelect,
+  mode,
 }: {
   clips: RenderedClip[];
   activeId: string;
   candidateById: Map<string, Candidate>;
   onSelect: (id: string) => void;
+  mode: Mode;
 }) {
+  const isClipper = mode === 'clipper';
   const otherCount = clips.filter((c) => c.id !== activeId).length;
+
+  // For clipper mode split by candidate_id: different candidate_id = different
+  // *moment*, same candidate_id = a variant of a moment the user already saw.
+  const heroClip = clips.find((c) => c.id === activeId);
+  const heroCandidateId = heroClip?.candidate_id ?? null;
+  const moments = isClipper
+    ? clips.filter((c) => c.candidate_id && c.candidate_id !== heroCandidateId)
+    : clips.filter((c) => c.id !== activeId);
+
+  const title = isClipper ? 'Other moments from this video' : 'Other versions';
+  const subhead = isClipper ? 'Each one is a different clip opportunity — ranked by score' : null;
+
+  if (moments.length === 0) return null;
   return (
     <section className="space-y-2 sm:space-y-3">
       <div className="flex items-baseline justify-between px-1">
-        <h2 className="text-sm font-medium text-zinc-100">Other versions</h2>
-        <span className="text-[11px] text-zinc-500">{otherCount}</span>
+        <div>
+          <h2 className="text-sm font-medium text-zinc-100">{title}</h2>
+          {subhead && <p className="text-[11px] text-zinc-500 mt-0.5">{subhead}</p>}
+        </div>
+        <span className="text-[11px] text-zinc-500">{isClipper ? moments.length : otherCount}</span>
       </div>
       <div className="-mx-4 sm:mx-0 px-4 sm:px-0">
         <div className="flex gap-3 overflow-x-auto flex-nowrap snap-x snap-mandatory pb-2 scrollbar-hide">
-          {clips.map((c) => {
+          {moments.map((c, i) => {
             const isActive = c.id === activeId;
             const cand = c.candidate_id ? candidateById.get(c.candidate_id) ?? null : null;
-            const subtitle = [
-              c.template_key,
-              c.duration_sec ? `${c.duration_sec.toFixed(0)}s` : null,
-            ].filter(Boolean).join(' · ');
+            const rankNum = isClipper ? i + 2 : null; // hero is #1, carousel starts at #2
+            const subtitle = isClipper
+              ? [cand?.suggested_use, c.duration_sec ? `${c.duration_sec.toFixed(0)}s` : null]
+                  .filter(Boolean).join(' · ')
+              : [c.template_key, c.duration_sec ? `${c.duration_sec.toFixed(0)}s` : null]
+                  .filter(Boolean).join(' · ');
             return (
               <button
                 key={c.id}
                 type="button"
                 onClick={() => onSelect(c.id)}
                 aria-pressed={isActive}
-                aria-label={`Show ${c.template_key} version`}
-                className={`group shrink-0 snap-start text-left w-28 sm:w-32 transition-transform ${
+                aria-label={isClipper ? `Show moment ${rankNum}` : `Show ${c.template_key} version`}
+                className={`group shrink-0 snap-start text-left w-32 sm:w-36 transition-transform ${
                   isActive ? '' : 'hover:-translate-y-0.5'
                 }`}
               >
@@ -595,10 +692,26 @@ function OtherVersions({
                       preview
                     </div>
                   )}
+                  {rankNum !== null && !isActive && (
+                    <span className="absolute top-1.5 left-1.5 inline-flex items-center justify-center rounded-full bg-zinc-900/80 border border-zinc-700 px-1.5 py-0.5 text-[9px] font-semibold text-zinc-200">
+                      #{rankNum}
+                    </span>
+                  )}
                   {isActive && (
                     <span className="absolute top-1.5 left-1.5 inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-emerald-950">
                       <Check className="w-2.5 h-2.5" /> Viewing
                     </span>
+                  )}
+                  {c.output_url && (
+                    <a
+                      href={c.output_url}
+                      download
+                      onClick={(e) => e.stopPropagation()}
+                      aria-label="Download this clip"
+                      className="absolute bottom-1.5 right-1.5 inline-flex items-center justify-center rounded-full bg-zinc-900/90 border border-zinc-700 w-7 h-7 text-zinc-100 hover:bg-zinc-800"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </a>
                   )}
                 </div>
                 <div className="mt-1.5 text-[11px] text-zinc-300 truncate">
@@ -776,10 +889,25 @@ function UpgradeNudge({ text, cta }: { text: string; cta: string }) {
  * Anything Creator-tier or higher is already past these limits, so we render
  * nothing for them.
  */
-function UpgradeNudges({ planId, watermark }: { planId: string | null; watermark: boolean }) {
+function UpgradeNudges({
+  planId,
+  watermark,
+  isClipper = false,
+}: {
+  planId: string | null;
+  watermark: boolean;
+  isClipper?: boolean;
+}) {
   const isFreeOrStarter = !planId || planId === 'payg' || planId === 've_starter';
   const showWatermark = watermark;
   if (!isFreeOrStarter && !showWatermark) return null;
+
+  const clipCountText = isClipper
+    ? 'Unlock 6 moments per source (you\u2019re capped at 3).'
+    : 'Unlock 6 clips per upload (you\u2019re capped at 3).';
+  const volumeText = isClipper
+    ? 'Clipping daily? Get more sources per month.'
+    : 'Need more uploads this month?';
 
   return (
     <div className="space-y-2">
@@ -787,10 +915,53 @@ function UpgradeNudges({ planId, watermark }: { planId: string | null; watermark
         <UpgradeNudge text="Remove the “Made with FlashFlow” watermark." cta="Upgrade to Creator ($49/mo)" />
       )}
       {isFreeOrStarter && (
-        <UpgradeNudge text="Unlock 6 clips per upload (you’re capped at 3)." cta="Get Creator →" />
+        <UpgradeNudge text={clipCountText} cta="Get Creator →" />
       )}
       {isFreeOrStarter && (
-        <UpgradeNudge text="Need more uploads this month?" cta="See plans →" />
+        <UpgradeNudge text={volumeText} cta="See plans →" />
+      )}
+    </div>
+  );
+}
+
+/**
+ * Clipper-mode bottom bar. Replaces the product-lane "Try as X / Compare" row.
+ * Goal: make "upload another source" the obvious next step so the lane feels
+ * built for repeat use.
+ */
+function ClipperNextSourceBar({
+  runId,
+  watermark,
+}: {
+  runId: string;
+  watermark: boolean;
+}) {
+  return (
+    <div className="mt-2 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-3 flex flex-wrap items-center justify-between gap-3">
+      <div className="text-xs text-zinc-400">
+        <div className="text-zinc-200 font-medium text-sm">Done with this source?</div>
+        <div className="mt-0.5">Clip another podcast, stream, or long-form video — same lane, same settings.</div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Link
+          href={`/video-engine/${runId}/compare`}
+          className="inline-flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-200"
+        >
+          <GitCompareArrows className="w-3.5 h-3.5" />
+          Compare cuts
+        </Link>
+        <Link
+          href="/video-engine?lane=clipper"
+          className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 text-xs font-semibold px-3 py-2"
+        >
+          <Upload className="w-3.5 h-3.5" />
+          Clip another video
+        </Link>
+      </div>
+      {watermark && (
+        <span className="inline-flex items-center gap-1 text-[11px] text-amber-300/70">
+          <Crown className="w-3 h-3" /> Watermark on
+        </span>
       )}
     </div>
   );
@@ -1119,7 +1290,7 @@ function CombineActionBar({
 const STYLE_CYCLE: Record<string, string[]> = {
   affiliate: ['aff_tiktok_shop', 'aff_ugc_review', 'aff_talking_head'],
   nonprofit: ['np_event_recap', 'np_join_us', 'np_why_this_matters', 'np_sponsor_highlight', 'np_testimonial'],
-  clipper: ['aff_tiktok_shop'],
+  clipper: ['clip_viral_moment', 'clip_fast_highlight', 'clip_educational_cut', 'clip_clean_talking_head'],
 };
 function otherStyleKey(current: string, mode: Mode): string {
   const list = STYLE_CYCLE[mode];

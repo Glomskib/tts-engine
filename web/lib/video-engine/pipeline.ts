@@ -48,6 +48,11 @@ interface RunRow {
   error_message: string | null;
   watermark: boolean;
   plan_id_at_run: string | null;
+  product_name: string | null;
+  product_url: string | null;
+  product_platform: string | null;
+  product_price_cents: number | null;
+  coupon_code: string | null;
 }
 
 interface AssetRow {
@@ -74,7 +79,7 @@ const PACKAGING_PER_TICK = 2;   // throttle Claude calls per cron tick
 async function loadRun(runId: string): Promise<RunRow | null> {
   const { data, error } = await supabaseAdmin
     .from('ve_runs')
-    .select('id,user_id,mode,preset_keys,status,target_clip_count,context_json,attempts,error_message,watermark,plan_id_at_run')
+    .select('id,user_id,mode,preset_keys,status,target_clip_count,context_json,attempts,error_message,watermark,plan_id_at_run,product_name,product_url,product_platform,product_price_cents,coupon_code')
     .eq('id', runId)
     .single();
   if (error) throw new Error(`Failed to load run ${runId}: ${error.message}`);
@@ -297,13 +302,20 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   const renderedRows: Array<Record<string, unknown>> = [];
   const ffJobRows: Array<Record<string, unknown>> = [];
 
-  // Tag each ff_render_jobs row with the kind that matches our dispatch path.
-  // If a local render crashes and leaves a row in 'pending', this tag ensures
-  // the claim endpoint will (or won't) let a Mac mini worker pick it up — the
-  // local fleet is only capable of clip_render slices.
+  // Capability-based routing: the timeline object stored on each row is
+  // Shotstack-shaped and includes video-asset clips. Only Shotstack can render
+  // those. Mark the row's kind accordingly so the local fleet's claim RPC
+  // (ff_claim_next_render_job, which filters on kind = ANY(p_allowed_kinds))
+  // never hands these to a Mac-mini worker — previously the worker would claim
+  // the row and die with "unsupported_feature: asset type 'video'".
+  //
+  // The in-process local fallback below does NOT use `timeline` at all — it
+  // does a plain ffmpeg trim against the source asset and writes the result
+  // back to the row directly. So the kind stays 'shotstack_timeline' even when
+  // VIDEO_ENGINE_RENDERER=local; the worker simply skips it, and the pipeline
+  // handles rendering synchronously.
   const dispatchRenderer = (process.env.VIDEO_ENGINE_RENDERER || 'local').toLowerCase();
-  const dispatchJobKind: 'shotstack_timeline' | 'clip_render' =
-    dispatchRenderer === 'shotstack' ? 'shotstack_timeline' : 'clip_render';
+  const dispatchJobKind: 'shotstack_timeline' | 'clip_render' = 'shotstack_timeline';
 
   for (let i = 0; i < candidates.length; i++) {
     const cand = candidates[i];
@@ -492,6 +504,18 @@ async function packagePendingClips(run: RunRow): Promise<void> {
         continue;
       }
       const cta = getCTAOrDefault(rc.cta_key as string, run.mode);
+      // Merge first-class product columns into the context the packager sees.
+      // `run.context_json` already carries older product_* strings from the
+      // upload form; top-level columns from the new PATCH endpoint win.
+      const mergedContext: Record<string, unknown> = { ...(run.context_json ?? {}) };
+      if (run.product_name)     mergedContext.product_name     = run.product_name;
+      if (run.product_url)      mergedContext.product_url      = run.product_url;
+      if (run.product_platform) mergedContext.product_platform = run.product_platform;
+      if (run.product_price_cents != null) {
+        mergedContext.product_price = (run.product_price_cents / 100).toFixed(2);
+      }
+      if (run.coupon_code)      mergedContext.coupon_code      = run.coupon_code;
+
       const pkg = await packageClip({
         mode: run.mode,
         clipText: cand.text,
@@ -500,7 +524,7 @@ async function packagePendingClips(run: RunRow): Promise<void> {
         durationSec: Number(cand.end_sec) - Number(cand.start_sec),
         templateKey: rc.template_key as string,
         ctaSuggestionFromTemplate: cta.overlayText,
-        context: run.context_json ?? {},
+        context: mergedContext,
       }, { correlationId: `ve-pkg:${run.id}:${rc.id}` });
 
       await supabaseAdmin
@@ -510,6 +534,8 @@ async function packagePendingClips(run: RunRow): Promise<void> {
           hashtags: pkg.hashtags,
           suggested_title: pkg.suggested_title,
           cta_suggestion: pkg.cta_suggestion,
+          hook_line: pkg.hook_line,
+          alt_captions: pkg.alt_captions,
           package_status: 'done',
           package_error: null,
         })

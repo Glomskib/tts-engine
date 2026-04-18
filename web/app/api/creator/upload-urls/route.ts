@@ -14,7 +14,11 @@ import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors'
 export const runtime = 'nodejs';
 
 const BUCKET = 'renders';
-const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
+// Matches the `renders` bucket ceiling set in migration
+// 20260506010000_renders_bucket_longform.sql and the client cap in
+// components/video-engine/UploadCard.tsx (MAX_SIZE_BYTES). Keep all three in sync.
+const MAX_FILE_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
+const MAX_FILE_LABEL = '2 GB';
 
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
@@ -48,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   for (const f of body.files) {
     if (f.size_bytes > MAX_FILE_BYTES) {
-      return createApiErrorResponse('BAD_REQUEST', `File ${f.filename} exceeds 2GB limit`, 400, correlationId);
+      return createApiErrorResponse('BAD_REQUEST', `File ${f.filename} exceeds ${MAX_FILE_LABEL} limit`, 400, correlationId);
     }
     const ext = f.filename?.split('.').pop()?.toLowerCase() ?? '';
     if (!ALLOWED_EXTS.has(ext)) {
@@ -81,7 +85,9 @@ export async function POST(request: NextRequest) {
       const storageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${storagePath}`;
 
       // Create footage_item record immediately — stage: raw_uploaded
-      // The item is registered in the hub as soon as we issue the URL
+      // The item is registered in the hub as soon as we issue the URL.
+      // Non-fatal, but never silent: we log the full error with the
+      // correlation id so support can trace missing footage entries.
       let footageItemId: string | null = null;
       try {
         const footageItem = await createFootageItem({
@@ -100,8 +106,17 @@ export async function POST(request: NextRequest) {
           metadata:         { job_id: jobId, index: i },
         });
         footageItemId = footageItem.id;
-      } catch {
-        // Non-fatal — upload URLs still work even if footage record creation fails
+      } catch (err) {
+        console.error(
+          `[${correlationId}] creator/upload-urls: createFootageItem failed`,
+          {
+            user_id: userId,
+            path: storagePath,
+            filename: f.filename,
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          },
+        );
       }
 
       return {

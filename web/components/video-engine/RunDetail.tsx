@@ -10,6 +10,7 @@ import {
 import StatusPill from './StatusPill';
 import { modeToWorkspaceLabel } from './WorkspaceSelector';
 import type { Mode, RunStatus } from '@/lib/video-engine/types';
+import { assignClipperLabels, clipperLabelText, type ClipperLabel } from '@/lib/video-engine/insights';
 
 interface RenderedClip {
   id: string;
@@ -26,6 +27,9 @@ interface RenderedClip {
   hashtags: string[] | null;
   suggested_title: string | null;
   cta_suggestion: string | null;
+  hook_line: string | null;
+  alt_captions: string[] | null;
+  copies_made: number | null;
   watermark: boolean;
   package_status: 'pending' | 'done' | 'failed' | 'skipped';
   regen_count: number;
@@ -45,6 +49,7 @@ interface Candidate {
   suggested_use: string | null;
   selection_reason: string | null;
   best_for: string[] | null;
+  score_breakdown_json: Record<string, number> | null;
 }
 
 interface RunDetailData {
@@ -60,6 +65,10 @@ interface RunDetailData {
     detected_intent: 'affiliate' | 'nonprofit' | 'unknown' | null;
     plan_id_at_run: string | null;
     watermark: boolean;
+    product_name: string | null;
+    product_url: string | null;
+    product_platform: string | null;
+    coupon_code: string | null;
   };
   asset: { storage_url: string; original_filename: string | null; duration_sec: number | null } | null;
   transcript: { language: string; full_text: string; duration_sec: number | null } | null;
@@ -73,6 +82,7 @@ export default function RunDetail({ runId }: { runId: string }) {
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [regenBusy, setRegenBusy] = useState<Mode | null>(null);
+  const [runAgainBusy, setRunAgainBusy] = useState(false);
   // Ordered list of clip ids the user has picked for "Combine into one video".
   const [selectedClipIds, setSelectedClipIds] = useState<string[]>([]);
   const [combineBusy, setCombineBusy] = useState(false);
@@ -199,6 +209,29 @@ export default function RunDetail({ runId }: { runId: string }) {
     return () => { cancelled = true; if (interval) clearInterval(interval); };
   }, [runId]);
 
+  // One-click "Generate more clips from this" — reuses the same source asset
+  // and creates a new run in the same mode, so the user doesn't have to
+  // re-upload or re-configure anything. Navigates to the new run's page.
+  async function runAgainFromSameSource() {
+    if (runAgainBusy) return;
+    setRunAgainBusy(true);
+    try {
+      const res = await fetch(`/api/video-engine/runs/${runId}/regenerate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json?.error?.message || 'Couldn’t start a new run.');
+      const newId = json?.data?.run_id;
+      if (!newId) throw new Error('Server didn’t return a run id.');
+      router.push(`/video-engine/${newId}`);
+    } catch (e) {
+      setIterateToast(e instanceof Error ? e.message : 'Couldn’t start a new run.');
+      setRunAgainBusy(false);
+    }
+  }
+
   async function regenerateInOtherMode() {
     if (!data) return;
     const otherMode: Mode = data.run.mode === 'affiliate' ? 'nonprofit' : 'affiliate';
@@ -253,6 +286,27 @@ export default function RunDetail({ runId }: { runId: string }) {
     (activeClipId ? completeClips.find((r) => r.id === activeClipId) ?? null : null) ??
     completeBest;
 
+  // Clipper distinct labels — "Best hook" / "Most engaging" / "Fast highlight" —
+  // assigned across the top 3 clipper clips so the user never sees three identical
+  // badges in the grid. Keyed by rendered-clip id (not candidate id) since the
+  // UI binds to rendered clips; we translate through candidate_id → breakdown.
+  const clipperLabels = new Map<string, ClipperLabel>();
+  if (isClipper && completeClips.length > 0) {
+    const topForLabels = completeClips.slice(0, 3);
+    const labelInputs = topForLabels
+      .map((rc) => {
+        const cand = rc.candidate_id ? candidateById.get(rc.candidate_id) : null;
+        if (!cand || !cand.score_breakdown_json) return null;
+        return {
+          id: rc.id,
+          scoreBreakdown: cand.score_breakdown_json,
+          durationSec: rc.duration_sec ?? (cand.end_sec - cand.start_sec),
+        };
+      })
+      .filter((x): x is NonNullable<typeof x> => x !== null);
+    assignClipperLabels(labelInputs).forEach((v, k) => clipperLabels.set(k, v));
+  }
+
   // In-progress / failed / edge states keep a minimal status view.
   if (!isTerminal || !completeBest) {
     return (
@@ -290,7 +344,7 @@ export default function RunDetail({ runId }: { runId: string }) {
     );
   }
 
-  // Guided outcome: one hero clip, quick-iterate pills, visible versions carousel.
+  // Clipper → grid-first, volume-first. Other modes → single hero.
   const hero = activeClip!;
   return (
     <div className="space-y-4 sm:space-y-6">
@@ -298,28 +352,50 @@ export default function RunDetail({ runId }: { runId: string }) {
         <IntentMismatchBanner currentMode={run.mode} detected={run.detected_intent as Mode} />
       )}
 
-      <HeroClip
-        clip={hero}
-        candidate={hero.candidate_id ? candidateById.get(hero.candidate_id) ?? null : null}
-        onIterate={handleIterate}
-        mode={run.mode}
-      />
-
-      {completeClips.length > 1 && (
-        <OtherVersions
+      {isClipper ? (
+        <ClipperGrid
           clips={completeClips}
-          activeId={hero.id}
+          labels={clipperLabels}
           candidateById={candidateById}
-          onSelect={setActiveClipId}
-          mode={run.mode}
+          selectedClipIds={selectedClipIds}
+          onToggleSelect={toggleSelected}
+          onClearSelected={clearSelected}
+          onCombine={combineSelected}
+          combineBusy={combineBusy}
         />
+      ) : (
+        <>
+          <HeroClip
+            clip={hero}
+            candidate={hero.candidate_id ? candidateById.get(hero.candidate_id) ?? null : null}
+            onIterate={handleIterate}
+            mode={run.mode}
+            completeCount={completeClips.length}
+            onUploadAnother={() => router.push('/video-engine')}
+            onGenerateMore={runAgainFromSameSource}
+            generateBusy={runAgainBusy}
+            productName={run.product_name}
+            productUrl={run.product_url}
+            runId={run.id}
+          />
+
+          {completeClips.length > 1 && (
+            <OtherVersions
+              clips={completeClips}
+              activeId={hero.id}
+              candidateById={candidateById}
+              onSelect={setActiveClipId}
+              mode={run.mode}
+            />
+          )}
+        </>
       )}
 
-      {/* Power-user editor: preserves regen / combine access without dominating the guided flow. */}
-      {alternates.length > 0 && (
+      {/* Power-user editor — kept for non-clipper modes (clipper already gets a grid-first view above). */}
+      {!isClipper && alternates.length > 0 && (
         <details className="group rounded-xl border border-zinc-800 bg-zinc-950 overflow-hidden">
           <summary className="cursor-pointer list-none px-4 py-2.5 text-xs text-zinc-400 hover:bg-zinc-900 flex items-center justify-between">
-            <span>{isClipper ? 'Edit moments & stitch into one reel' : 'Edit variations & combine'}</span>
+            <span>Edit variations & combine</span>
             <span className="text-zinc-500 text-xs transition-transform group-open:rotate-180">▾</span>
           </summary>
           <div className="px-4 pb-4 pt-2">
@@ -395,7 +471,7 @@ export default function RunDetail({ runId }: { runId: string }) {
         </div>
       )}
 
-      {selectedClipIds.length >= 1 && (
+      {!isClipper && selectedClipIds.length >= 1 && (
         <CombineActionBar
           count={selectedClipIds.length}
           busy={combineBusy}
@@ -423,22 +499,56 @@ function HeroClip({
   candidate,
   onIterate,
   mode,
+  completeCount,
+  onUploadAnother,
+  onGenerateMore,
+  generateBusy,
+  productName,
+  productUrl,
+  runId,
 }: {
   clip: RenderedClip;
   candidate: Candidate | null;
   onIterate: (action: string) => void;
   mode: Mode;
+  completeCount: number;
+  onUploadAnother: () => void;
+  onGenerateMore: () => void;
+  generateBusy: boolean;
+  productName: string | null;
+  productUrl: string | null;
+  runId: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [hookCopied, setHookCopied] = useState(false);
   const [showTips, setShowTips] = useState(false);
+  const [showReady, setShowReady] = useState(false);
   const isClipper = mode === 'clipper';
 
-  // "Copy Post" = description + hashtags — what the creator pastes into TikTok
-  const postText = [
-    clip.caption_text,
-    '',
-    clip.hashtags?.length ? clip.hashtags.map((h) => `#${h}`).join(' ') : '',
-  ].filter((line) => line !== undefined).join('\n').trim();
+  // "Copy description + link" = what the creator pastes into TikTok / Reels.
+  // When a product URL is attached, append it so it goes out together with
+  // the caption in a single paste.
+  const caption = clip.caption_text ?? '';
+  const hashtagLine = clip.hashtags?.length ? clip.hashtags.map((h) => `#${h}`).join(' ') : '';
+  const postText = [caption, hashtagLine, productUrl ?? ''].filter(Boolean).join('\n\n').trim();
+  const hookText = (clip.hook_line ?? candidate?.hook_text ?? '').trim();
+  const captionPreview = caption
+    ? caption.replace(/\s+/g, ' ').trim().slice(0, 140)
+    : '';
+  const captionTruncated = caption.length > 140;
+
+  // One-shot "Your clip is ready" fade-in the first time the user lands on the
+  // terminal state for this run. Keyed by clip id so regenerated variants don't
+  // re-trigger it, and persisted in sessionStorage so revisits stay quiet.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const key = `ve-ready-seen:${clip.id}`;
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, '1');
+    setShowReady(true);
+    const t = setTimeout(() => setShowReady(false), 2200);
+    return () => clearTimeout(t);
+  }, [clip.id]);
 
   async function copyCaption() {
     if (!postText) return;
@@ -446,26 +556,53 @@ function HeroClip({
       await navigator.clipboard.writeText(postText);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
+      trackClipCopy(clip.id);
     } catch { /* noop */ }
   }
 
+  async function copyHook() {
+    if (!hookText) return;
+    try {
+      await navigator.clipboard.writeText(hookText);
+      setHookCopied(true);
+      setTimeout(() => setHookCopied(false), 1600);
+      trackClipCopy(clip.id);
+    } catch { /* noop */ }
+  }
+
+  const signals = confidenceSignals(candidate, isClipper);
+  const hasProductUrl = !!productUrl;
+  const hasHook = hookText.length > 0;
+
   return (
-    <section className="space-y-3 sm:space-y-5">
-      <header className="text-center space-y-1.5 sm:space-y-2">
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-emerald-800/50 bg-emerald-950/40 px-2.5 py-0.5 text-[11px] font-medium text-emerald-300">
-          <Check className="w-3 h-3" /> {isClipper ? 'Best moment' : 'Ready'}
+    <section className="space-y-4 sm:space-y-6">
+      {showReady && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mx-auto max-w-md flex items-center justify-center gap-2 rounded-full border border-emerald-600/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-200 animate-in fade-in slide-in-from-top-2 duration-500"
+        >
+          <Check className="w-4 h-4" />
+          <span className="font-medium">Your clip is ready</span>
         </div>
-        <h1 className="text-xl sm:text-3xl font-semibold text-zinc-50 tracking-tight">
-          {isClipper ? 'Your strongest clip from this source' : 'Your clip is ready to post'}
+      )}
+
+      <header className="text-center space-y-2 sm:space-y-2.5">
+        <h1 className="text-2xl sm:text-3xl font-semibold text-zinc-50 tracking-tight">
+          We turned your video into {completeCount} {completeCount === 1 ? 'clip' : 'clips'}
         </h1>
-        {isClipper && (
-          <p className="text-xs sm:text-sm text-zinc-400">
-            Ranked top for hook strength and retention
-          </p>
-        )}
+        <p className="mx-auto max-w-md text-sm sm:text-base text-zinc-400 leading-relaxed">
+          You now have {completeCount === 1 ? 'a clip' : 'multiple clips'} ready to post across TikTok, Reels, and Shorts.
+        </p>
       </header>
 
       <div className="mx-auto w-full sm:max-w-sm">
+        <div className="mb-2 flex justify-center">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-200">
+            <Crown className="w-3 h-3" />
+            Best performing version
+          </span>
+        </div>
         <div className="aspect-[9/16] max-h-[70vh] bg-black sm:rounded-2xl overflow-hidden sm:border sm:border-zinc-800 sm:shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
           {clip.output_url ? (
             <video
@@ -473,6 +610,9 @@ function HeroClip({
               src={clip.output_url}
               controls
               playsInline
+              autoPlay
+              muted
+              loop
               preload="metadata"
               className="w-full h-full object-contain"
             />
@@ -482,53 +622,121 @@ function HeroClip({
             </div>
           )}
         </div>
-        <p className="mt-2 sm:mt-3 text-center text-xs sm:text-sm text-zinc-300">
-          {isClipper ? 'Hook-first cut, vertical-ready' : 'Optimized for hook + conversion'}
-        </p>
-        <p className="mt-0.5 text-center text-[11px] text-zinc-500">
-          {isClipper
-            ? 'Post to TikTok, Reels, and Shorts as-is'
-            : 'Built for fast TikTok-style posting'}
-        </p>
+        {signals.length > 0 && (
+          <div className="mt-3 sm:mt-4 space-y-1 text-center">
+            {signals.map((line, i) => (
+              <p
+                key={i}
+                className={
+                  i === 0
+                    ? 'text-sm sm:text-base font-medium text-zinc-100'
+                    : 'text-xs sm:text-sm text-zinc-400'
+                }
+              >
+                {line}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
 
-      <div className="mx-auto w-full max-w-md grid grid-cols-3 gap-1.5 sm:gap-2">
+      <div className="mx-auto w-full max-w-md space-y-2.5 px-4 sm:px-0">
         <a
           href={clip.output_url ?? '#'}
           download
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-zinc-100 hover:bg-white text-zinc-900 text-xs sm:text-sm font-semibold px-2 py-2.5 sm:py-3"
+          className="flex items-center justify-center gap-2 rounded-xl bg-zinc-100 hover:bg-white active:bg-zinc-200 text-zinc-900 text-base font-semibold min-h-[52px] px-4 transition-colors"
         >
-          <Download className="w-4 h-4 shrink-0" />
-          <span className="truncate">Download</span>
+          <Download className="w-5 h-5 shrink-0" />
+          <span>Download clip</span>
         </a>
-        <button
-          type="button"
-          onClick={copyCaption}
-          disabled={!postText}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-xs sm:text-sm font-medium px-2 py-2.5 sm:py-3 disabled:opacity-50"
-        >
-          {copied ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <Copy className="w-4 h-4 shrink-0" />}
-          <span className="truncate">{copied ? 'Copied!' : 'Copy Post'}</span>
-        </button>
+
+        <div>
+          <button
+            type="button"
+            onClick={copyCaption}
+            disabled={!postText}
+            aria-live="polite"
+            className="flex items-center justify-center gap-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-800 text-zinc-100 text-base font-medium min-h-[52px] px-4 disabled:opacity-50 transition-colors"
+          >
+            {copied ? <Check className="w-5 h-5 text-emerald-400 shrink-0" /> : <Copy className="w-5 h-5 shrink-0" />}
+            <span>{copied ? 'Copied to clipboard' : hasProductUrl ? 'Copy description + product link' : 'Copy Caption + Hashtags'}</span>
+          </button>
+          {(hasHook || hasProductUrl) && (
+            <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {hasHook && (
+                <button
+                  type="button"
+                  onClick={copyHook}
+                  aria-live="polite"
+                  className="flex items-center justify-center gap-2 w-full rounded-xl border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-zinc-200 text-sm font-medium min-h-[48px] px-4 transition-colors"
+                >
+                  {hookCopied ? <Check className="w-4 h-4 text-emerald-400 shrink-0" /> : <Copy className="w-4 h-4 shrink-0" />}
+                  <span>{hookCopied ? 'Hook copied' : 'Copy hook'}</span>
+                </button>
+              )}
+              {hasProductUrl && (
+                <a
+                  href={productUrl!}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={() => trackClipCopy(clip.id)}
+                  className="flex items-center justify-center gap-2 w-full rounded-xl border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-zinc-200 text-sm font-medium min-h-[48px] px-4 transition-colors"
+                >
+                  <span>Open product link</span>
+                </a>
+              )}
+            </div>
+          )}
+          {captionPreview ? (
+            <p className="mt-2 px-1 text-[12px] sm:text-[13px] text-zinc-500 leading-snug line-clamp-2">
+              “{captionPreview}{captionTruncated ? '…' : ''}”
+            </p>
+          ) : !postText && clip.package_status === 'pending' && clip.status !== 'failed' ? (
+            <p className="mt-2 px-1 text-[12px] text-zinc-500 flex items-center gap-1.5">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              Writing your caption…
+            </p>
+          ) : null}
+        </div>
+
         <button
           type="button"
           onClick={() => setShowTips((v) => !v)}
           aria-expanded={showTips}
-          className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-zinc-300 hover:text-zinc-100 text-xs sm:text-sm font-medium px-2 py-2.5 sm:py-3"
+          className="mx-auto flex items-center justify-center gap-1.5 text-xs sm:text-sm text-zinc-400 hover:text-zinc-200 min-h-[44px] px-3"
         >
           <Sparkles className="w-4 h-4 shrink-0" />
-          <span className="truncate">{showTips ? 'Hide Tips' : 'Posting Tips'}</span>
+          <span>{showTips ? 'Hide posting tips' : 'Show posting tips'}</span>
         </button>
       </div>
 
-      {!postText && clip.package_status === 'pending' && clip.status !== 'failed' && (
-        <div className="mx-auto max-w-md -mt-1 text-center text-[11px] text-zinc-500 flex items-center justify-center gap-1.5">
-          <Loader2 className="w-3 h-3 animate-spin" />
-          Caption &amp; hashtags generating&hellip;
-        </div>
-      )}
-
       <QuickActionBar onIterate={onIterate} mode={mode} />
+
+      <div className="mx-auto w-full max-w-md px-4 sm:px-0 space-y-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <button
+            type="button"
+            onClick={onGenerateMore}
+            disabled={generateBusy}
+            className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-800 text-zinc-100 text-sm sm:text-base font-medium min-h-[48px] px-4 disabled:opacity-60 transition-colors"
+          >
+            {generateBusy ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
+            <span>{generateBusy ? 'Starting a new run…' : 'Generate more clips from this'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onUploadAnother}
+            className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-zinc-200 text-sm sm:text-base font-medium min-h-[48px] px-4 transition-colors"
+          >
+            <Upload className="w-4 h-4 shrink-0" />
+            <span>Upload another video</span>
+          </button>
+        </div>
+        <ChangeProductLink runId={runId} currentName={productName} />
+        <p className="text-center text-[11px] sm:text-xs text-zinc-500">
+          Creators post 10–50 clips/day. Upload → Clips → Post → Repeat.
+        </p>
+      </div>
 
       {showTips && (
         <div className="mx-auto max-w-md rounded-xl border border-zinc-800 bg-zinc-950 p-4 text-sm text-zinc-300 space-y-3">
@@ -536,7 +744,11 @@ function HeroClip({
           <ul className="space-y-2 leading-relaxed">
             <li>Post during your audience&rsquo;s peak window &mdash; the first 1&ndash;2 hours drive most of the reach.</li>
             <li>Paste the full caption including hashtags. They&rsquo;re part of the hook.</li>
-            <li>Pin a comment with your link so it sits above the fold.</li>
+            {isClipper ? (
+              <li>Pin a comment linking the full source (podcast / stream / channel) so viewers can go deeper.</li>
+            ) : (
+              <li>Pin a comment with your link so it sits above the fold.</li>
+            )}
             <li>Cross-post to Reels and Shorts the same day for free extra reach.</li>
           </ul>
           {(clip.suggested_title || clip.cta_suggestion || candidate?.hook_text) && (
@@ -612,18 +824,339 @@ function QuickActionBar({
   );
 }
 
+/**
+ * Clipper-mode grid view. Volume-first: every complete clip rendered into a
+ * scannable grid so a clipper can triage 5–8 cuts in seconds. No hero, no
+ * storytelling, no "best first then everything else" — just the whole batch
+ * with per-clip hook strength + engagement + timestamp origin + select-to-
+ * combine, plus a batch bar at the top for Download All / Copy All Captions
+ * / Combine Selected.
+ */
+function ClipperGrid({
+  clips,
+  labels,
+  candidateById,
+  selectedClipIds,
+  onToggleSelect,
+  onClearSelected,
+  onCombine,
+  combineBusy,
+}: {
+  clips: RenderedClip[];
+  labels: Map<string, ClipperLabel>;
+  candidateById: Map<string, Candidate>;
+  selectedClipIds: string[];
+  onToggleSelect: (clipId: string) => void;
+  onClearSelected: () => void;
+  onCombine: () => void;
+  combineBusy: boolean;
+}) {
+  const [bulkCopied, setBulkCopied] = useState(false);
+  const [downloadingAll, setDownloadingAll] = useState(false);
+
+  if (clips.length === 0) {
+    return (
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-6 text-center text-sm text-zinc-400">
+        No clips finished rendering from this source. Try another upload.
+      </div>
+    );
+  }
+
+  async function copyAllCaptions() {
+    const blocks = clips.map((c, i) => {
+      const cand = c.candidate_id ? candidateById.get(c.candidate_id) : null;
+      const ts = cand ? formatTimestamp(cand.start_sec) : null;
+      const header = `Clip ${i + 1}${ts ? ` · ${ts}` : ''}`;
+      const hashtagLine = c.hashtags?.length ? c.hashtags.map((h) => `#${h}`).join(' ') : '';
+      return [header, c.caption_text ?? '', hashtagLine].filter(Boolean).join('\n');
+    });
+    const text = blocks.join('\n\n—\n\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setBulkCopied(true);
+      setTimeout(() => setBulkCopied(false), 1800);
+    } catch { /* noop */ }
+  }
+
+  async function downloadAll() {
+    setDownloadingAll(true);
+    try {
+      for (let i = 0; i < clips.length; i++) {
+        const url = clips[i].output_url;
+        if (!url) continue;
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = '';
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        await new Promise((r) => setTimeout(r, 450)); // browsers throttle rapid sequential downloads
+      }
+    } finally {
+      setDownloadingAll(false);
+    }
+  }
+
+  const selectedCount = selectedClipIds.length;
+
+  return (
+    <section className="space-y-3 sm:space-y-4">
+      <header className="flex flex-wrap items-end justify-between gap-3 px-1">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-semibold text-zinc-50 tracking-tight">
+            {clips.length} clips ready
+          </h1>
+          <p className="mt-0.5 text-xs sm:text-sm text-zinc-400">
+            Ranked by hook strength + retention. Grab the ones you want, combine the rest, keep clipping.
+          </p>
+        </div>
+        <span className="text-[11px] text-zinc-500">Different hook · different cut · different pacing</span>
+      </header>
+
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 px-3 py-2.5 flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={downloadAll}
+          disabled={downloadingAll}
+          className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 text-xs font-semibold px-3 py-2 disabled:opacity-60"
+        >
+          {downloadingAll ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />}
+          {downloadingAll ? 'Downloading…' : `Download all (${clips.length})`}
+        </button>
+        <button
+          type="button"
+          onClick={copyAllCaptions}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-xs font-medium px-3 py-2"
+        >
+          {bulkCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+          {bulkCopied ? 'Copied all captions' : 'Copy all captions'}
+        </button>
+        <div className="ml-auto flex items-center gap-2">
+          {selectedCount > 0 && (
+            <>
+              <span className="text-[11px] text-zinc-400">{selectedCount} selected</span>
+              <button
+                type="button"
+                onClick={onClearSelected}
+                className="inline-flex items-center gap-1 rounded-lg border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-zinc-400 hover:text-zinc-200 text-[11px] px-2 py-1.5"
+              >
+                <X className="w-3 h-3" />
+                Clear
+              </button>
+              <button
+                type="button"
+                onClick={onCombine}
+                disabled={combineBusy || selectedCount < 2}
+                title={selectedCount < 2 ? 'Pick at least two clips to combine' : 'Stitch selected clips into one reel'}
+                className="inline-flex items-center gap-1 rounded-lg bg-blue-500 hover:bg-blue-400 disabled:bg-blue-500/40 text-white text-xs font-semibold px-3 py-1.5"
+              >
+                {combineBusy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />}
+                Combine {selectedCount}
+              </button>
+            </>
+          )}
+          {selectedCount === 0 && (
+            <span className="text-[11px] text-zinc-500">Tap <Layers className="inline w-3 h-3 -mt-0.5" /> on a clip to combine</span>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+        {clips.map((clip, i) => {
+          const cand = clip.candidate_id ? candidateById.get(clip.candidate_id) ?? null : null;
+          return (
+            <ClipperGridTile
+              key={clip.id}
+              clip={clip}
+              candidate={cand}
+              rank={i + 1}
+              label={labels.get(clip.id) ?? null}
+              selected={selectedClipIds.includes(clip.id)}
+              selectionIndex={selectedClipIds.indexOf(clip.id)}
+              onToggleSelect={() => onToggleSelect(clip.id)}
+            />
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function ClipperGridTile({
+  clip,
+  candidate,
+  rank,
+  label,
+  selected,
+  selectionIndex,
+  onToggleSelect,
+}: {
+  clip: RenderedClip;
+  candidate: Candidate | null;
+  rank: number;
+  label: ClipperLabel | null;
+  selected: boolean;
+  selectionIndex: number;
+  onToggleSelect: () => void;
+}) {
+  const [copied, setCopied] = useState(false);
+  const labelText = clipperLabelText(label);
+  const hookLabel = hookStrengthLabel(candidate?.hook_strength ?? null);
+  const engagementLabel = engagementLabelFor(candidate?.best_for ?? null);
+  const originTs = candidate ? formatTimestamp(candidate.start_sec) : null;
+
+  const postText = [
+    clip.caption_text,
+    '',
+    clip.hashtags?.length ? clip.hashtags.map((h) => `#${h}`).join(' ') : '',
+  ].filter((line) => line !== undefined).join('\n').trim();
+
+  async function copyCaption() {
+    if (!postText) return;
+    try {
+      await navigator.clipboard.writeText(postText);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch { /* noop */ }
+  }
+
+  return (
+    <div
+      className={`rounded-xl border overflow-hidden flex flex-col transition-shadow ${
+        selected
+          ? 'border-blue-500 shadow-[0_0_0_2px_rgba(59,130,246,0.45)] bg-zinc-950'
+          : 'border-zinc-800 bg-zinc-950 hover:border-zinc-700'
+      }`}
+    >
+      <div className="relative aspect-[9/16] bg-black">
+        {clip.output_url ? (
+          <video
+            src={clip.output_url}
+            controls
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-contain"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-zinc-500 text-xs">
+            No output
+          </div>
+        )}
+        <span className="pointer-events-none absolute top-1.5 left-1.5 inline-flex items-center justify-center rounded-full bg-zinc-900/85 border border-zinc-700 px-1.5 py-0.5 text-[10px] font-semibold text-zinc-200">
+          #{rank}
+        </span>
+        {labelText && (
+          <span className="pointer-events-none absolute top-1.5 right-10 inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/40 px-2 py-0.5 text-[10px] font-semibold text-amber-200 uppercase tracking-wide">
+            {labelText}
+          </span>
+        )}
+        <button
+          type="button"
+          onClick={onToggleSelect}
+          aria-pressed={selected}
+          aria-label={selected ? `Remove clip ${rank} from combine selection` : `Select clip ${rank} to combine`}
+          title={selected ? 'Selected for combine' : 'Select for combine'}
+          className={`absolute top-1.5 right-1.5 inline-flex items-center justify-center rounded-full w-7 h-7 text-[10px] font-semibold border transition-colors ${
+            selected
+              ? 'bg-blue-500 border-blue-400 text-white'
+              : 'bg-zinc-900/80 border-zinc-700 text-zinc-300 hover:bg-zinc-800'
+          }`}
+        >
+          {selected ? selectionIndex + 1 : <Layers className="w-3.5 h-3.5" />}
+        </button>
+      </div>
+
+      <div className="p-2.5 space-y-2 text-[11px] flex-1 flex flex-col">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {hookLabel && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-700/40 bg-emerald-500/10 text-emerald-200 px-1.5 py-0.5 text-[10px] font-medium">
+              {hookLabel}
+            </span>
+          )}
+          {engagementLabel && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-violet-700/40 bg-violet-500/10 text-violet-200 px-1.5 py-0.5 text-[10px] font-medium">
+              {engagementLabel}
+            </span>
+          )}
+          {originTs && (
+            <span className="inline-flex items-center gap-1 rounded-full border border-zinc-700 bg-zinc-900 text-zinc-400 px-1.5 py-0.5 text-[10px] font-mono">
+              @ {originTs}
+            </span>
+          )}
+          <span className="ml-auto text-zinc-500">
+            {clip.duration_sec ? `${clip.duration_sec.toFixed(0)}s` : ''}
+          </span>
+        </div>
+
+        {clip.caption_text && (
+          <p className="text-zinc-300 leading-snug line-clamp-3">{clip.caption_text}</p>
+        )}
+
+        <div className="grid grid-cols-2 gap-1.5 mt-auto pt-1">
+          <a
+            href={clip.output_url ?? '#'}
+            download
+            className="inline-flex items-center justify-center gap-1 rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 text-[11px] font-semibold px-2 py-1.5"
+          >
+            <Download className="w-3.5 h-3.5 shrink-0" />
+            MP4
+          </a>
+          <button
+            type="button"
+            onClick={copyCaption}
+            disabled={!postText}
+            className="inline-flex items-center justify-center gap-1 rounded-lg border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 text-zinc-100 text-[11px] font-medium px-2 py-1.5 disabled:opacity-50"
+          >
+            {copied ? <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" /> : <Copy className="w-3.5 h-3.5 shrink-0" />}
+            {copied ? 'Copied' : 'Copy'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function formatTimestamp(sec: number): string {
+  if (!Number.isFinite(sec) || sec < 0) return '';
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function hookStrengthLabel(s: 'low' | 'med' | 'high' | null): string | null {
+  if (!s) return null;
+  return s === 'high' ? 'High hook' : s === 'med' ? 'Medium hook' : 'Soft hook';
+}
+
+function engagementLabelFor(bestFor: string[] | null): string | null {
+  const intent = primaryIntent(bestFor);
+  if (!intent) return null;
+  return intent === 'engagement' ? 'High engagement'
+    : intent === 'awareness'    ? 'Awareness'
+    : intent === 'conversion'   ? 'Conversion'
+    : null;
+}
+
 function OtherVersions({
   clips,
   activeId,
   candidateById,
   onSelect,
   mode,
+  rankOffset,
+  title: titleOverride,
+  subhead: subheadOverride,
 }: {
   clips: RenderedClip[];
   activeId: string;
   candidateById: Map<string, Candidate>;
   onSelect: (id: string) => void;
   mode: Mode;
+  /** Starting rank number for the first thumb. Defaults to 2 (hero is #1). */
+  rankOffset?: number;
+  title?: string;
+  subhead?: string;
 }) {
   const isClipper = mode === 'clipper';
   const otherCount = clips.filter((c) => c.id !== activeId).length;
@@ -636,8 +1169,12 @@ function OtherVersions({
     ? clips.filter((c) => c.candidate_id && c.candidate_id !== heroCandidateId)
     : clips.filter((c) => c.id !== activeId);
 
-  const title = isClipper ? 'Other moments from this video' : 'Other versions';
-  const subhead = isClipper ? 'Each one is a different clip opportunity — ranked by score' : null;
+  const displayCount = isClipper ? moments.length : otherCount;
+  const title = titleOverride ?? (isClipper ? 'Other moments from this video' : `More versions (${displayCount})`);
+  const subhead = subheadOverride ?? (isClipper
+    ? 'Each one is a different clip opportunity — ranked by score'
+    : 'Every one is post-ready — tap to preview, download, or set as the hero');
+  const startRank = rankOffset ?? 2;
 
   if (moments.length === 0) return null;
   return (
@@ -654,11 +1191,11 @@ function OtherVersions({
           {moments.map((c, i) => {
             const isActive = c.id === activeId;
             const cand = c.candidate_id ? candidateById.get(c.candidate_id) ?? null : null;
-            const rankNum = isClipper ? i + 2 : null; // hero is #1, carousel starts at #2
+            const rankNum = isClipper ? i + startRank : null; // hero is #1; offset lets "extra moments" start at #4
             const subtitle = isClipper
               ? [cand?.suggested_use, c.duration_sec ? `${c.duration_sec.toFixed(0)}s` : null]
                   .filter(Boolean).join(' · ')
-              : [c.template_key, c.duration_sec ? `${c.duration_sec.toFixed(0)}s` : null]
+              : [friendlyTemplateLabel(c.template_key), c.duration_sec ? `${c.duration_sec.toFixed(0)}s` : null]
                   .filter(Boolean).join(' · ');
             return (
               <button
@@ -737,6 +1274,41 @@ function OtherVersions({
  *   3. Hook strength: high(2) > med(1) > low/null(0)
  *   4. Shorter duration breaks ties (more post-ready)
  */
+/**
+ * Short, confident lines shown under the hero clip. Derived from the selected
+ * candidate's score breakdown when available so the wording reflects *why* this
+ * moment beat the others. Falls back to generic-but-positive copy when the
+ * breakdown is missing (older runs, analyze-stage failures, etc.). Returns at
+ * most two lines; the first is stronger and rendered as the lead.
+ */
+function confidenceSignals(candidate: Candidate | null, isClipper: boolean): string[] {
+  const lines: string[] = [];
+  const hook = candidate?.hook_strength;
+  const breakdown = candidate?.score_breakdown_json ?? null;
+  const hookScore = breakdown?.hookStrength ?? 0;
+  const emo = breakdown?.emotionalIntensity ?? 0;
+  const ret = breakdown?.retentionPotential ?? 0;
+  const spec = breakdown?.specificity ?? 0;
+
+  if (hook === 'high' || hookScore >= 0.8) {
+    lines.push('This moment had the strongest hook');
+  } else if (hook === 'med' || hookScore >= 0.4) {
+    lines.push('Strong opening from your video');
+  }
+
+  if (emo + ret >= 0.9) {
+    lines.push('Highest engagement potential from your video');
+  } else if (spec >= 0.5) {
+    lines.push('Lands with specific, memorable language');
+  }
+
+  if (lines.length === 0) {
+    lines.push(isClipper ? 'Top-ranked moment from your video' : 'Your best moment, cut and ready');
+    lines.push('Optimized for hook and retention');
+  }
+  return lines.slice(0, 2);
+}
+
 /** Convert raw pipeline error strings into user-friendly messages. */
 function humanizeRunError(raw: string): string {
   if (raw.includes('No speech detected')) return raw; // already friendly
@@ -944,13 +1516,6 @@ function ClipperNextSourceBar({
       </div>
       <div className="flex items-center gap-2">
         <Link
-          href={`/video-engine/${runId}/compare`}
-          className="inline-flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-200"
-        >
-          <GitCompareArrows className="w-3.5 h-3.5" />
-          Compare cuts
-        </Link>
-        <Link
           href="/video-engine?lane=clipper"
           className="inline-flex items-center gap-1.5 rounded-lg bg-zinc-100 hover:bg-white text-zinc-900 text-xs font-semibold px-3 py-2"
         >
@@ -1073,7 +1638,7 @@ function RenderedClipCard({
 
       <div className="p-3 space-y-3 text-xs flex-1 flex flex-col">
         <div className="flex items-center justify-between text-zinc-300">
-          <span className="font-medium">{clip.template_key}</span>
+          <span className="font-medium">{friendlyTemplateLabel(clip.template_key)}</span>
           <span className="text-zinc-500">{clip.duration_sec ? `${clip.duration_sec.toFixed(1)}s` : ''}</span>
         </div>
 
@@ -1292,8 +1857,109 @@ const STYLE_CYCLE: Record<string, string[]> = {
   nonprofit: ['np_event_recap', 'np_join_us', 'np_why_this_matters', 'np_sponsor_highlight', 'np_testimonial'],
   clipper: ['clip_viral_moment', 'clip_fast_highlight', 'clip_educational_cut', 'clip_clean_talking_head'],
 };
+
+// Template keys are machine identifiers. We surface human labels in the UI so
+// a clipper never sees "clip_viral_moment" in a card header.
+const FRIENDLY_TEMPLATE_LABELS: Record<string, string> = {
+  clip_viral_moment:       'Viral moment',
+  clip_fast_highlight:     'Fast highlight',
+  clip_educational_cut:    'Educational cut',
+  clip_clean_talking_head: 'Clean talking-head',
+  aff_tiktok_shop:   'TikTok Shop',
+  aff_ugc_review:    'UGC review',
+  aff_talking_head:  'Talking head',
+  np_event_recap:        'Event recap',
+  np_join_us:            'Join us',
+  np_why_this_matters:   'Why this matters',
+  np_sponsor_highlight:  'Sponsor highlight',
+  np_testimonial:        'Testimonial',
+  combined:              'Combined reel',
+};
+function friendlyTemplateLabel(key: string): string {
+  return FRIENDLY_TEMPLATE_LABELS[key] ?? key.replace(/_/g, ' ');
+}
 function otherStyleKey(current: string, mode: Mode): string {
   const list = STYLE_CYCLE[mode];
   const idx = list.indexOf(current);
   return list[(idx + 1) % list.length];
+}
+
+/**
+ * Fire-and-forget copy tracker. Swallows failures so a flaky beacon
+ * never breaks the clipboard UX.
+ */
+function trackClipCopy(clipId: string): void {
+  try {
+    void fetch(`/api/video-engine/clips/${clipId}/copy`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      keepalive: true,
+    }).catch(() => { /* noop */ });
+  } catch {
+    /* noop */
+  }
+}
+
+/**
+ * Inline "Change product" control — prompts for a new product name + URL
+ * and PATCHes the run. Kept dead-simple on purpose; the structured editor
+ * lives upstream in UploadCard.
+ */
+function ChangeProductLink({ runId, currentName }: { runId: string; currentName: string | null }) {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+
+  async function onChange() {
+    if (typeof window === 'undefined' || busy) return;
+    const name = window.prompt('Product name (leave blank to clear):', currentName ?? '');
+    if (name === null) return;
+    let url: string | null = null;
+    if (name.trim().length > 0) {
+      const maybeUrl = window.prompt('Product URL (https://…):', '');
+      if (maybeUrl === null) return;
+      const trimmed = maybeUrl.trim();
+      if (trimmed.length > 0) {
+        try {
+          const u = new URL(trimmed);
+          if (u.protocol !== 'http:' && u.protocol !== 'https:') throw new Error('scheme');
+          url = trimmed;
+        } catch {
+          window.alert('Product URL must be an http(s) URL.');
+          return;
+        }
+      }
+    }
+
+    setBusy(true);
+    try {
+      const res = await fetch(`/api/video-engine/runs/${runId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          product_name: name.trim() || null,
+          product_url:  url,
+        }),
+      });
+      if (res.ok) {
+        setDone(true);
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        const body = await res.text();
+        window.alert(`Could not update product: ${body.slice(0, 200)}`);
+      }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onChange}
+      disabled={busy}
+      className="w-full text-center text-xs sm:text-sm text-zinc-400 hover:text-zinc-200 min-h-[40px] px-3 disabled:opacity-60"
+    >
+      {busy ? 'Saving…' : done ? 'Product updated' : currentName ? `Change product (${currentName})` : 'Add a product link'}
+    </button>
+  );
 }

@@ -28,6 +28,10 @@ export interface ClipPackaging {
   hashtags: string[];
   suggested_title: string;
   cta_suggestion: string;
+  /** Short (<= 12 words) opening line designed to stop the scroll. */
+  hook_line: string;
+  /** 1-2 alternate caption variants the creator can swap in without re-rolling. */
+  alt_captions: string[];
   /** True if Claude returned the value; false when we fell back to defaults. */
   ai_generated: boolean;
 }
@@ -45,11 +49,51 @@ const SYSTEM_PROMPT_NONPROFIT =
   `Your captions invite people in without guilt-tripping. Your hashtags are cause-relevant. ` +
   `Your titles emphasize impact, community, and "why this matters."`;
 
+const SYSTEM_PROMPT_CLIPPER =
+  `You write scroll-stopping social copy for clippers — people cutting podcasts, streams, ` +
+  `and long-form videos into viral short clips for TikTok, Reels, and YouTube Shorts. ` +
+  `You write like a native poster on those platforms — hook-first, no sales pitch, no mission ` +
+  `pleas, no "register today" CTAs. Your captions tease the moment and make the viewer want ` +
+  `to watch the source. Your hashtags are clip-native (podcast, clips, mindset, interview, ` +
+  `motivation — whatever fits the content). Your titles read like viral Shorts titles.`;
+
+function systemPromptFor(mode: Mode): string {
+  if (mode === 'affiliate') return SYSTEM_PROMPT_AFFILIATE;
+  if (mode === 'clipper')   return SYSTEM_PROMPT_CLIPPER;
+  return SYSTEM_PROMPT_NONPROFIT;
+}
+
+function captionObjectiveFor(mode: Mode): string {
+  if (mode === 'affiliate') return 'TikTok/Reels conversion';
+  if (mode === 'clipper')   return 'viral reach and watch-through on Shorts/Reels/TikTok';
+  return 'community engagement and shares';
+}
+
+function ctaExampleFor(mode: Mode): string {
+  if (mode === 'affiliate') return 'E.g. "Tap the link", "Comment WANT".';
+  if (mode === 'clipper')   return 'E.g. "Watch the full pod", "Follow for more", or leave blank if the clip stands alone.';
+  return 'E.g. "Register today", "Donate now".';
+}
+
 function buildPrompt(input: ClipPackagingInput): string {
   const ctxLines = Object.entries(input.context)
     .filter(([, v]) => v != null && String(v).trim() !== '')
     .map(([k, v]) => `- ${k}: ${String(v)}`)
     .join('\n');
+
+  // Product fields are promoted out of context so the model sees them up-front.
+  const productName = pickString(input.context, 'product_name');
+  const productUrl  = pickString(input.context, 'product_url');
+  const couponCode  = pickString(input.context, 'coupon_code');
+
+  const productBlock = productName || productUrl
+    ? [
+        `Product to promote:`,
+        productName ? `- name: ${productName}` : '',
+        productUrl  ? `- link: ${productUrl} (do NOT paste the URL inside the caption — the UI appends it separately)` : '',
+        couponCode  ? `- coupon: ${couponCode} (weave it in naturally, e.g. "code ${couponCode}")` : '',
+      ].filter(Boolean).join('\n')
+    : '';
 
   return [
     `Clip type: ${input.clipType}`,
@@ -61,19 +105,29 @@ function buildPrompt(input: ClipPackagingInput): string {
     `"""`,
     input.clipText,
     `"""`,
+    productBlock,
     ctxLines ? `Context provided by the creator:\n${ctxLines}` : '',
     ``,
     `Write social copy for this clip. Return JSON only with this exact shape:`,
     `{`,
-    `  "caption_text": "1-3 sentence caption optimized for ${input.mode === 'affiliate' ? 'TikTok/Reels conversion' : 'community engagement and shares'}. Lead with the hook, end with a soft CTA. Max 220 chars.",`,
+    `  "hook_line": "A 4-12 word scroll-stopping opener in the creator's voice. No punctuation at the end. No hashtags.",`,
+    `  "caption_text": "1-3 sentence caption optimized for ${captionObjectiveFor(input.mode)}. ${productName ? `Mention "${productName}" naturally once. Do NOT paste the product URL. ` : ''}Lead with the hook, end with a soft CTA. Max 220 chars.",`,
+    `  "alt_captions": ["One or two alternate caption variants. Each must differ meaningfully in angle (e.g. question vs. statement vs. testimonial). Same 220-char ceiling. ${productName ? 'Also mention the product naturally.' : ''}"],`,
     `  "hashtags": ["8-12 lowercase hashtags without #, ordered most-relevant first, mixing 2-3 broad + 5-7 niche"],`,
     `  "suggested_title": "A 6-10 word title for YouTube Shorts / Reels — sentence case, no clickbait punctuation",`,
-    `  "cta_suggestion": "One short imperative line for the on-screen CTA card. ${input.mode === 'affiliate' ? 'E.g. \\"Tap the link\\", \\"Comment WANT\\".' : 'E.g. \\"Register today\\", \\"Donate now\\".'} Max 4 words."`,
+    `  "cta_suggestion": "One short imperative line for the on-screen CTA card. ${ctaExampleFor(input.mode)} Max 4 words."`,
     `}`,
     input.ctaSuggestionFromTemplate
       ? `(The template's default CTA is "${input.ctaSuggestionFromTemplate}" — feel free to keep or improve.)`
       : '',
   ].filter(Boolean).join('\n');
+}
+
+function pickString(ctx: Record<string, unknown>, key: string): string | null {
+  const v = ctx[key];
+  if (typeof v !== 'string') return null;
+  const t = v.trim();
+  return t.length > 0 ? t : null;
 }
 
 function fallbackPackaging(input: ClipPackagingInput): ClipPackaging {
@@ -82,16 +136,32 @@ function fallbackPackaging(input: ClipPackagingInput): ClipPackaging {
 
   const baseTags = input.mode === 'affiliate'
     ? ['affiliate', 'tiktokshop', 'amazonfinds', 'mustbuy', 'fyp', 'review', 'product']
+    : input.mode === 'clipper'
+    ? ['clips', 'podcast', 'fyp', 'viral', 'shorts', 'mindset', 'motivation', 'interview']
     : ['nonprofit', 'community', 'event', 'fundraiser', 'volunteer', 'mission', 'impact'];
+
+  const fallbackCta = input.mode === 'affiliate' ? 'Tap to shop'
+    : input.mode === 'clipper'  ? 'Watch the full pod'
+    :                             'Join us';
 
   return {
     caption_text: cleanHook,
     hashtags: baseTags,
     suggested_title: cleanHook.slice(0, 60),
-    cta_suggestion: input.ctaSuggestionFromTemplate
-      ?? (input.mode === 'affiliate' ? 'Tap to shop' : 'Join us'),
+    cta_suggestion: input.ctaSuggestionFromTemplate ?? fallbackCta,
+    hook_line: cleanHook.slice(0, 80),
+    alt_captions: [],
     ai_generated: false,
   };
+}
+
+function sanitizeAltCaptions(raw: unknown): string[] {
+  if (!Array.isArray(raw)) return [];
+  return raw
+    .map((s) => (typeof s === 'string' ? s.trim() : ''))
+    .filter((s) => s.length > 0)
+    .map((s) => (s.length > 240 ? s.slice(0, 239).trimEnd() + '…' : s))
+    .slice(0, 2);
 }
 
 function sanitizeHashtags(raw: unknown): string[] {
@@ -112,7 +182,7 @@ export async function packageClip(
   input: ClipPackagingInput,
   opts: { correlationId?: string } = {},
 ): Promise<ClipPackaging> {
-  const systemPrompt = input.mode === 'affiliate' ? SYSTEM_PROMPT_AFFILIATE : SYSTEM_PROMPT_NONPROFIT;
+  const systemPrompt = systemPromptFor(input.mode);
 
   try {
     const { parsed } = await callAnthropicJSON<{
@@ -120,9 +190,11 @@ export async function packageClip(
       hashtags?: unknown;
       suggested_title?: string;
       cta_suggestion?: string;
+      hook_line?: string;
+      alt_captions?: unknown;
     }>(buildPrompt(input), {
       systemPrompt,
-      maxTokens: 600,
+      maxTokens: 900,
       temperature: 0.7,
       correlationId: opts.correlationId,
       requestType: 'analysis',
@@ -136,6 +208,8 @@ export async function packageClip(
       hashtags:        sanitizeHashtags(parsed.hashtags).length ? sanitizeHashtags(parsed.hashtags) : fallback.hashtags,
       suggested_title: clampStr(parsed.suggested_title, 90,  fallback.suggested_title),
       cta_suggestion:  clampStr(parsed.cta_suggestion,  40,  fallback.cta_suggestion),
+      hook_line:       clampStr(parsed.hook_line,       100, fallback.hook_line),
+      alt_captions:    sanitizeAltCaptions(parsed.alt_captions),
       ai_generated: true,
     };
   } catch (err) {

@@ -14,7 +14,10 @@ import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors'
 export const runtime = 'nodejs';
 
 const BUCKET = 'renders';
-const MAX_FILE_BYTES = 500 * 1024 * 1024;
+// Keep in sync with components/video-engine/UploadCard.tsx (MAX_SIZE_BYTES)
+// and the `renders` bucket ceiling in migration 20260506010000_renders_bucket_longform.sql.
+const MAX_FILE_BYTES = 6 * 1024 * 1024 * 1024; // 6 GB
+const MAX_FILE_LABEL = '6 GB';
 
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
@@ -40,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   for (const f of body.files) {
     if (f.size_bytes > MAX_FILE_BYTES) {
-      return createApiErrorResponse('BAD_REQUEST', `File ${f.filename} exceeds 500MB limit`, 400, correlationId);
+      return createApiErrorResponse('BAD_REQUEST', `File ${f.filename} exceeds ${MAX_FILE_LABEL} limit`, 400, correlationId);
     }
   }
 

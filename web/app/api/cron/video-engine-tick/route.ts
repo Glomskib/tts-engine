@@ -27,6 +27,27 @@ export async function GET(request: NextRequest) {
   if (!authorized(request)) {
     return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
   }
+
+  // Race guard: when a dev is running the pipeline locally, the deployed
+  // Vercel cron must NOT also advance the same runs (ffmpeg version mismatch,
+  // duplicate status transitions, stale errors). Skip any remote-triggered
+  // tick when either flag is set. Direct manual calls from the dev machine
+  // (no x-vercel-cron header) still work.
+  const isRemoteCron = !!request.headers.get('x-vercel-cron');
+  const disableRemote = process.env.DISABLE_REMOTE_TICKS === 'true';
+  const isDevEnv = process.env.NODE_ENV === 'development';
+  if (isRemoteCron && (disableRemote || isDevEnv)) {
+    console.log('[VE] Skipping remote tick — local dev mode', {
+      disableRemote,
+      isDevEnv,
+    });
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason: disableRemote ? 'DISABLE_REMOTE_TICKS' : 'NODE_ENV=development',
+    });
+  }
+
   const url = new URL(request.url);
   const max = Math.min(20, Math.max(1, Number(url.searchParams.get('max') ?? 5)));
   try {

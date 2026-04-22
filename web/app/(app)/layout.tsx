@@ -59,7 +59,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
       return;
     }
     if (pathname === '/') {
-      router.replace('/admin/dashboard');
+      router.replace('/create');
     }
   }, [auth.loading, auth.authenticated, pathname, router]);
 

@@ -165,14 +165,28 @@ const HARD_MAX_SEC = 45;
  * output even if it means leaving useful material on the cutting-room floor.
  */
 export const SHORT_MAX_SEC = 30;
-// Partial map — unknown modes (e.g. a future 'clipper' lane) fall through to
-// the 30s default. Touching the clipper lane is out of scope for this operator.
+// Per-mode caps. Clipper lives in the 8–25s sweet spot (volume-first clipping
+// for long-form creators — anything longer reads as a cold-take, not a scroll-
+// stopping clip). Unknown modes fall through to the 30s default.
 const SHORT_MAX_BY_MODE: Partial<Record<Mode, number>> = {
   affiliate: 20,
   nonprofit: 30,
+  clipper: 25,
 };
 export function getShortMaxSec(mode: Mode): number {
   return SHORT_MAX_BY_MODE[mode] ?? SHORT_MAX_SEC;
+}
+
+/**
+ * Per-mode minimum candidate duration. Clipper needs enough runway for a
+ * hook + payoff (8s floor); affiliate/nonprofit keep the general 6s floor
+ * so they can surface tight product-hook or celebration snippets.
+ */
+const SHORT_MIN_BY_MODE: Partial<Record<Mode, number>> = {
+  clipper: 8,
+};
+export function getShortMinSec(mode: Mode): number {
+  return SHORT_MIN_BY_MODE[mode] ?? TARGET_MIN_SEC;
 }
 
 /**
@@ -269,6 +283,18 @@ function classifyClipType(features: ChunkFeatures, mode: Mode): string {
       ['product', features.productMention],
       ['benefit', features.benefitStatement],
       ['cta', features.ctaLikelihood],
+      ['testimonial', features.testimonialPhrase],
+    );
+  } else if (mode === 'clipper') {
+    // Clipper vocabulary: moments, not product/donation signals. The labels
+    // downstream (insights.assignClipperLabels) map these into user-facing
+    // "Best hook / Most engaging / Fast highlight" tags.
+    candidates.push(
+      ['hook', features.hookStrength],
+      ['insight', features.retentionPotential + features.specificity * 0.5],
+      ['story', features.emotionalIntensity],
+      ['takeaway', features.benefitStatement],
+      ['moment', features.celebrationLanguage],
       ['testimonial', features.testimonialPhrase],
     );
   } else {
@@ -550,13 +576,23 @@ export function generateCandidates(
     picked = filtered;
   }
 
+  // Enforce per-mode floor BEFORE slicing to target — clipper needs ≥8s of
+  // runway for a real hook + payoff, shorter cuts read as noise.
+  const minSec = getShortMinSec(mode);
+  if (minSec > TARGET_MIN_SEC) {
+    const before = picked.length;
+    picked = picked.filter((c) => (c.end - c.start) >= minSec);
+    if (picked.length !== before) {
+      console.log(`[scoring] ${mode}: dropped ${before - picked.length} sub-${minSec}s candidate(s)`);
+    }
+  }
+
   picked = picked.slice(0, targetCount);
   picked = picked.map((c, i) => ({ ...c, rank: i + 1 }));
 
   const refined = refineCandidateStarts(picked, segments);
   // Final safety: no candidate may exceed the mode-specific cap regardless of
-  // how it got here. Affiliate/TTS mode is capped tighter (20s) than Nonprofit
-  // (30s) to match TikTok Shop pacing.
+  // how it got here. Affiliate (20s) < Clipper (25s) < Nonprofit (30s).
   const maxSec = getShortMaxSec(mode);
   const clamped = refined.map((c) => clampCandidateToShort(c, segments, maxSec));
 

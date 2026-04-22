@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import AdminPageLayout, { AdminCard } from '@/app/admin/components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
+import { sanitizeTitle } from '@/lib/content-safety';
 
 // ── Types ──
 
@@ -394,7 +395,7 @@ export default function TodayPage() {
                       <FileText size={14} className="text-zinc-400" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-xs font-medium text-white truncate">{draft.title || 'Untitled draft'}</p>
+                      <p className="text-xs font-medium text-white truncate">{sanitizeTitle(draft.title, 'Untitled draft')}</p>
                       <p className="text-[10px] text-zinc-500">Draft script — {timeAgo(draft.created_at)}</p>
                     </div>
                     <ArrowRight size={14} className="text-zinc-600 group-hover:text-teal-400 transition-colors shrink-0 ml-auto" />

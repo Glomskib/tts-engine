@@ -4,7 +4,7 @@ import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { X, ChevronDown, User, LogOut, Zap, Search, Sun, Moon } from 'lucide-react';
+import { X, ChevronDown, User, LogOut, Zap, Search, Sun, Moon, ArrowLeft, Sparkles } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation';
 import { CreditsBadge } from '@/components/CreditsBadge';
@@ -324,7 +324,11 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
             bg-[var(--bg)] border-b border-[var(--border)]
             flex items-center justify-between px-3 gap-2
           ">
-            <Link href="/admin" className="flex items-center gap-2 flex-shrink-0 min-w-0">
+            <Link
+              href="/create"
+              className="flex items-center gap-2 flex-shrink-0 min-w-0"
+              title="Back to FlashFlow"
+            >
               <Image src={BRAND.logo} alt={BRAND.name} width={32} height={32} className="rounded-lg flex-shrink-0" />
               <span className="font-semibold text-base truncate">{BRAND.name}</span>
             </Link>
@@ -504,11 +508,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <main id="main-content" className="pt-16 pb-[calc(80px+env(safe-area-inset-bottom,0px))] min-h-[100dvh] overflow-x-hidden">
             <GuidedModeBanner />
             <div className="max-w-full">
-              {pathname !== '/admin' && pathname !== '/admin/dashboard' && (
-                <button onClick={() => router.back()} className="flex items-center gap-1 text-gray-400 hover:text-white text-sm mb-4 px-4">
-                  &larr; Back
-                </button>
-              )}
+              <AdvancedWorkspaceBridge />
+              <Link
+                href="/create"
+                className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] mb-3 px-4 no-underline"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Back to FlashFlow
+              </Link>
               <LowCreditBanner className="mb-4" />
               <ReferralPromptBanner />
               <div className="px-4"><FirstWinBanner /></div>
@@ -546,10 +553,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           {/* Desktop Sidebar - Fixed */}
           <aside className="fixed inset-y-0 left-0 w-72 bg-[var(--bg)] border-r border-[var(--border)] flex flex-col z-40">
             {/* Logo */}
-            <div className="flex items-center gap-3 px-4 py-5 border-b border-[var(--border)]">
+            <Link
+              href="/create"
+              className="flex items-center gap-3 px-4 py-5 border-b border-[var(--border)] no-underline hover:bg-[var(--surface2)] transition-colors"
+              title="Back to FlashFlow"
+            >
               <Image src={BRAND.logo} alt={BRAND.name} width={36} height={36} className="rounded-lg" />
               <span className="font-bold text-xl">{BRAND.name}</span>
-            </div>
+            </Link>
 
             {/* Navigation */}
             <SidebarContent />
@@ -571,7 +582,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
                   <kbd className="hidden xl:inline ml-2 px-1.5 py-0.5 text-[10px] bg-[var(--surface2)] border border-[var(--border)] rounded font-mono">⌘K</kbd>
                 </button>
                 <ThemeToggle />
-                <ClawbotStatus compact />
+                {auth.isAdmin && <ClawbotStatus compact />}
                 <NotificationsBell />
                 <CreditsBadge />
 
@@ -637,11 +648,14 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <main id="main-content" className="ml-72 pt-16 min-h-screen">
             <GuidedModeBanner />
             <div className="p-6">
-              {pathname !== '/admin' && pathname !== '/admin/dashboard' && (
-                <button onClick={() => router.back()} className="flex items-center gap-1 text-gray-400 hover:text-white text-sm mb-4">
-                  &larr; Back
-                </button>
-              )}
+              <AdvancedWorkspaceBridge />
+              <Link
+                href="/create"
+                className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] mb-4 no-underline"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                Back to FlashFlow
+              </Link>
               <LowCreditBanner className="mb-6" />
               <ReferralPromptBanner />
               <FirstWinBanner />
@@ -664,5 +678,46 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     </ToastProvider>
     </ThemeProvider>
     </GuidedModeProvider>
+  );
+}
+
+function AdvancedWorkspaceBridge() {
+  const [dismissed, setDismissed] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    try {
+      setDismissed(localStorage.getItem('ff_admin_bridge_seen') === '1');
+    } catch {
+      setDismissed(true);
+    }
+  }, []);
+
+  if (dismissed !== false) return null;
+
+  function handleDismiss() {
+    try { localStorage.setItem('ff_admin_bridge_seen', '1'); } catch {}
+    setDismissed(true);
+  }
+
+  return (
+    <div className="mx-4 md:mx-0 mb-4 rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-4 py-3 flex items-start gap-3">
+      <div className="w-8 h-8 rounded-lg bg-amber-400/15 border border-amber-400/30 flex items-center justify-center flex-shrink-0">
+        <Sparkles className="w-4 h-4 text-amber-300" />
+      </div>
+      <div className="flex-1 min-w-0 text-sm">
+        <div className="font-semibold text-[var(--text)]">This is the advanced workspace</div>
+        <p className="text-[var(--text-muted)] text-[12.5px] mt-0.5 leading-relaxed">
+          Power tools for managing your whole pipeline. You can always return to the creator flow with <span className="text-zinc-200">Back to FlashFlow</span>.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={handleDismiss}
+        className="p-1 text-[var(--text-muted)] hover:text-[var(--text)] rounded-md flex-shrink-0"
+        aria-label="Dismiss"
+      >
+        <X className="w-4 h-4" />
+      </button>
+    </div>
   );
 }

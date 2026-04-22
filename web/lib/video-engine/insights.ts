@@ -80,6 +80,17 @@ function suggestedUseFor(clipType: string, durationSec: number, mode: Mode): str
       default:            return 'Standalone short';
     }
   }
+  if (mode === 'clipper') {
+    switch (clipType) {
+      case 'hook':        return isShort ? 'Scroll-stopping opener' : 'Strong opener — lead with this';
+      case 'story':       return 'Emotional beat — great for stitches';
+      case 'takeaway':    return 'Key takeaway — quotable moment';
+      case 'insight':     return 'Specific point — lands on Shorts/Reels';
+      case 'moment':      return 'Reaction / celebration moment';
+      case 'testimonial': return 'Quote clip — paste into duets/stitches';
+      default:            return 'Standalone cut';
+    }
+  }
   // nonprofit
   switch (clipType) {
     case 'testimonial':  return 'Voice-of-impact — testimonial';
@@ -113,7 +124,18 @@ function selectionReasonFor(input: CandidateInsightInput): string {
 function bestForFor(clipType: string, mode: Mode, durationSec: number): string[] {
   const tags = new Set<string>();
 
-  if (mode === 'affiliate') {
+  if (mode === 'clipper') {
+    // Clippers live in reach/engagement land — no 'conversion' tag.
+    switch (clipType) {
+      case 'hook':        tags.add('engagement'); tags.add('reach'); break;
+      case 'story':       tags.add('engagement'); break;
+      case 'takeaway':    tags.add('engagement'); tags.add('reach'); break;
+      case 'insight':     tags.add('engagement'); break;
+      case 'moment':      tags.add('reach'); break;
+      case 'testimonial': tags.add('engagement'); break;
+      default:            tags.add('reach');
+    }
+  } else if (mode === 'affiliate') {
     switch (clipType) {
       case 'cta':         tags.add('conversion'); break;
       case 'product':     tags.add('conversion'); tags.add('awareness'); break;
@@ -149,4 +171,61 @@ export function deriveInsights(input: CandidateInsightInput): CandidateInsight {
     selectionReason: selectionReasonFor(input),
     bestFor: bestForFor(input.clipType, input.mode, input.durationSec),
   };
+}
+
+/**
+ * Clipper-mode distinct labels. Given a set of candidates for a single run,
+ * assign each the single most-distinctive user-facing tag so the top-3 grid
+ * never shows three identical chips.
+ *
+ * Greedy, order-sensitive assignment:
+ *   1. "Best hook"       → highest hookStrength contribution
+ *   2. "Most engaging"   → highest (emotionalIntensity + retentionPotential)
+ *   3. "Fast highlight"  → shortest remaining duration
+ *
+ * Pure — safe to call client-side from the candidate payload.
+ */
+export type ClipperLabel = 'best_hook' | 'most_engaging' | 'fast_highlight';
+
+export interface ClipperLabelInput {
+  id: string;
+  scoreBreakdown: Record<string, number>;
+  durationSec: number;
+}
+
+export function assignClipperLabels(
+  candidates: ClipperLabelInput[],
+): Map<string, ClipperLabel> {
+  const labels = new Map<string, ClipperLabel>();
+  if (candidates.length === 0) return labels;
+
+  const pool = [...candidates];
+  const takeBy = (score: (c: ClipperLabelInput) => number, label: ClipperLabel) => {
+    if (pool.length === 0) return;
+    let best = pool[0];
+    let bestScore = score(best);
+    for (const c of pool) {
+      const s = score(c);
+      if (s > bestScore) { best = c; bestScore = s; }
+    }
+    labels.set(best.id, label);
+    const idx = pool.indexOf(best);
+    if (idx >= 0) pool.splice(idx, 1);
+  };
+
+  takeBy((c) => c.scoreBreakdown.hookStrength ?? 0, 'best_hook');
+  takeBy(
+    (c) => (c.scoreBreakdown.emotionalIntensity ?? 0) + (c.scoreBreakdown.retentionPotential ?? 0),
+    'most_engaging',
+  );
+  takeBy((c) => -c.durationSec, 'fast_highlight');
+
+  return labels;
+}
+
+export function clipperLabelText(label: ClipperLabel | null | undefined): string | null {
+  if (label === 'best_hook')      return 'Best hook';
+  if (label === 'most_engaging')  return 'Most engaging';
+  if (label === 'fast_highlight') return 'Fast highlight';
+  return null;
 }

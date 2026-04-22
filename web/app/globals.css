@@ -245,6 +245,15 @@ a:hover {
   animation: fade-in 0.2s ease-out;
 }
 
+@keyframes ff-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-ff-fade-in {
+  animation: ff-fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 /* Shimmer animation for skeleton loading */
 @keyframes shimmer {
   0% {

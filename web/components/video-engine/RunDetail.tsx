@@ -371,6 +371,7 @@ export default function RunDetail({ runId }: { runId: string }) {
             onIterate={handleIterate}
             mode={run.mode}
             completeCount={completeClips.length}
+            allClipUrls={completeClips.map((c) => c.output_url).filter((u): u is string => !!u)}
             onUploadAnother={() => router.push('/video-engine')}
             onGenerateMore={runAgainFromSameSource}
             generateBusy={runAgainBusy}
@@ -380,13 +381,47 @@ export default function RunDetail({ runId }: { runId: string }) {
           />
 
           {completeClips.length > 1 && (
-            <OtherVersions
-              clips={completeClips}
-              activeId={hero.id}
-              candidateById={candidateById}
-              onSelect={setActiveClipId}
-              mode={run.mode}
-            />
+            <>
+              <OtherVersions
+                clips={completeClips}
+                activeId={hero.id}
+                candidateById={candidateById}
+                onSelect={setActiveClipId}
+                mode={run.mode}
+              />
+              <div className="mx-auto w-full max-w-md px-4 sm:px-0 space-y-2.5">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={runAgainFromSameSource}
+                    disabled={runAgainBusy}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-800 text-zinc-100 text-sm sm:text-base font-medium min-h-[48px] px-4 disabled:opacity-60 transition-colors"
+                  >
+                    {runAgainBusy ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
+                    <span>{runAgainBusy ? 'Starting a new run…' : 'Generate more clips from this one'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => router.push('/video-engine')}
+                    className="flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 hover:bg-zinc-900 text-zinc-200 text-sm sm:text-base font-medium min-h-[48px] px-4 transition-colors"
+                  >
+                    <Upload className="w-4 h-4 shrink-0" />
+                    <span>Upload another video</span>
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => downloadAllUrls(completeClips.map((c) => c.output_url).filter((u): u is string => !!u))}
+                  className="flex items-center justify-center gap-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-800 text-zinc-100 text-sm sm:text-base font-medium min-h-[48px] px-4 transition-colors"
+                >
+                  <Download className="w-4 h-4 shrink-0" />
+                  <span>Download all clips ({completeClips.length})</span>
+                </button>
+                <p className="text-center text-[11px] sm:text-xs text-zinc-500">
+                  {completeClips.length} clips ready. Post one today — speed beats perfection.
+                </p>
+              </div>
+            </>
           )}
         </>
       )}
@@ -500,6 +535,7 @@ function HeroClip({
   onIterate,
   mode,
   completeCount,
+  allClipUrls,
   onUploadAnother,
   onGenerateMore,
   generateBusy,
@@ -512,6 +548,7 @@ function HeroClip({
   onIterate: (action: string) => void;
   mode: Mode;
   completeCount: number;
+  allClipUrls: string[];
   onUploadAnother: () => void;
   onGenerateMore: () => void;
   generateBusy: boolean;
@@ -570,6 +607,8 @@ function HeroClip({
     } catch { /* noop */ }
   }
 
+  const downloadAll = () => downloadAllUrls(allClipUrls);
+
   const signals = confidenceSignals(candidate, isClipper);
   const hasProductUrl = !!productUrl;
   const hasHook = hookText.length > 0;
@@ -583,7 +622,9 @@ function HeroClip({
           className="mx-auto max-w-md flex items-center justify-center gap-2 rounded-full border border-emerald-600/40 bg-emerald-500/10 px-4 py-2 text-sm text-emerald-200 animate-in fade-in slide-in-from-top-2 duration-500"
         >
           <Check className="w-4 h-4" />
-          <span className="font-medium">Your clip is ready</span>
+          <span className="font-medium">
+            We turned your video into {completeCount} {completeCount === 1 ? 'clip' : 'clips'}
+          </span>
         </div>
       )}
 
@@ -592,7 +633,7 @@ function HeroClip({
           We turned your video into {completeCount} {completeCount === 1 ? 'clip' : 'clips'}
         </h1>
         <p className="mx-auto max-w-md text-sm sm:text-base text-zinc-400 leading-relaxed">
-          You now have {completeCount === 1 ? 'a clip' : 'multiple clips'} ready to post across TikTok, Reels, and Shorts.
+          {completeCount} {completeCount === 1 ? 'clip' : 'clips'} ready for TikTok, Reels, and Shorts. Pick one and post — upload more tomorrow.
         </p>
       </header>
 
@@ -603,6 +644,11 @@ function HeroClip({
             Best performing version
           </span>
         </div>
+        <p className="mb-2 text-center text-[11px] sm:text-xs text-zinc-500">
+          Clips created: <span className="text-zinc-300 font-medium tabular-nums">{completeCount}</span>
+          <span className="mx-1.5 text-zinc-700">·</span>
+          Best version selected automatically
+        </p>
         <div className="aspect-[9/16] max-h-[70vh] bg-black sm:rounded-2xl overflow-hidden sm:border sm:border-zinc-800 sm:shadow-[0_10px_40px_rgba(0,0,0,0.5)]">
           {clip.output_url ? (
             <video
@@ -638,6 +684,9 @@ function HeroClip({
             ))}
           </div>
         )}
+        <p className="mt-3 text-center text-[12px] sm:text-[13px] font-medium text-amber-300/90">
+          {completeCount} {completeCount === 1 ? 'chance' : 'chances'} to go viral — post one today. Speed beats perfection.
+        </p>
       </div>
 
       <div className="mx-auto w-full max-w-md space-y-2.5 px-4 sm:px-0">
@@ -649,6 +698,16 @@ function HeroClip({
           <Download className="w-5 h-5 shrink-0" />
           <span>Download clip</span>
         </a>
+        {allClipUrls.length > 1 && (
+          <button
+            type="button"
+            onClick={downloadAll}
+            className="flex items-center justify-center gap-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-800 text-zinc-100 text-base font-medium min-h-[52px] px-4 transition-colors"
+          >
+            <Download className="w-5 h-5 shrink-0" />
+            <span>Download all clips ({allClipUrls.length})</span>
+          </button>
+        )}
 
         <div>
           <button
@@ -734,7 +793,7 @@ function HeroClip({
         </div>
         <ChangeProductLink runId={runId} currentName={productName} />
         <p className="text-center text-[11px] sm:text-xs text-zinc-500">
-          Creators post 10–50 clips/day. Upload → Clips → Post → Repeat.
+          {completeCount} {completeCount === 1 ? 'clip' : 'clips'} ready. Post → upload another → repeat.
         </p>
       </div>
 
@@ -1170,10 +1229,10 @@ function OtherVersions({
     : clips.filter((c) => c.id !== activeId);
 
   const displayCount = isClipper ? moments.length : otherCount;
-  const title = titleOverride ?? (isClipper ? 'Other moments from this video' : `More versions (${displayCount})`);
+  const title = titleOverride ?? (isClipper ? 'Other moments from this video' : `More clips you can post (${displayCount})`);
   const subhead = subheadOverride ?? (isClipper
     ? 'Each one is a different clip opportunity — ranked by score'
-    : 'Every one is post-ready — tap to preview, download, or set as the hero');
+    : 'Each one is another chance to hit — post consistently');
   const startRank = rankOffset ?? 2;
 
   if (moments.length === 0) return null;
@@ -1888,6 +1947,23 @@ function otherStyleKey(current: string, mode: Mode): string {
  * Fire-and-forget copy tracker. Swallows failures so a flaky beacon
  * never breaks the clipboard UX.
  */
+// Sequentially trigger a browser download for each URL. Spaced at 350ms so
+// Chrome/Safari don't collapse them into a single prompt. Placeholder for a
+// real server-side zip when the volume justifies it.
+function downloadAllUrls(urls: string[]): void {
+  urls.forEach((url, i) => {
+    setTimeout(() => {
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = '';
+      a.rel = 'noopener';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+    }, i * 350);
+  });
+}
+
 function trackClipCopy(clipId: string): void {
   try {
     void fetch(`/api/video-engine/clips/${clipId}/copy`, {

@@ -28,7 +28,7 @@ export default function OnboardingPage() {
       return;
     }
     if (!needsOnboarding) {
-      router.replace('/admin/dashboard');
+      router.replace('/create');
     }
   }, [authLoading, profileLoading, authenticated, needsOnboarding, router]);
 
@@ -48,7 +48,7 @@ export default function OnboardingPage() {
 
   async function handleComplete(fields?: Parameters<typeof complete>[0]) {
     await complete(fields);
-    router.replace('/admin/dashboard');
+    router.replace('/create');
   }
 
   return (

@@ -15,8 +15,10 @@ import WorkspaceSelector, {
 
 export type Lane = 'product' | 'clipper';
 
-// Matches the backend cap in app/api/creator/upload-urls/route.ts (MAX_FILE_BYTES).
-const MAX_SIZE_BYTES = 2 * 1024 * 1024 * 1024; // 2GB
+// Matches the backend cap in app/api/creator/upload-urls/route.ts (MAX_FILE_BYTES)
+// and the `renders` bucket ceiling set in migration
+// 20260506010000_renders_bucket_longform.sql. Keep all three in sync.
+const MAX_SIZE_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
 const MAX_SIZE_LABEL = '2 GB';
 const ALLOWED_EXT = ['mp4', 'mov', 'webm', 'avi'];
 
@@ -57,8 +59,8 @@ function humanizeError(raw: string): FriendlyError {
   const msg = raw.toLowerCase();
   if (msg.includes('payload too large') || msg.includes('exceeded the maximum') || msg.includes('413')) {
     return {
-      title: `This video is too large. The limit is ${MAX_SIZE_LABEL}.`,
-      hint: 'Try a shorter clip, or compress the file and upload again.',
+      title: `This video is too large. The current limit is ${MAX_SIZE_LABEL}.`,
+      hint: 'Export a shorter segment or drop the bitrate, then upload again. Bigger clips unlock after a workspace upgrade.',
     };
   }
   if (msg.includes('unsupported') && msg.includes('type')) {
@@ -117,6 +119,8 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
   const [clipperPreset, setClipperPreset] = useState<ClipperPreset | null>(null);
   const [contextText, setContextText] = useState<string>('');
   const [showMore, setShowMore] = useState(false);
+  const [captionsEnabled, setCaptionsEnabled] = useState<boolean>(true);
+  const [musicEnabled, setMusicEnabled] = useState<boolean>(false);
   const [state, setState] = useState<State>('idle');
   const [progress, setProgress] = useState(0);
   const [error, setError] = useState<FriendlyError | null>(null);
@@ -125,7 +129,15 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
   function fail(raw: string) {
     console.error('[UploadCard] FAIL', { error: raw });
     setState('error');
-    setError(humanizeError(raw));
+    const friendly = humanizeError(raw);
+    // If the humanizer fell through to the generic fallback, surface the raw
+    // server message instead so users see something actionable (e.g. "Failed
+    // to create asset: …") rather than "Something went wrong with the upload."
+    if (friendly.title === 'Something went wrong with the upload.' && raw && raw !== 'Failed to create run') {
+      setError({ title: raw, hint: 'If this keeps happening, copy the message and send it to support.' });
+    } else {
+      setError(friendly);
+    }
   }
 
   function onPick(file: File) {
@@ -191,10 +203,22 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
         };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) return resolve();
-          console.error('[UploadCard] PUT_FAIL', { status: xhr.status, body: xhr.responseText?.substring(0, 300) });
-          reject(new Error(`Upload failed (${xhr.status})`));
+          const body = (xhr.responseText || '').slice(0, 400);
+          console.error('[UploadCard] PUT_FAIL', { status: xhr.status, statusText: xhr.statusText, body });
+          // Try to parse Supabase's JSON error envelope for a human message.
+          let friendly = `Upload failed (HTTP ${xhr.status || 'network'})`;
+          try {
+            const parsed = body ? JSON.parse(body) : null;
+            const msg = parsed?.message || parsed?.error || parsed?.statusCode;
+            if (msg) friendly = `Upload failed (${xhr.status}): ${String(msg).slice(0, 200)}`;
+          } catch { /* non-JSON body, keep generic */ }
+          if (xhr.status === 413) friendly = 'That file is larger than the storage cap. We raised the app limit to 2 GB but the Supabase bucket still needs to be updated.';
+          reject(new Error(friendly));
         };
-        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.onerror = () => {
+          console.error('[UploadCard] PUT_NETWORK_ERR', { status: xhr.status, readyState: xhr.readyState });
+          reject(new Error('Network error during upload. Check connection / VPN and retry.'));
+        };
         xhr.ontimeout = () => reject(new Error('Upload timed out. Check your connection and try again.'));
         console.log('[UploadCard] PUT_START', { path: upload.path, bytes: file.size, content_type: contentType });
         xhr.send(file);
@@ -205,30 +229,69 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
       const mode = workspaceToMode(workspace);
       const context = parseContext(contextText, workspace, goal, clipperPreset);
       const presetKeys = isClipper && clipperPreset ? [clipperPresetToTemplateKey(clipperPreset)] : undefined;
-      console.log('[UploadCard] CREATE_RUN', { storage_path: upload.path, mode, workspace, goal, lane, clipperPreset });
+      const runBody = {
+        storage_path: upload.path,
+        storage_url: upload.storage_url,
+        filename: file.name,
+        byte_size: file.size,
+        mime_type: file.type || 'video/mp4',
+        mode,
+        workspace,
+        goal,
+        context,
+        preset_keys: presetKeys,
+        captions_enabled: captionsEnabled,
+        music_mood: musicEnabled ? 'auto' : null,
+      };
+      console.log('[UploadCard] CREATE_RUN_REQUEST', { lane, clipperPreset, body: runBody });
       const runRes = await fetch('/api/video-engine/runs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({
-          storage_path: upload.path,
-          storage_url: upload.storage_url,
-          filename: file.name,
-          byte_size: file.size,
-          mime_type: file.type || 'video/mp4',
-          mode,
-          workspace,
-          goal,
-          context,
-          preset_keys: presetKeys,
-        }),
+        body: JSON.stringify(runBody),
       });
-      const runJson = await runRes.json();
-      if (!runRes.ok || !runJson.ok) {
-        throw new Error(runJson?.error?.code || runJson?.error?.message || runJson?.error || 'Failed to create run');
+      // Read as text first so we can report non-JSON responses (rare: edge
+      // crashes, HTML 500 pages, intermediate proxies) instead of tripping an
+      // unhelpful SyntaxError deep in the catch.
+      const runText = await runRes.text();
+      let runJson: { ok?: boolean; data?: { run_id?: string }; error?: { code?: string; message?: string } | string } = {};
+      try {
+        runJson = runText ? JSON.parse(runText) : {};
+      } catch (parseErr) {
+        console.error('[UploadCard] CREATE_RUN_NON_JSON', {
+          status: runRes.status,
+          body_head: runText.slice(0, 300),
+          parse_err: parseErr instanceof Error ? parseErr.message : String(parseErr),
+        });
+        throw new Error(`Server returned non-JSON (HTTP ${runRes.status}). ${runText.slice(0, 140)}`);
       }
-      console.log('[UploadCard] CREATE_RUN_OK', { run_id: runJson.data.run_id });
-
-      router.push(`/video-engine/${runJson.data.run_id}`);
+      console.log('[UploadCard] CREATE_RUN_RESPONSE', {
+        status: runRes.status,
+        ok: runRes.ok,
+        body_ok: runJson.ok,
+        run_id: runJson?.data?.run_id,
+        error: runJson?.error,
+      });
+      if (!runRes.ok || !runJson.ok) {
+        // Prefer the human-readable message, then the code, then the raw string.
+        // Previous order (code first) surfaced opaque strings like "DB_ERROR"
+        // which the humanizer couldn't translate, so the user saw the generic
+        // "Something went wrong" banner and the real reason was lost.
+        const errObj = typeof runJson.error === 'object' ? runJson.error : null;
+        const errStr = typeof runJson.error === 'string' ? runJson.error : null;
+        throw new Error(
+          errObj?.message
+            || errObj?.code
+            || errStr
+            || `Run create failed (HTTP ${runRes.status})`,
+        );
+      }
+      if (!runJson.data?.run_id) {
+        console.error('[UploadCard] CREATE_RUN_NO_RUN_ID', { body: runJson });
+        throw new Error('Run created but the server did not return a run_id.');
+      }
+      const target = `/video-engine/${runJson.data.run_id}`;
+      console.log('[UploadCard] ROUTER_PUSH', { target });
+      router.push(target);
     } catch (err) {
       fail(err instanceof Error ? err.message : String(err));
     }
@@ -278,6 +341,23 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
         maxSizeLabel={MAX_SIZE_LABEL}
         lane={lane}
       />
+
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        <OptionToggle
+          label="Captions"
+          value={captionsEnabled}
+          onChange={setCaptionsEnabled}
+          disabled={busy}
+        />
+        <OptionToggle
+          label="Music"
+          value={musicEnabled}
+          onChange={setMusicEnabled}
+          disabled={busy}
+          hint="Coming soon"
+        />
+        <span className="text-zinc-600">B-roll clips — coming soon</span>
+      </div>
 
       {error && (
         <div
@@ -338,6 +418,41 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
         </div>
       )}
     </div>
+  );
+}
+
+function OptionToggle({
+  label, value, onChange, disabled, hint,
+}: {
+  label: string;
+  value: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+  hint?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => !disabled && onChange(!value)}
+      disabled={disabled}
+      className={[
+        'inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 transition-colors',
+        value
+          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-100'
+          : 'border-zinc-800 bg-zinc-950 text-zinc-400 hover:border-zinc-700 hover:text-zinc-200',
+        disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer',
+      ].join(' ')}
+      aria-pressed={value}
+    >
+      <span
+        className={[
+          'h-1.5 w-1.5 rounded-full',
+          value ? 'bg-emerald-400' : 'bg-zinc-600',
+        ].join(' ')}
+      />
+      {label}
+      {hint && <span className="text-[10px] text-zinc-500">· {hint}</span>}
+    </button>
   );
 }
 

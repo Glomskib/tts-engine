@@ -204,8 +204,7 @@ export async function GET(request: Request) {
         return redirectRes;
       }
 
-      // Default redirect to dashboard
-      const dashboardRes = NextResponse.redirect(`${origin}/admin/dashboard`);
+      const dashboardRes = NextResponse.redirect(`${origin}/create`);
       dashboardRes.cookies.set('ff_ref', '', { maxAge: 0, path: '/' });
       return dashboardRes;
     }

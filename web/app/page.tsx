@@ -7,6 +7,7 @@ import { BRAND } from '@/lib/brand';
 import { PLANS } from '@/lib/plans';
 import { VideoServiceContact } from '@/components/VideoServiceContact';
 import AffiliateCalculator from '@/components/AffiliateCalculator';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ============================================================================
 // FLASHFLOW AI — CONVERSION FUNNEL HOMEPAGE
@@ -71,6 +72,7 @@ const DEMO_SCRIPT: SkitResult = {
 };
 
 export default function LandingPage() {
+  const { authenticated, loading: authLoading } = useAuth();
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [contactOpen, setContactOpen] = useState(false);
   const [referralBanner, setReferralBanner] = useState(false);
@@ -218,16 +220,28 @@ export default function LandingPage() {
             <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors">
               Pricing
             </Link>
-            <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">
-              Sign In
-            </Link>
-            <Link
-              href="/script-generator"
-              className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
-            >
-              <span className="sm:hidden">Try Free</span>
-              <span className="hidden sm:inline">Try Script Generator Free</span>
-            </Link>
+            {!authLoading && authenticated ? (
+              <Link
+                href="/create"
+                className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
+              >
+                <span className="sm:hidden">Open</span>
+                <span className="hidden sm:inline">Open FlashFlow</span>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">
+                  Sign In
+                </Link>
+                <Link
+                  href="/script-generator"
+                  className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
+                >
+                  <span className="sm:hidden">Try Free</span>
+                  <span className="hidden sm:inline">Try Script Generator Free</span>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>

@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { filterSafeRecords } from '@/lib/content-safety';
 
 export const runtime = 'nodejs';
 
@@ -145,15 +146,15 @@ export async function GET(request: Request) {
       return counts;
     })(),
 
-    // 6. Recent draft scripts (last 3 drafts)
+    // 6. Recent draft scripts (last 3 safe drafts)
     supabaseAdmin
       .from('saved_skits')
       .select('id, title, product_name, created_at, status')
       .eq('user_id', user.id)
       .eq('status', 'draft')
       .order('created_at', { ascending: false })
-      .limit(3)
-      .then(r => r.data || []),
+      .limit(25)
+      .then(r => filterSafeRecords(r.data || []).slice(0, 3)),
 
     // 7. Top video this week
     (async () => {

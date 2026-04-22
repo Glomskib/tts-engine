@@ -24,12 +24,12 @@ export default async function VideoEnginePage({
       <header className="text-center sm:text-left">
         <h1 className="text-2xl sm:text-3xl font-semibold text-zinc-50 tracking-tight">
           {isClipper
-            ? 'Find the best moments in your long-form video'
+            ? 'Turn long videos into viral clips in seconds'
             : 'Turn one video into shareable clips'}
         </h1>
         <p className="mt-2 text-sm sm:text-base text-zinc-400 leading-relaxed">
           {isClipper
-            ? 'Upload a podcast, stream, or long YouTube. We surface the strongest moments and cut them into ready-to-post clips — then you post and keep clipping.'
+            ? 'Drop a podcast, stream, or YouTube long-form. Get back a ranked grid of clips — each with its own hook, cut, and caption. Download, copy, combine, move on.'
             : 'Upload a video. We pick the best moments, add captions, and hand you clips you can post.'}
         </p>
       </header>
@@ -43,12 +43,7 @@ export default async function VideoEnginePage({
         </div>
       </section>
 
-      <section aria-labelledby="recent-heading" className="space-y-3">
-        <h2 id="recent-heading" className="text-sm font-medium text-zinc-300">
-          {isClipper ? 'Your recent sources' : 'Your videos'}
-        </h2>
-        <RunsList />
-      </section>
+      <RunsList />
     </div>
   );
 }

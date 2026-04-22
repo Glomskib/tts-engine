@@ -35,6 +35,7 @@ import { watermarkClip } from './templates/shared';
 import { packageClip } from './packaging';
 import { notifyTerminalRun } from './notify';
 import { markRecommendedClip, autoCreateExportJobs } from './distribution';
+import { incrementClipUsage } from '@/lib/whop/plan-limits';
 
 interface RunRow {
   id: string;
@@ -443,6 +444,7 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
             completed_at: completedAt,
           })
           .eq('id', clipId);
+        await incrementClipUsage(run.user_id).catch(() => {});
         console.log(`[ve-pipeline] local render done ${clipId}: ${result.outputUrl}`);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);

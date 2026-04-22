@@ -34,6 +34,7 @@ import {
   checkUploadAllowed,
   filterTemplatesByPlan,
 } from '@/lib/video-engine/limits';
+import { checkClipQuota } from '@/lib/whop/plan-limits';
 
 export const runtime = 'nodejs';
 
@@ -48,19 +49,37 @@ interface CreateBody {
   duration_sec?: number;
   mode?: string;
   /** Public-facing workspace selector. Maps to mode under the hood. */
-  workspace?: 'creator' | 'brand_agency';
+  workspace?: 'creator' | 'brand_agency' | 'clipper';
   /** Optional intent hint stored in context_json for downstream scoring. */
   goal?: 'sell' | 'promote' | 'reach' | 'story' | null;
   preset_keys?: string[];
   /** Optional. When omitted the engine picks based on the user's plan cap. */
   target_clip_count?: number;
   context?: Record<string, unknown>;
+  /** Reserved seams. Stored in context_json today; the render layer will start
+   *  honoring them as each capability lands. Keeping them in the run body means
+   *  the UI can ship toggles now without another schema round-trip. */
+  captions_enabled?: boolean;          // default true — burn captions into the render
+  music_mood?: string | null;          // null = no music; preset keys land later
+  broll_paths?: string[];              // additional source clips in the `renders` bucket
 }
 
-function workspaceToMode(w: string | undefined): 'affiliate' | 'nonprofit' | null {
+function workspaceToMode(w: string | undefined): 'affiliate' | 'nonprofit' | 'clipper' | null {
   if (w === 'creator') return 'affiliate';
   if (w === 'brand_agency') return 'nonprofit';
+  if (w === 'clipper') return 'clipper';
   return null;
+}
+
+/**
+ * Default `target_clip_count` when the client didn't specify one. Clipper mode
+ * is volume-first: we push to the schema ceiling (8, capped by plan) so long-form
+ * creators get a real batch of clips to scan, pick, and post from a single source.
+ * Affiliate / nonprofit stick with the plan cap.
+ */
+function defaultTargetForMode(mode: 'affiliate' | 'nonprofit' | 'clipper', planCap: number): number {
+  if (mode === 'clipper') return Math.min(8, planCap);
+  return planCap;
 }
 
 export async function POST(request: NextRequest) {
@@ -86,6 +105,13 @@ export async function POST(request: NextRequest) {
   // without exposing it as a top-level field.
   const mergedContext: Record<string, unknown> = { ...(body.context ?? {}) };
   if (body.goal) mergedContext.goal = body.goal;
+  // Reserved seams — stored so the pipeline can read them when each feature
+  // lands. Defaults chosen so existing runs behave the same as before.
+  if (typeof body.captions_enabled === 'boolean') mergedContext.captions_enabled = body.captions_enabled;
+  if (body.music_mood !== undefined) mergedContext.music_mood = body.music_mood;
+  if (Array.isArray(body.broll_paths) && body.broll_paths.length > 0) {
+    mergedContext.broll_paths = body.broll_paths.slice(0, 5);
+  }
 
   // ── Plan resolution + caps ──────────────────────────────────────────────
   const plan = await getVEPlan(auth.user.id);
@@ -122,6 +148,25 @@ export async function POST(request: NextRequest) {
     }, { status: 402 });
   }
 
+  // Monthly clip quota (Whop entitlement — ff_entitlements.clips_generated).
+  if (!auth.isAdmin) {
+    const quota = await checkClipQuota(auth.user.id);
+    if (!quota.allowed) {
+      return NextResponse.json({
+        ok: false,
+        error: {
+          code: 'PLAN_LIMIT_CLIPS',
+          message: quota.message ?? "You've reached your monthly clip limit. Upgrade to continue.",
+          plan: quota.plan,
+          used: quota.used,
+          limit: Number.isFinite(quota.limit) ? quota.limit : null,
+          upgrade_url: '/upgrade',
+        },
+        correlation_id: correlationId,
+      }, { status: 402 });
+    }
+  }
+
   // Source duration cap (cheap upstream guard; transcription re-validates).
   if (body.duration_sec && body.duration_sec > plan.maxSourceSec) {
     return NextResponse.json({
@@ -137,12 +182,12 @@ export async function POST(request: NextRequest) {
   }
 
   // Clip count: when the client doesn't supply a target the engine picks based
-  // on the user's plan cap. Variable-output is the default — weak footage can
-  // still produce fewer real clips downstream.
+  // on the user's plan cap (clipper mode biases toward 5 for volume). Variable-
+  // output is the default — weak footage can still produce fewer real clips.
   const clientSpecifiedTarget = typeof body.target_clip_count === 'number';
   const requestedTarget = clientSpecifiedTarget
     ? Math.min(8, Math.max(1, body.target_clip_count!))
-    : plan.maxClipsPerRun;
+    : defaultTargetForMode(mode, plan.maxClipsPerRun);
   const target = Math.min(requestedTarget, plan.maxClipsPerRun);
   const targetClippedByPlan = clientSpecifiedTarget && target < requestedTarget;
 

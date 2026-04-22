@@ -3,15 +3,15 @@ export function getShotstackConfig() {
   const configs = {
     sandbox: {
       baseUrl: 'https://api.shotstack.io/edit/stage',
-      apiKey: process.env.SHOTSTACK_SANDBOX_KEY,
+      apiKey: process.env.SHOTSTACK_SANDBOX_KEY || process.env.SHOTSTACK_API_KEY,
     },
     production: {
       baseUrl: 'https://api.shotstack.io/edit/v1',
-      apiKey: process.env.SHOTSTACK_PRODUCTION_KEY,
+      apiKey: process.env.SHOTSTACK_PRODUCTION_KEY || process.env.SHOTSTACK_API_KEY,
     },
   };
   const config = configs[env];
-  if (!config?.apiKey) throw new Error(`Missing SHOTSTACK_${env.toUpperCase()}_KEY env var`);
+  if (!config?.apiKey) throw new Error(`Missing SHOTSTACK_${env.toUpperCase()}_KEY or SHOTSTACK_API_KEY env var`);
   return { ...config, env };
 }
 

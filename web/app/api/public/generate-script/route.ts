@@ -206,7 +206,7 @@ ${productDescription ? `DESCRIPTION: ${productDescription}` : ""}
 
 ${personaSection}
 
-TONE: ${TIER_PROMPTS[riskTier]}
+SELECTED TONE FOR BODY/CTA: ${riskTier} — ${TIER_PROMPTS[riskTier]}
 ${creatorStyleSection}${intelligenceSection}
 CRITICAL RULES:
 - NEVER use words: cure, treat, heal, diagnose, guaranteed, 100%
@@ -214,25 +214,55 @@ CRITICAL RULES:
 - Product benefits should be stated as experiences, not outcomes
 - NEVER imitate real celebrities or public figures
 
-HOOK RULES:
-- The hook line must create a pattern interrupt — something that makes a scroller STOP
+HOOK RULES (apply to ALL three hook variants):
+- Each hook must create a pattern interrupt — something that makes a scroller STOP
 - NEVER use banned hook phrases: "game changer", "changed my life", "you need this", "trust me", "hear me out", "hidden gem", "run don't walk", "best kept secret", "stop what you're doing", "you won't believe"
 - NEVER start with: "So I just...", "Okay so...", "Hey guys...", "Guys,", "OMG guys", "Let me show you", "POV:", "Attention:"
 - NEVER use AI patterns: "What if I told you", "Imagine X. Now imagine Y.", "Tired of X? Meet Y."
-- Hook should sound like a real person talking to their phone, not marketing copy
+- Hooks should sound like a real person talking to their phone, not marketing copy
+- Each hook is a COMPLETE package: spoken dialogue + visual action + on-screen text overlay
+- On-screen text should create tension INDEPENDENT from the spoken dialogue (different words, more provocative)
 
-SCRIPT RULES:
-- Write a scroll-stopping hook line (first 1-2 seconds) — specific, filmable, human
+HOOK VARIANT REQUIREMENTS — you MUST generate exactly 3 hooks that are DRASTICALLY DIFFERENT angles:
+1. SAFE — wholesome, story-driven, family-friendly. Example angle: relatable frustration, gentle surprise, honest discovery
+2. BALANCED — sharper, curiosity-gap, a little contrarian. Example angle: myth-bust, unexpected use case, oddly specific observation
+3. SPICY — bold, pattern-interrupt, provocative (but still brand-safe). Example angle: controversial take, confession, shocking comparison, self-aware satire
+
+The three hooks must use COMPLETELY DIFFERENT opening structures, emotions, and visual approaches. Do not just reword the same hook three ways.
+
+SCRIPT BODY RULES:
 - Write 4-5 beats (short scenes/moments) that build toward the product reveal
 - Each beat has: timestamp range, action description, spoken dialogue, optional on-screen text
 - On-screen text should create tension INDEPENDENT from spoken dialogue (not the same words)
 - End with a clear, natural CTA — not salesy
+- Body + CTA should match the SELECTED TONE above (${riskTier})
 - Keep total spoken words to ~60-70 words (15-30 second video)
 - Make it genuinely entertaining — write like a real creator, not a brand
+- The body must work seamlessly when attached to ANY of the three hook variants
 
 Return ONLY valid JSON with this exact structure:
 {
-  "hook_line": "the attention-grabbing opening line",
+  "hook_variants": [
+    {
+      "tier": "SAFE",
+      "spoken": "what you say out loud in the first 1-2 seconds",
+      "visual": "what you do on camera during the hook",
+      "on_screen": "the bold text overlay that appears on screen"
+    },
+    {
+      "tier": "BALANCED",
+      "spoken": "...",
+      "visual": "...",
+      "on_screen": "..."
+    },
+    {
+      "tier": "SPICY",
+      "spoken": "...",
+      "visual": "...",
+      "on_screen": "..."
+    }
+  ],
+  "hook_line": "copy of the spoken dialogue from the ${riskTier} variant (for backward compatibility)",
   "beats": [
     {
       "t": "0-3s",
@@ -269,7 +299,7 @@ Return ONLY valid JSON with this exact structure:
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 1500,
+        max_tokens: 2200,
         messages: [{ role: "user", content: prompt }],
       }),
       signal: controller.signal,
@@ -320,12 +350,42 @@ Return ONLY valid JSON with this exact structure:
     }
 
     // Basic validation
-    if (!skit.hook_line || !Array.isArray(skit.beats) || skit.beats.length === 0) {
+    if (!Array.isArray(skit.beats) || skit.beats.length === 0) {
       return NextResponse.json(
         { error: "Generated script was invalid. Please try again." },
         { status: 500 }
       );
     }
+
+    // Ensure hook_variants is usable; fall back to hook_line if model omitted it
+    const VALID_TIERS = ["SAFE", "BALANCED", "SPICY"] as const;
+    type HookVariant = { tier: string; spoken: string; visual: string; on_screen: string };
+    if (!Array.isArray(skit.hook_variants) || skit.hook_variants.length === 0) {
+      if (skit.hook_line) {
+        // Synthesize a single-variant array using the selected tier
+        skit.hook_variants = [{ tier: riskTier, spoken: skit.hook_line, visual: "", on_screen: "" }];
+      } else {
+        return NextResponse.json(
+          { error: "Generated script was missing hooks. Please try again." },
+          { status: 500 }
+        );
+      }
+    } else {
+      // Normalize: keep only valid tiers, ensure fields are strings
+      skit.hook_variants = (skit.hook_variants as HookVariant[])
+        .filter((v) => v && VALID_TIERS.includes(v.tier as typeof VALID_TIERS[number]))
+        .map((v) => ({
+          tier: v.tier,
+          spoken: typeof v.spoken === "string" ? v.spoken : "",
+          visual: typeof v.visual === "string" ? v.visual : "",
+          on_screen: typeof v.on_screen === "string" ? v.on_screen : "",
+        }));
+    }
+
+    // Guarantee hook_line points to the selected tier's spoken line (backward compat)
+    const selected = (skit.hook_variants as HookVariant[]).find((v) => v.tier === riskTier)
+      || (skit.hook_variants as HookVariant[])[0];
+    if (selected?.spoken) skit.hook_line = selected.spoken;
 
     // --- Quick AI score (best-effort, non-blocking-ish) ---
     let score: number | null = null;

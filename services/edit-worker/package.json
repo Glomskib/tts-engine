@@ -1,0 +1,25 @@
+{
+  "name": "@flashflow/edit-worker",
+  "version": "0.1.0",
+  "private": true,
+  "description": "DB-polling render worker for FlashFlow Edit Builder. Runs on Mac mini / similar hardware, pulls queued render_jobs from Supabase, and executes ffmpeg-based preview renders.",
+  "type": "module",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "tsx src/index.ts",
+    "start": "tsx src/index.ts",
+    "once": "WORKER_RUN_ONCE=1 tsx src/index.ts",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.90.1",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "dotenv": "^16.4.0",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.33",
+    "tsx": "^4.19.0",
+    "typescript": "^5"
+  }
+}

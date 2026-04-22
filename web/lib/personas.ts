@@ -15,12 +15,14 @@ export interface Persona {
   gender?: string;
   humorStyle?: string;
   platforms?: string[];
+  kind?: 'creator' | 'customer';
 }
 
 export const PERSONAS: Persona[] = [
   // Original 8 personas (renamed to descriptive archetypes)
   {
     id: 'sarah',
+    kind: 'creator',
     name: 'Trend-Aware Lifestyle Creator',
     age: 28,
     description: 'Energetic lifestyle content creator',
@@ -33,6 +35,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'mike',
+    kind: 'creator',
     name: 'Skeptical Veteran Reviewer',
     age: 35,
     description: 'Skeptical product reviewer',
@@ -45,6 +48,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'jessica',
+    kind: 'creator',
     name: 'Gen-Z Trendsetter',
     age: 24,
     description: 'Gen-Z trend expert',
@@ -57,6 +61,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'david',
+    kind: 'creator',
     name: 'Relatable Dad Jokester',
     age: 42,
     description: 'Dad humor specialist',
@@ -70,6 +75,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'emma',
+    kind: 'creator',
     name: 'Aspirational Taste-Maker',
     age: 31,
     description: 'Luxury lifestyle curator',
@@ -82,6 +88,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'marcus',
+    kind: 'creator',
     name: 'High-Energy Hype Machine',
     age: 29,
     description: 'High-energy hype creator',
@@ -95,6 +102,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'lisa',
+    kind: 'creator',
     name: 'Trusted Expert Advisor',
     age: 38,
     description: 'Trusted expert advisor',
@@ -107,6 +115,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'tyler',
+    kind: 'creator',
     name: 'Chaotic Comedy King',
     age: 22,
     description: 'Chaotic comedy creator',
@@ -122,6 +131,7 @@ export const PERSONAS: Persona[] = [
   // New 12 personas (renamed to descriptive archetypes)
   {
     id: 'alex-chen',
+    kind: 'customer',
     name: 'Spec-Comparing Researcher',
     age: 32,
     description: 'Tech reviewer who does deep-dive comparisons',
@@ -135,6 +145,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'priya-sharma',
+    kind: 'customer',
     name: 'Ingredient-Obsessed Researcher',
     age: 27,
     description: 'Beauty and skincare guru focused on ingredients',
@@ -148,6 +159,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'carlos-rodriguez',
+    kind: 'customer',
     name: 'ROI-Focused Entrepreneur',
     age: 44,
     description: 'Business coach and entrepreneur mentor',
@@ -161,6 +173,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'zoe-martinez',
+    kind: 'customer',
     name: 'Budget-Conscious Deal Hunter',
     age: 21,
     description: 'College student and budget queen',
@@ -174,6 +187,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'james-wilson',
+    kind: 'customer',
     name: 'Transformation Chaser',
     age: 37,
     description: 'Fitness coach specializing in transformations',
@@ -187,6 +201,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'nina-thompson',
+    kind: 'customer',
     name: 'Overwhelmed Supermom',
     age: 35,
     description: 'Working mom balancing kids and self-care',
@@ -200,6 +215,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'derek-chang',
+    kind: 'customer',
     name: 'Tech-Hyped Early Adopter',
     age: 29,
     description: 'Gaming and tech streamer',
@@ -213,6 +229,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'aisha-johnson',
+    kind: 'creator',
     name: 'Trend-Forward Fashionista',
     age: 26,
     description: 'Fashion and style influencer',
@@ -226,6 +243,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'tom-bradley',
+    kind: 'creator',
     name: 'DIY Problem Solver',
     age: 51,
     description: 'DIY expert and home improvement guru',
@@ -239,6 +257,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'luna-park',
+    kind: 'customer',
     name: 'Mindful Wellness Seeker',
     age: 31,
     description: 'Wellness advocate for mental health and mindfulness',
@@ -252,6 +271,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'chris-foster',
+    kind: 'creator',
     name: 'Culinary Enthusiast',
     age: 36,
     description: 'Food critic and home chef',
@@ -265,6 +285,7 @@ export const PERSONAS: Persona[] = [
   },
   {
     id: 'sam-rivera',
+    kind: 'creator',
     name: 'Adventure-Seeking Explorer',
     age: 29,
     description: 'Travel content creator and adventure seeker',
@@ -294,3 +315,6 @@ export function getPersonasByCategory(category: string): Persona[] {
   if (category === 'all') return PERSONAS;
   return PERSONAS.filter(p => p.category === category);
 }
+
+export const CREATOR_VOICES: Persona[] = PERSONAS.filter(p => p.kind !== 'customer');
+export const CUSTOMER_ARCHETYPES: Persona[] = PERSONAS.filter(p => p.kind === 'customer');

@@ -121,9 +121,9 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Redirect authenticated users from landing page to dashboard
+  // Redirect authenticated users from landing page to the Create flow (V1)
   if (user && path === '/') {
-    return NextResponse.redirect(new URL('/admin/dashboard', request.url))
+    return NextResponse.redirect(new URL('/create', request.url))
   }
 
   return response

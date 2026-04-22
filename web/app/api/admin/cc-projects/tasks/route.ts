@@ -86,7 +86,7 @@ export async function POST(request: Request) {
   const { data, error } = await supabaseAdmin
     .from('project_tasks')
     .insert({
-      project_id: parsed.data.project_id,
+      project_id: parsed.data.project_id ?? null,
       title: parsed.data.title,
       description: parsed.data.description,
       assigned_agent: parsed.data.assigned_agent,

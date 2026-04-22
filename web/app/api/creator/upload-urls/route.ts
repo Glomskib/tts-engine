@@ -37,13 +37,29 @@ export async function POST(request: NextRequest) {
   try { body = await request.json(); }
   catch { return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON', 400, correlationId); }
 
+  console.log('[creator/upload-urls] REQUEST BODY:', JSON.stringify({ ...body, user_id: userId, correlation_id: correlationId }));
+
   if (!body.files?.length || body.files.length > 6) {
     return createApiErrorResponse('BAD_REQUEST', 'files must be 1-6 items', 400, correlationId);
   }
 
+  const ALLOWED_VIDEO_TYPES = new Set([
+    'video/mp4', 'video/quicktime', 'video/webm', 'video/x-msvideo',
+    'video/mpeg', 'video/ogg', 'video/3gpp',
+  ]);
+  const ALLOWED_EXTS = new Set(['mp4', 'mov', 'webm', 'avi', 'mpeg', 'mpg', 'ogg', '3gp']);
+
   for (const f of body.files) {
     if (f.size_bytes > MAX_FILE_BYTES) {
       return createApiErrorResponse('BAD_REQUEST', `File ${f.filename} exceeds ${MAX_FILE_LABEL} limit`, 400, correlationId);
+    }
+    const ext = f.filename?.split('.').pop()?.toLowerCase() ?? '';
+    if (!ALLOWED_EXTS.has(ext)) {
+      return createApiErrorResponse('BAD_REQUEST', `Unsupported file type ".${ext}". Use MP4, MOV, WebM, or AVI.`, 400, correlationId);
+    }
+    if (f.content_type && !ALLOWED_VIDEO_TYPES.has(f.content_type)) {
+      // Warn but don't block — browser MIME detection is unreliable
+      console.warn('[creator/upload-urls] unexpected content_type:', { filename: f.filename, content_type: f.content_type });
     }
   }
 
@@ -59,6 +75,8 @@ export async function POST(request: NextRequest) {
         .from(BUCKET)
         .createSignedUploadUrl(storagePath);
 
+      console.log('[creator/upload-urls] SIGNED URL:', { path: storagePath, ok: !!data, error: error?.message ?? null, correlation_id: correlationId });
+
       if (error || !data) {
         return { error: error?.message || 'Failed to create upload URL', path: storagePath };
       }
@@ -66,7 +84,9 @@ export async function POST(request: NextRequest) {
       const storageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${BUCKET}/${storagePath}`;
 
       // Create footage_item record immediately — stage: raw_uploaded
-      // The item is registered in the hub as soon as we issue the URL
+      // The item is registered in the hub as soon as we issue the URL.
+      // Non-fatal, but never silent: we log the full error with the
+      // correlation id so support can trace missing footage entries.
       let footageItemId: string | null = null;
       try {
         const footageItem = await createFootageItem({
@@ -85,8 +105,17 @@ export async function POST(request: NextRequest) {
           metadata:         { job_id: jobId, index: i },
         });
         footageItemId = footageItem.id;
-      } catch {
-        // Non-fatal — upload URLs still work even if footage record creation fails
+      } catch (err) {
+        console.error(
+          `[${correlationId}] creator/upload-urls: createFootageItem failed`,
+          {
+            user_id: userId,
+            path: storagePath,
+            filename: f.filename,
+            message: err instanceof Error ? err.message : String(err),
+            stack: err instanceof Error ? err.stack : undefined,
+          },
+        );
       }
 
       return {

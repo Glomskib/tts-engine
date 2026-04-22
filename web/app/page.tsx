@@ -7,6 +7,7 @@ import { BRAND } from '@/lib/brand';
 import { PLANS } from '@/lib/plans';
 import { VideoServiceContact } from '@/components/VideoServiceContact';
 import AffiliateCalculator from '@/components/AffiliateCalculator';
+import { useAuth } from '@/contexts/AuthContext';
 
 // ============================================================================
 // FLASHFLOW AI — CONVERSION FUNNEL HOMEPAGE
@@ -14,8 +15,8 @@ import AffiliateCalculator from '@/components/AffiliateCalculator';
 
 const FAQ_ITEMS = [
   {
-    q: 'How do I find products that actually convert?',
-    a: 'Winners Bank shows you the highest-performing products with actual engagement metrics. See what angles work, what hooks land, and which products have the best commission potential. Build scripts from proven winners instead of guessing.',
+    q: 'How do I study what actually works on TikTok?',
+    a: 'Winners Bank is your library of proven viral TikToks. Connect your TikTok account to auto-sync real engagement metrics daily, or paste any public TikTok URL and AI breaks down the hook, pacing, and triggers that made it work — so you can replicate the pattern in your own scripts.',
   },
   {
     q: "How do I write scripts that don't sound AI-generated?",
@@ -23,7 +24,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'How do I hit my retainer video goals on time?',
-    a: "Content Calendar tracks your monthly targets by brand. Set video goals, see what you've posted, and get reminders when you're behind. For retainer deals, FlashFlow helps you stay on pace and hit your payouts.",
+    a: "Content Calendar tracks your monthly targets by brand. Set video goals, see what you've posted, and see at a glance when you're behind pace. For retainer deals, FlashFlow helps you stay on pace and hit your payouts.",
   },
   {
     q: 'Can I manage multiple TikTok Shop brands?',
@@ -35,7 +36,7 @@ const FAQ_ITEMS = [
   },
   {
     q: 'Is it really free?',
-    a: 'Yes! The free plan includes 5 scripts/month, free TikTok and YouTube transcribers, and access to 3 products. No credit card needed, no time limit.',
+    a: 'Yes! The free plan includes 5 scripts/month, free TikTok and YouTube transcribers, and 1 brand. No credit card needed, no time limit.',
   },
   {
     q: 'Can I cancel anytime?',
@@ -71,6 +72,7 @@ const DEMO_SCRIPT: SkitResult = {
 };
 
 export default function LandingPage() {
+  const { authenticated, loading: authLoading } = useAuth();
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   const [contactOpen, setContactOpen] = useState(false);
   const [referralBanner, setReferralBanner] = useState(false);
@@ -218,16 +220,28 @@ export default function LandingPage() {
             <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors">
               Pricing
             </Link>
-            <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">
-              Sign In
-            </Link>
-            <Link
-              href="/script-generator"
-              className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
-            >
-              <span className="sm:hidden">Try Free</span>
-              <span className="hidden sm:inline">Try Script Generator Free</span>
-            </Link>
+            {!authLoading && authenticated ? (
+              <Link
+                href="/create"
+                className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
+              >
+                <span className="sm:hidden">Open</span>
+                <span className="hidden sm:inline">Open FlashFlow</span>
+              </Link>
+            ) : (
+              <>
+                <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">
+                  Sign In
+                </Link>
+                <Link
+                  href="/script-generator"
+                  className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
+                >
+                  <span className="sm:hidden">Try Free</span>
+                  <span className="hidden sm:inline">Try Script Generator Free</span>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       </nav>

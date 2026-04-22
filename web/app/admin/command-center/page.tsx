@@ -1,544 +1,557 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+/**
+ * Mission Control — Glance Dashboard
+ *
+ * The 2-second-glance landing. Three zones, top to bottom:
+ *   1. Strip   — money in/out/net today, tasks shipped/in-flight/needs-you
+ *   2. Agents  — one card per active agent, weekly ROI + sparkline
+ *   3. Plate   — operator feed (Bolt-relayed emails/calendar/approvals/flags)
+ *
+ * The old dense operator console moved to /admin/command-center/deep.
+ */
+
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Link from 'next/link';
 import {
-  DollarSign, Activity, AlertTriangle, ListTodo,
-  Lightbulb, TrendingUp, ChevronRight, RefreshCw,
-  Zap, Target, Bot, Handshake, HeartPulse,
+  TrendingUp, TrendingDown, Activity, Zap, Bot, AlertCircle,
+  Mail, Calendar as CalendarIcon, Check, X, ChevronRight, RefreshCw,
+  DollarSign, Package, Bell, Flag, Info, ArrowRight, Layers,
+  Plus, Send, ListTodo,
 } from 'lucide-react';
-import type { PipelineHealth } from '@/lib/command-center/types';
-import InitiativeFilter from './_components/InitiativeFilter';
 import CCSubnav from './_components/CCSubnav';
 
-interface DashboardData {
-  spend: { today: number; week: number; month: number };
-  cost_trend_7d: { day: string; cost: number }[];
-  requests: { today: number; week: number };
-  errors_today: number;
-  active_tasks: number;
-  blocked_tasks: number;
-  ideas_queued: number;
-  ideas_researched_24h: number;
+// ── Types ─────────────────────────────────────────────────────────────────────
+
+interface StripZone {
+  money_in_today_cents: number;
+  money_out_today_cents: number;
+  net_today_cents: number;
+  tasks_shipped_today: number;
+  tasks_in_flight: number;
+  tasks_needing_you: number;
 }
 
-interface ActivityItem {
-  id: string;
-  ts: string;
-  source: 'task' | 'idea';
+interface AgentCard {
   agent_id: string;
-  type: string;
+  current_task: string | null;
+  current_task_id: string | null;
+  status: 'producing' | 'idle' | 'stale' | 'failing' | 'offline';
+  tasks_done_week: number;
+  cost_week_usd: number;
+  expected_value_week_usd: number | null;
+  realized_value_week_usd: number | null;
+  roi_week: number | null;
+  cost_sparkline_7d: number[];
+}
+
+interface FeedItem {
+  id: string;
+  kind: 'email' | 'calendar' | 'approval' | 'flag' | 'fyi' | string;
+  urgency: 'low' | 'normal' | 'high' | 'urgent' | string;
   title: string;
-  detail: Record<string, unknown>;
-}
-
-interface AgentRun {
-  id: string;
-  agent_id: string;
-  action: string;
-  status: string;
-  started_at: string | null;
-  ended_at: string | null;
-  tokens_in: number;
-  tokens_out: number;
-  cost_usd: number;
-  model_used: string | null;
-  related_type: string | null;
+  one_line: string | null;
+  action_url: string | null;
+  action_label: string | null;
+  lane: string | null;
+  source_agent: string | null;
   created_at: string;
 }
 
-interface Initiative {
-  id: string;
-  title: string;
-  type: string;
-  status: string;
+interface GlanceResponse {
+  strip: StripZone;
+  agents: AgentCard[];
+  plate: FeedItem[];
+  generated_at: string;
 }
 
-interface ProcessedIdea {
-  id: string;
-  title: string;
-  score: number | null;
-  last_processed_at: string;
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function usd(cents: number): string {
+  const dollars = cents / 100;
+  const sign = dollars < 0 ? '-' : '';
+  const abs = Math.abs(dollars);
+  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}k`;
+  return `${sign}$${abs.toFixed(0)}`;
 }
 
-interface TelemetryData {
-  spend_by_agent_7d: { agent: string; cost: number; count: number }[];
-  spend_by_model_7d: { model: string; cost: number; count: number }[];
-  latency_p95_by_model_7d: { model: string; p95_ms: number; samples: number }[];
-  failures_by_agent_7d: { agent: string; count: number }[];
+function usdExact(dollars: number): string {
+  const sign = dollars < 0 ? '-' : '';
+  const abs = Math.abs(dollars);
+  if (abs >= 1000) return `${sign}$${(abs / 1000).toFixed(1)}k`;
+  return `${sign}$${abs.toFixed(2)}`;
 }
 
-function StatCard({ label, value, sub, icon: Icon, href, color }: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  icon: React.ElementType;
-  href?: string;
-  color: string;
-}) {
-  const content = (
-    <div className={`rounded-lg border border-zinc-800 bg-zinc-900/50 p-4 ${href ? 'hover:border-zinc-600 transition-colors cursor-pointer' : ''}`}>
-      <div className="flex items-center justify-between mb-2">
-        <span className="text-xs text-zinc-500 uppercase tracking-wider">{label}</span>
-        <Icon className={`w-4 h-4 ${color}`} />
-      </div>
-      <div className="text-2xl font-bold text-white">{value}</div>
-      {sub && <div className="text-xs text-zinc-500 mt-1">{sub}</div>}
-    </div>
-  );
-  return href ? <Link href={href}>{content}</Link> : content;
-}
-
-function formatCurrency(n: number) {
-  return `$${n.toFixed(2)}`;
-}
-
-function timeAgo(ts: string) {
-  const diff = Date.now() - new Date(ts).getTime();
-  const mins = Math.floor(diff / 60000);
+function timeAgo(ts: string): string {
+  const mins = Math.floor((Date.now() - new Date(ts).getTime()) / 60000);
   if (mins < 1) return 'just now';
   if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
 }
 
-function CostTrendBar({ trend }: { trend: { day: string; cost: number }[] }) {
-  const maxCost = Math.max(...trend.map((t) => t.cost), 0.01);
+const KIND_META: Record<string, { icon: typeof Mail; accent: string }> = {
+  email: { icon: Mail, accent: 'text-blue-400' },
+  calendar: { icon: CalendarIcon, accent: 'text-violet-400' },
+  approval: { icon: Check, accent: 'text-amber-400' },
+  flag: { icon: Flag, accent: 'text-rose-400' },
+  fyi: { icon: Info, accent: 'text-zinc-400' },
+};
 
+const URGENCY_BG: Record<string, string> = {
+  urgent: 'border-rose-500/40 bg-rose-500/[0.06]',
+  high: 'border-amber-500/40 bg-amber-500/[0.05]',
+  normal: 'border-zinc-800 bg-zinc-900/50',
+  low: 'border-zinc-800/60 bg-zinc-900/30',
+};
+
+// ── Sparkline (pure SVG, no deps) ─────────────────────────────────────────────
+
+function Sparkline({ values }: { values: number[] }) {
+  const w = 60;
+  const h = 20;
+  const max = Math.max(...values, 0.0001);
+  const pts = values.map((v, i) => {
+    const x = (i / Math.max(1, values.length - 1)) * w;
+    const y = h - (v / max) * h;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  }).join(' ');
   return (
-    <div className="flex items-end gap-1 h-16">
-      {trend.map((t) => (
-        <div key={t.day} className="flex-1 flex flex-col items-center gap-1">
-          <div
-            className="w-full bg-emerald-500/60 rounded-t"
-            style={{ height: `${Math.max((t.cost / maxCost) * 100, 4)}%` }}
-            title={`${t.day}: ${formatCurrency(t.cost)}`}
-          />
-          <span className="text-[9px] text-zinc-600">{t.day.slice(5)}</span>
-        </div>
-      ))}
-    </div>
+    <svg width={w} height={h} className="text-zinc-500" aria-hidden>
+      <polyline points={pts} fill="none" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
   );
 }
 
-function statusBadge(status: string) {
-  const colors: Record<string, string> = {
-    completed: 'bg-emerald-500/20 text-emerald-400',
-    running: 'bg-blue-500/20 text-blue-400',
-    failed: 'bg-red-500/20 text-red-400',
-    queued: 'bg-zinc-500/20 text-zinc-400',
-    active: 'bg-blue-500/20 text-blue-400',
-  };
-  return (
-    <span className={`text-xs px-2 py-0.5 rounded-full ${colors[status] || 'bg-zinc-700 text-zinc-400'}`}>
-      {status}
-    </span>
-  );
-}
+// ── Component ────────────────────────────────────────────────────────────────
 
-export default function CommandCenterDashboard() {
-  const [stats, setStats] = useState<DashboardData | null>(null);
-  const [activity, setActivity] = useState<ActivityItem[]>([]);
-  const [agentRuns, setAgentRuns] = useState<AgentRun[]>([]);
-  const [initiatives, setInitiatives] = useState<Initiative[]>([]);
-  const [processedIdeas, setProcessedIdeas] = useState<ProcessedIdea[]>([]);
-  const [telemetry, setTelemetry] = useState<TelemetryData | null>(null);
-  const [crmStats, setCrmStats] = useState<{ deals: number; weighted_value: number } | null>(null);
-  const [initiativeId, setInitiativeId] = useState<string>('');
+export default function GlanceDashboard() {
+  const [data, setData] = useState<GlanceResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [pipelineHealth, setPipelineHealth] = useState<PipelineHealth | null>(null);
-  const [phDegraded, setPhDegraded] = useState(false);
-  const [phRefreshing, setPhRefreshing] = useState(false);
+  const [error, setError] = useState(false);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [quickText, setQuickText] = useState('');
+  const [quickMode, setQuickMode] = useState<'task' | 'note'>('task');
+  const [quickSending, setQuickSending] = useState(false);
+  const quickRef = useRef<HTMLInputElement>(null);
 
-  const fetchData = async () => {
-    setLoading(true);
+  const fetchData = useCallback(async () => {
     try {
-      const params = new URLSearchParams();
-      if (initiativeId) params.set('initiative_id', initiativeId);
-      const res = await fetch(`/api/admin/command-center/dashboard?${params}`);
+      const res = await fetch('/api/admin/command-center/glance', { cache: 'no-store' });
       if (res.ok) {
         const json = await res.json();
-        setStats(json.data.stats);
-        setActivity(json.data.activity);
-        setAgentRuns(json.data.agent_runs || []);
-        setInitiatives(json.data.initiatives || []);
-        setProcessedIdeas(json.data.ideas_processed || []);
-        setTelemetry(json.data.telemetry || null);
-        setCrmStats(json.data.crm || null);
+        setData(json);
+        setError(false);
+      } else if (res.status === 404) {
+        setError(true);
       }
-    } catch (err) {
-      console.error('Failed to fetch dashboard data:', err);
+    } catch {
+      setError(true);
     } finally {
       setLoading(false);
     }
-  };
-
-  const fetchPipelineHealth = async () => {
-    setPhRefreshing(true);
-    try {
-      const res = await fetch('/api/admin/command-center/pipeline-health');
-      if (res.ok) {
-        const json = await res.json();
-        setPipelineHealth(json.data);
-        setPhDegraded(false);
-      } else {
-        setPhDegraded(true);
-      }
-    } catch {
-      setPhDegraded(true);
-    } finally {
-      setPhRefreshing(false);
-    }
-  };
-
-  useEffect(() => { fetchData(); }, [initiativeId]);
-
-  useEffect(() => {
-    fetchPipelineHealth();
-    const id = setInterval(fetchPipelineHealth, 60_000);
-    return () => clearInterval(id);
   }, []);
 
+  useEffect(() => {
+    fetchData();
+    const id = setInterval(fetchData, 60_000); // refresh every minute
+    return () => clearInterval(id);
+  }, [fetchData]);
+
+  async function handleFeedAction(id: string, action: 'dismiss' | 'acted') {
+    setBusy(id);
+    try {
+      await fetch('/api/mc/operator-feed', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action }),
+      });
+      await fetchData();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleQuickSubmit() {
+    const text = quickText.trim();
+    if (!text || quickSending) return;
+    setQuickSending(true);
+    try {
+      if (quickMode === 'task') {
+        await fetch('/api/admin/cc-projects/tasks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ title: text, status: 'queued', priority: 5 }),
+        });
+      } else {
+        await fetch('/api/mc/operator-feed', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'fyi',
+            urgency: 'normal',
+            title: text,
+            source_agent: 'owner',
+          }),
+        });
+      }
+      setQuickText('');
+      await fetchData();
+    } finally {
+      setQuickSending(false);
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <CCSubnav />
+        <div className="flex items-center justify-center py-20 text-zinc-500">
+          <Activity className="w-5 h-5 animate-spin mr-2" />
+          Loading...
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !data) {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <CCSubnav />
+        <div className="text-center py-20 text-zinc-500 space-y-2">
+          <AlertCircle className="w-6 h-6 mx-auto" />
+          <div>Glance is warming up. Apply the latest migration and refresh.</div>
+        </div>
+      </div>
+    );
+  }
+
+  const { strip, agents, plate } = data;
+  const netPositive = strip.net_today_cents >= 0;
+
   return (
-    <div className="space-y-6">
+    <div className="max-w-6xl mx-auto px-6 py-6 space-y-6">
       <CCSubnav />
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white">Overview</h2>
-        <div className="flex items-center gap-3">
-          <InitiativeFilter value={initiativeId} onChange={setInitiativeId} />
+
+      {/* ── Quick Action Bar ─────────────────────────────────────────────── */}
+      <div className="flex items-center gap-2">
+        <div className="flex rounded-lg border border-zinc-800 overflow-hidden text-xs">
           <button
-            onClick={fetchData}
-            disabled={loading}
-            className="flex items-center gap-2 px-3 py-2 text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors disabled:opacity-50"
+            type="button"
+            onClick={() => { setQuickMode('task'); quickRef.current?.focus(); }}
+            className={`px-2.5 py-1.5 flex items-center gap-1 transition-colors ${
+              quickMode === 'task'
+                ? 'bg-teal-500/15 text-teal-400 border-r border-zinc-700'
+                : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300 border-r border-zinc-800'
+            }`}
           >
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            Refresh
+            <ListTodo className="w-3 h-3" /> Task
+          </button>
+          <button
+            type="button"
+            onClick={() => { setQuickMode('note'); quickRef.current?.focus(); }}
+            className={`px-2.5 py-1.5 flex items-center gap-1 transition-colors ${
+              quickMode === 'note'
+                ? 'bg-violet-500/15 text-violet-400'
+                : 'bg-zinc-900 text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            <Plus className="w-3 h-3" /> Note
           </button>
         </div>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard
-          label="Spend Today"
-          value={stats ? formatCurrency(stats.spend.today) : '--'}
-          sub={stats ? `7d: ${formatCurrency(stats.spend.week)} | 30d: ${formatCurrency(stats.spend.month)}` : undefined}
-          icon={DollarSign}
-          color="text-emerald-400"
-          href="/admin/command-center/usage"
-        />
-        <StatCard
-          label="Requests Today"
-          value={stats?.requests.today ?? '--'}
-          sub={stats ? `7d: ${stats.requests.week.toLocaleString()}` : undefined}
-          icon={Activity}
-          color="text-blue-400"
-          href="/admin/command-center/usage"
-        />
-        <StatCard
-          label="Errors Today"
-          value={stats?.errors_today ?? '--'}
-          icon={AlertTriangle}
-          color="text-red-400"
-          href="/admin/command-center/usage"
-        />
-        <StatCard
-          label="Active Tasks"
-          value={stats?.active_tasks ?? '--'}
-          sub={stats ? `${stats.blocked_tasks} blocked` : undefined}
-          icon={ListTodo}
-          color="text-amber-400"
-          href="/admin/command-center/projects"
-        />
-        <StatCard
-          label="Ideas Queued"
-          value={stats?.ideas_queued ?? '--'}
-          sub={stats ? `${stats.ideas_researched_24h} researched (24h)` : undefined}
-          icon={Lightbulb}
-          color="text-purple-400"
-          href="/admin/command-center/ideas"
-        />
-        <StatCard
-          label="Initiatives"
-          value={initiatives.length}
-          sub={initiatives.length > 0 ? initiatives.map((i) => i.title).join(', ') : 'None active'}
-          icon={Target}
-          color="text-cyan-400"
-        />
-        <StatCard
-          label="CRM Pipeline"
-          value={crmStats ? crmStats.deals : '--'}
-          sub={crmStats ? `Weighted: $${(crmStats.weighted_value / 100).toLocaleString()}` : undefined}
-          icon={Handshake}
-          color="text-pink-400"
-          href="/admin/command-center/crm"
-        />
-
-        {/* Pipeline Health Card */}
-        <div className={`rounded-lg border ${phDegraded ? 'border-amber-600/60' : 'border-zinc-800'} bg-zinc-900/50 p-4`}>
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Pipeline Health</span>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={fetchPipelineHealth}
-                disabled={phRefreshing}
-                className="p-0.5 rounded hover:bg-zinc-800 transition-colors disabled:opacity-50"
-                title="Refresh pipeline health"
-              >
-                <RefreshCw className={`w-3 h-3 text-zinc-500 ${phRefreshing ? 'animate-spin' : ''}`} />
-              </button>
-              <HeartPulse className="w-4 h-4 text-teal-400" />
-            </div>
-          </div>
-          {pipelineHealth ? (
-            <>
-              <div className="flex items-center gap-3 mt-1">
-                <span className="text-sm font-semibold text-zinc-300">{pipelineHealth.queued_count} <span className="text-xs font-normal text-zinc-500">queued</span></span>
-                <span className="text-sm font-semibold text-blue-400">{pipelineHealth.executing_count} <span className="text-xs font-normal text-zinc-500">executing</span></span>
-                <span className={`text-sm font-semibold ${pipelineHealth.blocked_count > 0 ? 'text-red-400' : 'text-zinc-400'}`}>{pipelineHealth.blocked_count} <span className="text-xs font-normal text-zinc-500">blocked</span></span>
-              </div>
-              <div className="text-xs text-zinc-600 mt-2">
-                Updated {timeAgo(pipelineHealth.last_updated)}
-              </div>
-            </>
-          ) : (
-            <div className="text-sm text-zinc-500 mt-1">{phDegraded ? 'MC unreachable' : 'Loading...'}</div>
-          )}
-          {phDegraded && pipelineHealth && (
-            <div className="text-xs text-amber-500 mt-1">MC unreachable — showing last snapshot</div>
-          )}
-        </div>
-      </div>
-
-      {/* 7-Day Cost Trend */}
-      {stats?.cost_trend_7d && stats.cost_trend_7d.length > 0 && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-          <h3 className="text-xs text-zinc-500 uppercase tracking-wider mb-3">7-Day Cost Trend</h3>
-          <CostTrendBar trend={stats.cost_trend_7d} />
-        </div>
-      )}
-
-      {/* Quick Nav */}
-      <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
-        {[
-          { label: 'API Usage', href: '/admin/command-center/usage' },
-          { label: 'Projects & Tasks', href: '/admin/command-center/projects' },
-          { label: 'Idea Dump', href: '/admin/command-center/ideas' },
-          { label: 'Finance', href: '/admin/command-center/finance' },
-          { label: 'Agent Scoreboard', href: '/admin/command-center/agents' },
-          { label: 'FinOps', href: '/admin/command-center/finops' },
-          { label: 'CRM Pipeline', href: '/admin/command-center/crm' },
-        ].map((item) => (
-          <Link
-            key={item.href}
-            href={item.href}
-            className="flex items-center justify-between px-4 py-3 bg-zinc-900/50 border border-zinc-800 rounded-lg hover:border-zinc-600 transition-colors"
+        <form
+          className="flex-1 flex items-center gap-2"
+          onSubmit={(e) => { e.preventDefault(); handleQuickSubmit(); }}
+        >
+          <input
+            ref={quickRef}
+            type="text"
+            placeholder={quickMode === 'task' ? 'Quick-add a task...' : 'Drop a note on your plate...'}
+            value={quickText}
+            onChange={(e) => setQuickText(e.target.value)}
+            className="flex-1 bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2 text-sm text-zinc-200 placeholder:text-zinc-600 focus:outline-none focus:border-zinc-600"
+          />
+          <button
+            type="submit"
+            disabled={!quickText.trim() || quickSending}
+            className="p-2 rounded-lg bg-teal-500/15 border border-teal-500/30 text-teal-400 hover:bg-teal-500/25 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
           >
-            <span className="text-sm text-zinc-300">{item.label}</span>
-            <ChevronRight className="w-4 h-4 text-zinc-600" />
-          </Link>
-        ))}
+            <Send className="w-4 h-4" />
+          </button>
+        </form>
       </div>
 
-      {/* Two-column: Agent Runs + Ideas Processed */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Latest Agent Runs */}
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-          <div className="flex items-center gap-2 p-4 border-b border-zinc-800">
-            <Bot className="w-4 h-4 text-blue-400" />
-            <h3 className="text-sm font-semibold text-white">Latest Agent Runs</h3>
-          </div>
-          <div className="divide-y divide-zinc-800 max-h-80 overflow-y-auto">
-            {agentRuns.length === 0 && (
-              <div className="p-4 text-center text-zinc-500 text-sm">No agent runs yet</div>
-            )}
-            {agentRuns.slice(0, 20).map((run) => (
-              <div key={run.id} className="px-4 py-2 flex items-center gap-3 text-sm">
-                <span className="font-mono text-xs text-zinc-400 w-24 truncate">{run.agent_id}</span>
-                <span className="text-zinc-500 w-28 truncate">{run.action}</span>
-                {statusBadge(run.status)}
-                <span className="text-zinc-600 text-xs ml-auto">
-                  {run.cost_usd > 0 ? formatCurrency(run.cost_usd) : '--'}
-                </span>
-                <span className="text-zinc-600 text-xs whitespace-nowrap">
-                  {run.started_at ? timeAgo(run.started_at) : timeAgo(run.created_at)}
-                </span>
-              </div>
-            ))}
-          </div>
+      {/* ── Zone 1: The Strip ────────────────────────────────────────────── */}
+      <section className="grid grid-cols-2 md:grid-cols-6 gap-3">
+        <StripCell
+          label="In today"
+          value={usd(strip.money_in_today_cents)}
+          accent="emerald"
+          icon={TrendingUp}
+        />
+        <StripCell
+          label="Out today"
+          value={usd(strip.money_out_today_cents)}
+          accent="rose"
+          icon={TrendingDown}
+        />
+        <StripCell
+          label="Net today"
+          value={usd(strip.net_today_cents)}
+          accent={netPositive ? 'emerald' : 'rose'}
+          icon={DollarSign}
+          emphasize
+        />
+        <StripCell
+          label="Shipped"
+          value={`${strip.tasks_shipped_today}`}
+          accent="blue"
+          icon={Package}
+        />
+        <StripCell
+          label="In flight"
+          value={`${strip.tasks_in_flight}`}
+          accent="violet"
+          icon={Activity}
+        />
+        <StripCell
+          label="Needs you"
+          value={`${strip.tasks_needing_you}`}
+          accent={strip.tasks_needing_you > 0 ? 'amber' : 'zinc'}
+          icon={Bell}
+          emphasize={strip.tasks_needing_you > 0}
+        />
+      </section>
+
+      {/* ── Zone 3: On Your Plate (rendered before agents so it's above the fold) */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
+            <Bell className="w-4 h-4 text-amber-400" />
+            On your plate
+            <span className="text-xs text-zinc-600">({plate.length})</span>
+          </h2>
+          <button
+            type="button"
+            onClick={fetchData}
+            className="text-xs text-zinc-500 hover:text-zinc-300 flex items-center gap-1"
+          >
+            <RefreshCw className="w-3 h-3" /> Refresh
+          </button>
         </div>
 
-        {/* Ideas Processed Last Run */}
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-          <div className="flex items-center gap-2 p-4 border-b border-zinc-800">
-            <Zap className="w-4 h-4 text-purple-400" />
-            <h3 className="text-sm font-semibold text-white">Recently Processed Ideas</h3>
+        {plate.length === 0 ? (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 text-center">
+            <Check className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
+            <div className="text-sm text-zinc-400">Nothing on your plate. Go do something else.</div>
           </div>
-          <div className="divide-y divide-zinc-800 max-h-80 overflow-y-auto">
-            {processedIdeas.length === 0 && (
-              <div className="p-4 text-center text-zinc-500 text-sm">No ideas processed yet</div>
-            )}
-            {processedIdeas.map((idea) => (
-              <div key={idea.id} className="px-4 py-2 flex items-center gap-3 text-sm">
-                <span className="text-zinc-300 flex-1 truncate">{idea.title}</span>
-                {idea.score !== null && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${
-                    idea.score >= 8 ? 'bg-emerald-500/20 text-emerald-400' :
-                    idea.score >= 5 ? 'bg-amber-500/20 text-amber-400' :
-                    'bg-zinc-500/20 text-zinc-400'
-                  }`}>
-                    {idea.score}
-                  </span>
-                )}
-                <span className="text-zinc-600 text-xs whitespace-nowrap">
-                  {idea.last_processed_at ? timeAgo(idea.last_processed_at) : '--'}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Telemetry: What's burning money/time */}
-      {telemetry && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* Top spend agents */}
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-            <div className="p-3 border-b border-zinc-800">
-              <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Top Spend Agents (7d)</h3>
-            </div>
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-zinc-800">
-                {telemetry.spend_by_agent_7d.length === 0 && (
-                  <tr><td className="px-4 py-3 text-center text-zinc-500">No data</td></tr>
-                )}
-                {telemetry.spend_by_agent_7d.map((r) => (
-                  <tr key={r.agent}>
-                    <td className="px-4 py-1.5 text-zinc-400 font-mono text-xs">{r.agent}</td>
-                    <td className="px-4 py-1.5 text-right text-emerald-400">{formatCurrency(r.cost)}</td>
-                    <td className="px-4 py-1.5 text-right text-zinc-500 text-xs">{r.count} req</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </div>
-
-          {/* Top spend models */}
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-            <div className="p-3 border-b border-zinc-800">
-              <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Top Spend Models (7d)</h3>
-            </div>
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-zinc-800">
-                {telemetry.spend_by_model_7d.length === 0 && (
-                  <tr><td className="px-4 py-3 text-center text-zinc-500">No data</td></tr>
-                )}
-                {telemetry.spend_by_model_7d.map((r) => (
-                  <tr key={r.model}>
-                    <td className="px-4 py-1.5 text-zinc-400 font-mono text-xs">{r.model}</td>
-                    <td className="px-4 py-1.5 text-right text-emerald-400">{formatCurrency(r.cost)}</td>
-                    <td className="px-4 py-1.5 text-right text-zinc-500 text-xs">{r.count} req</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </div>
-
-          {/* Slowest models (p95 latency) */}
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-            <div className="p-3 border-b border-zinc-800">
-              <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Slowest Models p95 (7d)</h3>
-            </div>
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-zinc-800">
-                {telemetry.latency_p95_by_model_7d.length === 0 && (
-                  <tr><td className="px-4 py-3 text-center text-zinc-500">No latency data</td></tr>
-                )}
-                {telemetry.latency_p95_by_model_7d.map((r) => (
-                  <tr key={r.model}>
-                    <td className="px-4 py-1.5 text-zinc-400 font-mono text-xs">{r.model}</td>
-                    <td className="px-4 py-1.5 text-right text-amber-400">{r.p95_ms.toLocaleString()}ms</td>
-                    <td className="px-4 py-1.5 text-right text-zinc-500 text-xs">{r.samples} samples</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </div>
-
-          {/* Failures by agent */}
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50">
-            <div className="p-3 border-b border-zinc-800">
-              <h3 className="text-xs text-zinc-500 uppercase tracking-wider">Failures by Agent (7d)</h3>
-            </div>
-            <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <tbody className="divide-y divide-zinc-800">
-                {telemetry.failures_by_agent_7d.length === 0 && (
-                  <tr><td className="px-4 py-3 text-center text-zinc-500">No failures</td></tr>
-                )}
-                {telemetry.failures_by_agent_7d.map((r) => (
-                  <tr key={r.agent}>
-                    <td className="px-4 py-1.5 text-zinc-400 font-mono text-xs">{r.agent}</td>
-                    <td className="px-4 py-1.5 text-right text-red-400">{r.count} failures</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Active Initiatives */}
-      {initiatives.length > 0 && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-          <div className="flex items-center gap-2 mb-3">
-            <TrendingUp className="w-4 h-4 text-cyan-400" />
-            <h3 className="text-sm font-semibold text-white">Active Initiatives</h3>
-          </div>
-          <div className="flex flex-wrap gap-3">
-            {initiatives.map((init) => (
-              <div key={init.id} className="px-3 py-2 bg-zinc-800 rounded-lg border border-zinc-700">
-                <div className="text-sm text-white font-medium">{init.title}</div>
-                <div className="text-xs text-zinc-500 mt-0.5">{init.type} &middot; {init.status}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Recent Activity Feed */}
-      <div>
-        <h2 className="text-lg font-semibold text-white mb-3">Recent Activity</h2>
-        <div className="border border-zinc-800 rounded-lg divide-y divide-zinc-800 bg-zinc-900/50">
-          {activity.length === 0 && (
-            <div className="p-8 text-center text-zinc-500">
-              {loading ? 'Loading...' : 'No recent activity'}
-            </div>
-          )}
-          {activity.map((item) => (
-            <div key={item.id} className="px-4 py-3 flex items-start gap-3">
-              <div className={`mt-1 w-2 h-2 rounded-full flex-shrink-0 ${item.source === 'task' ? 'bg-blue-400' : 'bg-purple-400'}`} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono text-zinc-500 uppercase">{item.type}</span>
-                  <span className="text-xs text-zinc-600">{item.agent_id}</span>
+        ) : (
+          <div className="grid gap-2">
+            {plate.map((item) => {
+              const meta = KIND_META[item.kind] || KIND_META.fyi;
+              const Icon = meta.icon;
+              const isBusy = busy === item.id;
+              return (
+                <div
+                  key={item.id}
+                  className={`rounded-xl border p-3 flex items-start gap-3 ${URGENCY_BG[item.urgency] || URGENCY_BG.normal}`}
+                >
+                  <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${meta.accent}`} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-zinc-100 truncate">{item.title}</span>
+                      {item.urgency !== 'normal' && (
+                        <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                          item.urgency === 'urgent' ? 'bg-rose-500/20 text-rose-300' :
+                          item.urgency === 'high' ? 'bg-amber-500/20 text-amber-300' :
+                          'bg-zinc-800 text-zinc-500'
+                        }`}>{item.urgency}</span>
+                      )}
+                      {item.lane && (
+                        <span className="text-[10px] px-1.5 py-0.5 bg-zinc-800 text-zinc-400 rounded">{item.lane}</span>
+                      )}
+                    </div>
+                    {item.one_line && (
+                      <div className="text-xs text-zinc-500 mt-0.5 truncate">{item.one_line}</div>
+                    )}
+                    <div className="flex items-center gap-2 mt-1 text-[10px] text-zinc-600">
+                      {item.source_agent && <span>via {item.source_agent}</span>}
+                      <span>· {timeAgo(item.created_at)}</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    {item.action_url && (
+                      <a
+                        href={item.action_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-2.5 py-1 rounded bg-blue-500/10 border border-blue-500/30 text-xs text-blue-300 hover:bg-blue-500/20 inline-flex items-center gap-1"
+                        onClick={() => handleFeedAction(item.id, 'acted')}
+                      >
+                        {item.action_label || 'Open'} <ArrowRight className="w-3 h-3" />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleFeedAction(item.id, 'acted')}
+                      disabled={isBusy}
+                      className="p-1.5 rounded bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 disabled:opacity-40"
+                      aria-label="Mark done"
+                      title="Mark as handled"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleFeedAction(item.id, 'dismiss')}
+                      disabled={isBusy}
+                      className="p-1.5 rounded bg-zinc-800 border border-zinc-700 text-zinc-500 hover:text-zinc-300 disabled:opacity-40"
+                      aria-label="Dismiss"
+                      title="Dismiss (not relevant)"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
                 </div>
-                <p className="text-sm text-zinc-300 truncate">{item.title}</p>
-              </div>
-              <span className="text-xs text-zinc-600 whitespace-nowrap">{timeAgo(item.ts)}</span>
-            </div>
-          ))}
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ── Zone 2: Agent Scoreboard ────────────────────────────────────── */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-zinc-300 flex items-center gap-2">
+            <Bot className="w-4 h-4 text-violet-400" />
+            Agents · this week
+            <span className="text-xs text-zinc-600">({agents.length})</span>
+          </h2>
+          <Link
+            href="/admin/command-center/agents"
+            className="text-xs text-zinc-500 hover:text-zinc-300 inline-flex items-center gap-1"
+          >
+            Full agent view <ChevronRight className="w-3 h-3" />
+          </Link>
         </div>
+
+        {agents.length === 0 ? (
+          <div className="rounded-xl border border-zinc-800 bg-zinc-900/30 p-6 text-center text-sm text-zinc-500">
+            No active agents this week.
+          </div>
+        ) : (
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {agents.map((a) => <AgentTile key={a.agent_id} agent={a} />)}
+          </div>
+        )}
+      </section>
+
+      {/* ── Footer: link to deep view ───────────────────────────────────── */}
+      <div className="pt-4 border-t border-zinc-800/50 text-center">
+        <Link
+          href="/admin/command-center/deep"
+          className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300"
+        >
+          <Layers className="w-3 h-3" /> Deep operator view
+        </Link>
       </div>
     </div>
+  );
+}
+
+// ── Sub-components ───────────────────────────────────────────────────────────
+
+const ACCENT_CLASSES: Record<string, { text: string; border: string; bg: string }> = {
+  emerald: { text: 'text-emerald-400', border: 'border-emerald-500/20', bg: 'bg-emerald-500/[0.04]' },
+  rose:    { text: 'text-rose-400',    border: 'border-rose-500/20',    bg: 'bg-rose-500/[0.04]' },
+  amber:   { text: 'text-amber-400',   border: 'border-amber-500/30',   bg: 'bg-amber-500/[0.05]' },
+  blue:    { text: 'text-blue-400',    border: 'border-blue-500/20',    bg: 'bg-blue-500/[0.04]' },
+  violet:  { text: 'text-violet-400',  border: 'border-violet-500/20',  bg: 'bg-violet-500/[0.04]' },
+  zinc:    { text: 'text-zinc-400',    border: 'border-zinc-800',       bg: 'bg-zinc-900/40' },
+};
+
+function StripCell({
+  label,
+  value,
+  accent,
+  icon: Icon,
+  emphasize,
+}: {
+  label: string;
+  value: string;
+  accent: keyof typeof ACCENT_CLASSES;
+  icon: typeof Mail;
+  emphasize?: boolean;
+}) {
+  const c = ACCENT_CLASSES[accent];
+  return (
+    <div className={`rounded-xl border ${c.border} ${c.bg} p-3`}>
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-[10px] uppercase tracking-wider text-zinc-500 font-medium">{label}</span>
+        <Icon className={`w-3.5 h-3.5 ${c.text}`} />
+      </div>
+      <div className={`font-bold ${emphasize ? 'text-2xl' : 'text-xl'} ${c.text}`}>{value}</div>
+    </div>
+  );
+}
+
+function AgentTile({ agent }: { agent: AgentCard }) {
+  const statusStyles: Record<string, string> = {
+    producing: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+    idle:      'bg-zinc-800 text-zinc-500 border-zinc-700',
+    stale:     'bg-amber-500/10 text-amber-400 border-amber-500/30',
+    failing:   'bg-rose-500/10 text-rose-400 border-rose-500/30',
+    offline:   'bg-zinc-900 text-zinc-600 border-zinc-800',
+  };
+
+  const hasRoi = agent.roi_week != null;
+  const roiStr = hasRoi
+    ? (agent.roi_week! >= 0 ? `${agent.roi_week!.toFixed(1)}x` : 'loss')
+    : null;
+
+  return (
+    <Link
+      href={`/admin/command-center/agents?agent=${encodeURIComponent(agent.agent_id)}`}
+      className="block rounded-xl border border-zinc-800 bg-zinc-900/40 p-4 hover:border-zinc-700 hover:bg-zinc-900/70 transition-colors"
+    >
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-sm font-semibold text-zinc-200 truncate">{agent.agent_id}</span>
+        <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded border ${statusStyles[agent.status] || statusStyles.idle}`}>
+          {agent.status}
+        </span>
+      </div>
+
+      <div className="flex items-end justify-between mb-3">
+        <div>
+          {hasRoi ? (
+            <>
+              <div className={`text-2xl font-bold ${agent.roi_week! >= 1 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                {roiStr}
+              </div>
+              <div className="text-[10px] text-zinc-500 uppercase tracking-wider">ROI · week</div>
+            </>
+          ) : (
+            <>
+              <div className="text-sm text-zinc-500 italic">ROI pending</div>
+              <div className="text-[10px] text-zinc-600">Bolt hasn&apos;t set task values yet</div>
+            </>
+          )}
+        </div>
+        <Sparkline values={agent.cost_sparkline_7d} />
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-zinc-400 border-t border-zinc-800/50 pt-2">
+        <span>{agent.tasks_done_week} done</span>
+        <span>{usdExact(agent.cost_week_usd)} spent</span>
+      </div>
+
+      {agent.current_task && (
+        <div className="text-[11px] text-zinc-500 mt-2 truncate">
+          <Zap className="w-3 h-3 inline mr-1" />
+          {agent.current_task}
+        </div>
+      )}
+    </Link>
   );
 }

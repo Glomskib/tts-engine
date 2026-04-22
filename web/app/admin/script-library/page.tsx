@@ -14,6 +14,7 @@ import { useDebounce } from "@/hooks/useDebounce";
 const MarkAsWinnerModal = dynamic(() => import("@/components/MarkAsWinnerModal").then(m => ({ default: m.MarkAsWinnerModal })), { ssr: false });
 import { Toast } from "@/components/Toast";
 import { useToast } from '@/contexts/ToastContext';
+import { sanitizeTitle } from '@/lib/content-safety';
 
 // --- Types ---
 
@@ -1653,7 +1654,7 @@ export default function SkitLibraryPage() {
                 {/* Left */}
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="script-title" style={{ fontWeight: 600, color: colors.text, marginBottom: "4px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {skit.title}
+                    {sanitizeTitle(skit.title, 'Untitled script')}
                   </div>
                   <div className="script-subtitle" style={{ fontSize: "13px", color: colors.textMuted, display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap" }}>
                     {skit.product_name && (

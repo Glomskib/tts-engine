@@ -74,10 +74,10 @@ export default function Error({
               <RefreshCw size={16} />
             </button>
             <Link
-              href="/admin/dashboard"
+              href="/create"
               className="inline-flex items-center gap-2 px-6 py-3 rounded-xl border border-white/10 text-zinc-300 font-medium hover:bg-white/5 transition-colors"
             >
-              Go to Dashboard
+              Go to Create
               <ArrowRight size={16} />
             </Link>
           </div>

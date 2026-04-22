@@ -21,6 +21,7 @@ export interface EnqueueDraft {
   source: string;
   run_id?: string;
   platforms?: LatePlatform[];
+  media_items?: Array<{ url: string; type?: string }>;
   meta?: Record<string, unknown>;
 }
 

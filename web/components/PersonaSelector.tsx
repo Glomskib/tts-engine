@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { ChevronDown, Grid, Heart, Cpu, Sparkles, Briefcase, Dumbbell, Laugh, ChefHat, Plane, Hammer, Crown, GraduationCap } from 'lucide-react';
-import { PERSONAS } from '@/lib/personas';
+import { CREATOR_VOICES as PERSONAS } from '@/lib/personas';
 import { PERSONA_CATEGORIES, type PersonaCategoryId } from '@/lib/persona-categories';
 
 // Icon mapping for categories

@@ -121,8 +121,7 @@ function LoginForm() {
           return;
         }
 
-        // Redirect to dashboard
-        window.location.href = '/admin/dashboard';
+        window.location.href = '/create';
       }
     } catch (err) {
       console.error('Auth error:', err);

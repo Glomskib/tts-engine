@@ -8,7 +8,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const LANES = ['FlashFlow', 'POD TikTok Shop', "Zebby's World", 'Making Miles Matter', 'OpenClaw'] as const;
+const LANES = ['FlashFlow', 'POD TikTok Shop', "Zebby's World", 'Making Miles Matter', 'OpenClaw', 'Personal'] as const;
 export type Lane = (typeof LANES)[number];
 
 const DEFAULT_STALE_MINUTES = 60;
@@ -229,6 +229,7 @@ function resolveTaskLane(task: TaskRow, projectMap: Map<string, string>): string
   if (projectName.toLowerCase().includes('zebby')) return "Zebby's World";
   if (projectName.toLowerCase().includes('hhh') || projectName.toLowerCase().includes('mmm') || projectName.toLowerCase().includes('making miles')) return 'Making Miles Matter';
   if (projectName.toLowerCase().includes('openclaw')) return 'OpenClaw';
+  if (projectName.toLowerCase().includes('personal') || projectName.toLowerCase().includes('errand') || projectName.toLowerCase().includes('health') || projectName.toLowerCase().includes('home')) return 'Personal';
   return 'Other';
 }
 

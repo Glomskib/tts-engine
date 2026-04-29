@@ -42,7 +42,7 @@ export default function PricingPage() {
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <h1 className="text-5xl font-bold mb-4">Simple, Transparent Pricing</h1>
         <p className="text-xl text-gray-300 mb-6">
-          Start free. Upgrade when you need more scripts. Cancel anytime.
+          Built for TikTok &amp; Instagram creators. Works for YouTube, Facebook, and brand owners too. Start free.
         </p>
         <div className="flex items-center justify-center gap-4 text-sm text-gray-400">
           <span className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> No credit card required</span>
@@ -120,7 +120,7 @@ export default function PricingPage() {
           {/* Lite Plan */}
           <div className="rounded-xl p-6 border border-gray-700 bg-gray-800/30 hover:border-gray-600 transition-all flex flex-col">
             <h3 className="text-xl font-bold mb-1">{PRICING_PLANS.lite.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">For early-stage affiliates</p>
+            <p className="text-gray-400 text-sm mb-4">For early-stage creators on TikTok &amp; Reels</p>
 
             <div className="mb-1">
               <span className="text-4xl font-bold">
@@ -164,7 +164,7 @@ export default function PricingPage() {
               {PRICING_PLANS.pro.badge}
             </div>
             <h3 className="text-xl font-bold mb-1 mt-2">{PRICING_PLANS.pro.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">For serious TikTok Shop affiliates</p>
+            <p className="text-gray-400 text-sm mb-4">For serious TikTok, Reels, and YouTube creators</p>
 
             <div className="mb-1">
               <span className="text-4xl font-bold">
@@ -205,7 +205,7 @@ export default function PricingPage() {
           {/* Business Plan */}
           <div className="rounded-xl p-6 border border-gray-700 bg-gray-800/30 hover:border-gray-600 transition-all flex flex-col">
             <h3 className="text-xl font-bold mb-1">{PRICING_PLANS.business.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">For multi-brand affiliates</p>
+            <p className="text-gray-400 text-sm mb-4">For multi-brand creators, agencies, and small business owners</p>
 
             <div className="mb-1">
               <span className="text-4xl font-bold">
@@ -290,7 +290,7 @@ export default function PricingPage() {
             </Link>
             <span className="text-gray-600">|</span>
             <Link href="/transcribe" className="text-sm font-medium text-teal-400 hover:text-teal-300 transition">
-              TikTok Transcriber →
+              TikTok &amp; Reels Transcriber →
             </Link>
             <span className="text-gray-600">|</span>
             <Link href="/youtube-transcribe" className="text-sm font-medium text-teal-400 hover:text-teal-300 transition">
@@ -307,7 +307,7 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold mb-2">What&apos;s included in the free plan?</h3>
             <p className="text-gray-300">
-              5 AI scripts per month, unlimited TikTok and YouTube transcriptions with our free transcriber tools, and 1 brand. You can try the script generator and transcriber without even creating an account.
+              5 AI scripts per month for TikTok, Reels, or YouTube — your choice of platform per script. Unlimited transcriptions of TikToks, Reels, or YouTube videos with our free transcriber tools. 1 brand. You can try the script generator and transcriber without even creating an account.
             </p>
           </div>
           <div>
@@ -319,7 +319,7 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold mb-2">What&apos;s the difference between the tiers?</h3>
             <p className="text-gray-300">
-              Free is for testing. Lite ($9) gives you 50 scripts/mo + content calendar. Creator Pro ($29) is unlimited scripts + Winners Bank + analytics + video pipeline. Business ($59) adds priority support + unlimited brands.
+              Free is for testing across any platform. Lite ($9) gives you 50 scripts/mo (any combination of TikTok, Reels, or YouTube) + content calendar. Creator Pro ($29) is unlimited scripts on every platform + Winners Bank + analytics + video pipeline. Business ($59) adds priority support, unlimited brands, and is the right fit for agencies and business owners running multiple accounts.
             </p>
           </div>
           <div>

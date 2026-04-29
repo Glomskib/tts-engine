@@ -29,9 +29,9 @@ export default function TranscribePage() {
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs text-teal-400 mb-4">
           100% free — no signup required
         </div>
-        <h1 className="text-4xl font-bold mb-4 text-white">Free TikTok Video Transcriber & Script Analyzer</h1>
+        <h1 className="text-4xl font-bold mb-4 text-white">Free TikTok &amp; Instagram Reels Transcriber + Script Analyzer</h1>
         <p className="text-lg text-gray-300 mb-8">
-          Paste any TikTok video link to get the full transcript, hook breakdown, and content notes. No signup required.
+          Paste any TikTok or Instagram Reels link to get the full transcript, hook breakdown, and content notes. No signup required. (For YouTube, use our <Link href="/youtube-transcribe" className="text-teal-400 hover:text-teal-300 underline">YouTube transcriber</Link>.)
         </p>
       </div>
 
@@ -46,8 +46,8 @@ export default function TranscribePage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="p-4 bg-gray-800/50 rounded-lg">
               <div className="text-3xl font-bold text-teal-500 mb-2">1</div>
-              <h3 className="text-lg font-semibold text-white mb-2">Paste a TikTok Link</h3>
-              <p className="text-gray-300">Drop any public TikTok URL in the box above. Works with vm.tiktok.com and tiktok.com/@user/video/...</p>
+              <h3 className="text-lg font-semibold text-white mb-2">Paste a Link</h3>
+              <p className="text-gray-300">Drop any public TikTok or Instagram Reels URL in the box above. Works with vm.tiktok.com, tiktok.com/@user/video/..., and instagram.com/reel/...</p>
             </div>
             <div className="p-4 bg-gray-800/50 rounded-lg">
               <div className="text-3xl font-bold text-teal-500 mb-2">2</div>
@@ -98,20 +98,20 @@ export default function TranscribePage() {
           <h2 className="text-2xl font-bold mb-6 text-white">Who This Is For</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="p-4 bg-gray-800/50 rounded-lg">
-              <h3 className="text-lg font-semibold text-white mb-2">Content Creators</h3>
-              <p className="text-gray-300">Reverse-engineer winning TikToks. Analyze competitor content and adapt top-performing hooks for your niche.</p>
+              <h3 className="text-lg font-semibold text-white mb-2">Content Creators &amp; Influencers</h3>
+              <p className="text-gray-300">Reverse-engineer winning TikToks and Reels. Analyze competitor content and adapt top-performing hooks for your niche on either platform.</p>
             </div>
             <div className="p-4 bg-gray-800/50 rounded-lg">
-              <h3 className="text-lg font-semibold text-white mb-2">TikTok Shop Sellers</h3>
-              <p className="text-gray-300">Find viral product video patterns. See what hooks convert, then use our script generator to create similar videos.</p>
+              <h3 className="text-lg font-semibold text-white mb-2">TikTok Shop &amp; Brand Affiliates</h3>
+              <p className="text-gray-300">Find viral product video patterns across TikTok Shop and Reels. See what hooks convert, then use our script generator to create your own.</p>
             </div>
             <div className="p-4 bg-gray-800/50 rounded-lg">
               <h3 className="text-lg font-semibold text-white mb-2">Marketing Agencies</h3>
-              <p className="text-gray-300">Build content strategies on data. Analyze competitor campaigns and create data-backed scripts for clients.</p>
+              <p className="text-gray-300">Build content strategies on data. Analyze competitor campaigns across TikTok and Instagram, and create data-backed scripts for clients.</p>
             </div>
             <div className="p-4 bg-gray-800/50 rounded-lg">
-              <h3 className="text-lg font-semibold text-white mb-2">UGC Creators</h3>
-              <p className="text-gray-300">Master trending hooks. Understand what makes videos go viral and apply those patterns to your scripts.</p>
+              <h3 className="text-lg font-semibold text-white mb-2">UGC Creators &amp; Brand Owners</h3>
+              <p className="text-gray-300">Master trending hooks across short-form. Understand what makes videos go viral on TikTok and Reels, then replicate the patterns in your own content.</p>
             </div>
           </div>
         </section>

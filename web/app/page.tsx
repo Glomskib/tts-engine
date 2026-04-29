@@ -15,28 +15,32 @@ import { useAuth } from '@/contexts/AuthContext';
 
 const FAQ_ITEMS = [
   {
-    q: 'How do I study what actually works on TikTok?',
-    a: 'Winners Bank is your library of proven viral TikToks. Connect your TikTok account to auto-sync real engagement metrics daily, or paste any public TikTok URL and AI breaks down the hook, pacing, and triggers that made it work — so you can replicate the pattern in your own scripts.',
+    q: 'How do I study what actually works on TikTok and Instagram?',
+    a: 'Winners Bank is your library of proven viral short-form videos across TikTok and Instagram Reels. Connect your accounts to auto-sync real engagement metrics, or paste any public TikTok or Reel URL and AI breaks down the hook, pacing, and triggers that made it work — so you can replicate the pattern on either platform.',
   },
   {
     q: "How do I write scripts that don't sound AI-generated?",
-    a: 'FlashFlow uses multiple creator personas (Skeptical Reviewer, Gen-Z Trendsetter, High-Energy, etc.) and tone customization. The output reads like a real creator — with natural pauses, humor, and authentic energy. You can always edit and tweak.',
+    a: 'FlashFlow uses 20+ creator personas (Skeptical Reviewer, Gen-Z Trendsetter, High-Energy Hype, Authentic Storyteller, etc.) and tone customization. The output reads like a real creator — with natural pauses, humor, and authentic energy. Adapt the same script for TikTok or Reels in one tap.',
   },
   {
-    q: 'How do I hit my retainer video goals on time?',
-    a: "Content Calendar tracks your monthly targets by brand. Set video goals, see what you've posted, and see at a glance when you're behind pace. For retainer deals, FlashFlow helps you stay on pace and hit your payouts.",
+    q: 'How do I hit brand deal and retainer goals on time?',
+    a: "Content Calendar tracks your monthly content targets by brand and platform. Set goals, see what you've posted on TikTok and Instagram, and see at a glance when you're behind pace. For retainer + UGC deals, FlashFlow keeps you on pace so you hit your payouts.",
   },
   {
-    q: 'Can I manage multiple TikTok Shop brands?',
-    a: 'Yes. FlashFlow is built for affiliates juggling 3-5 brands simultaneously. Track retainer progress, winners, and scripts per brand. Switch between brands instantly and see all your brand analytics in one dashboard.',
+    q: 'Can I manage multiple brand deals at once?',
+    a: 'Yes. FlashFlow is built for influencers and affiliates juggling 3-5+ brands simultaneously. Track retainer progress, winners, and scripts per brand. Switch between brands instantly and see all your brand analytics in one dashboard. Works for TikTok Shop, Amazon Influencer, brand UGC, and direct sponsorships.',
   },
   {
     q: 'What makes FlashFlow different from ChatGPT?',
-    a: "FlashFlow is built specifically for TikTok Shop affiliates. It gives you script generation + Winners Bank (competitive intelligence) + Content Calendar + Retainer tracking. ChatGPT doesn't know about TikTok compliance, affiliate psychology, or your brand deals.",
+    a: "FlashFlow is built specifically for short-form creators on TikTok and Instagram. You get persona-driven script generation + Winners Bank (competitive intelligence on what's going viral) + Content Calendar + brand-deal/retainer tracking + analytics. ChatGPT doesn't know about TikTok or Reels compliance, hook patterns, or how creators actually monetize.",
+  },
+  {
+    q: 'Does it work for Instagram Reels too?',
+    a: 'Yes — every script, hook, and analytics view supports both TikTok and Instagram Reels. The same vertical-video format works on both platforms; FlashFlow adapts captions, hashtags, and CTA style per platform automatically.',
   },
   {
     q: 'Is it really free?',
-    a: 'Yes! The free plan includes 5 scripts/month, free TikTok and YouTube transcribers, and 1 brand. No credit card needed, no time limit.',
+    a: 'Yes. The free plan includes 5 AI scripts per month, the free TikTok and YouTube transcribers, and 1 brand. No credit card, no time limit.',
   },
   {
     q: 'Can I cancel anytime?',
@@ -154,7 +158,7 @@ export default function LandingPage() {
             applicationCategory: 'BusinessApplication',
             operatingSystem: 'Web',
             url: 'https://flashflowai.com',
-            description: 'AI-powered TikTok script generator for creators, TikTok Shop sellers, and agencies.',
+            description: 'AI-powered short-form video script generator for TikTok and Instagram creators, influencers, UGC sellers, TikTok Shop affiliates, and agencies.',
             offers: {
               '@type': 'AggregateOffer',
               lowPrice: '0',
@@ -201,41 +205,51 @@ export default function LandingPage() {
       {/* ================================================================ */}
       {/* NAVIGATION — Minimal, single CTA */}
       {/* ================================================================ */}
+      {/*
+        Mobile-first nav. Previous version crammed 4 links + logo into ~327px
+        of viewport on a 375px iPhone with 8px gaps — items touched and the
+        "Try Script Generator Free" CTA truncated awkwardly. Fixes:
+        - reduce side padding on mobile (px-4 vs px-6 desktop)
+        - on phones show ONLY logo + the primary CTA; secondary links (Tools,
+          Pricing, Sign In) hide below the sm: breakpoint to give the CTA room
+        - nav items use whitespace-nowrap so they never break across lines
+        - desktop unchanged with all 4 items + larger gaps
+      */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+          <Link href="/" className="flex items-center gap-2 min-w-0">
             <Image
               src={BRAND.logo}
               alt={BRAND.name}
               width={32}
               height={32}
-              className="rounded-lg"
+              className="rounded-lg flex-shrink-0"
             />
-            <span className="font-semibold text-lg tracking-tight">{BRAND.name}</span>
+            <span className="font-semibold text-lg tracking-tight truncate">{BRAND.name}</span>
           </Link>
-          <div className="flex items-center gap-2 sm:gap-4">
-            <Link href="/tools" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+            <Link href="/tools" className="text-sm text-zinc-400 hover:text-white transition-colors hidden md:block">
               Tools
             </Link>
-            <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors">
+            <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
               Pricing
             </Link>
             {!authLoading && authenticated ? (
               <Link
                 href="/create"
-                className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
+                className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors whitespace-nowrap"
               >
                 <span className="sm:hidden">Open</span>
                 <span className="hidden sm:inline">Open FlashFlow</span>
               </Link>
             ) : (
               <>
-                <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">
+                <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
                   Sign In
                 </Link>
                 <Link
                   href="/script-generator"
-                  className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
+                  className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors whitespace-nowrap"
                 >
                   <span className="sm:hidden">Try Free</span>
                   <span className="hidden sm:inline">Try Script Generator Free</span>
@@ -257,14 +271,14 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-            The Script Engine Built for{' '}
+            The Content Engine Built for{' '}
             <span className="bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent">
-              TikTok Shop Affiliates
+              TikTok &amp; Instagram Creators
             </span>
           </h1>
 
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Find winning products. Generate scripts that don&apos;t sound AI. Track retainer goals. Know exactly what&apos;s converting — and why.
+            Generate scripts that don&apos;t sound AI. Find what&apos;s actually winning. Track brand deals + retainer goals across TikTok and Reels. Built for influencers, affiliates, and UGC creators.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">

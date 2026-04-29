@@ -71,6 +71,89 @@ const TIER_PROMPTS: Record<string, string> = {
 };
 
 // ---------------------------------------------------------------------------
+// Platform-aware generation. Each profile changes hook length, pacing, captions,
+// and CTA style so a script generated for "tiktok" feels native to TikTok and
+// a script generated for "youtube_long" feels native to long-form YouTube.
+// ---------------------------------------------------------------------------
+
+type PlatformId =
+  | "tiktok"
+  | "reels"
+  | "youtube_shorts"
+  | "youtube_long"
+  | "facebook_reels";
+
+const VALID_PLATFORMS: PlatformId[] = [
+  "tiktok",
+  "reels",
+  "youtube_shorts",
+  "youtube_long",
+  "facebook_reels",
+];
+
+const PLATFORM_PROFILES: Record<PlatformId, {
+  label: string;
+  aspect: string;
+  durationGuidance: string;
+  hookGuidance: string;
+  captionGuidance: string;
+  ctaGuidance: string;
+  pacingGuidance: string;
+  extras: string;
+}> = {
+  tiktok: {
+    label: "TikTok",
+    aspect: "9:16 vertical, 1080x1920",
+    durationGuidance: "15–60 seconds total. Optimal sweet spot 22–35 seconds. Total spoken words ~60–80.",
+    hookGuidance: "First 1–2 seconds is everything. Hook lands before any logo, brand reveal, or context. Lean into trend-aware language, oddly-specific observations, or pattern interrupts. The on-screen text overlay should pop within 0.5 seconds and create tension that's DIFFERENT from the spoken hook.",
+    captionGuidance: "Burned-in captions across the full video, large readable type, ALL CAPS for punchlines, color callouts on key words. The spoken caption should match the audio. Use 2–3 line limit per caption frame.",
+    ctaGuidance: "End with a comments-driven CTA when possible (\"comment X if you want…\", \"tell me below…\"). Comments boost reach more than likes on TikTok. Use \"Tap the orange cart\" only if the video links to TikTok Shop.",
+    pacingGuidance: "Fast cuts every 1.5–3 seconds. Visual variety per beat. No static talking-head longer than 4 seconds without a cut, B-roll insert, or zoom.",
+    extras: "Title-driven trends and sound trends matter — assume the user will pair this with a trending sound. Hook can reference current TikTok culture if it fits the persona.",
+  },
+  reels: {
+    label: "Instagram Reels",
+    aspect: "9:16 vertical, 1080x1920",
+    durationGuidance: "15–60 seconds total. Optimal 18–30 seconds. Total spoken words ~55–75.",
+    hookGuidance: "Reels viewers expect aesthetic + narrative cohesion. Hook in 1–2 seconds with a clear visual signal of what the video will give them. Less raw/chaotic than TikTok — more 'magazine cover' framing. On-screen text should be visually polished and short.",
+    captionGuidance: "Captions burned-in, slightly more refined typography than TikTok. Use punctuation correctly. Hashtag bar in the post caption (not the video) — recommend 5–10 niche hashtags + 2 broad.",
+    ctaGuidance: "Reels rewards SAVES and SHARES more than comments. End with a 'save for later if…' or 'send this to a friend who…' CTA. Avoid 'link in bio' as the only CTA — viewers won't click out.",
+    pacingGuidance: "Smoother cuts than TikTok, slightly slower (cuts every 2–4 seconds). Maintain visual consistency — same angle/lighting helps Reels' aesthetic prioritization.",
+    extras: "Reels viewers swipe quickly. The first 3 seconds determine whether they swipe past. End with a loop-back if the format allows (e.g., the last frame visually matches the first frame so it auto-replays).",
+  },
+  youtube_shorts: {
+    label: "YouTube Shorts",
+    aspect: "9:16 vertical, 1080x1920",
+    durationGuidance: "30–60 seconds total. Shorts viewers tolerate longer than TikTok. Total spoken words ~85–110.",
+    hookGuidance: "First 3 seconds. Slightly more setup is OK because YouTube viewers came for content depth. Hook can be a clear question, a 'what most people don't know about X', or a value-promise. Less trend-chasing than TikTok.",
+    captionGuidance: "YouTube auto-generates captions but burn yours in for clarity. Slightly more conservative typography. Title and description matter more than on TikTok — recommend a strong YouTube-style title (search-optimized) at the end.",
+    ctaGuidance: "End with subscribe-driven CTA. \"Subscribe for more X\" or \"comment Y if you want a part 2\". YouTube rewards channels with high subscriber-conversion-per-view. The CTA should feel earned, not bolted on.",
+    pacingGuidance: "Cuts every 2–4 seconds. More room for B-roll and screen recording inserts since YouTube has higher visual fidelity tolerance. Audio quality matters more than on TikTok.",
+    extras: "YouTube viewers often discover via search, not feed scroll, so the hook can assume the viewer chose to watch. Reference future content (\"in part 2 we'll cover…\") to drive subscribes.",
+  },
+  youtube_long: {
+    label: "YouTube long-form",
+    aspect: "16:9 horizontal, 1920x1080",
+    durationGuidance: "5–15 minutes typical. Total spoken words ~700–2000. The 'beats' field should function as section markers / chapters.",
+    hookGuidance: "Hook is 30–60 seconds — the cold open. Promise specific value the viewer will get if they watch to the end. Tease the most surprising moment. Show a glimpse of the result/payoff. Then transition to intro/branding.",
+    captionGuidance: "Closed captions auto-generated by YouTube; do NOT burn captions into the video itself for long-form (looks amateur on horizontal). Provide a written transcript-style description with timestamps in the post.",
+    ctaGuidance: "Two CTA layers: a soft mid-roll (3–5 min in) ('subscribe so you don't miss part 2') and a hard end CTA (subscribe + bell + watch this next video). End screen should suggest one related video.",
+    pacingGuidance: "Sections of 60–120 seconds with clear transitions. B-roll heavy. Multiple camera angles preferred. Each section should have a hook of its own — viewers drop off at section boundaries.",
+    extras: "Generate the script as 5–8 sections (chapters): cold open, intro, section 1, section 2, ..., conclusion + CTA. Include suggested chapter titles in `b_roll` field as 'CH: <title>' entries.",
+  },
+  facebook_reels: {
+    label: "Facebook Reels",
+    aspect: "9:16 vertical, 1080x1920",
+    durationGuidance: "15–60 seconds. Audience skews older than TikTok/Instagram (35+). Total spoken words ~60–90.",
+    hookGuidance: "Hook should be clearer and more narrative than TikTok — Facebook viewers respond to setup-then-payoff. Less trend-chasing slang. Avoid Gen-Z idioms. Lead with a relatable real-life situation.",
+    captionGuidance: "Burned-in captions critical (Facebook autoplays muted, audience skews to silent watching). Use friendly, clear sentences. Avoid heavy abbreviations.",
+    ctaGuidance: "Share-driven CTAs work best on Facebook ('share this with a friend who needs to hear it'). Comments are second. Likes are weakest signal. Link-in-bio doesn't exist on Facebook Reels — direct viewers to a Facebook page or group.",
+    pacingGuidance: "Slower than TikTok, faster than YouTube. Cuts every 3–5 seconds. Clear narrative progression. Avoid jump-scare cuts that work on Gen-Z but feel jarring on Facebook's older audience.",
+    extras: "Facebook Reels rewards content that drives Page follows and Group joins, not just video performance. Pair with a clear destination (Page/Group) when possible.",
+  },
+};
+
+// ---------------------------------------------------------------------------
 // POST /api/public/generate-script
 // ---------------------------------------------------------------------------
 
@@ -94,6 +177,7 @@ export async function POST(request: Request) {
     persona_id?: string;
     risk_tier?: string;
     creator_style_id?: string;
+    platform?: string;
   };
   try {
     body = await request.json();
@@ -114,6 +198,13 @@ export async function POST(request: Request) {
     : "BALANCED") as string;
   const persona = body.persona_id ? PERSONAS.find((p) => p.id === body.persona_id) : null;
   const productDescription = body.product_description?.trim().slice(0, 500) || "";
+  // Default to TikTok when client doesn't specify, since TikTok is the
+  // largest single user segment for FlashFlow today. Validates against
+  // the whitelist; anything else collapses to tiktok.
+  const platform: PlatformId = (VALID_PLATFORMS.includes(body.platform as PlatformId)
+    ? body.platform
+    : "tiktok") as PlatformId;
+  const platformProfile = PLATFORM_PROFILES[platform];
 
   // --- Auth check: determines rate limit tier ---
   const authContext = await getApiAuthContext(request);
@@ -199,13 +290,27 @@ export async function POST(request: Request) {
     ? `CREATOR VOICE: Write as a "${persona.name}" — ${persona.fullDescription}. Tone: ${persona.tone}. Style: ${persona.style}.`
     : "CREATOR VOICE: Write as a friendly, relatable narrator with conversational tone.";
 
-  const prompt = `You are an elite short-form video script writer who has studied thousands of top-performing TikToks, Reels, and Shorts. You understand what makes viewers stop scrolling and watch to the end.
+  // Platform-specific section. The model uses this to adjust hook length,
+  // pacing, captions, and CTA style. Without this section, the model
+  // generates generic short-form that doesn't feel native to any platform.
+  const platformSection = `
+TARGET PLATFORM: ${platformProfile.label}
+- Aspect / format: ${platformProfile.aspect}
+- Duration + word count: ${platformProfile.durationGuidance}
+- Hook rules for this platform: ${platformProfile.hookGuidance}
+- Captions / on-screen text: ${platformProfile.captionGuidance}
+- CTA style for this platform: ${platformProfile.ctaGuidance}
+- Pacing / cuts: ${platformProfile.pacingGuidance}
+- Platform-specific extras: ${platformProfile.extras}
+`;
 
-PRODUCT: "${productName}"
+  const prompt = `You are an elite short-form video script writer who has studied thousands of top-performing TikToks, Reels, YouTube Shorts, YouTube long-form videos, and Facebook Reels. You understand what makes viewers stop scrolling on each platform — and how each platform rewards different formats.
+
+PRODUCT / TOPIC: "${productName}"
 ${productDescription ? `DESCRIPTION: ${productDescription}` : ""}
 
 ${personaSection}
-
+${platformSection}
 SELECTED TONE FOR BODY/CTA: ${riskTier} — ${TIER_PROMPTS[riskTier]}
 ${creatorStyleSection}${intelligenceSection}
 CRITICAL RULES:
@@ -231,14 +336,15 @@ HOOK VARIANT REQUIREMENTS — you MUST generate exactly 3 hooks that are DRASTIC
 The three hooks must use COMPLETELY DIFFERENT opening structures, emotions, and visual approaches. Do not just reword the same hook three ways.
 
 SCRIPT BODY RULES:
-- Write 4-5 beats (short scenes/moments) that build toward the product reveal
+- Write 4-5 beats for short-form (TikTok / Reels / Shorts / Facebook Reels). Write 5-8 chapter sections for YouTube long-form (use beats as chapters and put suggested chapter titles in b_roll as "CH: <title>" entries).
 - Each beat has: timestamp range, action description, spoken dialogue, optional on-screen text
 - On-screen text should create tension INDEPENDENT from spoken dialogue (not the same words)
 - End with a clear, natural CTA — not salesy
 - Body + CTA should match the SELECTED TONE above (${riskTier})
-- Keep total spoken words to ~60-70 words (15-30 second video)
+- Total spoken words and beat count are governed by the TARGET PLATFORM section above. Defer to those numbers.
 - Make it genuinely entertaining — write like a real creator, not a brand
 - The body must work seamlessly when attached to ANY of the three hook variants
+- The CTA, captions, and beat structure must follow the TARGET PLATFORM rules — a TikTok script feels different from a YouTube long-form script.
 
 Return ONLY valid JSON with this exact structure:
 {

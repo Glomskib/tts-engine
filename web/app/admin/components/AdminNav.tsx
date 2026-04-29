@@ -49,13 +49,17 @@ export default function AdminNav({ isAdmin, showNotificationBadge, rightContent 
     margin: '0 12px',
   };
 
+  // Hidden on mobile — MobileBottomNav + the side-drawer in admin/layout.tsx
+  // already cover small-screen navigation. Showing this 25-link wrap-everywhere
+  // strip on a phone made the page feel broken (5+ wrapped rows of unstyled
+  // links). Desktop/tablet still see the full grouped strip.
   return (
-    <div style={{
-      display: 'flex',
+    <div className="hidden md:flex" style={{
       alignItems: 'center',
       gap: '8px',
       flexWrap: 'wrap',
       padding: '8px 0',
+      rowGap: '12px',
     }}>
       {/* Create Group */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

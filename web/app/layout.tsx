@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     default: "FlashFlow AI — AI-Powered TikTok & Instagram Scripts",
     template: "%s | FlashFlow AI",
   },
-  description: "Generate viral short-form video scripts personalized to your brand voice. 3-part scroll-stopping hooks, free transcriber, content calendar. Try free — No Credit Card Required.",
+  description: "Generate viral short-form scripts for TikTok and Instagram Reels personalized to your creator voice. Hook patterns that stop the scroll, free transcriber, content calendar, brand-deal tracking. Built for influencers and UGC creators. Try free — no credit card.",
   keywords: ["AI script generator", "TikTok scripts", "Instagram scripts", "video scripts", "content creation", "UGC scripts", "3-part hooks", "scroll-stopping hooks", "short-form video"],
   authors: [{ name: "FlashFlow AI" }],
   creator: "FlashFlow AI",
@@ -90,10 +90,10 @@ export default function RootLayout({
     name: 'FlashFlow AI',
     url: 'https://flashflowai.com',
     logo: 'https://flashflowai.com/logo.png',
-    description: 'AI-powered TikTok Shop video content creation platform',
-    sameAs: [
-      'https://twitter.com/flashflowai',
-    ],
+    description: 'AI-powered short-form video content creation platform for TikTok, Instagram Reels, YouTube, and Facebook creators.',
+    // sameAs lists external profiles. Empty until handles are claimed and
+    // posting — leaving an unclaimed handle here would harm trust signals.
+    sameAs: [],
   };
 
   const softwareApplicationSchema = {

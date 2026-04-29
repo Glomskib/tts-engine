@@ -102,98 +102,113 @@ export interface NavSection {
   subscriptionType?: SubscriptionType;
 }
 
-// Navigation structure - the single source of truth
+// ===========================================================================
+// Navigation structure — single source of truth for the FlashFlow Studio app
+// nav. RESTRUCTURED 2026-04-29 from 8 cramped sections down to 5 clean groups
+// per Brandon's directive: "Too cramped and somehow spreadout and everything
+// hidden. Related things should be easy to navigate one to the next. Think
+// H10 or other big saas Nav. Mobile first is a must."
+//
+// Design principles:
+//   1. ≤5 visible sections per user — reduces decision fatigue.
+//   2. ≤7 items per section — within Miller's chunking limit.
+//   3. Related actions live next to each other (Create/Plan/Publish flow).
+//   4. Admin/owner/operator items move to a single "Admin" section that only
+//      shows for admins/owners — no Internal-badge clutter for normal users.
+//   5. Owner-only Command Center collapses into one "Mission Control" entry
+//      that links to its own dedicated route group. Detail pages live there,
+//      not in the sidebar.
+// ===========================================================================
 export const NAV_SECTIONS: NavSection[] = [
   // ========================
-  // SAAS SECTIONS
+  // SAAS SECTIONS — the FlashFlow Studio creator surface
   // ========================
   {
     title: 'HOME',
     subscriptionType: 'saas',
     items: [
-      { name: 'Today', href: '/admin/today', icon: Sparkles, subtitle: 'Your daily briefing' },
-      { name: 'Command Center', href: '/admin', icon: Gauge },
-      { name: 'Creator Dashboard', href: '/admin/creator', icon: Clapperboard, tourId: 'nav-creator' },
+      { name: 'Today', href: '/admin/today', icon: Sparkles, subtitle: 'Daily briefing + missions' },
+      { name: 'Creator Dashboard', href: '/admin/creator', icon: Clapperboard, subtitle: 'Your KPIs at a glance', tourId: 'nav-creator' },
     ],
   },
   {
+    // CREATE — every "make something new" tool. Removed the old "Create" /
+    // "Research & Analytics" split because hooks + scripts + breakdowns are
+    // all create-side. Removed Comment Replies as a separate item (lives
+    // under Comment Miner now). Pack/Pack Library merge in the Studio detail.
     title: 'CREATE',
     subscriptionType: 'saas',
     items: [
+      { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, subtitle: 'Generate scripts, hooks, packs', featureKey: 'skit_generator', tourId: 'nav-content-studio' },
       { name: 'Opportunities', href: '/admin/opportunities', icon: Lightbulb, subtitle: 'What to make right now', minPlan: 'creator_lite' },
-      { name: 'Campaigns', href: '/admin/campaigns', icon: Rocket, subtitle: 'Launch bulk content campaigns' },
-      { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, featureKey: 'skit_generator', tourId: 'nav-content-studio' },
-      { name: 'Content Pack', href: '/admin/content-pack', icon: Package, subtitle: 'Hooks + script + visuals in one shot' },
-      { name: 'Pack Library', href: '/admin/content-packs', icon: Package, subtitle: 'Browse saved packs' },
-      { name: 'Hooks', href: '/admin/hook-generator', icon: Zap },
-      { name: 'Saved Scripts', href: '/admin/script-library', icon: FileText, featureKey: 'save_skits', minPlan: 'creator_lite', tourId: 'nav-script-library' },
+      { name: 'Hooks', href: '/admin/hook-generator', icon: Zap, subtitle: 'Generate or browse hook patterns' },
       { name: 'Comment Miner', href: '/admin/comment-miner', icon: Pickaxe, subtitle: 'Turn comments into content ideas' },
-      { name: 'Comment Replies', href: '/admin/tools/tok-comment', icon: MessageSquare },
       { name: 'Video Breakdown', href: '/admin/transcribe', icon: Mic, subtitle: 'Analyze any video and recreate it', tourId: 'nav-transcriber' },
+      { name: 'Saved Scripts', href: '/admin/script-library', icon: FileText, subtitle: 'Your script library', featureKey: 'save_skits', minPlan: 'creator_lite', tourId: 'nav-script-library' },
     ],
   },
   {
+    // PIPELINE — the path from "I have an idea" to "it's posted." Single line:
+    // capture footage → edit → schedule → post. Internal Production Console +
+    // Production Board + Posting Queue chain in that order.
     title: 'PIPELINE',
     subscriptionType: 'saas',
     items: [
-      { name: 'Production Console', href: '/admin/production', icon: Gauge, subtitle: 'What to work on right now', minPlan: 'creator_pro', tourId: 'nav-production' },
+      { name: 'Footage Hub', href: '/admin/footage', icon: Film, subtitle: 'Upload + manage raw footage', minPlan: 'creator_pro' },
+      { name: 'AI Video Editor', href: '/admin/editor', icon: Clapperboard, subtitle: 'Footage → edited 9:16 / 16:9', badge: 'New' },
       { name: 'Content Items', href: '/admin/content-items', icon: ListTodo, subtitle: 'All content in one place', tourId: 'nav-content-items' },
-      { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, subtitle: 'Schedule and plan ahead', minPlan: 'creator_pro', tourId: 'nav-content-planner' },
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, subtitle: 'Track progress across stages', minPlan: 'creator_pro', tourId: 'nav-pipeline' },
-      { name: 'AI Video Editor', href: '/admin/editor', icon: Clapperboard, subtitle: 'Upload footage → edited 9:16 MP4', badge: 'New' },
-      { name: 'Footage Hub', href: '/admin/footage', icon: Film, subtitle: 'Upload and manage raw footage', minPlan: 'creator_pro' },
-      { name: 'Drive Intake', href: '/admin/intake', icon: Download, subtitle: 'Import from Google Drive', minPlan: 'creator_pro' },
+      { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, subtitle: 'Schedule + retainer goals', minPlan: 'creator_pro', tourId: 'nav-content-planner' },
       { name: 'Posting Queue', href: '/admin/posting-queue', icon: Send, subtitle: 'Ready to publish', minPlan: 'creator_pro', tourId: 'nav-posting-queue' },
-      { name: 'LaunchSync', href: '/admin/launch-sync', icon: Rocket, subtitle: 'Amazon → TikTok product launches', badge: 'New' },
     ],
   },
   {
-    title: 'RESEARCH & ANALYTICS',
+    // GROW — analytics + intelligence. Replaces the old "Research & Analytics"
+    // section. AI Insights + Performance Loop + Winners Bank + Audience are
+    // the canonical "what's working / who's it for" tools.
+    title: 'GROW',
     subscriptionType: 'saas',
     items: [
-      { name: 'Performance Loop', href: '/admin/performance-loop', icon: TrendingUp, subtitle: 'What works for you — learn and improve' },
-      { name: 'Speak To Your Audience', href: '/admin/audience', icon: UserCheck },
-      { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy, minPlan: 'creator_pro', tourId: 'nav-winners' },
-      { name: 'Hook Library', href: '/admin/hooks', icon: Anchor, minPlan: 'creator_pro' },
-      { name: 'Hook Performance', href: '/admin/intelligence/hooks', icon: Zap, minPlan: 'creator_pro', badge: 'Beta' },
-      // Phase 2: 'Performance' renamed to 'AI Insights' (BUG_AUDIT item 20). Route unchanged.
-      { name: 'AI Insights', href: '/admin/performance', icon: BarChart3, minPlan: 'creator_pro', badge: 'Beta' },
-      { name: 'Clip Index', href: '/admin/clip-index', icon: Film, minPlan: 'creator_pro', badge: 'Beta' },
+      { name: 'AI Insights', href: '/admin/performance', icon: BarChart3, subtitle: 'What works for you', minPlan: 'creator_pro', badge: 'Beta' },
+      { name: 'Performance Loop', href: '/admin/performance-loop', icon: TrendingUp, subtitle: 'Learn → improve cycle' },
+      { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy, subtitle: 'Viral patterns to study', minPlan: 'creator_pro', tourId: 'nav-winners' },
+      { name: 'Hook Library', href: '/admin/hooks', icon: Anchor, subtitle: 'Saved hook patterns', minPlan: 'creator_pro' },
+      { name: 'Audience', href: '/admin/audience', icon: UserCheck, subtitle: 'Speak to your audience' },
     ],
   },
   {
-    title: 'PRODUCTS',
+    // MANAGE — your business inputs (products, brands, briefs, retainers,
+    // campaigns, settings, billing). Anything you set up once and reuse lives
+    // here. Avoids burying Settings 5 sections deep.
+    title: 'MANAGE',
     subscriptionType: 'saas',
     items: [
-      { name: 'Products', href: '/admin/products', icon: Package, featureKey: 'product_catalog', tourId: 'nav-products' },
-      { name: 'Brands', href: '/admin/brands', icon: Building, minPlan: 'creator_pro' },
-      { name: 'Briefs', href: '/admin/briefs', icon: FileText, minPlan: 'creator_pro' },
-      { name: 'Experiments', href: '/admin/experiments', icon: FlaskConical, minPlan: 'creator_pro', badge: 'Beta' },
-      { name: 'Retainers & Bonuses', href: '/admin/retainers', icon: Target, minPlan: 'creator_pro', badge: 'Beta' },
-      { name: 'Opportunity Radar', href: '/admin/opportunity-radar', icon: Radar, adminOnly: true },
+      { name: 'Products', href: '/admin/products', icon: Package, subtitle: 'Your product catalog', featureKey: 'product_catalog', tourId: 'nav-products' },
+      { name: 'Brands', href: '/admin/brands', icon: Building, subtitle: 'Multi-brand workspace', minPlan: 'creator_pro' },
+      { name: 'Briefs', href: '/admin/briefs', icon: FileText, subtitle: 'Brand briefs + deliverables', minPlan: 'creator_pro' },
+      { name: 'Retainers', href: '/admin/retainers', icon: Target, subtitle: 'Track brand-deal progress', minPlan: 'creator_pro', badge: 'Beta' },
+      { name: 'Campaigns', href: '/admin/campaigns', icon: Rocket, subtitle: 'Bulk content campaigns' },
+      { name: 'Settings', href: '/admin/settings', icon: Settings, subtitle: 'Account + integrations' },
+      { name: 'Referrals', href: '/admin/referrals', icon: Link2, subtitle: 'Earn from referrals', minPlan: 'creator_lite' },
     ],
   },
+  // ========================
+  // ADMIN / OWNER — collapsed into ONE section instead of two. Hidden from
+  // normal users entirely. The COMMAND CENTER moved out of the sidebar to
+  // its own route group at /admin/command-center (linked from here).
+  // ========================
   {
-    title: 'SETTINGS',
+    title: 'ADMIN',
     subscriptionType: 'saas',
     items: [
-      { name: 'Settings', href: '/admin/settings', icon: Settings },
-      { name: 'Referrals', href: '/admin/referrals', icon: Link2, minPlan: 'creator_lite' },
-      { name: 'Export & Reports', href: '/admin/export', icon: Download },
-    ],
-  },
-  {
-    title: 'OPERATOR TOOLS',
-    subscriptionType: 'saas',
-    items: [
+      { name: 'Mission Control', href: '/admin/command-center', icon: Activity, ownerOnly: true, subtitle: 'Operator dashboard for ops + revenue + agents' },
       { name: 'Launch Check', href: '/admin/launch-check', icon: Rocket, adminOnly: true, badge: 'Internal' },
-      { name: 'System Status', href: '/admin/settings/system-status', icon: Activity, adminOnly: true, badge: 'Internal' },
-      { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, ownerOnly: true, badge: 'Internal' },
       { name: 'Render Jobs', href: '/admin/render-jobs', icon: Server, adminOnly: true, badge: 'Internal' },
-      { name: 'Feedback', href: '/admin/feedback', icon: MessageSquare, adminOnly: true, badge: 'Internal' },
-      { name: 'Support', href: '/admin/support', icon: HelpCircle, adminOnly: true, badge: 'Internal' },
+      { name: 'System Status', href: '/admin/settings/system-status', icon: Activity, adminOnly: true, badge: 'Internal' },
+      { name: 'Feedback Inbox', href: '/admin/feedback', icon: MessageSquare, adminOnly: true, badge: 'Internal' },
       { name: 'Users', href: '/admin/settings/users', icon: Users, adminOnly: true, badge: 'Internal' },
       { name: 'Integrations', href: '/admin/settings/integrations', icon: Plug, adminOnly: true, badge: 'Internal' },
+      { name: 'API Docs', href: '/admin/api-docs', icon: BookOpen, ownerOnly: true, badge: 'Internal' },
     ],
   },
   // ========================
@@ -224,25 +239,15 @@ export const NAV_SECTIONS: NavSection[] = [
   // CLIENT SERVICES section removed — pages still exist but hidden from nav
   // ========================
   // OWNER-ONLY: COMMAND CENTER
+  // (REMOVED FROM SIDEBAR 2026-04-29) — the 12-item Command Center section
+  // moved out of the sidebar entirely. The "Mission Control" link in the
+  // ADMIN section above lands at /admin/command-center, where its own
+  // sub-nav (CCSubnav.tsx) handles the 12 detail pages — they don't belong
+  // in the global sidebar. Keeps the Brandon-only operator surface from
+  // bloating every user's view (even though they were ownerOnly, they
+  // showed up in the data structure and were a maintenance drag).
+  // To restore the old surface, see git history.
   // ========================
-  {
-    title: 'COMMAND CENTER',
-    subscriptionType: 'saas',
-    items: [
-      { name: 'Overview', href: '/admin/command-center', icon: Activity, ownerOnly: true },
-      { name: 'API Usage', href: '/admin/command-center/usage', icon: BarChart, ownerOnly: true },
-      { name: 'Campaigns', href: '/admin/command-center/projects', icon: ListTodo, ownerOnly: true },
-      { name: 'Jobs', href: '/admin/command-center/jobs', icon: Briefcase, ownerOnly: true },
-      { name: 'Idea Dump', href: '/admin/command-center/ideas', icon: Lightbulb, ownerOnly: true },
-      { name: 'Finance', href: '/admin/command-center/finance', icon: DollarSign, ownerOnly: true },
-      { name: 'Agent Scoreboard', href: '/admin/command-center/agents', icon: Zap, ownerOnly: true },
-      { name: 'FinOps', href: '/admin/command-center/finops', icon: Gauge, ownerOnly: true },
-      { name: 'Feedback Inbox', href: '/admin/command-center/feedback', icon: MessageSquare, ownerOnly: true },
-      { name: 'Research', href: '/admin/command-center/research', icon: Search, ownerOnly: true },
-      { name: 'Ops Health', href: '/admin/command-center/ops-health', icon: Shield, ownerOnly: true },
-      { name: 'Marketing', href: '/admin/marketing', icon: Send, ownerOnly: true },
-    ],
-  },
 ];
 
 /** Resolved section with lock state per item */

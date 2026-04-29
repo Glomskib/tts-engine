@@ -27,6 +27,19 @@ const TONE_OPTIONS = [
   { id: 'SPICY', label: 'Spicy', description: 'Bold comedy & parody', color: 'orange' },
 ] as const;
 
+// Platform-aware script generation. The selected platform is sent to the API
+// where it modifies the prompt (hook length, pacing, captions style, CTAs, etc.).
+// Each platform here maps to a different optimization profile in
+// `app/api/public/generate-script/route.ts → PLATFORM_PROMPTS`.
+const PLATFORM_OPTIONS = [
+  { id: 'tiktok', label: 'TikTok', description: '9:16 · 15–60s · trend-aware' },
+  { id: 'reels', label: 'Instagram Reels', description: '9:16 · aesthetic · saves' },
+  { id: 'youtube_shorts', label: 'YouTube Shorts', description: '9:16 · 30–60s · subscribe' },
+  { id: 'youtube_long', label: 'YouTube (long-form)', description: '16:9 · chapters · retention' },
+  { id: 'facebook_reels', label: 'Facebook Reels', description: '9:16 · narrative · share' },
+] as const;
+type PlatformId = typeof PLATFORM_OPTIONS[number]['id'];
+
 interface Beat {
   t: string;
   action: string;
@@ -83,28 +96,32 @@ const TIER_META: Record<HookVariant['tier'], {
 
 const FAQ_ITEMS = [
   {
-    q: 'Is the TikTok script generator really free?',
-    a: 'Yes! You get 3 scripts per day without signing up. Create a free account for 5 daily scripts, or upgrade for unlimited access plus audience personas and winner pattern analysis.',
+    q: 'Is the script generator really free?',
+    a: 'Yes. You get 3 scripts per day without signing up. Create a free account for 5 daily scripts, or upgrade for unlimited access plus audience personas, winner pattern analysis, and all 5 platform profiles.',
   },
   {
-    q: 'Why do these scripts work on TikTok?',
-    a: 'Every script follows real TikTok patterns: hooks in the first 1-2 seconds, punchy 15-30 second pacing, natural product mentions, and clear CTAs. Each persona writes differently — same way real creators have their own style.',
+    q: 'Does it work for TikTok and Instagram Reels?',
+    a: 'Yes. Pick the platform from the platform selector and the AI optimizes hook length, pacing, captions, and CTAs for that platform. TikTok hooks land in the first 1–2 seconds and ride trends; Reels hooks lean into a tighter aesthetic and saves; YouTube Shorts skews slightly longer with subscribe-driven CTAs.',
   },
   {
-    q: 'Can I use these scripts for TikTok Shop videos?',
-    a: 'Absolutely. Scripts are TikTok Shop compliant — no prohibited health claims, no fake urgency, no celebrity imitation. The "Safe" tone mode keeps your content brand-safe.',
+    q: 'Does it support YouTube too?',
+    a: 'Yes — YouTube Shorts (9:16) and long-form YouTube (16:9). The long-form profile generates an intro hook, chapter sections, B-roll cues, and a subscribe + bell CTA structure. Pick the right profile for the format you are filming.',
+  },
+  {
+    q: 'Can I use these for TikTok Shop and Amazon UGC videos?',
+    a: 'Absolutely. Scripts are TikTok Shop and Amazon UGC compliant by default — no prohibited health claims, no fake urgency, no celebrity impersonation. The "Safe" tone mode adds an extra layer of brand-safety.',
   },
   {
     q: 'How do the persona presets work?',
-    a: 'Each persona has its own voice, humor style, and delivery. The "Skeptical Reviewer" writes honest, analytical content. The "Gen-Z Trendsetter" uses current slang and pop culture. Pick whoever fits your brand.',
+    a: 'Each persona has its own voice, humor style, and delivery. The "Skeptical Reviewer" writes honest, analytical content. The "Gen-Z Trendsetter" uses current slang and pop culture. Pick whoever fits your brand on the platform you are creating for.',
   },
   {
     q: 'Can I edit the generated scripts?',
-    a: 'The scripts are yours to use and modify however you like. Copy them, tweak the wording, combine beats from different generations — whatever works for your content. For advanced editing features like versioning and team collaboration, check out the full platform.',
+    a: 'The scripts are yours to use and modify however you like. Copy them, tweak the wording, combine beats from different generations — whatever works for your content. For advanced editing like versioning and team collaboration, sign up for the full platform.',
   },
   {
     q: 'What types of products work best?',
-    a: 'The generator works for any product you\'d promote on TikTok: beauty, supplements, gadgets, food, fashion, home goods, digital products, and more. Just describe what you\'re selling and the AI figures out the best angle.',
+    a: "The generator works for any product or topic you'd publish about: beauty, supplements, gadgets, food, fashion, home goods, digital products, services, business owners showcasing their work, and more. Just describe what you're talking about and the AI figures out the best angle for your chosen platform.",
   },
 ];
 
@@ -118,6 +135,9 @@ export default function ScriptGeneratorPage() {
   const [productDescription, setProductDescription] = useState('');
   const [selectedPersona, setSelectedPersona] = useState<string | null>(null);
   const [selectedTone, setSelectedTone] = useState('BALANCED');
+  // Default to TikTok since that's our largest user segment, but visitors
+  // can switch in 1 tap. The API uses this to swap the generation prompt.
+  const [selectedPlatform, setSelectedPlatform] = useState<PlatformId>('tiktok');
 
   // Generation state
   const [loading, setLoading] = useState(false);
@@ -156,6 +176,7 @@ export default function ScriptGeneratorPage() {
           product_description: productDescription.trim() || undefined,
           persona_id: selectedPersona || undefined,
           risk_tier: selectedTone,
+          platform: selectedPlatform,
         }),
       });
 
@@ -275,17 +296,48 @@ export default function ScriptGeneratorPage() {
         <div className="text-center mb-12">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-violet-500/10 border border-violet-500/20 text-xs text-violet-400 mb-6">
             <Sparkles size={12} />
-            Free TikTok Script Generator
+            Free Script Generator · TikTok · Reels · YouTube
           </div>
           <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4">
-            Write TikTok scripts{' '}
+            Write short-form scripts{' '}
             <span className="bg-gradient-to-r from-teal-400 via-violet-400 to-teal-400 bg-clip-text text-transparent">
               that actually convert
             </span>
           </h1>
           <p className="text-lg text-zinc-400 max-w-2xl mx-auto">
-            Pick a creator persona, describe your product, and get a ready-to-film script.
-            Built for TikTok Shop creators.
+            Pick a platform, pick a creator persona, describe what you&apos;re talking about,
+            and get a ready-to-film script optimized for the platform you&apos;re posting on.
+          </p>
+        </div>
+
+        {/* ================================================================ */}
+        {/* PLATFORM PICKER — sits above the numbered steps because it changes
+             the entire generation strategy (hook length, captions, CTA). */}
+        {/* ================================================================ */}
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-zinc-300 mb-3">
+            I&apos;m posting on…
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+            {PLATFORM_OPTIONS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setSelectedPlatform(p.id)}
+                aria-pressed={selectedPlatform === p.id}
+                className={`p-3 rounded-xl border text-left transition-all ${
+                  selectedPlatform === p.id
+                    ? 'border-violet-500/50 bg-violet-500/10 ring-1 ring-violet-500/30'
+                    : 'border-white/10 bg-zinc-900/50 hover:border-white/20'
+                }`}
+              >
+                <div className="text-sm font-medium text-zinc-200">{p.label}</div>
+                <div className="text-[11px] text-zinc-500 mt-0.5 leading-snug">{p.description}</div>
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-zinc-600 mt-2">
+            The AI changes hook length, pacing, captions, and CTA style for the platform you pick.
           </p>
         </div>
 
@@ -298,7 +350,7 @@ export default function ScriptGeneratorPage() {
               <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-violet-500/20 text-violet-400 text-xs font-bold mr-2">
                 1
               </span>
-              What are you selling?
+              What are you talking about?
             </label>
             <input
               type="text"

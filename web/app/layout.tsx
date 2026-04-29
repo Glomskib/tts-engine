@@ -61,7 +61,10 @@ export const metadata: Metadata = {
     ],
   },
   twitter: {
-    card: "summary",
+    // summary_large_image gives us a bigger preview card when the URL is shared
+    // on X/Twitter and many other clients that respect Twitter card tags.
+    // iMessage / SMS still use Open Graph above, which is unchanged.
+    card: "summary_large_image",
     title: "FlashFlow AI — Scripts That Stop The Scroll",
     description: "AI-powered script generator for TikTok & Instagram. Try free.",
     images: ["https://flashflowai.com/logo.png"],

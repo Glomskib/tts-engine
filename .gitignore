@@ -13,3 +13,7 @@ supabase/.temp
 nul
 
 .env*.local
+
+# Cron / runtime logs (auto-generated, should not be tracked)
+web/data/ri-logs/
+web/data/ri-logs/*

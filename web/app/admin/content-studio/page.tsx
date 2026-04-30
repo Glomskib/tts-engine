@@ -2274,13 +2274,13 @@ export default function ContentStudioPage() {
               size="md"
             />
           </div>
-          {/* Simple/Advanced toggle — own row below mode bar, only in AI mode */}
+          {/* Quick Start / Full Controls toggle — own row below mode bar, only in AI mode */}
           {!manualWriteMode && (
             <div className="mb-4">
               <SegmentedControl
                 options={[
-                  { value: 'simple', label: 'Simple' },
-                  { value: 'advanced', label: 'Advanced' },
+                  { value: 'simple', label: 'Quick Start' },
+                  { value: 'advanced', label: 'Full Controls' },
                 ]}
                 value={simpleMode ? 'simple' : 'advanced'}
                 onChange={(v) => {
@@ -2291,7 +2291,7 @@ export default function ContentStudioPage() {
                 size="sm"
               />
               <p className="text-xs text-zinc-500 mt-1.5">
-                {simpleMode ? 'Pick a product, choose a style, and go.' : 'Full control over every parameter.'}
+                {simpleMode ? 'Pick a product, choose a style, and go.' : 'Tweak every detail — persona, length, hooks, references, and more.'}
               </p>
             </div>
           )}
@@ -3410,7 +3410,7 @@ export default function ContentStudioPage() {
                 </div>
               </div>}
 
-              {/* STEP 7: Advanced Options (hidden in Simple Mode) */}
+              {/* STEP 7: More options (hidden in Quick Start mode) */}
               {!simpleMode && <div style={sectionStyle}>
                 <button type="button"
                   onClick={() => setShowAdvanced(!showAdvanced)}
@@ -3429,7 +3429,7 @@ export default function ContentStudioPage() {
                   }}
                 >
                   <Settings size={14} />
-                  Advanced Options
+                  More options
                   {showAdvanced ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
 

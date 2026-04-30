@@ -81,11 +81,12 @@ export default function LandingPage() {
   const [contactOpen, setContactOpen] = useState(false);
   const [referralBanner, setReferralBanner] = useState(false);
 
-  // Mini script generator state — starts with demo so visitors see proof immediately
+  // Mini script generator state — does NOT auto-load. Homepage stays as a
+  // marketing surface; visitor must opt-in by typing or clicking "See sample".
   const [miniProduct, setMiniProduct] = useState('');
   const [miniLoading, setMiniLoading] = useState(false);
-  const [miniResult, setMiniResult] = useState<SkitResult | null>(DEMO_SCRIPT);
-  const [miniIsDemo, setMiniIsDemo] = useState(true);
+  const [miniResult, setMiniResult] = useState<SkitResult | null>(null);
+  const [miniIsDemo, setMiniIsDemo] = useState(false);
   const [miniError, setMiniError] = useState('');
 
   // FAQ state

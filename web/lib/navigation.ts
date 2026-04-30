@@ -139,6 +139,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'CREATE',
     subscriptionType: 'saas',
     items: [
+      { name: 'AutoEdit', href: '/admin/editor', icon: Clapperboard, subtitle: 'Upload footage → AI edits + captions for TikTok/Reels/YouTube', badge: 'New', tourId: 'nav-autoedit' },
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, subtitle: 'Generate scripts, hooks, packs', featureKey: 'skit_generator', tourId: 'nav-content-studio' },
       { name: 'Opportunities', href: '/admin/opportunities', icon: Lightbulb, subtitle: 'What to make right now', minPlan: 'creator_lite' },
       { name: 'Hooks', href: '/admin/hook-generator', icon: Zap, subtitle: 'Generate or browse hook patterns' },
@@ -149,13 +150,14 @@ export const NAV_SECTIONS: NavSection[] = [
   },
   {
     // PIPELINE — the path from "I have an idea" to "it's posted." Single line:
-    // capture footage → edit → schedule → post. Internal Production Console +
-    // Production Board + Posting Queue chain in that order.
+    // capture footage → schedule → post. AutoEdit moved up to CREATE so it's
+    // visible without hunting (was hidden in PIPELINE before — Brandon
+    // 2026-04-30: "I don't see auto edit or anything related to editing
+    // anywhere"). Footage Hub stays here as the upload surface.
     title: 'PIPELINE',
     subscriptionType: 'saas',
     items: [
       { name: 'Footage Hub', href: '/admin/footage', icon: Film, subtitle: 'Upload + manage raw footage', minPlan: 'creator_pro' },
-      { name: 'AI Video Editor', href: '/admin/editor', icon: Clapperboard, subtitle: 'Footage → edited 9:16 / 16:9', badge: 'New' },
       { name: 'Content Items', href: '/admin/content-items', icon: ListTodo, subtitle: 'All content in one place', tourId: 'nav-content-items' },
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, subtitle: 'Track progress across stages', minPlan: 'creator_pro', tourId: 'nav-pipeline' },
       { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, subtitle: 'Schedule + retainer goals', minPlan: 'creator_pro', tourId: 'nav-content-planner' },

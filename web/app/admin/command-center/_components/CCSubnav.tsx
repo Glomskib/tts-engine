@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Activity, BarChart, ListTodo, Briefcase, Lightbulb,
-  DollarSign, Zap, Gauge, Handshake, MessageSquare, Shield, Search, Layers,
+  DollarSign, Zap, Gauge, Handshake, MessageSquare, Shield, Search, Layers, Bike,
 } from 'lucide-react';
 
 const TABS = [
@@ -12,6 +12,7 @@ const TABS = [
   { label: 'Deep View', href: '/admin/command-center/deep', icon: Layers },
   { label: 'API Usage', href: '/admin/command-center/usage', icon: BarChart },
   { label: 'Campaigns', href: '/admin/command-center/projects', icon: ListTodo },
+  { label: 'MMM', href: '/admin/command-center/mmm', icon: Bike },
   { label: 'Jobs', href: '/admin/command-center/jobs', icon: Briefcase },
   { label: 'Ideas', href: '/admin/command-center/ideas', icon: Lightbulb },
   { label: 'Finance', href: '/admin/command-center/finance', icon: DollarSign },

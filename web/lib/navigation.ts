@@ -139,7 +139,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'CREATE',
     subscriptionType: 'saas',
     items: [
-      { name: 'AutoEdit', href: '/admin/editor', icon: Clapperboard, subtitle: 'Upload footage → AI edits + captions for TikTok/Reels/YouTube', badge: 'New', tourId: 'nav-autoedit' },
+      { name: 'AI Video Editor', href: '/admin/editor', icon: Clapperboard, subtitle: 'Upload footage → AI edits + captions for TikTok/Reels/YouTube', badge: 'New', tourId: 'nav-autoedit' },
       { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, subtitle: 'Generate scripts, hooks, packs', featureKey: 'skit_generator', tourId: 'nav-content-studio' },
       { name: 'Opportunities', href: '/admin/opportunities', icon: Lightbulb, subtitle: 'What to make right now', minPlan: 'creator_lite' },
       { name: 'Hooks', href: '/admin/hook-generator', icon: Zap, subtitle: 'Generate or browse hook patterns' },

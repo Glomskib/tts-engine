@@ -88,6 +88,65 @@ async function getDuration(input: string): Promise<number> {
 
 interface KeepSegment { start: number; end: number }
 
+/**
+ * Detect retakes/flubs and drop the earlier attempt.
+ *
+ * Heuristic: when two adjacent transcript segments start with the same first
+ * ~2 words AND the gap between them is small (≤1.8s), the speaker likely
+ * restarted the sentence. Keep the LATER attempt and drop the earlier.
+ *
+ * Inspired by Brandon's spec: "I love it when — I absolutely love it when
+ * this happens..." includes both takes if you don't catch it.
+ */
+function removeRetakeIntervals(
+  transcript: EditJobTranscript,
+  keep: KeepSegment[],
+): KeepSegment[] {
+  const segs = transcript.segments;
+  if (!segs || segs.length < 2) return keep;
+
+  const skipRanges: Array<[number, number]> = [];
+  for (let i = 0; i < segs.length - 1; i++) {
+    const a = segs[i];
+    const b = segs[i + 1];
+    const gap = b.start - a.end;
+    if (gap > 1.8) continue;
+
+    const aw = (a.text || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim().split(/\s+/);
+    const bw = (b.text || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim().split(/\s+/);
+    if (aw.length < 2 || bw.length < 2) continue;
+
+    // Match if first 2 words match exactly, or if the first 8 chars match
+    const firstTwoMatch = aw.slice(0, 2).join(' ') === bw.slice(0, 2).join(' ');
+    const firstEightMatch = aw.join(' ').slice(0, 8) === bw.join(' ').slice(0, 8);
+    const aShort = aw.length <= 4;  // short, likely an aborted try
+
+    if (firstTwoMatch || firstEightMatch || aShort) {
+      skipRanges.push([a.start, a.end]);
+    }
+  }
+
+  if (skipRanges.length === 0) return keep;
+
+  // Subtract skip ranges from each keep segment
+  return keep.flatMap<KeepSegment>((k) => {
+    let parts: KeepSegment[] = [k];
+    for (const [skipStart, skipEnd] of skipRanges) {
+      const next: KeepSegment[] = [];
+      for (const p of parts) {
+        if (skipEnd <= p.start || skipStart >= p.end) {
+          next.push(p);
+        } else {
+          if (skipStart > p.start) next.push({ start: p.start, end: skipStart });
+          if (skipEnd < p.end) next.push({ start: skipEnd, end: p.end });
+        }
+      }
+      parts = next;
+    }
+    return parts.filter((p) => p.end - p.start > 0.1);
+  });
+}
+
 async function detectSilenceSegments(
   input: string,
   minSilence: number,
@@ -386,6 +445,11 @@ export async function processEditJob(
     if (cfg.silenceTrim) {
       keep = await detectSilenceSegments(primary, cfg.minSilence, primaryDuration);
     }
+
+    // Retake/flub detection — drops the earlier of two adjacent sentence attempts
+    // that start with the same words. Brandon's flagship complaint: overseas editors
+    // miss "I love it when — I absolutely love it when this happens..." and keep both.
+    keep = removeRetakeIntervals(transcript, keep);
 
     // For jump cuts: split long keeps into 1.5-3s chunks
     if (cfg.jumpCuts) {

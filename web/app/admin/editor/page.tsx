@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import AdminPageLayout from '../components/AdminPageLayout';
-import { Plus, Film, RefreshCw } from 'lucide-react';
+import { Plus, Film, RefreshCw, Library } from 'lucide-react';
 
 interface JobRow {
   id: string;
@@ -26,10 +26,10 @@ const STATUS_STYLES: Record<string, string> = {
 };
 
 const MODE_LABEL: Record<string, string> = {
-  quick: 'Quick',
-  hook: 'Hook-Focused',
-  ugc: 'UGC Product',
-  talking_head: 'Talking Head Clean',
+  quick: 'Quick Cut',
+  hook: 'Punchy Hook',
+  ugc: 'Shop Demo',
+  talking_head: 'Clean Talking Head',
 };
 
 export default function EditorListPage() {
@@ -53,12 +53,18 @@ export default function EditorListPage() {
 
   return (
     <AdminPageLayout title="AI Video Editor" subtitle="Upload raw footage, pick a mode, download a finished 9:16 MP4.">
-      <div className="flex items-center gap-2 mb-5">
+      <div className="flex items-center gap-2 mb-5 flex-wrap">
         <Link
           href="/admin/editor/new"
           className="inline-flex items-center gap-2 rounded-lg bg-teal-600 hover:bg-teal-500 px-4 py-2 text-sm font-medium text-white"
         >
           <Plus className="w-4 h-4" /> New Edit
+        </Link>
+        <Link
+          href="/admin/editor/library"
+          className="inline-flex items-center gap-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 px-3 py-2 text-sm text-zinc-200"
+        >
+          <Library className="w-3.5 h-3.5" /> Footage Hub
         </Link>
         <button
           onClick={fetchJobs}

@@ -13,7 +13,7 @@ import path from 'path';
 import os from 'os';
 import OpenAI, { toFile } from 'openai';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { buildEditPlan, type EditPlan, type PlanCaption } from './edit-plan';
+import { buildEditPlan, remapCaptionsToFinalTime, type EditPlan, type PlanCaption } from './edit-plan';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ffmpegPath: string = require('ffmpeg-static');
@@ -663,8 +663,15 @@ export async function processEditJob(
       await setProgress(jobId, 75, 'Burning in punchy captions…');
       const assFile = path.join(workDir, 'captions.ass');
       const useLlmCaptions = editPlan.source === 'llm' && editPlan.captions.length > 0;
-      const assContent = useLlmCaptions
-        ? buildAssFromPlan(editPlan.captions, 1920, captionStyle)
+      // The LLM emits captions in SOURCE time. We just concatenated `keep`
+      // ranges into the final cut, so remap the captions to final-cut time
+      // before generating the ASS file. Dropped ranges → captions silently
+      // omitted (already filtered by remapCaptionsToFinalTime).
+      const finalTimeCaptions = useLlmCaptions
+        ? remapCaptionsToFinalTime(editPlan.captions, keep)
+        : [];
+      const assContent = (useLlmCaptions && finalTimeCaptions.length > 0)
+        ? buildAssFromPlan(finalTimeCaptions, 1920, captionStyle)
         : buildAss(transcript, mode, 1920, captionStyle);
       await fs.writeFile(assFile, assContent);
       const withCaps = path.join(workDir, 'with_caps.mp4');

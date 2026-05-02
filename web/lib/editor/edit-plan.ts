@@ -86,6 +86,11 @@ You are EDITING raw footage from a creator into a tight, scroll-stopping clip.
 
 Your output is a JSON edit plan that a renderer will execute deterministically.
 
+ALL TIMESTAMPS YOU OUTPUT ARE IN **SOURCE TIME** (seconds from the start of
+the original raw clip). The renderer remaps them to final-cut time after
+concatenating your keep_ranges. Never output negative timestamps and never
+exceed the source duration.
+
 Rules:
 1. Every timestamp must come from the transcript words/segments you are given.
    Never invent timestamps outside the source duration.
@@ -94,10 +99,12 @@ Rules:
    Drop "I love it when —" and keep "I absolutely love it when X happens."
 3. For HOOK mode: rewrite the first 3 seconds into a punchier, more curiosity-
    driven line. Keep it true to the speaker's voice; don't fabricate claims.
-4. Captions: short phrases, 2-5 words each, positive emotional priming. Style
-   the first 3 seconds as "hook" (bigger). Mark high-impact words "emphasis".
+4. Captions: short phrases, 2-5 words each, positive emotional priming. Use
+   SOURCE timestamps that fall INSIDE one of your keep_ranges. Mark the first
+   3 seconds of source-time as "hook" (bigger). Mark high-impact words "emphasis".
 5. B-roll cues: suggest 0-3 visual cuts where the viewer's attention should
-   refresh (around 5s, 10s, 18s typically). One line each, concrete.
+   refresh. The "at" field is in FINAL-CUT seconds (estimated time after
+   concat). One line each, concrete.
 6. End-card: ≤ 8 words, action-oriented (e.g. "Save this for later" or "Try
    it free at FlashFlow.ai"). Skip if the speaker already gave a CTA.
 7. Total final length should fit the platform: TikTok/Reels ≤ 60s, Shorts ≤ 60s,
@@ -282,6 +289,64 @@ function heuristicFallbackPlan(input: BuildEditPlanInput): EditPlan {
     rationale: 'LLM planner unavailable — used heuristic silence + retake trim only.',
     source: 'fallback',
   };
+}
+
+// ---------- Source-time → final-time remap ----------
+
+/**
+ * Given keep_ranges in SOURCE time and a caption that's also in source time,
+ * return the caption with timestamps remapped to FINAL-CUT time (the time
+ * the caption should appear in the concatenated output).
+ *
+ * Returns null if the caption doesn't fall within any keep range — those
+ * captions get silently dropped (they'd never be visible anyway).
+ *
+ * Example: keep_ranges = [{0,3}, {5,8}]
+ *   - caption at source 1.5–2.5 → final 1.5–2.5  (offset 0 inside first keep)
+ *   - caption at source 6.0–6.5 → final 4.0–4.5  (3s of first keep + 1s into second)
+ *   - caption at source 4.0–4.5 → null  (in a dropped range)
+ */
+export function remapCaptionToFinalTime(
+  caption: PlanCaption,
+  keepRanges: Array<{ start: number; end: number }>,
+): PlanCaption | null {
+  // Sort keep ranges to make the offset math monotonic.
+  const sorted = [...keepRanges].sort((a, b) => a.start - b.start);
+
+  let cumulativeKept = 0;
+  for (const r of sorted) {
+    if (caption.start >= r.start && caption.start < r.end) {
+      // Caption begins inside this keep range. Clamp the end too.
+      const offsetInRange = caption.start - r.start;
+      const finalStart = cumulativeKept + offsetInRange;
+      const clampedEnd = Math.min(caption.end, r.end);
+      const finalEnd = cumulativeKept + (clampedEnd - r.start);
+      if (finalEnd - finalStart < 0.05) return null;
+      return {
+        start: finalStart,
+        end: finalEnd,
+        text: caption.text,
+        style: caption.style,
+      };
+    }
+    cumulativeKept += r.end - r.start;
+  }
+  return null;
+}
+
+/**
+ * Bulk-remap caption list. Out-of-range captions are silently dropped.
+ */
+export function remapCaptionsToFinalTime(
+  captions: PlanCaption[],
+  keepRanges: Array<{ start: number; end: number }>,
+): PlanCaption[] {
+  const out: PlanCaption[] = [];
+  for (const c of captions) {
+    const remapped = remapCaptionToFinalTime(c, keepRanges);
+    if (remapped) out.push(remapped);
+  }
+  return out;
 }
 
 // ---------- Public API ----------

@@ -279,10 +279,9 @@ export default function LandingPage() {
           </h1>
 
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Find products. Generate hooks. Edit videos. Publish to TikTok. Track
-            commissions. One tool for the whole TikTok Shop loop — built for
-            affiliates juggling 5 brands and creators who want to stop using 7
-            apps to ship one post.
+            Find products, generate hooks, edit videos, publish to TikTok, track
+            commissions — in one tool. Built for affiliates juggling 5 brands
+            and creators who want to stop using 7 apps to ship one post.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
@@ -447,37 +446,37 @@ export default function LandingPage() {
             {[
               {
                 icon: '🛍️',
-                title: 'Affiliate Discovery',
-                desc: 'Search the TikTok Shop affiliate marketplace. Filter by commission, category, sample availability — find the products worth promoting.',
+                title: 'TikTok Shop Product Discovery',
+                desc: 'The Affiliate Hub — search the TikTok Shop affiliate marketplace. Filter by commission, category, sample availability. Find winners worth promoting before everyone else.',
               },
               {
                 icon: '⚡',
                 title: 'Hook Generator',
-                desc: 'Generate scroll-stopping hooks for TikTok, Reels, and Shorts. Text + AI video hooks across Heygen, Pika, Runway.',
+                desc: 'Scroll-stopping hooks across 5+ AI video providers — Heygen, Sora, Pika, Runway, Luma. Text and avatar hooks for TikTok, Reels, and Shorts.',
                 link: '/admin/hook-generator',
                 linkText: 'See it',
               },
               {
                 icon: '🎬',
                 title: 'AI Video Editor',
-                desc: 'Auto-cut silence, add captions, drop music, ship vertical video — in minutes, not hours.',
+                desc: 'Sonnet 4 makes the edit decisions — silence cuts, b-roll, captions, music, vertical export. Ship a finished post in minutes, not hours.',
                 link: '/admin/editor',
                 linkText: 'See it',
               },
               {
                 icon: '⛏️',
-                title: 'Comment Mining',
-                desc: 'Find viral comments across creators. Turn them into hooks, scripts, and content ideas.',
+                title: 'Comment Miner',
+                desc: 'Pixel-accurate TikTok feed scrape. Mine viral comments across creators and turn them into the next hook, script, or full video idea.',
               },
               {
                 icon: '📤',
-                title: 'Publishing',
-                desc: 'Auto-publish to TikTok at the best time. Inbox + direct-post modes both supported with a single endpoint.',
+                title: 'Multi-Account Publishing',
+                desc: 'Direct Post + Inbox modes through the official TikTok API. Push to multiple TikTok accounts on schedule from one cockpit.',
               },
               {
                 icon: '💰',
-                title: 'Commission Tracking',
-                desc: 'See your TikTok Shop GMV and commissions roll in live. Per-product breakdowns, not just totals.',
+                title: 'Commission & Sponsor Reporting',
+                desc: 'Live TikTok Shop GMV and commission tracking with per-product breakdowns. Built-in sponsor reporting for brand deals and retainers.',
               },
             ].map((feature) => (
               <div key={feature.title} className="p-6 rounded-xl bg-zinc-900/50 border border-white/10 hover:border-white/20 transition-all">

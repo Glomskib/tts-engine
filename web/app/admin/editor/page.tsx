@@ -18,7 +18,9 @@ interface JobRow {
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-zinc-800 text-zinc-300',
   uploading: 'bg-blue-900/60 text-blue-200',
+  queued: 'bg-cyan-900/60 text-cyan-200',
   transcribing: 'bg-purple-900/60 text-purple-200',
+  planning: 'bg-fuchsia-900/60 text-fuchsia-200',
   building_timeline: 'bg-indigo-900/60 text-indigo-200',
   rendering: 'bg-amber-900/60 text-amber-200',
   completed: 'bg-green-900/60 text-green-200',

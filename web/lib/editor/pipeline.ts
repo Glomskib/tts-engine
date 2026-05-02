@@ -409,25 +409,34 @@ async function setProgress(jobId: string, pct: number, message: string): Promise
 export function humanizeEditJobError(err: unknown): string {
   const raw = err instanceof Error ? err.message : String(err);
   if (/OPENAI_API_KEY/i.test(raw)) {
-    return 'Transcription is unavailable because OPENAI_API_KEY is not set. Contact support or set the key in environment settings.';
+    return "Transcription is unavailable because OPENAI_API_KEY isn't set on the server. Hit Retry once it's configured — your upload is safe.";
   }
   if (/file too large|413|Maximum content size|25\s*MB|payload/i.test(raw)) {
-    return 'Audio extracted from this clip is larger than Whisper\'s 25 MB limit. Try a shorter clip or trim before uploading.';
+    return "Your clip's audio is over Whisper's 25 MB limit. Try a clip under 30 minutes, or split it into two and run them separately.";
   }
   if (/No raw footage/i.test(raw)) {
-    return 'No raw footage attached to this job. Upload at least one .mp4 or .mov clip and try again.';
+    return "We couldn't find any video on this job. Upload an .mp4, .mov, or .webm clip and try again.";
   }
   if (/Silence trim produced no usable segments/i.test(raw)) {
-    return 'Silence detection removed the entire clip. Try a different edit mode or a longer clip with clearer audio.';
+    return "We couldn't detect any speech in this clip. Try a longer clip with clearer audio, or switch to Quick Cut mode which is more forgiving.";
+  }
+  if (/Anthropic API error 4\d\d/i.test(raw)) {
+    return "The AI editor briefly hit a rate limit. Hit Retry — we won't re-bill the transcription.";
+  }
+  if (/Anthropic API error 5\d\d/i.test(raw) || /Anthropic.*timeout/i.test(raw)) {
+    return "The AI editor service is having a moment. Hit Retry in 30 seconds — your upload + transcription are saved.";
   }
   if (/ffmpeg exited/i.test(raw)) {
-    return `ffmpeg failed while processing the video. The clip may be corrupted or use an unsupported codec. (${raw.slice(-200)})`;
+    return `Video processing failed — your clip may be corrupted or use an unusual codec. Try re-exporting from your camera/phone in standard .mp4 (H.264). (${raw.slice(-200)})`;
   }
-  if (/Download failed|Upload failed/i.test(raw)) {
-    return `Storage transfer failed: ${raw}. Try again in a moment.`;
+  if (/Download failed/i.test(raw)) {
+    return `We couldn't pull your clip from storage. This is usually a transient hiccup — hit Retry. (${raw.slice(-150)})`;
+  }
+  if (/Upload failed/i.test(raw)) {
+    return `Couldn't save your finished video to storage. Hit Retry — the render itself worked. (${raw.slice(-150)})`;
   }
   if (/not found/i.test(raw) && /Job/i.test(raw)) {
-    return 'Job record was deleted before processing could start.';
+    return "This job record was deleted before processing could start. Create a new edit and re-upload.";
   }
   return raw.length > 400 ? raw.slice(0, 400) + '…' : raw;
 }

@@ -66,6 +66,11 @@ interface UploadProgress {
 /**
  * Upload a single file directly to Supabase Storage via signed URL.
  * Bypasses Vercel's 4.5 MB function-payload limit. Reports progress.
+ *
+ * Auto-retries the PUT step up to 2 times on transient network errors
+ * (xhr.onerror / non-200 5xx) with 1.5s + 4s backoff. Sign + finalize don't
+ * retry because they're cheap and a server-side sign failure is usually
+ * deterministic (size/mime mismatch).
  */
 async function uploadViaSignedUrl(
   jobId: string,
@@ -86,37 +91,66 @@ async function uploadViaSignedUrl(
   }
   const sign = await signRes.json();
 
-  // 2. PUT directly to storage signed URL with progress
-  onProgress(0, 'uploading');
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open('PUT', sign.signedUrl);
-    // Supabase storage requires these headers for direct signed-URL uploads
-    xhr.setRequestHeader('cache-control', 'no-store');
-    xhr.setRequestHeader('x-upsert', 'true');
-    if (file.type) xhr.setRequestHeader('content-type', file.type);
-    xhr.upload.onprogress = (e) => {
-      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100), 'uploading');
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        resolve();
-      } else {
-        const body = xhr.responseText?.slice(0, 300) || '(no response body)';
-        reject(new Error(`Upload failed — server said ${xhr.status}: ${body}`));
+  // 2. PUT directly to storage signed URL with progress + auto-retry
+  const MAX_PUT_ATTEMPTS = 3;
+  const BACKOFF_MS = [0, 1500, 4000];
+  let lastErr: Error | null = null;
+  for (let attempt = 0; attempt < MAX_PUT_ATTEMPTS; attempt++) {
+    if (attempt > 0) {
+      await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt]));
+    }
+    onProgress(0, 'uploading');
+    try {
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', sign.signedUrl);
+        // Supabase storage requires these headers for direct signed-URL uploads
+        xhr.setRequestHeader('cache-control', 'no-store');
+        xhr.setRequestHeader('x-upsert', 'true');
+        if (file.type) xhr.setRequestHeader('content-type', file.type);
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100), 'uploading');
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            resolve();
+          } else {
+            const body = xhr.responseText?.slice(0, 300) || '(no response body)';
+            const e = new Error(`Upload failed — server said ${xhr.status}: ${body}`);
+            // Tag retryable: 5xx or 0 (network) get retried; 4xx are deterministic.
+            (e as Error & { retryable?: boolean }).retryable = xhr.status === 0 || xhr.status >= 500;
+            reject(e);
+          }
+        };
+        xhr.onerror = () => {
+          const e = new Error(
+            "Network glitch during upload. We'll retry automatically — keep this tab open.",
+          );
+          (e as Error & { retryable?: boolean }).retryable = true;
+          reject(e);
+        };
+        xhr.ontimeout = () => {
+          const e = new Error('Upload timed out — your file may be too large for your connection. Try a shorter clip.');
+          (e as Error & { retryable?: boolean }).retryable = false;
+          reject(e);
+        };
+        xhr.send(file);
+      });
+      lastErr = null;
+      break; // success
+    } catch (err) {
+      lastErr = err instanceof Error ? err : new Error(String(err));
+      const retryable = (lastErr as Error & { retryable?: boolean }).retryable === true;
+      if (!retryable || attempt === MAX_PUT_ATTEMPTS - 1) {
+        // No more retries — surface the cleaner customer message.
+        const finalMsg = retryable
+          ? `Upload kept failing after ${MAX_PUT_ATTEMPTS} tries. Check your internet connection and try a smaller test clip.`
+          : lastErr.message;
+        throw new Error(finalMsg);
       }
-    };
-    xhr.onerror = () => {
-      // True browser-level network error (CORS, DNS, offline, etc.). Be specific.
-      reject(new Error(
-        `Couldn't reach the upload server. ` +
-        `If this keeps happening, try: 1) hard reload the page, ` +
-        `2) check your internet, 3) try a smaller test clip first.`
-      ));
-    };
-    xhr.ontimeout = () => reject(new Error('Upload timed out — your file may be too large for your connection. Try a shorter clip.'));
-    xhr.send(file);
-  });
+      // else loop and retry
+    }
+  }
 
   // 3. Finalize — registers asset on the job
   onProgress(100, 'finalizing');

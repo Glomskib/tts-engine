@@ -291,6 +291,33 @@ function heuristicFallbackPlan(input: BuildEditPlanInput): EditPlan {
   };
 }
 
+// ---------- Range utilities ----------
+
+/**
+ * Sort + merge overlapping keep ranges. The LLM can occasionally return
+ * overlapping ranges (e.g. {0,5} and {3,8}) — merging keeps the renderer
+ * simple and avoids duplicating segments.
+ */
+export function normalizeKeepRanges(
+  ranges: Array<{ start: number; end: number }>,
+): Array<{ start: number; end: number }> {
+  if (ranges.length === 0) return [];
+  const sorted = [...ranges]
+    .filter((r) => r.end - r.start > 0.05)
+    .sort((a, b) => a.start - b.start);
+  const merged: Array<{ start: number; end: number }> = [];
+  for (const r of sorted) {
+    const last = merged[merged.length - 1];
+    if (last && r.start <= last.end + 0.05) {
+      // Overlap or adjacent — merge.
+      last.end = Math.max(last.end, r.end);
+    } else {
+      merged.push({ start: r.start, end: r.end });
+    }
+  }
+  return merged;
+}
+
 // ---------- Source-time → final-time remap ----------
 
 /**

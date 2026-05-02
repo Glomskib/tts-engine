@@ -13,7 +13,13 @@ import path from 'path';
 import os from 'os';
 import OpenAI, { toFile } from 'openai';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { buildEditPlan, remapCaptionsToFinalTime, type EditPlan, type PlanCaption } from './edit-plan';
+import {
+  buildEditPlan,
+  remapCaptionsToFinalTime,
+  normalizeKeepRanges,
+  type EditPlan,
+  type PlanCaption,
+} from './edit-plan';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ffmpegPath: string = require('ffmpeg-static');
@@ -594,12 +600,16 @@ export async function processEditJob(
 
     // If the LLM produced concrete keep ranges, prefer them over the
     // heuristic — that's the whole point. Otherwise stick with heuristic.
+    // normalizeKeepRanges sorts + merges overlaps so the renderer never
+    // double-cuts the same segment.
     if (editPlan.source === 'llm' && editPlan.keep_ranges.length > 0) {
-      keep = editPlan.keep_ranges
-        .map((k) => ({ start: k.start, end: k.end }))
-        .filter((k) => k.end - k.start > 0.1)
-        // Order matters for concat — sort ascending.
-        .sort((a, b) => a.start - b.start);
+      keep = normalizeKeepRanges(
+        editPlan.keep_ranges.map((k) => ({ start: k.start, end: k.end })),
+      );
+    } else {
+      // Even on the heuristic path, normalize — silenceDetect + retake
+      // removal can produce adjacent ranges that benefit from merging.
+      keep = normalizeKeepRanges(keep);
     }
 
     // For jump cuts: split long keeps into 1.5-3s chunks

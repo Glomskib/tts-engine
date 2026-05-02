@@ -198,7 +198,6 @@ export default function AnalyticsPage() {
     <AdminPageLayout
       title="Analytics"
       subtitle="Performance metrics and trends"
-      showNav
       isAdmin={isAdmin}
       maxWidth="2xl"
       headerActions={dateButtons}

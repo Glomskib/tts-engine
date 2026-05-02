@@ -291,7 +291,7 @@ export default function ReportCardPage() {
 
   if (loading) {
     return (
-      <AdminPageLayout title="Report Card" subtitle="Weekly AI-powered performance reviews" showNav maxWidth="xl">
+      <AdminPageLayout title="Report Card" subtitle="Weekly AI-powered performance reviews" maxWidth="xl">
         <div className="flex items-center justify-center py-24">
           <div className="w-6 h-6 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
         </div>
@@ -302,7 +302,7 @@ export default function ReportCardPage() {
   const [latest, ...historical] = cards;
 
   return (
-    <AdminPageLayout title="Report Card" subtitle="Weekly AI-powered performance reviews" showNav maxWidth="xl">
+    <AdminPageLayout title="Report Card" subtitle="Weekly AI-powered performance reviews" maxWidth="xl">
       {!latest ? (
         <AdminCard>
           <EmptyState

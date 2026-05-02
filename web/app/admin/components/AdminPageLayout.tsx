@@ -11,6 +11,14 @@ interface AdminPageLayoutProps {
   /** Optional workflow stage label shown above the title */
   stage?: 'research' | 'create' | 'production' | 'analytics';
   isAdmin?: boolean;
+  /**
+   * @deprecated 2026-05-02 — renders the legacy horizontal `AdminNav` strip
+   * which is one of the "3 sidebars" Brandon flagged. The unified
+   * `AdminSidebar` (rendered once at the layout level) is the only nav
+   * surface inside /admin. Existing callers were migrated; do not add new
+   * uses. This prop is retained as a no-op-friendly default to avoid
+   * breaking any downstream caller mid-migration.
+   */
   showNav?: boolean;
   maxWidth?: 'md' | 'lg' | 'xl' | '2xl' | 'full';
   headerActions?: React.ReactNode;

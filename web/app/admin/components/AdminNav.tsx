@@ -10,6 +10,14 @@ interface AdminNavProps {
 }
 
 /**
+ * @deprecated 2026-05-02 — superseded by `AdminSidebar` (canonical) +
+ *   `AdminMobileHeader` / `AdminMobileDrawer`. The horizontal admin link strip
+ *   was the third sidebar surface that triggered Brandon's "3 different
+ *   sidebars across /admin pages" bug. All consumers were migrated off
+ *   `showNav` in the same commit; this file is kept temporarily so direct
+ *   imports continue to compile, but DO NOT add new callers — every nav
+ *   surface must go through `lib/navigation.ts`.
+ *
  * Standardized admin navigation component.
  *
  * Navigation Order:

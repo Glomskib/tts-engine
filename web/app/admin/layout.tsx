@@ -3,10 +3,11 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { X, ChevronDown, User, LogOut, Zap, Search, Sun, Moon, ArrowLeft, Sparkles } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
-import { getFilteredNavSections, isNavItemActive, BRAND } from '@/lib/navigation';
+import { getFilteredNavSections } from '@/lib/navigation';
+import { AdminSidebar } from '@/components/admin/AdminSidebar';
+import { AdminMobileHeader } from '@/components/admin/AdminMobileHeader';
 import { CreditsBadge } from '@/components/CreditsBadge';
 import { ClawbotStatus } from '@/components/ClawbotStatus';
 import { MobileBottomNav } from '@/components/MobileBottomNav';
@@ -65,7 +66,9 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     role: role || null,
   };
 
-  const [sidebarOpen, setSidebarOpen] = useState(false);
+  // Note: the legacy `sidebarOpen` state was removed when AdminSidebar took
+  // over ownership of the mobile drawer (2026-05-02). Onboarding fires the
+  // `flashflow:open-admin-sidebar` window event instead.
   const [navSheetOpen, setNavSheetOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [customizeNavOpen, setCustomizeNavOpen] = useState(false);
@@ -142,24 +145,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   // Nav filtering + plan gating handles per-page access control.
   // Command Center routes are owner-gated separately.
 
-  // Close sidebar/sheet on route change
+  // Close auxiliary panels (bottom-bar nav sheet + user menu) on route change.
+  // The AdminSidebar owns its own drawer state and auto-dismisses internally.
   useEffect(() => {
-    setSidebarOpen(false);
     setNavSheetOpen(false);
     setUserMenuOpen(false);
   }, [pathname]);
-
-  // Prevent body scroll when sidebar is open on mobile
-  useEffect(() => {
-    if (sidebarOpen && isMobile) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [sidebarOpen, isMobile]);
 
   // Redirect to login if not authenticated
   useEffect(() => {
@@ -233,59 +224,12 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   const isOwner = !!auth.userEmail && ownerEmails.includes(auth.userEmail.toLowerCase());
   const navSections = getFilteredNavSections({ planId: subscription?.planId, isAdmin: auth.isAdmin, isOwner });
 
-  // Sidebar content (shared between mobile and desktop)
-  const SidebarContent = ({ onItemClick }: { onItemClick?: () => void }) => (
-    <nav aria-label="Main navigation" className="flex-1 overflow-y-auto py-4">
-      {navSections.map((section, idx) => (
-        <div key={idx} className="mb-8">
-          {/* Section headers - bigger on mobile */}
-          <h3 className={`px-4 mb-3 font-semibold text-zinc-500 uppercase tracking-wider ${isMobile ? 'text-sm' : 'text-xs'}`}>
-            {section.title}
-          </h3>
-          <div className="space-y-2">
-            {section.items.map((item) => {
-              const active = isNavItemActive(pathname, item.href);
-              const Icon = item.icon;
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  onClick={onItemClick}
-                  data-tour={item.tourId || undefined}
-                  className={`
-                    flex items-center gap-4 mx-2 rounded-xl transition-colors
-                    ${isMobile
-                      ? 'px-4 py-4 text-[17px] min-h-[52px]'  /* 52px touch target, 17px text */
-                      : 'px-3 py-2.5 text-sm'}
-                    ${active
-                      ? 'bg-teal-500/20 text-teal-400'
-                      : 'text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)]'
-                    }
-                  `}
-                >
-                  <Icon className={`flex-shrink-0 ${isMobile ? 'w-7 h-7' : 'w-5 h-5'}`} />
-                  <span className="font-medium">{item.name}</span>
-                  {item.href === '/admin/notifications' && unreadCount > 0 && (
-                    <span className={`ml-auto px-2 py-0.5 font-medium bg-red-500 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
-                      {unreadCount}
-                    </span>
-                  )}
-                  {item.href === '/admin/feedback' && feedbackCount > 0 && (
-                    <span className={`ml-auto px-2 py-0.5 font-medium bg-red-500 text-white rounded-full ${isMobile ? 'text-sm' : 'text-xs'}`}>
-                      {feedbackCount}
-                    </span>
-                  )}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      ))}
-
-      {/* Bottom spacer */}
-      <div className="px-2 mt-4 pt-4 border-t border-[var(--border)]" />
-    </nav>
-  );
+  // Sidebar is now a single, canonical component (AdminSidebar). Inline nav
+  // arrays are forbidden in /admin pages — see web/lib/navigation.ts header.
+  const badgeCounts: Record<string, number> = {
+    '/admin/notifications': unreadCount,
+    '/admin/feedback': feedbackCount,
+  };
 
   // Sidebar upgrade prompt for free users (desktop only)
   const SidebarUpgradeCard = () => {
@@ -313,105 +257,30 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
     <OfflineIndicator />
     <div className="min-h-screen bg-[var(--bg)] text-[var(--text)]">
 
+      {/* Single unified sidebar — desktop pane + mobile drawer in one component. */}
+      <AdminSidebar
+        isAdmin={auth.isAdmin}
+        isOwner={isOwner}
+        planId={subscription?.planId}
+        unreadNotifications={unreadCount}
+        badgeCounts={badgeCounts}
+        desktopFooter={<SidebarUpgradeCard />}
+        hideMobileHamburger
+      />
+
       {/* ============================================================
           MOBILE LAYOUT - Only rendered when isMobile is true
           ============================================================ */}
       {isMobile && (
         <>
-          {/* Mobile Header - Simplified with proper overflow handling */}
-          <header className="
-            fixed top-0 left-0 right-0 h-14 z-40
-            bg-[var(--bg)] border-b border-[var(--border)]
-            flex items-center justify-between px-3 gap-2
-          ">
-            <Link
-              href="/create"
-              className="flex items-center gap-2 flex-shrink-0 min-w-0"
-              title="Back to FlashFlow"
-            >
-              <Image src={BRAND.logo} alt={BRAND.name} width={32} height={32} className="rounded-lg flex-shrink-0" />
-              <span className="font-semibold text-base truncate">{BRAND.name}</span>
-            </Link>
+          {/* Mobile Header — extracted into AdminMobileHeader (2026-05-02). */}
+          <AdminMobileHeader
+            userEmail={auth.userEmail}
+            onUserMenuOpen={() => setUserMenuOpen(true)}
+            rightSlot={<CreditsBadge compact />}
+          />
 
-            {/* Right side: Credits + User avatar */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <CreditsBadge compact />
-              {/* User avatar - tap to open menu */}
-              <button type="button"
-                onClick={() => setUserMenuOpen(true)}
-                aria-label="Open user menu"
-                className="w-10 h-10 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white font-bold text-lg flex-shrink-0"
-              >
-                {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
-              </button>
-            </div>
-          </header>
-
-          {/* Mobile Sidebar Overlay */}
-          {sidebarOpen && (
-            <div className="fixed inset-0 z-50" role="dialog" aria-label="Navigation menu">
-              {/* Backdrop */}
-              <div
-                className="absolute inset-0 bg-black/80"
-                onClick={() => setSidebarOpen(false)}
-              />
-
-              {/* Sidebar Panel - Wider on mobile for easier reading */}
-              <aside className="absolute inset-y-0 left-0 w-[320px] max-w-[90vw] bg-[var(--bg)] border-r border-[var(--border)] flex flex-col">
-                {/* Header */}
-                <div className="flex items-center justify-between p-5 border-b border-[var(--border)]">
-                  <div className="flex items-center gap-3">
-                    <Image src={BRAND.logo} alt={BRAND.name} width={40} height={40} className="rounded-lg" />
-                    <span className="font-bold text-2xl">{BRAND.name}</span>
-                  </div>
-                  <button type="button"
-                    onClick={() => setSidebarOpen(false)}
-                    className="p-3 text-[var(--text-muted)] hover:text-[var(--text)] hover:bg-[var(--surface2)] rounded-xl min-w-[48px] min-h-[48px] flex items-center justify-center"
-                    aria-label="Close sidebar"
-                  >
-                    <X className="w-7 h-7" />
-                  </button>
-                </div>
-
-                {/* Navigation */}
-                <SidebarContent onItemClick={() => setSidebarOpen(false)} />
-
-                {/* User info - Larger for mobile */}
-                <div className="p-5 border-t border-[var(--border)]">
-                  <div className="flex items-center gap-4 mb-5">
-                    <div className="w-14 h-14 rounded-full bg-gradient-to-br from-teal-400 to-teal-500 flex items-center justify-center text-white font-bold text-2xl">
-                      {auth.userEmail?.charAt(0).toUpperCase() || 'U'}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[17px] font-medium text-[var(--text)] truncate">{auth.userEmail}</p>
-                      <p className="text-base text-[var(--text-muted)]">{subscription?.planName || 'Free'} Plan</p>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <button type="button"
-                      onClick={() => {
-                        setSidebarOpen(false);
-                        setCustomizeNavOpen(true);
-                      }}
-                      className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-[var(--text-muted)] hover:bg-[var(--surface2)] rounded-xl transition-colors min-h-[52px]"
-                    >
-                      <svg className="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-                      </svg>
-                      Customize Navigation
-                    </button>
-                    <button type="button"
-                      onClick={handleLogout}
-                      className="flex items-center gap-4 w-full px-4 py-4 text-[17px] text-red-400 hover:bg-[var(--surface2)] rounded-xl transition-colors min-h-[52px]"
-                    >
-                      <LogOut className="w-7 h-7" />
-                      Logout
-                    </button>
-                  </div>
-                </div>
-              </aside>
-            </div>
-          )}
+          {/* Mobile sidebar drawer is owned by <AdminSidebar /> below. */}
 
           {/* Mobile User Menu - Larger touch targets */}
           {userMenuOpen && (
@@ -550,23 +419,7 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           ============================================================ */}
       {!isMobile && (
         <>
-          {/* Desktop Sidebar - Fixed */}
-          <aside className="fixed inset-y-0 left-0 w-72 bg-[var(--bg)] border-r border-[var(--border)] flex flex-col z-40">
-            {/* Logo */}
-            <Link
-              href="/create"
-              className="flex items-center gap-3 px-4 py-5 border-b border-[var(--border)] no-underline hover:bg-[var(--surface2)] transition-colors"
-              title="Back to FlashFlow"
-            >
-              <Image src={BRAND.logo} alt={BRAND.name} width={36} height={36} className="rounded-lg" />
-              <span className="font-bold text-xl">{BRAND.name}</span>
-            </Link>
-
-            {/* Navigation */}
-            <SidebarContent />
-            <SidebarUpgradeCard />
-          </aside>
-
+          {/* Desktop Sidebar — unified canonical AdminSidebar (see web/lib/navigation.ts header). */}
           {/* Desktop Header */}
           <header className="fixed top-0 left-72 right-0 z-30 bg-[var(--bg)] border-b border-[var(--border)]">
             <div className="flex items-center justify-end px-6 h-16">
@@ -667,7 +520,10 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
       )}
 
     </div>
-    <MainOnboardingTour isMobile={isMobile} onOpenSidebar={() => setSidebarOpen(true)} />
+    <MainOnboardingTour
+      isMobile={isMobile}
+      onOpenSidebar={() => window.dispatchEvent(new CustomEvent('flashflow:open-admin-sidebar'))}
+    />
     <FeedbackWidget />
     <CommandPalette />
     <KeyboardShortcutsModal />

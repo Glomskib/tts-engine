@@ -1,4 +1,27 @@
-// lib/navigation.ts - Single source of truth for app navigation
+// =============================================================================
+// lib/navigation.ts — CANONICAL nav structure for the FlashFlow admin shell.
+//
+//   ⚠️  DO NOT inline nav arrays inside any /admin layout, page, or component.
+//   ⚠️  All sidebar surfaces (AdminSidebar, MobileNavSheet, command palette,
+//       bottom-bar) MUST read from NAV_SECTIONS / getFilteredNavSections.
+//
+// History:
+//   2026-04-29 — restructured 8 cramped groups -> 5 (HOME/CREATE/PIPELINE/GROW/
+//                MANAGE) per Brandon's "H10-style nav, mobile first" directive.
+//   2026-05-01 — collapsed three drift-prone inline sidebars (admin/layout.tsx
+//                desktop+mobile, AppSidebar) into one AdminSidebar component.
+//                Removed the section-level `subscriptionType: 'saas'` *gate* so
+//                creator-side users on a video_editing plan still see the
+//                unified creator nav. Plan gating now lives on individual items
+//                via `minPlan` (preferred). The `subscriptionType` field still
+//                exists for the dedicated VIDEO PORTAL and ACCOUNT sections —
+//                those are surfaced *additionally* for video clients, not as a
+//                replacement for the creator surface.
+//
+// If you need to add a new tool, add it to the appropriate section here. Do
+// NOT mirror the entry into a layout/page — the renderers pick it up
+// automatically. Period.
+// =============================================================================
 import {
   Sparkles,
   Image,
@@ -293,8 +316,15 @@ export function getFilteredNavSections(options: {
       // Admin sees everything
       if (isAdmin) return true;
 
-      // Check subscription type filter
-      if (section.subscriptionType && section.subscriptionType !== subscriptionType) {
+      // Subscription-type rules:
+      //   - Sections marked saas are the canonical creator surface — show to
+      //     EVERY signed-in user regardless of plan. Removed the previous
+      //     "hide unless subscriptionType==='saas'" filter (2026-05-01) that
+      //     was making video_editing clients see a totally different nav with
+      //     no AI Video Editor entry.
+      //   - Sections marked video_editing are additive: only shown when the
+      //     user actually has a video_editing subscription.
+      if (section.subscriptionType === 'video_editing' && subscriptionType !== 'video_editing') {
         return false;
       }
 

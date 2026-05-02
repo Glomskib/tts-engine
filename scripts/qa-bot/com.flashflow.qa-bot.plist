@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.flashflow.qa-bot</string>
+
+    <!-- Wrapper script handles env loading + run + archive + notify. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/bash</string>
+        <string>__SCRIPT_PATH__/run-launchd.sh</string>
+    </array>
+
+    <key>WorkingDirectory</key>
+    <string>__REPO_PATH__</string>
+
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>NODE_ENV</key>
+        <string>production</string>
+        <key>PATH</key>
+        <string>/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
+    </dict>
+
+    <!-- Run every 30 minutes. Use launchctl kickstart -k gui/<uid>/com.flashflow.qa-bot
+         to trigger an immediate run. -->
+    <key>StartInterval</key>
+    <integer>1800</integer>
+
+    <!-- Don't auto-run at load — let StartInterval pace it. Avoids hammering
+         right after every login. -->
+    <key>RunAtLoad</key>
+    <false/>
+
+    <!-- One-shot, not a daemon — let it exit after each run. -->
+    <key>KeepAlive</key>
+    <false/>
+
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/FlashFlow/qa-bot.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/FlashFlow/qa-bot.err.log</string>
+</dict>
+</plist>

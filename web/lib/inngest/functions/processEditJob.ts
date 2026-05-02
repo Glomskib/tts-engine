@@ -17,7 +17,10 @@ export const processEditJobFn = inngest.createFunction(
   {
     id: 'editor-process-job',
     name: 'Editor: process edit job',
-    retries: 3,
+    // retries=1: humanizeEditJobError already classifies failures into terminal vs
+    // transient. Triple-running the pipeline on bad codecs triple-bills Whisper.
+    // The transcript reuse path in pipeline.ts protects retries from re-billing.
+    retries: 1,
     concurrency: { limit: 3 },
     triggers: [{ event: 'editor/job.process' }],
   },

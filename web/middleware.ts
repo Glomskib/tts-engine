@@ -136,3 +136,4 @@ export const config = {
     '/((?!_next/static|_next/image|favicon\\.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }
+// TODO(2026-05-01): wrap responses for /admin/* with cache-control: no-store, no-cache, must-revalidate

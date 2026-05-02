@@ -11,7 +11,7 @@
  * `-1` means unlimited.
  */
 
-export type PlanKey = 'free' | 'creator' | 'pro' | 'admin';
+export type PlanKey = 'free' | 'creator' | 'pro' | 'brand' | 'agency' | 'admin';
 
 export interface PlanConfig {
   name: string;
@@ -20,6 +20,10 @@ export interface PlanConfig {
   variations_per_video: number; // -1 = unlimited
   watermark: boolean;
   priority: boolean;
+  /** Number of seats included in the plan price (1 for solo plans). */
+  seats_included?: number;
+  /** Per-extra-seat add-on price. */
+  per_seat_addon_price?: number;
   bullets: string[];
 }
 
@@ -64,6 +68,43 @@ export const PLANS: Record<PlanKey, PlanConfig> = {
       'No watermark',
       'Priority render queue',
       'Multi-brand management',
+    ],
+  },
+  // Brand and Agency plans are seat-based. Built but not surfaced on the
+  // marketing pricing page until ENABLE_MULTI_TENANCY is on; UpgradeModal
+  // hides them when the flag is off.
+  brand: {
+    name: 'Brand',
+    price: 79,
+    edits_per_day: 100,
+    variations_per_video: -1,
+    watermark: false,
+    priority: true,
+    seats_included: 3,
+    per_seat_addon_price: 19,
+    bullets: [
+      'Everything in Pro',
+      '3 seats included',
+      '$19 per additional seat',
+      'Brand workspace + RBAC',
+      'Shared Winners Bank',
+    ],
+  },
+  agency: {
+    name: 'Agency',
+    price: 199,
+    edits_per_day: -1,
+    variations_per_video: -1,
+    watermark: false,
+    priority: true,
+    seats_included: 10,
+    per_seat_addon_price: 15,
+    bullets: [
+      'Everything in Brand',
+      '10 seats included',
+      '$15 per additional seat',
+      'Agency multi-org switcher',
+      'Client report exports',
     ],
   },
   admin: {

@@ -507,6 +507,9 @@ async function generateWithLLM(input: ClipInput, seedAngle?: string | null): Pro
     const { parsed } = await callAnthropicJSON<ParsedClip[]>(
       buildPrompt(input, seedAngle),
       {
+        // /create LLM uses Haiku 4.5 — ~75% cheaper than Sonnet for template-fill
+        // tasks like this. Editor stays on Sonnet (DEFAULT_MODEL in anthropic.ts).
+        model: 'claude-haiku-4-5-20251001',
         maxTokens: Math.min(1800 + input.count * 480, 8000),
         temperature: 0.95,
         requestType: 'generation',

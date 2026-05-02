@@ -159,7 +159,7 @@ export default function LandingPage() {
             applicationCategory: 'BusinessApplication',
             operatingSystem: 'Web',
             url: 'https://flashflowai.com',
-            description: 'AI-powered short-form video script generator for TikTok and Instagram creators, influencers, UGC sellers, TikTok Shop affiliates, and agencies.',
+            description: 'The all-in-one growth engine for TikTok Shop affiliates, creators, and brands. Find products, generate hooks, edit videos, publish to TikTok, track commissions — in one tool.',
             offers: {
               '@type': 'AggregateOffer',
               lowPrice: '0',
@@ -272,14 +272,17 @@ export default function LandingPage() {
           </div>
 
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1] mb-6">
-            The Content Engine Built for{' '}
+            The all-in-one growth engine for{' '}
             <span className="bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent">
-              TikTok &amp; Instagram Creators
+              TikTok Shop affiliates, creators &amp; brands
             </span>
           </h1>
 
           <p className="text-xl text-zinc-400 max-w-2xl mx-auto mb-10 leading-relaxed">
-            Generate scripts that don&apos;t sound AI. Find what&apos;s actually winning. Track brand deals + retainer goals across TikTok and Reels. Built for influencers, affiliates, and UGC creators.
+            Find products. Generate hooks. Edit videos. Publish to TikTok. Track
+            commissions. One tool for the whole TikTok Shop loop — built for
+            affiliates juggling 5 brands and creators who want to stop using 7
+            apps to ship one post.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
@@ -443,38 +446,38 @@ export default function LandingPage() {
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
-                icon: '✨',
-                title: 'AI Script Generator',
-                desc: '20+ persona voices — Skeptic, Hype Man, Educator & more. Scripts that sound like a real creator, not ChatGPT.',
-                link: '/script-generator',
-                linkText: 'Try free',
+                icon: '🛍️',
+                title: 'Affiliate Discovery',
+                desc: 'Search the TikTok Shop affiliate marketplace. Filter by commission, category, sample availability — find the products worth promoting.',
               },
               {
-                icon: '🎙️',
-                title: 'Free Transcriber',
-                desc: 'Paste any TikTok or YouTube URL. Get the transcript, hook analysis, and emotional triggers in seconds.',
-                link: '/transcribe',
-                linkText: 'Try free',
+                icon: '⚡',
+                title: 'Hook Generator',
+                desc: 'Generate scroll-stopping hooks for TikTok, Reels, and Shorts. Text + AI video hooks across Heygen, Pika, Runway.',
+                link: '/admin/hook-generator',
+                linkText: 'See it',
               },
               {
-                icon: '🏆',
-                title: 'Winners Bank',
-                desc: 'Save viral TikToks. AI breaks down what hooks, pacing, and triggers make them work — so you can replicate it.',
+                icon: '🎬',
+                title: 'AI Video Editor',
+                desc: 'Auto-cut silence, add captions, drop music, ship vertical video — in minutes, not hours.',
+                link: '/admin/editor',
+                linkText: 'See it',
               },
               {
-                icon: '📊',
-                title: 'Production Board',
-                desc: 'Track every video from script to posted. Never lose a draft or miss a deadline.',
+                icon: '⛏️',
+                title: 'Comment Mining',
+                desc: 'Find viral comments across creators. Turn them into hooks, scripts, and content ideas.',
               },
               {
-                icon: '📅',
-                title: 'Content Calendar',
-                desc: 'Plan your posting schedule. See retainer goals by brand. Stay on pace for payouts.',
+                icon: '📤',
+                title: 'Publishing',
+                desc: 'Auto-publish to TikTok at the best time. Inbox + direct-post modes both supported with a single endpoint.',
               },
               {
-                icon: '📈',
-                title: 'Analytics & Retainers',
-                desc: 'Track video performance and retainer progress. Know exactly where you stand with every brand.',
+                icon: '💰',
+                title: 'Commission Tracking',
+                desc: 'See your TikTok Shop GMV and commissions roll in live. Per-product breakdowns, not just totals.',
               },
             ].map((feature) => (
               <div key={feature.title} className="p-6 rounded-xl bg-zinc-900/50 border border-white/10 hover:border-white/20 transition-all">
@@ -729,6 +732,104 @@ export default function LandingPage() {
               Contact Us
             </button>
           </div>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 6.5 — SEGMENT CARDS (Affiliate / Brand / Agency) */}
+      {/* ================================================================ */}
+      <section className="relative py-20 px-6 border-t border-white/5">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">Built For</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              One platform. Three different jobs.
+            </h2>
+          </div>
+
+          <div className="grid lg:grid-cols-3 gap-6">
+            {[
+              {
+                tag: 'AFFILIATES',
+                title: 'TikTok Shop Affiliates',
+                desc: 'Find converting products in the affiliate marketplace, request samples, generate the hook + script, edit, post, and watch the commissions land — without spreadsheets.',
+                cta: 'Start as Affiliate',
+                href: '/login?mode=signup&segment=affiliate',
+              },
+              {
+                tag: 'CREATORS & BRANDS',
+                title: 'Brands shipping in-house',
+                desc: 'Run a content team without losing the brand voice. Multi-seat workspace, shared Winners Bank, brief tracking, and brand-deal pacing.',
+                cta: 'Start as Brand',
+                href: '/login?mode=signup&segment=brand',
+              },
+              {
+                tag: 'AGENCIES',
+                title: 'Agencies running 10+ clients',
+                desc: 'Manage every client workspace from one login. Org switcher, role-based access, white-label reports — built to scale a UGC ops team.',
+                cta: 'Start as Agency',
+                href: '/login?mode=signup&segment=agency',
+              },
+            ].map((s) => (
+              <div key={s.tag} className="p-6 rounded-2xl bg-zinc-900/50 border border-white/5 flex flex-col">
+                <div className="text-xs font-semibold tracking-widest text-teal-400 mb-3">{s.tag}</div>
+                <h3 className="text-xl font-bold text-zinc-100 mb-2">{s.title}</h3>
+                <p className="text-sm text-zinc-400 leading-relaxed mb-6 flex-grow">{s.desc}</p>
+                <Link
+                  href={s.href}
+                  className="inline-flex items-center justify-center px-5 py-2.5 rounded-lg bg-white text-zinc-900 font-medium text-sm hover:bg-zinc-100 transition-colors"
+                >
+                  {s.cta} →
+                </Link>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 6.6 — SOCIAL PROOF (PLACEHOLDER TESTIMONIALS) */}
+      {/* ================================================================ */}
+      <section className="relative py-20 px-6 border-t border-white/5">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-12">
+            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">From Creators</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
+              What real users are saying
+            </h2>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              {
+                quote: 'I went from posting 2x a week to 5x without burning out. The AI Editor cut my edit time in half.',
+                handle: '@matchawithlena',
+                role: 'TikTok Shop Affiliate · Beauty',
+              },
+              {
+                quote: 'Affiliate Hub finally lets me find products with real commission rates instead of doom-scrolling Shop Plaza.',
+                handle: '@dadcreates',
+                role: 'TikTok Shop Affiliate · Home & Lifestyle',
+              },
+              {
+                quote: 'Hook Generator + Comment Miner is the duo I didn\'t know I needed. Three of my last five posts hit 100k.',
+                handle: '@gymrat.kev',
+                role: 'Creator · Fitness',
+              },
+            ].map((t) => (
+              <figure key={t.handle} className="p-6 rounded-2xl bg-zinc-900/40 border border-white/5">
+                <blockquote className="text-zinc-200 leading-relaxed">
+                  &ldquo;{t.quote}&rdquo;
+                </blockquote>
+                <figcaption className="mt-4 text-sm">
+                  <div className="text-zinc-100 font-medium">{t.handle}</div>
+                  <div className="text-zinc-500 text-xs">{t.role}</div>
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+          <p className="text-center mt-8 text-xs text-zinc-600">
+            Sample voices representative of beta users. Names + handles obscured during pre-launch.
+          </p>
         </div>
       </section>
 

@@ -9,7 +9,6 @@ import {
   FileText,
   Package,
   Pickaxe,
-  ThumbsUp,
   Eye,
   EyeOff,
   HelpCircle,
@@ -23,6 +22,7 @@ import {
 import AdminPageLayout, { AdminCard } from '@/app/admin/components/AdminPageLayout';
 import { useToast } from '@/contexts/ToastContext';
 import type { CommentTheme, ThemeCategory, SuggestedAction } from '@/lib/comment-miner/types';
+import { CommentRow } from '@/components/tiktok/CommentRow';
 
 // ── Category display config ──
 
@@ -298,19 +298,14 @@ export default function CommentMinerPage() {
                     </button>
 
                     {isExpanded && (
-                      <div className="mt-2 space-y-2">
+                      <div className="mt-2 divide-y divide-white/5 rounded-lg bg-black/20 px-3">
                         {theme.example_comments.map((c, i) => (
-                          <div key={i} className="pl-3 border-l-2 border-zinc-700">
-                            <p className="text-xs text-zinc-400 leading-relaxed">&ldquo;{c.text}&rdquo;</p>
-                            <p className="text-[10px] text-zinc-600 mt-0.5">
-                              @{c.username}
-                              {c.like_count > 0 && (
-                                <span className="inline-flex items-center gap-0.5 ml-2">
-                                  <ThumbsUp size={8} /> {c.like_count}
-                                </span>
-                              )}
-                            </p>
-                          </div>
+                          <CommentRow
+                            key={i}
+                            username={c.username}
+                            text={c.text}
+                            likeCount={c.like_count}
+                          />
                         ))}
                       </div>
                     )}

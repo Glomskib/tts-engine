@@ -427,20 +427,39 @@ export class TikTokShopClient {
   // Affiliate API
   // -------------------------------------------------------------------------
 
-  /** Search open collaborations (affiliate marketplace) */
+  /**
+   * Search open collaborations (affiliate marketplace).
+   *
+   * NOTE: full typed surface lives in `web/lib/tiktok-affiliate.ts`. This
+   * raw helper is kept for direct shop-cipher access; new affiliate UI work
+   * should use `getTikTokAffiliateClient()` instead.
+   *
+   * Docs: https://partner.tiktokshop.com/docv2/page/affiliate-open-collaboration-search
+   */
   async searchOpenCollaborations(
     accessToken: string,
     shopCipher: string,
     options: {
       page_size?: number;
       page_token?: string;
+      keyword?: string;
+      category_id?: string;
+      commission_rate_min?: number;
     } = {},
   ): Promise<{ collaborations: unknown[]; next_page_token: string }> {
+    // The TT Shop affiliate response shape changes between regions and
+    // hasn't been pinned at the time of writing — keep `unknown[]` until we
+    // capture a real response and tighten in `tiktok-affiliate.ts`.
     const path = `/affiliate/${API_VERSION}/open_collaborations/search`;
     const body: Record<string, unknown> = {
       page_size: options.page_size || 20,
     };
     if (options.page_token) body.page_token = options.page_token;
+    if (options.keyword) body.keyword = options.keyword;
+    if (options.category_id) body.category_id = options.category_id;
+    if (options.commission_rate_min !== undefined) {
+      body.commission_rate_min = options.commission_rate_min;
+    }
 
     return this.apiRequest('POST', path, accessToken, shopCipher, body);
   }

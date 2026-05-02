@@ -96,14 +96,23 @@ export default function AdminHookGeneratorPage() {
       subtitle="Make hooks that stop the scroll — visual, text, and verbal, ready to film"
       stage="create"
     >
-      {/* Cross-link to Content Studio */}
-      <div className="flex items-center gap-4 mb-2 text-sm">
+      {/* Cross-links */}
+      <div className="flex items-center gap-4 mb-2 text-sm flex-wrap">
         <Link
           href="/admin/content-studio"
           className="inline-flex items-center gap-1.5 text-zinc-500 hover:text-zinc-300 transition-colors"
         >
           <Sparkles size={14} />
           Want a full script? Use Content Studio
+          <ArrowRight size={12} />
+        </Link>
+        <span className="text-zinc-700">|</span>
+        <Link
+          href="/admin/hook-generator/video"
+          className="inline-flex items-center gap-1.5 text-teal-400 hover:text-teal-300 transition-colors"
+        >
+          <Zap size={14} />
+          Generate hook videos (Heygen, Sora, Pika...)
           <ArrowRight size={12} />
         </Link>
       </div>

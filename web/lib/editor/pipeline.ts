@@ -395,9 +395,8 @@ export async function processEditJob(
     throw new Error('No raw footage attached to job');
   }
 
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY is not set — transcription cannot run. Set this env var and retry.');
-  }
+  // Note: OPENAI_API_KEY is only required if we actually run Whisper —
+  // checked inline below so retries with an existing transcript don't fail.
 
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), `edit-job-${jobId}-`));
   try {
@@ -411,30 +410,51 @@ export async function processEditJob(
 
     // 2. Transcribe (transcribe first raw for now — combining audio is overkill for MVP)
     await setStatus(jobId, 'transcribing', { started_at: new Date().toISOString() });
-    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
     const primary = localRaws[0];
 
-    // Extract audio for Whisper (smaller upload)
-    const audioFile = path.join(workDir, 'audio.mp3');
-    await runFfmpeg(['-y', '-i', primary, '-vn', '-acodec', 'libmp3lame', '-b:a', '96k', audioFile]);
+    // Skip re-transcribe on retry: if the job already has a non-empty transcript,
+    // reuse it. Saves Whisper $$ on Inngest retries triggered by downstream failures.
+    const existingTranscript = (job.transcript && typeof job.transcript === 'object')
+      ? (job.transcript as Partial<EditJobTranscript>)
+      : null;
+    let transcript: EditJobTranscript;
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tResp: any = await openai.audio.transcriptions.create({
-      file: await toFileLike(audioFile, 'audio.mp3'),
-      model: 'whisper-1',
-      response_format: 'verbose_json',
-      timestamp_granularities: ['word', 'segment'],
-    });
+    if (existingTranscript && typeof existingTranscript.text === 'string' && existingTranscript.text.trim().length > 0) {
+      console.log('[editor] Reusing existing transcript for job', jobId, '— skipping Whisper');
+      transcript = {
+        text: existingTranscript.text,
+        words: Array.isArray(existingTranscript.words) ? existingTranscript.words : [],
+        segments: Array.isArray(existingTranscript.segments) ? existingTranscript.segments : [],
+      };
+    } else {
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY is not set — transcription cannot run. Set this env var and retry.');
+      }
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      // Extract audio for Whisper (smaller upload)
+      const audioFile = path.join(workDir, 'audio.mp3');
+      // 64k mono mp3 is plenty for Whisper (accuracy unaffected) and frees ~33%
+      // headroom under the 25 MB upload cap for longer clips.
+      await runFfmpeg(['-y', '-i', primary, '-vn', '-acodec', 'libmp3lame', '-b:a', '64k', audioFile]);
 
-    const transcript: EditJobTranscript = {
-      text: tResp.text ?? '',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      words: (tResp.words ?? []).map((w: any) => ({ word: w.word, start: w.start, end: w.end })),
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      segments: (tResp.segments ?? []).map((s: any) => ({ start: s.start, end: s.end, text: s.text })),
-    };
+      const tResp: any = await openai.audio.transcriptions.create({
+        file: await toFileLike(audioFile, 'audio.mp3'),
+        model: 'whisper-1',
+        response_format: 'verbose_json',
+        timestamp_granularities: ['word', 'segment'],
+      });
 
-    await supabaseAdmin.from('ai_edit_jobs').update({ transcript }).eq('id', jobId);
+      transcript = {
+        text: tResp.text ?? '',
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        words: (tResp.words ?? []).map((w: any) => ({ word: w.word, start: w.start, end: w.end })),
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        segments: (tResp.segments ?? []).map((s: any) => ({ start: s.start, end: s.end, text: s.text })),
+      };
+
+      await supabaseAdmin.from('ai_edit_jobs').update({ transcript }).eq('id', jobId);
+    }
 
     // 3. Build timeline
     await setStatus(jobId, 'building_timeline');
@@ -611,9 +631,55 @@ export async function processEditJob(
         finished_at: new Date().toISOString(),
       })
       .eq('id', jobId);
+
+    // 9. Storage TTL — async cleanup of raw uploads after the job is done.
+    // Outputs (final.mp4) stay; raws are the user's source files which we no
+    // longer need once the render is delivered. Wrap in try/catch so a cleanup
+    // failure never poisons a successfully completed job.
+    cleanupRawUploads(job.user_id, jobId).catch((cleanupErr) => {
+      console.warn('[editor] raw cleanup failed for job', jobId, cleanupErr);
+    });
   } finally {
     // Cleanup
     try { await fs.rm(workDir, { recursive: true, force: true }); } catch {}
+  }
+}
+
+/**
+ * Delete every object under `{userId}/{jobId}/raw/` from the edit-jobs bucket.
+ * Called after the job hits status='completed'. Outputs (under .../output/)
+ * are intentionally left alone — those are the user's deliverable.
+ *
+ * Safe to fail: caller catches and logs.
+ */
+async function cleanupRawUploads(userId: string, jobId: string): Promise<void> {
+  const prefix = `${userId}/${jobId}/raw`;
+  try {
+    const { data, error } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .list(prefix, { limit: 1000 });
+
+    if (error) {
+      console.warn('[editor] cleanup: list failed for', prefix, error);
+      return;
+    }
+    if (!data || data.length === 0) {
+      console.log('[editor] cleanup: nothing to remove under', prefix);
+      return;
+    }
+
+    const paths = data.map((entry) => `${prefix}/${entry.name}`);
+    const { error: rmErr } = await supabaseAdmin.storage
+      .from(BUCKET_NAME)
+      .remove(paths);
+
+    if (rmErr) {
+      console.warn('[editor] cleanup: remove failed for', prefix, rmErr);
+      return;
+    }
+    console.log(`[editor] cleanup: removed ${paths.length} raw upload(s) under ${prefix}`);
+  } catch (err) {
+    console.warn('[editor] cleanup: unexpected error for', prefix, err);
   }
 }
 

@@ -775,7 +775,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
 
           <h1 className={`font-bold text-white mb-4 leading-tight ${isPortal ? 'text-2xl sm:text-3xl' : 'text-4xl sm:text-5xl'}`}>
             {isPortal ? (
-              'Video Breakdown'
+              'Free AI Transcriber'
             ) : (
               <>
                 {config.heroTitle}{' '}

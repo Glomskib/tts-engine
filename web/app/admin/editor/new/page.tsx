@@ -91,14 +91,30 @@ async function uploadViaSignedUrl(
   await new Promise<void>((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     xhr.open('PUT', sign.signedUrl);
-    if (file.type) xhr.setRequestHeader('Content-Type', file.type);
+    // Supabase storage requires these headers for direct signed-URL uploads
+    xhr.setRequestHeader('cache-control', 'no-store');
+    xhr.setRequestHeader('x-upsert', 'true');
+    if (file.type) xhr.setRequestHeader('content-type', file.type);
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100), 'uploading');
     };
-    xhr.onload = () => xhr.status >= 200 && xhr.status < 300
-      ? resolve()
-      : reject(new Error(`Storage upload failed (${xhr.status}): ${xhr.responseText.slice(0, 200)}`));
-    xhr.onerror = () => reject(new Error('Network error during upload'));
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve();
+      } else {
+        const body = xhr.responseText?.slice(0, 300) || '(no response body)';
+        reject(new Error(`Upload failed — server said ${xhr.status}: ${body}`));
+      }
+    };
+    xhr.onerror = () => {
+      // True browser-level network error (CORS, DNS, offline, etc.). Be specific.
+      reject(new Error(
+        `Couldn't reach the upload server. ` +
+        `If this keeps happening, try: 1) hard reload the page, ` +
+        `2) check your internet, 3) try a smaller test clip first.`
+      ));
+    };
+    xhr.ontimeout = () => reject(new Error('Upload timed out — your file may be too large for your connection. Try a shorter clip.'));
     xhr.send(file);
   });
 
@@ -162,7 +178,7 @@ export default function NewEditJobPage() {
     }
 
     setSubmitting(true);
-    setStatus('Creating job…');
+    setStatus('Setting up your edit…');
     setUploads(allPairs.map((p) => ({ fileName: p.file.name, kind: p.kind, pct: 0, status: 'queued' as const })));
 
     try {
@@ -182,7 +198,7 @@ export default function NewEditJobPage() {
         jobId = j.job.id;
       }
 
-      setStatus('Uploading directly to storage…');
+      setStatus('Uploading your video…');
       // Upload all files in parallel — direct to Supabase Storage via signed URL
       await Promise.all(
         allPairs.map(async (p) => {
@@ -198,7 +214,7 @@ export default function NewEditJobPage() {
         })
       );
 
-      setStatus('Starting AI edit…');
+      setStatus('Starting your edit…');
       fetch(`/api/editor/jobs/${jobId}/start`, { method: 'POST' }).catch(() => {});
       router.push(`/admin/editor/${jobId}`);
     } catch (err) {

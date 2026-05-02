@@ -53,6 +53,9 @@ export const processEditJobFn = inngest.createFunction(
           status: 'failed',
           error: message,
           finished_at: new Date().toISOString(),
+          // Leave progress_pct alone — the user can see how far they got
+          // before the failure ("we got to 70% and ffmpeg choked on…").
+          phase_message: 'Job failed — see error below.',
         })
         .eq('id', jobId);
       // Re-throw so Inngest records it as a failure. NonRetriableError isn't

@@ -77,7 +77,14 @@ export async function POST(
 
   await supabaseAdmin
     .from('ai_edit_jobs')
-    .update({ status: 'queued', error: null, started_at: null, finished_at: null })
+    .update({
+      status: 'queued',
+      error: null,
+      started_at: null,
+      finished_at: null,
+      progress_pct: 0,
+      phase_message: 'Queued — your edit will start shortly.',
+    })
     .eq('id', id);
 
   await inngest.send({

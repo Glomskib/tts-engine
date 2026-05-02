@@ -7,6 +7,20 @@ import { ArrowLeft, Download, RefreshCw, AlertCircle, Share2, Sparkles, Plus, Se
 
 interface JobAsset { kind: string; path: string; name: string }
 interface Transcript { text?: string }
+interface PlanCaption { start: number; end: number; text: string; style?: string }
+interface PlanKeepRange { start: number; end: number; reason?: string }
+interface PlanBRollCue { at: number; description: string }
+interface EditPlan {
+  source?: 'llm' | 'fallback';
+  model?: string;
+  rationale?: string;
+  hook?: { text: string; reason?: string } | null;
+  end_card?: { text: string } | null;
+  keep_ranges?: PlanKeepRange[];
+  drop_ranges?: PlanKeepRange[];
+  captions?: PlanCaption[];
+  broll_cues?: PlanBRollCue[];
+}
 interface Job {
   id: string;
   title: string;
@@ -17,12 +31,29 @@ interface Job {
   preview_url: string | null;
   assets: JobAsset[];
   transcript: Transcript | null;
+  edit_plan: EditPlan | null;
+  progress_pct: number | null;
+  phase_message: string | null;
   created_at: string;
   updated_at: string;
 }
 
 const TERMINAL = new Set(['completed', 'failed']);
-const STAGES = ['draft', 'uploading', 'transcribing', 'building_timeline', 'rendering', 'completed'];
+const STAGES = ['draft', 'uploading', 'transcribing', 'planning', 'building_timeline', 'rendering', 'completed'];
+
+// Friendly labels for each pipeline phase. Used in the progress bar caption
+// when we don't have a `phase_message` from the server yet.
+const PHASE_LABEL: Record<string, string> = {
+  draft: 'Saving your draft',
+  uploading: 'Uploading your footage',
+  queued: 'Queued — waiting for a worker',
+  transcribing: 'Listening to every word',
+  planning: 'AI editor is choosing your best moments',
+  building_timeline: 'Trimming dead air and catching retakes',
+  rendering: 'Cutting your scenes',
+  completed: 'Your video is ready',
+  failed: 'Something went wrong',
+};
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-zinc-800 text-zinc-300',
@@ -158,7 +189,9 @@ export default function EditJobDetailPage({ params }: { params: Promise<{ id: st
 
   useEffect(() => {
     if (!job || TERMINAL.has(job.status)) return;
-    const t = setInterval(fetchJob, 3000);
+    // 1.5s while running gives a much more responsive feel than 3s. The
+    // detail GET is cheap (single row), so the cost trade is fine.
+    const t = setInterval(fetchJob, 1500);
     return () => clearInterval(t);
   }, [job, fetchJob]);
 
@@ -220,6 +253,11 @@ export default function EditJobDetailPage({ params }: { params: Promise<{ id: st
   }
 
   const stageIdx = STAGES.indexOf(job.status);
+  const isRunning = !TERMINAL.has(job.status) && job.status !== 'draft';
+  // Defensive: progress_pct can be null on legacy rows that pre-date the
+  // 20260502 migration, or 0 right after the queue flip.
+  const pct = Math.max(0, Math.min(100, Number(job.progress_pct ?? 0)));
+  const phaseMsg = job.phase_message?.trim() || PHASE_LABEL[job.status] || 'Working on it…';
 
   return (
     <AdminPageLayout title={job.title} subtitle={`Mode: ${job.mode}`}>
@@ -242,6 +280,25 @@ export default function EditJobDetailPage({ params }: { params: Promise<{ id: st
           </span>
           <span className="text-xs text-zinc-500">Updated {new Date(job.updated_at).toLocaleString()}</span>
         </div>
+
+        {/* Real progress bar — driven by progress_pct from the pipeline */}
+        {isRunning && (
+          <div className="mb-4">
+            <div className="flex items-baseline justify-between mb-1.5">
+              <span className="text-sm text-zinc-200">{phaseMsg}</span>
+              <span className="text-xs text-zinc-500 font-mono">{pct}%</span>
+            </div>
+            <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-500 ease-out"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <div className="mt-1 text-[11px] text-zinc-500">
+              Most edits finish in 1–3 minutes per minute of footage. You can leave this page — we'll keep going.
+            </div>
+          </div>
+        )}
 
         {/* State machine progress */}
         <div className="flex items-center gap-2 flex-wrap">
@@ -385,6 +442,56 @@ export default function EditJobDetailPage({ params }: { params: Promise<{ id: st
           </ul>
         )}
       </div>
+
+      {job.edit_plan && (job.edit_plan.rationale || job.edit_plan.hook || (job.edit_plan.broll_cues && job.edit_plan.broll_cues.length > 0)) && (
+        <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5 mb-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Sparkles className="w-4 h-4 text-teal-400" />
+            <div className="font-medium text-zinc-100">AI edit plan</div>
+            {job.edit_plan.source === 'llm' && (
+              <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-teal-900/40 text-teal-300 border border-teal-800/40">
+                Claude Sonnet 4
+              </span>
+            )}
+            {job.edit_plan.source === 'fallback' && (
+              <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-400">
+                Heuristic fallback
+              </span>
+            )}
+          </div>
+          {job.edit_plan.rationale && (
+            <p className="text-sm text-zinc-300 leading-relaxed mb-3">{job.edit_plan.rationale}</p>
+          )}
+          {job.edit_plan.hook?.text && (
+            <div className="mb-3">
+              <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-1">Punched-up hook</div>
+              <div className="text-sm text-zinc-200 italic">&ldquo;{job.edit_plan.hook.text}&rdquo;</div>
+              {job.edit_plan.hook.reason && (
+                <div className="text-[11px] text-zinc-500 mt-0.5">{job.edit_plan.hook.reason}</div>
+              )}
+            </div>
+          )}
+          {job.edit_plan.broll_cues && job.edit_plan.broll_cues.length > 0 && (
+            <div className="mb-3">
+              <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-1">B-roll suggestions</div>
+              <ul className="text-sm text-zinc-300 space-y-0.5">
+                {job.edit_plan.broll_cues.map((c, i) => (
+                  <li key={i} className="flex gap-2">
+                    <span className="text-zinc-500 font-mono text-xs shrink-0">@{c.at.toFixed(1)}s</span>
+                    <span>{c.description}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          {job.edit_plan.end_card?.text && (
+            <div>
+              <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-1">Suggested end card</div>
+              <div className="text-sm text-zinc-200">&ldquo;{job.edit_plan.end_card.text}&rdquo;</div>
+            </div>
+          )}
+        </div>
+      )}
 
       {job.transcript?.text && (
         <div className="bg-zinc-900/60 border border-zinc-800 rounded-xl p-5">

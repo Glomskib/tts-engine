@@ -13,6 +13,7 @@ import path from 'path';
 import os from 'os';
 import OpenAI, { toFile } from 'openai';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { buildEditPlan, type EditPlan, type PlanCaption } from './edit-plan';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const ffmpegPath: string = require('ffmpeg-static');
@@ -258,6 +259,56 @@ function escapeAss(s: string): string {
   return s.replace(/\n/g, '\\N').replace(/,/g, '\u066c');
 }
 
+/**
+ * Render captions from the LLM EditPlan instead of raw transcript words.
+ * The plan's captions are already tone-tweaked, properly chunked (2-5 words),
+ * and tagged with style hints (hook/normal/emphasis).
+ *
+ * NOTE: plan.captions timestamps reference the FINAL cut (because the LLM
+ * sees the planned keep ranges). When the renderer concats those keeps, the
+ * timestamps line up \u2014 that's the contract.
+ */
+function buildAssFromPlan(
+  captions: PlanCaption[],
+  videoHeight = 1920,
+  captionStyle: CaptionStyle = 'normal',
+): string {
+  const isKinetic = captionStyle === 'kinetic';
+  const baseFontSize = Math.round(videoHeight * (isKinetic ? 0.065 : 0.045));
+  const hookFontSize = Math.round(videoHeight * (isKinetic ? 0.09 : 0.075));
+  const emphasisFontSize = Math.round(videoHeight * (isKinetic ? 0.075 : 0.055));
+
+  const header = `[Script Info]
+ScriptType: v4.00+
+PlayResX: 1080
+PlayResY: ${videoHeight}
+ScaledBorderAndShadow: yes
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Normal,Arial,${baseFontSize},&H00FFFFFF,&H000000FF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,4,2,2,60,60,${Math.round(videoHeight * 0.08)},1
+Style: Hook,Arial Black,${hookFontSize},&H0000FFFF,&H000000FF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,6,3,2,40,40,${Math.round(videoHeight * 0.3)},1
+Style: Emphasis,Arial Black,${emphasisFontSize},&H0000FFFF,&H000000FF,&H00000000,&H64000000,-1,0,0,0,100,100,0,0,1,5,3,2,60,60,${Math.round(videoHeight * 0.08)},1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+`;
+
+  const lines: string[] = [];
+  for (const c of captions) {
+    if (c.end - c.start < 0.05) continue;
+    const styleName =
+      c.style === 'hook' ? 'Hook'
+      : c.style === 'emphasis' ? 'Emphasis'
+      : 'Normal';
+    lines.push(
+      `Dialogue: 0,${secToAss(c.start)},${secToAss(c.end)},${styleName},,0,0,0,,${escapeAss(c.text.toUpperCase())}`,
+    );
+  }
+
+  return header + lines.join('\n') + '\n';
+}
+
 // ---------- mode → flags ----------
 
 interface ModeConfig {
@@ -321,6 +372,31 @@ export async function ensureEditJobsBucket(): Promise<void> {
 
 async function setStatus(jobId: string, status: string, extra: Record<string, unknown> = {}) {
   await supabaseAdmin.from('ai_edit_jobs').update({ status, ...extra }).eq('id', jobId);
+}
+
+/**
+ * Real-time-feeling progress updater. The detail page polls every ~1.5s and
+ * reads progress_pct + phase_message off the row, so this is what makes
+ * "kinda working" feel like "actually working".
+ *
+ * Values are coarse-grained because the pipeline can't easily report sub-step
+ * progress from inside a synchronous ffmpeg spawn — but a 30→55→70→85 climb
+ * is dramatically better than three status-string flips.
+ *
+ * Wrapped in try/catch because we never want a logging failure to fail a job.
+ */
+async function setProgress(jobId: string, pct: number, message: string): Promise<void> {
+  try {
+    await supabaseAdmin
+      .from('ai_edit_jobs')
+      .update({
+        progress_pct: Math.max(0, Math.min(100, Math.round(pct))),
+        phase_message: message.slice(0, 200),
+      })
+      .eq('id', jobId);
+  } catch (err) {
+    console.warn('[editor] setProgress failed', { jobId, pct, err });
+  }
 }
 
 // ---------- main pipeline ----------
@@ -401,6 +477,7 @@ export async function processEditJob(
   const workDir = await fs.mkdtemp(path.join(os.tmpdir(), `edit-job-${jobId}-`));
   try {
     // 1. Download all raw files
+    await setProgress(jobId, 5, 'Pulling your footage from storage…');
     const localRaws: string[] = [];
     for (let i = 0; i < rawAssets.length; i++) {
       const dest = path.join(workDir, `raw_${i}.mp4`);
@@ -410,6 +487,7 @@ export async function processEditJob(
 
     // 2. Transcribe (transcribe first raw for now — combining audio is overkill for MVP)
     await setStatus(jobId, 'transcribing', { started_at: new Date().toISOString() });
+    await setProgress(jobId, 15, 'Listening to every word your speaker said…');
     const primary = localRaws[0];
 
     // Skip re-transcribe on retry: if the job already has a non-empty transcript,
@@ -456,8 +534,9 @@ export async function processEditJob(
       await supabaseAdmin.from('ai_edit_jobs').update({ transcript }).eq('id', jobId);
     }
 
-    // 3. Build timeline
+    // 3. Build timeline (heuristic pass first, then LLM-driven plan)
     await setStatus(jobId, 'building_timeline');
+    await setProgress(jobId, 30, 'Trimming dead air and catching retakes…');
 
     // Build keep segments from silence detection on primary
     const primaryDuration = await getDuration(primary);
@@ -470,6 +549,49 @@ export async function processEditJob(
     // that start with the same words. Brandon's flagship complaint: overseas editors
     // miss "I love it when — I absolutely love it when this happens..." and keep both.
     keep = removeRetakeIntervals(transcript, keep);
+
+    // 3b. LLM EDIT PLAN — the value-prop step. Claude Sonnet 4 reads the
+    // transcript, mode, platform, and user notes and produces a structured
+    // plan: keep ranges, hook rewrite, caption phrases, b-roll cues, end card.
+    // Falls back to the heuristic plan if the LLM is unavailable — pipeline
+    // never blocks on the LLM.
+    await setStatus(jobId, 'planning');
+    await setProgress(jobId, 45, 'AI editor is choosing your best moments…');
+
+    const platform = typeof modeOptions === 'object'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? ((modeOptions as any).platform as string | undefined)
+      : undefined;
+    const notes = typeof modeOptions === 'object'
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      ? ((modeOptions as any).notes as string | undefined)
+      : undefined;
+
+    const editPlan: EditPlan = await buildEditPlan({
+      transcript,
+      mode,
+      platform,
+      notes,
+      heuristicKeep: keep,
+      sourceDuration: primaryDuration,
+      jobId,
+    });
+
+    // Persist the plan so the UI can show it + so retries don't re-bill the LLM.
+    await supabaseAdmin
+      .from('ai_edit_jobs')
+      .update({ edit_plan: editPlan })
+      .eq('id', jobId);
+
+    // If the LLM produced concrete keep ranges, prefer them over the
+    // heuristic — that's the whole point. Otherwise stick with heuristic.
+    if (editPlan.source === 'llm' && editPlan.keep_ranges.length > 0) {
+      keep = editPlan.keep_ranges
+        .map((k) => ({ start: k.start, end: k.end }))
+        .filter((k) => k.end - k.start > 0.1)
+        // Order matters for concat — sort ascending.
+        .sort((a, b) => a.start - b.start);
+    }
 
     // For jump cuts: split long keeps into 1.5-3s chunks
     if (cfg.jumpCuts) {
@@ -488,6 +610,7 @@ export async function processEditJob(
 
     // 4. Render: cut + normalize each segment, concat
     await setStatus(jobId, 'rendering');
+    await setProgress(jobId, 55, 'Cutting your scenes — this is the long step…');
 
     const segFiles: string[] = [];
     for (let i = 0; i < keep.length; i++) {
@@ -533,10 +656,17 @@ export async function processEditJob(
 
     let currentFile = concatFile;
 
-    // 5. Burn captions
+    // 5. Burn captions — prefer the LLM-curated captions if we got them,
+    // because they're tone-tweaked, all-caps, properly chunked. Fall back
+    // to verbatim transcript word-grouping when the plan is heuristic.
     if (cfg.captions) {
+      await setProgress(jobId, 75, 'Burning in punchy captions…');
       const assFile = path.join(workDir, 'captions.ass');
-      await fs.writeFile(assFile, buildAss(transcript, mode, 1920, captionStyle));
+      const useLlmCaptions = editPlan.source === 'llm' && editPlan.captions.length > 0;
+      const assContent = useLlmCaptions
+        ? buildAssFromPlan(editPlan.captions, 1920, captionStyle)
+        : buildAss(transcript, mode, 1920, captionStyle);
+      await fs.writeFile(assFile, assContent);
       const withCaps = path.join(workDir, 'with_caps.mp4');
       // ffmpeg ass filter needs escaped path
       const escapedAss = assFile.replace(/\\/g, '/').replace(/:/g, '\\:');
@@ -602,6 +732,7 @@ export async function processEditJob(
 
     // 7.5 Watermark for free-tier users (Phase 7.2)
     if (!isPaid) {
+      await setProgress(jobId, 88, 'Adding the FlashFlow watermark…');
       const wmFile = path.join(workDir, 'watermarked.mp4');
       const drawtext = "drawtext=text='FlashFlow':fontcolor=white@0.55:fontsize=42:x=w-tw-30:y=h-th-30:box=1:boxcolor=black@0.3:boxborderw=8";
       await runFfmpeg([
@@ -618,6 +749,7 @@ export async function processEditJob(
     }
 
     // 8. Upload output
+    await setProgress(jobId, 95, 'Uploading your finished video…');
     const outputPath = `${job.user_id}/${jobId}/output/final.mp4`;
     const publicUrl = await uploadToStorage(outputPath, currentFile, 'video/mp4');
 
@@ -629,6 +761,8 @@ export async function processEditJob(
         preview_url: publicUrl,
         error: null,
         finished_at: new Date().toISOString(),
+        progress_pct: 100,
+        phase_message: 'Your video is ready.',
       })
       .eq('id', jobId);
 

@@ -25,11 +25,11 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL || "https://flashflowai.com"),
   title: {
-    default: "FlashFlow AI — AI-Powered TikTok & Instagram Scripts",
+    default: "FlashFlow AI — Growth Engine for TikTok Shop Affiliates & Creators",
     template: "%s | FlashFlow AI",
   },
-  description: "Generate viral short-form scripts for TikTok and Instagram Reels personalized to your creator voice. Hook patterns that stop the scroll, free transcriber, content calendar, brand-deal tracking. Built for influencers and UGC creators. Try free — no credit card.",
-  keywords: ["AI script generator", "TikTok scripts", "Instagram scripts", "video scripts", "content creation", "UGC scripts", "3-part hooks", "scroll-stopping hooks", "short-form video"],
+  description: "The all-in-one growth engine for TikTok Shop affiliates, creators, and brands. Find products, generate hooks, edit videos, publish to TikTok, track commissions — in one tool. Try free — no credit card.",
+  keywords: ["TikTok Shop affiliate", "TikTok Shop tools", "creator content engine", "TikTok Shop product discovery", "AI video editor", "hook generator", "comment miner", "TikTok publishing", "commission tracking", "affiliate marketing TikTok", "UGC creator tools", "AI script generator", "TikTok scripts"],
   authors: [{ name: "FlashFlow AI" }],
   creator: "FlashFlow AI",
   publisher: "FlashFlow AI",
@@ -45,8 +45,8 @@ export const metadata: Metadata = {
     },
   },
   openGraph: {
-    title: "FlashFlow AI — Scripts That Stop The Scroll",
-    description: "AI-powered script generator for TikTok & Instagram creators. 7 content types, 3-part hooks, free transcriber.",
+    title: "FlashFlow AI — The Growth Engine for TikTok Shop Affiliates",
+    description: "Find products, generate hooks, edit videos, publish to TikTok, track commissions — in one tool. Built for TikTok Shop affiliates, creators, and brands.",
     url: "https://flashflowai.com",
     siteName: "FlashFlow AI",
     type: "website",
@@ -65,8 +65,8 @@ export const metadata: Metadata = {
     // on X/Twitter and many other clients that respect Twitter card tags.
     // iMessage / SMS still use Open Graph above, which is unchanged.
     card: "summary_large_image",
-    title: "FlashFlow AI — Scripts That Stop The Scroll",
-    description: "AI-powered script generator for TikTok & Instagram. Try free.",
+    title: "FlashFlow AI — Growth Engine for TikTok Shop Affiliates",
+    description: "Find products, generate hooks, edit videos, publish to TikTok, track commissions — in one tool. Try free.",
     images: ["https://flashflowai.com/logo.png"],
   },
   manifest: "/manifest.json",
@@ -90,7 +90,7 @@ export default function RootLayout({
     name: 'FlashFlow AI',
     url: 'https://flashflowai.com',
     logo: 'https://flashflowai.com/logo.png',
-    description: 'AI-powered short-form video content creation platform for TikTok, Instagram Reels, YouTube, and Facebook creators.',
+    description: 'The all-in-one growth engine for TikTok Shop affiliates, creators, and brands. Find products, generate hooks, edit videos, publish to TikTok, track commissions — in one tool.',
     // sameAs lists external profiles. Empty until handles are claimed and
     // posting — leaving an unclaimed handle here would harm trust signals.
     sameAs: [],
@@ -103,7 +103,7 @@ export default function RootLayout({
     applicationCategory: 'Multimedia',
     operatingSystem: 'Web',
     url: 'https://flashflowai.com',
-    description: 'AI-powered TikTok Shop video content creation platform. Generate scripts, create videos, and analyze winners.',
+    description: 'The all-in-one growth engine for TikTok Shop affiliates and creators. Affiliate Hub, hook generator (5+ AI providers), AI video editor, comment miner, multi-account TikTok publishing, and commission tracking — in one tool.',
     offers: {
       '@type': 'Offer',
       price: '0',

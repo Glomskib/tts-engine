@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.flashflow.render-worker</string>
+
+    <!-- Run via npx tsx to avoid a separate build step. -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/bin/npx</string>
+        <string>tsx</string>
+        <string>__SCRIPT_PATH__</string>
+    </array>
+
+    <!-- Working directory: the tts-engine clone on the mini. -->
+    <key>WorkingDirectory</key>
+    <string>__REPO_PATH__</string>
+
+    <!-- Pull env from a one-off file managed by the install script. -->
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>NODE_ENV</key>
+        <string>production</string>
+    </dict>
+
+    <!-- Auto-start on login + auto-restart if it crashes -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+
+    <!-- Throttle restart to avoid hot-loop if env is broken: min 30s between restarts -->
+    <key>ThrottleInterval</key>
+    <integer>30</integer>
+
+    <!-- Logs go to ~/Library/Logs/FlashFlow/render-worker.{out,err}.log -->
+    <key>StandardOutPath</key>
+    <string>__HOME__/Library/Logs/FlashFlow/render-worker.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>__HOME__/Library/Logs/FlashFlow/render-worker.err.log</string>
+</dict>
+</plist>

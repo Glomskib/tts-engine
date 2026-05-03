@@ -249,7 +249,25 @@ export default function NewEditJobPage() {
       );
 
       setStatus('Starting your edit…');
-      fetch(`/api/editor/jobs/${jobId}/start`, { method: 'POST' }).catch(() => {});
+      // Wait for the start call so we can surface 429 / 4xx errors to the user
+      // BEFORE redirecting. Previously this was fire-and-forget — users hit
+      // their daily limit and landed on a "draft" job with no explanation.
+      try {
+        const startRes = await fetch(`/api/editor/jobs/${jobId}/start`, { method: 'POST' });
+        if (!startRes.ok) {
+          const data = await startRes.json().catch(() => ({}));
+          if (startRes.status === 429 && data.upgrade) {
+            setStatus(data.subtext || data.headline || 'Daily edit limit reached — upgrade for more.');
+            setSubmitting(false);
+            return;
+          }
+          // Soft-fail: still navigate so the user sees the job + can retry from there.
+          setStatus(data.error || `Couldn't start edit (${startRes.status}). Try Retry from the job page.`);
+        }
+      } catch {
+        // Network error on the start call — still navigate, the detail page
+        // has a Retry button that re-enqueues.
+      }
       router.push(`/admin/editor/${jobId}`);
     } catch (err) {
       setStatus(err instanceof Error ? err.message : 'Failed');
@@ -366,12 +384,13 @@ export default function NewEditJobPage() {
           <button
             onClick={handleSubmit}
             disabled={submitting || rawFiles.length === 0}
+            aria-label={submitting ? 'Edit in progress, please wait' : 'Start the AI edit'}
             className="inline-flex items-center gap-2 rounded-lg bg-teal-600 hover:bg-teal-500 disabled:opacity-50 px-5 py-2.5 text-sm font-medium text-white"
           >
-            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" /> : <Upload className="w-4 h-4" aria-hidden="true" />}
             {submitting ? 'Uploading…' : 'Start Edit'}
           </button>
-          {status && <span className="text-xs text-zinc-400">{status}</span>}
+          {status && <span role="status" aria-live="polite" className="text-xs text-zinc-400">{status}</span>}
         </div>
 
         {uploads.length > 0 && (

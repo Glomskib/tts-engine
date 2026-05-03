@@ -71,7 +71,7 @@ export async function POST(
     );
   }
 
-  if (['queued', 'transcribing', 'building_timeline', 'rendering'].includes(job.status)) {
+  if (['queued', 'transcribing', 'planning', 'building_timeline', 'rendering'].includes(job.status)) {
     return NextResponse.json({ error: 'ALREADY_RUNNING' }, { status: 409 });
   }
 

@@ -11,7 +11,7 @@
 import { inngest } from '../client';
 import { processEditJob, humanizeEditJobError } from '@/lib/editor/pipeline';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
-import { incrementUsage, getUserPlan, isPaidPlan } from '@/lib/usage/dailyUsage';
+import { getUserPlan, isPaidPlan } from '@/lib/usage/dailyUsage';
 
 export const processEditJobFn = inngest.createFunction(
   {
@@ -39,10 +39,10 @@ export const processEditJobFn = inngest.createFunction(
         await processEditJob(jobId, { isPaid });
       });
 
-      await step.run('increment-usage', async () => {
-        await incrementUsage(userId, 'renders').catch(() => {});
-      });
-
+      // NOTE: Usage is incremented at /api/editor/jobs/[id]/start at enqueue
+      // time so a queued-but-not-yet-run job still counts (rate-limit fairness).
+      // Don't double-count here. If you ever change the start handler to NOT
+      // increment, move it back into this step.
       return { ok: true, jobId };
     } catch (err) {
       const message = humanizeEditJobError(err);

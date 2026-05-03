@@ -123,12 +123,18 @@ function removeRetakeIntervals(
     const bw = (b.text || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').trim().split(/\s+/);
     if (aw.length < 2 || bw.length < 2) continue;
 
-    // Match if first 2 words match exactly, or if the first 8 chars match
+    // Match if first 2 words match exactly, or if the first 8 chars match.
+    // Previously we ALSO dropped any segment ≤4 words on a "likely aborted"
+    // theory, but that nuked legitimate short segments (e.g. "Wait for it.")
+    // that happened to be followed by a related sentence. Now we only treat
+    // a short segment as a retake if the next segment ALSO starts with
+    // similar words — i.e. there's actual evidence of a restart.
     const firstTwoMatch = aw.slice(0, 2).join(' ') === bw.slice(0, 2).join(' ');
     const firstEightMatch = aw.join(' ').slice(0, 8) === bw.join(' ').slice(0, 8);
-    const aShort = aw.length <= 4;  // short, likely an aborted try
+    const aShortAndOverlap =
+      aw.length <= 4 && (firstTwoMatch || aw[0] === bw[0]);
 
-    if (firstTwoMatch || firstEightMatch || aShort) {
+    if (firstTwoMatch || firstEightMatch || aShortAndOverlap) {
       skipRanges.push([a.start, a.end]);
     }
   }
@@ -213,15 +219,18 @@ function buildAss(
   mode: EditMode,
   videoHeight = 1920,
   captionStyle: CaptionStyle = 'normal',
+  videoWidth = 1080,
 ): string {
   const isKinetic = captionStyle === 'kinetic';
-  // Styling — kinetic = bigger font, shorter chunks
-  const baseFontSize = Math.round(videoHeight * (isKinetic ? 0.065 : 0.045));
-  const hookFontSize = Math.round(videoHeight * (isKinetic ? 0.09 : 0.075));
+  // Styling — kinetic = bigger font, shorter chunks. Font is sized off the
+  // shorter dimension so 16:9 horizontal output doesn't get giant letters.
+  const refDim = Math.min(videoHeight, videoWidth);
+  const baseFontSize = Math.round(refDim * (isKinetic ? 0.065 : 0.045));
+  const hookFontSize = Math.round(refDim * (isKinetic ? 0.09 : 0.075));
 
   const header = `[Script Info]
 ScriptType: v4.00+
-PlayResX: 1080
+PlayResX: ${videoWidth}
 PlayResY: ${videoHeight}
 ScaledBorderAndShadow: yes
 
@@ -278,15 +287,17 @@ function buildAssFromPlan(
   captions: PlanCaption[],
   videoHeight = 1920,
   captionStyle: CaptionStyle = 'normal',
+  videoWidth = 1080,
 ): string {
   const isKinetic = captionStyle === 'kinetic';
-  const baseFontSize = Math.round(videoHeight * (isKinetic ? 0.065 : 0.045));
-  const hookFontSize = Math.round(videoHeight * (isKinetic ? 0.09 : 0.075));
-  const emphasisFontSize = Math.round(videoHeight * (isKinetic ? 0.075 : 0.055));
+  const refDim = Math.min(videoHeight, videoWidth);
+  const baseFontSize = Math.round(refDim * (isKinetic ? 0.065 : 0.045));
+  const hookFontSize = Math.round(refDim * (isKinetic ? 0.09 : 0.075));
+  const emphasisFontSize = Math.round(refDim * (isKinetic ? 0.075 : 0.055));
 
   const header = `[Script Info]
 ScriptType: v4.00+
-PlayResX: 1080
+PlayResX: ${videoWidth}
 PlayResY: ${videoHeight}
 ScaledBorderAndShadow: yes
 
@@ -393,15 +404,21 @@ async function setStatus(jobId: string, status: string, extra: Record<string, un
  */
 async function setProgress(jobId: string, pct: number, message: string): Promise<void> {
   try {
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from('ai_edit_jobs')
       .update({
         progress_pct: Math.max(0, Math.min(100, Math.round(pct))),
         phase_message: message.slice(0, 200),
       })
       .eq('id', jobId);
+    // Supabase JS v2 surfaces errors via the resolved object's .error, not
+    // by throwing — so we have to inspect it explicitly. We never want a
+    // logging-style call to fail a job.
+    if (error) {
+      console.warn('[editor] setProgress db error', { jobId, pct, error: error.message });
+    }
   } catch (err) {
-    console.warn('[editor] setProgress failed', { jobId, pct, err });
+    console.warn('[editor] setProgress threw', { jobId, pct, err });
   }
 }
 
@@ -431,6 +448,15 @@ export function humanizeEditJobError(err: unknown): string {
   }
   if (/Anthropic API error 5\d\d/i.test(raw) || /Anthropic.*timeout/i.test(raw)) {
     return "The AI editor service is having a moment. Hit Retry in 30 seconds — your upload + transcription are saved.";
+  }
+  if (/openai|whisper/i.test(raw) && /(429|rate.?limit)/i.test(raw)) {
+    return "Transcription hit a rate limit. Hit Retry in 30 seconds — nothing was billed.";
+  }
+  if (/openai|whisper/i.test(raw) && /(5\d\d|timeout|ECONN|EAI_AGAIN)/i.test(raw)) {
+    return "Transcription service is having a moment. Hit Retry — your upload is safe.";
+  }
+  if (/AbortError|operation was aborted/i.test(raw)) {
+    return "The AI call timed out. Hit Retry — your upload + transcript are saved.";
   }
   if (/ffmpeg exited/i.test(raw)) {
     return `Video processing failed — your clip may be corrupted or use an unusual codec. Try re-exporting from your camera/phone in standard .mp4 (H.264). (${raw.slice(-200)})`;
@@ -612,13 +638,16 @@ export async function processEditJob(
       keep = normalizeKeepRanges(keep);
     }
 
-    // For jump cuts: split long keeps into 1.5-3s chunks
+    // For jump cuts: split long keeps into 1.5-3s chunks. Deterministic seeded
+    // PRNG (off the jobId) so retries produce the same cuts → idempotent renders
+    // and predictable customer-support repro.
     if (cfg.jumpCuts) {
+      const rng = mulberry32(hashString(jobId));
       const chunked: KeepSegment[] = [];
       for (const seg of keep) {
         let s = seg.start;
         while (s < seg.end) {
-          const len = 1.5 + Math.random() * 1.5;
+          const len = 1.5 + rng() * 1.5;
           const e = Math.min(s + len, seg.end);
           chunked.push({ start: s, end: e });
           s = e;
@@ -631,6 +660,11 @@ export async function processEditJob(
     await setStatus(jobId, 'rendering');
     await setProgress(jobId, 55, 'Cutting your scenes — this is the long step…');
 
+    const dims = dimsForPlatform(platform);
+    const scaleFilter =
+      `scale=${dims.width}:${dims.height}:force_original_aspect_ratio=decrease,` +
+      `pad=${dims.width}:${dims.height}:(ow-iw)/2:(oh-ih)/2:black,setsar=1`;
+
     const segFiles: string[] = [];
     for (let i = 0; i < keep.length; i++) {
       const seg = keep[i];
@@ -642,7 +676,7 @@ export async function processEditJob(
         '-ss', seg.start.toFixed(3),
         '-i', primary,
         '-t', dur.toFixed(3),
-        '-vf', 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,setsar=1',
+        '-vf', scaleFilter,
         '-r', '30',
         '-c:v', 'libx264',
         '-preset', 'veryfast',
@@ -657,7 +691,28 @@ export async function processEditJob(
     }
 
     if (segFiles.length === 0) {
-      throw new Error('Silence trim produced no usable segments');
+      // Last-ditch fallback: if every keep range got filtered, render the
+      // whole clip un-trimmed instead of failing the job. Better to return
+      // a working video than throw.
+      console.warn('[editor] no usable keep segments; rendering full clip as fallback', { jobId });
+      const segFile = path.join(workDir, 'seg_full.mp4');
+      await runFfmpeg([
+        '-y',
+        '-i', primary,
+        '-vf', scaleFilter,
+        '-r', '30',
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '23',
+        '-c:a', 'aac',
+        '-b:a', '128k',
+        '-ar', '44100',
+        '-ac', '2',
+        segFile,
+      ]);
+      segFiles.push(segFile);
+      // Reset keep so caption-remap uses the whole clip.
+      keep = [{ start: 0, end: primaryDuration }];
     }
 
     // Concat
@@ -689,13 +744,21 @@ export async function processEditJob(
       const finalTimeCaptions = useLlmCaptions
         ? remapCaptionsToFinalTime(editPlan.captions, keep)
         : [];
-      const assContent = (useLlmCaptions && finalTimeCaptions.length > 0)
-        ? buildAssFromPlan(finalTimeCaptions, 1920, captionStyle)
-        : buildAss(transcript, mode, 1920, captionStyle);
+
+      let assContent: string;
+      if (useLlmCaptions && finalTimeCaptions.length > 0) {
+        assContent = buildAssFromPlan(finalTimeCaptions, dims.height, captionStyle, dims.width);
+      } else {
+        // Heuristic fallback path: build captions from the transcript words,
+        // BUT remap them to final-cut time so they line up with the cuts.
+        // (The previous build used source-time stamps, which drifted past
+        // any silence-trimmed segment.)
+        const remappedTranscript = remapTranscriptToFinalTime(transcript, keep);
+        assContent = buildAss(remappedTranscript, mode, dims.height, captionStyle, dims.width);
+      }
       await fs.writeFile(assFile, assContent);
       const withCaps = path.join(workDir, 'with_caps.mp4');
-      // ffmpeg ass filter needs escaped path
-      const escapedAss = assFile.replace(/\\/g, '/').replace(/:/g, '\\:');
+      const escapedAss = escapeAssPath(assFile);
       await runFfmpeg([
         '-y',
         '-i', currentFile,
@@ -847,4 +910,113 @@ async function cleanupRawUploads(userId: string, jobId: string): Promise<void> {
 async function toFileLike(filePath: string, name: string) {
   const buf = await fs.readFile(filePath);
   return toFile(buf, name);
+}
+
+// ---------- Transcript source→final time remap ----------
+
+/**
+ * Remap an entire transcript (words + segments) from SOURCE time into
+ * FINAL-CUT time, given the keep ranges that will be concatenated. Words /
+ * segments that fall in dropped ranges are removed. Used by the heuristic
+ * caption path so captions line up with the trimmed cuts.
+ */
+export function remapTranscriptToFinalTime(
+  t: EditJobTranscript,
+  keepRanges: Array<{ start: number; end: number }>,
+): EditJobTranscript {
+  const sorted = [...keepRanges]
+    .filter((r) => r.end - r.start > 0.05)
+    .sort((a, b) => a.start - b.start);
+  if (sorted.length === 0) return t;
+
+  // Compute cumulative offset for each keep range.
+  const offsets: Array<{ start: number; end: number; cum: number }> = [];
+  let cum = 0;
+  for (const r of sorted) {
+    offsets.push({ start: r.start, end: r.end, cum });
+    cum += r.end - r.start;
+  }
+
+  function map(stamp: number): number | null {
+    for (const o of offsets) {
+      if (stamp >= o.start && stamp < o.end) {
+        return o.cum + (stamp - o.start);
+      }
+    }
+    return null;
+  }
+
+  const words: TranscriptWord[] = [];
+  for (const w of t.words || []) {
+    const ws = map(w.start);
+    const we = map(w.end);
+    if (ws === null || we === null || we - ws < 0.02) continue;
+    words.push({ word: w.word, start: ws, end: we });
+  }
+
+  const segments = (t.segments || []).flatMap((s) => {
+    const ss = map(s.start);
+    const se = map(s.end);
+    if (ss === null || se === null || se - ss < 0.05) return [];
+    return [{ start: ss, end: se, text: s.text }];
+  });
+
+  return { text: t.text, words, segments };
+}
+
+// ---------- Determinism helpers ----------
+
+/**
+ * Tiny, fast non-crypto PRNG. Seeded by hashString(jobId) so retries of the
+ * same job produce identical jump-cut splits. Idempotent renders are a feature.
+ */
+function mulberry32(seed: number): () => number {
+  let t = seed >>> 0;
+  return function() {
+    t |= 0; t = (t + 0x6D2B79F5) | 0;
+    let r = Math.imul(t ^ (t >>> 15), 1 | t);
+    r = (r + Math.imul(r ^ (r >>> 7), 61 | r)) ^ r;
+    return ((r ^ (r >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function hashString(s: string): number {
+  let h = 2166136261 >>> 0;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = Math.imul(h, 16777619) >>> 0;
+  }
+  return h >>> 0;
+}
+
+// ---------- Output dimensions per platform ----------
+
+export interface OutputDims { width: number; height: number }
+
+/**
+ * Decide the output frame size from the caller's platform string.
+ * Defaults to 9:16 1080×1920 (TikTok/Reels/Shorts) — that's where most of
+ * Brandon's traffic lives. yt_long → 16:9, square → 1:1.
+ */
+export function dimsForPlatform(platform: string | undefined): OutputDims {
+  const p = (platform || '').toLowerCase();
+  if (p === 'yt_long' || p === 'youtube' || p === 'horizontal') {
+    return { width: 1920, height: 1080 };
+  }
+  if (p === 'square' || p === '1x1') {
+    return { width: 1080, height: 1080 };
+  }
+  return { width: 1080, height: 1920 };
+}
+
+/**
+ * Build an ASS-friendly path. ffmpeg's libass filter needs `:` and `\` escaped
+ * inside the filter argument; on Windows-style paths we also flip slashes.
+ * We DO NOT wrap in quotes — ffmpeg handles that itself when using `-vf`.
+ */
+export function escapeAssPath(p: string): string {
+  return p
+    .replace(/\\/g, '/')   // windows → posix
+    .replace(/:/g, '\\:')  // colons in filters are special
+    .replace(/'/g, "\\'"); // apostrophes (rare, but happen in some tmpdir paths)
 }

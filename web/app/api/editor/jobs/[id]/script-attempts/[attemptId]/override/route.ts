@@ -51,12 +51,21 @@ export async function POST(
   // it up. (The current pipeline just marks status='completed' — we add a
   // soft "needs_rerender" flag on the metadata field to avoid breaking
   // existing state machines.)
+  // Read-modify-write so we don't blow away other metadata keys set elsewhere
+  // in the pipeline (e.g. render_args, b-roll cues, debug breadcrumbs).
+  const { data: existing } = await supabaseAdmin
+    .from('ai_edit_jobs')
+    .select('metadata')
+    .eq('id', jobId)
+    .maybeSingle();
+  const prevMeta = (existing?.metadata && typeof existing.metadata === 'object' && !Array.isArray(existing.metadata))
+    ? (existing.metadata as Record<string, unknown>)
+    : {};
   await supabaseAdmin
     .from('ai_edit_jobs')
     .update({
       metadata: {
-        // The Supabase JS client doesn't support `||` on JSON server-side, so
-        // just write the flag at the top level. UI checks `metadata.needs_rerender`.
+        ...prevMeta,
         needs_rerender: true,
         rerender_requested_at: new Date().toISOString(),
       },

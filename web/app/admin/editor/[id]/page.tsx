@@ -193,8 +193,28 @@ export default function EditJobDetailPage({ params }: { params: Promise<{ id: st
     if (!job || TERMINAL.has(job.status)) return;
     // 1.5s while running gives a much more responsive feel than 3s. The
     // detail GET is cheap (single row), so the cost trade is fine.
-    const t = setInterval(fetchJob, 1500);
-    return () => clearInterval(t);
+    // BUT: only poll while the tab is visible — otherwise a forgotten tab
+    // hammers the API for 30+ minutes for nothing.
+    let cancelled = false;
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const start = () => {
+      if (timer) return;
+      timer = setInterval(() => { if (!cancelled) fetchJob(); }, 1500);
+    };
+    const stop = () => {
+      if (timer) { clearInterval(timer); timer = null; }
+    };
+    if (typeof document === 'undefined' || !document.hidden) start();
+    const onVis = () => {
+      if (typeof document !== 'undefined' && document.hidden) stop();
+      else { fetchJob(); start(); }
+    };
+    if (typeof document !== 'undefined') document.addEventListener('visibilitychange', onVis);
+    return () => {
+      cancelled = true;
+      stop();
+      if (typeof document !== 'undefined') document.removeEventListener('visibilitychange', onVis);
+    };
   }, [job, fetchJob]);
 
   // Trigger A: 1.5s after a successful edit, celebrate + upsell. Once-per-user.
@@ -287,10 +307,17 @@ export default function EditJobDetailPage({ params }: { params: Promise<{ id: st
         {isRunning && (
           <div className="mb-4">
             <div className="flex items-baseline justify-between mb-1.5">
-              <span className="text-sm text-zinc-200">{phaseMsg}</span>
+              <span className="text-sm text-zinc-200" role="status" aria-live="polite">{phaseMsg}</span>
               <span className="text-xs text-zinc-500 font-mono">{pct}%</span>
             </div>
-            <div className="h-2 rounded-full bg-zinc-800 overflow-hidden">
+            <div
+              className="h-2 rounded-full bg-zinc-800 overflow-hidden"
+              role="progressbar"
+              aria-valuemin={0}
+              aria-valuemax={100}
+              aria-valuenow={pct}
+              aria-label={`Edit pipeline progress: ${phaseMsg}`}
+            >
               <div
                 className="h-full bg-gradient-to-r from-teal-500 to-emerald-400 transition-all duration-500 ease-out"
                 style={{ width: `${pct}%` }}

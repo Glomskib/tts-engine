@@ -49,12 +49,21 @@ export async function POST(
     return NextResponse.json({ ok: false, error: 'Storage path does not match user/job/kind.' }, { status: 403 });
   }
 
-  // Verify the file actually exists in storage
-  const { data: head, error: headErr } = await supabaseAdmin
+  // Verify the file actually exists in storage. createSignedUrl returns a URL
+  // even when the underlying object is missing, so it's NOT a real existence
+  // check — list the parent dir instead and look for the exact basename.
+  const lastSlash = storagePath.lastIndexOf('/');
+  const dir = lastSlash >= 0 ? storagePath.slice(0, lastSlash) : '';
+  const base = lastSlash >= 0 ? storagePath.slice(lastSlash + 1) : storagePath;
+  const { data: listing, error: listErr } = await supabaseAdmin
     .storage
     .from(BUCKET_NAME)
-    .createSignedUrl(storagePath, 60);
-  if (headErr || !head) {
+    .list(dir, { limit: 1000, search: base });
+  if (listErr) {
+    return NextResponse.json({ ok: false, error: `Storage check failed: ${listErr.message}` }, { status: 500 });
+  }
+  const found = (listing || []).some((entry: { name: string }) => entry.name === base);
+  if (!found) {
     return NextResponse.json({ ok: false, error: 'File not found in storage. Did the upload finish?' }, { status: 404 });
   }
 

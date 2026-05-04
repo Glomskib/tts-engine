@@ -146,11 +146,21 @@ export const NAV_SECTIONS: NavSection[] = [
   // ========================
   // SAAS SECTIONS — the FlashFlow Studio creator surface
   // ========================
+  // PINNED — Brandon 2026-05-04: AI Video Editor pinned at the very top.
+  // Always visible regardless of which sections are collapsed below.
+  // Keep this section to 2-3 items max — primary CTAs only, not a dumping ground.
+  {
+    title: 'PINNED',
+    subscriptionType: 'saas',
+    items: [
+      { name: 'AI Video Editor', href: '/admin/editor', icon: Clapperboard, subtitle: 'The core: upload → AI cuts → ship vertical video', badge: 'New', tourId: 'nav-autoedit-pinned' },
+      { name: 'Today', href: '/admin/today', icon: Sparkles, subtitle: 'Your daily briefing + the next thing to ship' },
+    ],
+  },
   {
     title: 'HOME',
     subscriptionType: 'saas',
     items: [
-      { name: 'Today', href: '/admin/today', icon: Sparkles, subtitle: 'Daily briefing + missions' },
       { name: 'Creator Dashboard', href: '/admin/creator', icon: Clapperboard, subtitle: 'Your KPIs at a glance', tourId: 'nav-creator' },
     ],
   },

@@ -138,45 +138,68 @@ function UploadVideoPage() {
     setProgress(0);
     setErrorMsg("");
 
-    const formData = new FormData();
-    formData.append("file", file);
-    if (title.trim()) formData.append("title", title.trim());
-    if (productId) formData.append("product_id", productId);
-    formData.append("type", isEditMode ? "edited" : "raw");
-    if (editVideoId) formData.append("video_id", editVideoId);
-
     try {
-      const xhr = new XMLHttpRequest();
+      // ── 1. Get signed-upload URL — bypasses Vercel's 4.5 MB body limit ──
+      const signRes = await fetch("/api/videos/upload/sign", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          filename: file.name,
+          content_type: file.type || "video/mp4",
+          size_bytes: file.size,
+          type: isEditMode ? "edited" : "raw",
+        }),
+      });
+      const signJson = await signRes.json();
+      if (!signRes.ok || !signJson.ok) {
+        throw new Error(signJson.error || "Failed to get upload URL");
+      }
+      const { signed_url, storage_path } = signJson as {
+        signed_url: string;
+        storage_path: string;
+      };
 
+      // ── 2. PUT file directly to Supabase Storage ──
       await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
         xhr.upload.addEventListener("progress", (e) => {
           if (e.lengthComputable) {
-            setProgress(Math.round((e.loaded / e.total) * 100));
+            // Reserve last 5% for finalize step
+            setProgress(Math.round((e.loaded / e.total) * 95));
           }
         });
-
         xhr.addEventListener("load", () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve();
-          } else {
-            let msg = "Upload failed";
-            try {
-              const body = JSON.parse(xhr.responseText);
-              msg = body.error || body.message || msg;
-            } catch {
-              // use default
-            }
-            reject(new Error(msg));
-          }
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`Storage PUT failed: HTTP ${xhr.status}`));
         });
-
-        xhr.addEventListener("error", () => reject(new Error("Network error")));
+        xhr.addEventListener("error", () => reject(new Error("Network error during upload")));
         xhr.addEventListener("abort", () => reject(new Error("Upload cancelled")));
-
-        xhr.open("POST", "/api/videos/upload");
-        xhr.send(formData);
+        xhr.open("PUT", signed_url);
+        xhr.setRequestHeader("Content-Type", file.type || "video/mp4");
+        xhr.send(file);
       });
 
+      // ── 3. Finalize — create the videos table row ──
+      setProgress(97);
+      const finalizeRes = await fetch("/api/videos/upload/finalize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          storage_path,
+          file_size_bytes: file.size,
+          content_type: file.type || "video/mp4",
+          title: title.trim() || undefined,
+          product_id: productId || undefined,
+          type: isEditMode ? "edited" : "raw",
+          video_id: editVideoId || undefined,
+        }),
+      });
+      const finalizeJson = await finalizeRes.json();
+      if (!finalizeRes.ok || !finalizeJson.ok) {
+        throw new Error(finalizeJson.error || "Failed to finalize upload");
+      }
+
+      setProgress(100);
       setUploadState("success");
     } catch (err) {
       setErrorMsg(err instanceof Error ? err.message : "Upload failed");

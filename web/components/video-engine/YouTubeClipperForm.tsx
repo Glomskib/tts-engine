@@ -55,7 +55,14 @@ export default function YouTubeClipperForm() {
       return;
     }
     setBusy(true);
-    setStatusLine('Finding the best moments…');
+    setStatusLine('Downloading from YouTube…');
+
+    // Progress hint timer — Cobalt download for a 10-min video typically takes
+    // 30-60 sec; without a status update the page feels frozen.
+    const statusTimers: ReturnType<typeof setTimeout>[] = [];
+    statusTimers.push(setTimeout(() => setStatusLine('Parking video for processing…'), 25_000));
+    statusTimers.push(setTimeout(() => setStatusLine('Almost there — finalizing run…'), 50_000));
+
     try {
       const res = await fetch('/api/video-engine/runs/from-youtube', {
         method: 'POST',
@@ -66,13 +73,6 @@ export default function YouTubeClipperForm() {
           preset: preset ?? null,
         }),
       });
-
-      if (res.status === 404) {
-        setError('YouTube-link ingest isn’t wired on this environment yet. For now, download the video and upload it directly from /video-engine.');
-        setBusy(false);
-        setStatusLine(null);
-        return;
-      }
 
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) {
@@ -86,6 +86,8 @@ export default function YouTubeClipperForm() {
       setError(e instanceof Error ? e.message : 'Something went wrong.');
       setBusy(false);
       setStatusLine(null);
+    } finally {
+      statusTimers.forEach(clearTimeout);
     }
   }
 

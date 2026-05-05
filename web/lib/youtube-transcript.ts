@@ -885,3 +885,109 @@ export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: st
 
   return { audioPath, duration };
 }
+
+// ============================================================================
+// Video download via cobalt.tools — used by /api/video-engine/runs/from-youtube
+//
+// Returns raw mp4 bytes + duration so the caller can park the file in Supabase
+// storage and create a ve_runs row. Quality defaults to 720p to keep payloads
+// inside Vercel's serverless memory budget; pass `quality: '480'` to be safer
+// for long-form videos.
+// ============================================================================
+
+export interface YouTubeVideoDownload {
+  videoBuffer: Buffer;
+  duration: number;          // seconds; best-effort, may be 0 if player response failed
+  byteSize: number;
+  mimeType: 'video/mp4';
+  videoId: string | null;
+}
+
+export async function downloadYouTubeVideo(
+  url: string,
+  options: { quality?: '360' | '480' | '720' | '1080'; maxBytes?: number } = {},
+): Promise<YouTubeVideoDownload> {
+  const quality = options.quality ?? '720';
+  const maxBytes = options.maxBytes ?? 600 * 1024 * 1024; // 600 MB hard ceiling
+
+  const videoId = extractVideoId(url);
+
+  // Best-effort duration from YouTube's player response (used to gate uploads
+  // against the user's plan duration cap before we burn bandwidth on download).
+  let duration = 0;
+  if (videoId) {
+    try {
+      const player = await fetchPlayerResponse(videoId);
+      duration = parseInt(player?.videoDetails?.lengthSeconds || '0', 10);
+    } catch {
+      /* non-fatal — pipeline can backfill from ffprobe later */
+    }
+  }
+
+  const cobaltUrl = process.env.COBALT_API_URL || 'https://api.cobalt.tools';
+  const cobaltApiKey = process.env.COBALT_API_KEY;
+
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    'Content-Type': 'application/json',
+    'User-Agent': UA,
+  };
+  if (cobaltApiKey) headers['Authorization'] = `Api-Key ${cobaltApiKey}`;
+
+  const cobaltRes = await fetch(cobaltUrl, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      url,
+      downloadMode: 'auto',
+      videoQuality: quality,
+      filenameStyle: 'basic',
+      youtubeVideoCodec: 'h264', // mp4-friendly; Supabase + ffmpeg both happy
+    }),
+    signal: AbortSignal.timeout(30_000),
+  });
+
+  if (!cobaltRes.ok) {
+    const body = await cobaltRes.text().catch(() => '');
+    throw new Error(`cobalt returned ${cobaltRes.status}: ${body.slice(0, 200)}`);
+  }
+  const data = await cobaltRes.json();
+  if (data.status === 'error') {
+    throw new Error(`cobalt error: ${data.error?.code || JSON.stringify(data.error) || 'unknown'}`);
+  }
+
+  // Resolve the actual download URL.
+  // status: 'tunnel' | 'redirect' → data.url is a stream URL.
+  // status: 'picker' → take the video option.
+  let videoUrl: string | null = data.url ?? null;
+  if (!videoUrl && data.status === 'picker' && Array.isArray(data.picker)) {
+    const pick = data.picker.find((p: { type?: string; url?: string }) => p.type === 'video') ?? data.picker[0];
+    videoUrl = pick?.url ?? null;
+  }
+  if (!videoUrl) throw new Error('cobalt: no video URL in response');
+
+  const dlRes = await fetch(videoUrl, {
+    headers: { 'User-Agent': UA },
+    redirect: 'follow',
+    signal: AbortSignal.timeout(180_000), // 3 min — long-form videos on slow CDNs
+  });
+  if (!dlRes.ok) throw new Error(`Video download returned ${dlRes.status}`);
+
+  // Length guard — bail early if cobalt advertises a file beyond our cap.
+  const lenHdr = dlRes.headers.get('content-length');
+  if (lenHdr && Number(lenHdr) > maxBytes) {
+    throw new Error(`max-filesize exceeded: ${lenHdr} > ${maxBytes}`);
+  }
+
+  const buffer = Buffer.from(await dlRes.arrayBuffer());
+  if (buffer.length < 10_000) throw new Error('Downloaded video file too small (likely an error page)');
+  if (buffer.length > maxBytes) throw new Error(`max-filesize exceeded: ${buffer.length} > ${maxBytes}`);
+
+  return {
+    videoBuffer: buffer,
+    duration,
+    byteSize: buffer.length,
+    mimeType: 'video/mp4',
+    videoId,
+  };
+}

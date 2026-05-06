@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
 
   const runId = (runsJson as { data?: { run_id?: string } }).data?.run_id;
   if (!runId) {
-    return createApiErrorResponse('UNEXPECTED', 'Run created but no id returned.', 500, correlationId);
+    return createApiErrorResponse('INTERNAL', 'Run created but no id returned.', 500, correlationId);
   }
 
   return NextResponse.json({

@@ -42,7 +42,7 @@ export function emailWrapper(content: string, preheader?: string, unsubscribeUrl
     </div>
     <div class="footer">
       <p>FlashFlow AI &mdash; AI-powered scripts for TikTok Shop creators</p>
-      <p><a href="https://flashflowai.com">flashflowai.com</a> | <a href="mailto:support@flashflowai.com">support@flashflowai.com</a></p>
+      <p><a href="https://flashflowai.com">flashflowai.com</a> | <a href="mailto:miles@makingmilesmatter.com">miles@makingmilesmatter.com</a></p>
       ${unsubscribeHtml}
     </div>
   </div>

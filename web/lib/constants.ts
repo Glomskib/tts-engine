@@ -9,7 +9,7 @@
 export const APP = {
   NAME: 'FlashFlow AI',
   TAGLINE: 'Ideas move faster here',
-  SUPPORT_EMAIL: 'support@flashflow.ai',
+  SUPPORT_EMAIL: 'miles@makingmilesmatter.com',
 } as const;
 
 /** Video pipeline status values */

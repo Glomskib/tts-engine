@@ -420,7 +420,7 @@ Currency for AI operations. Most features cost 1 credit per use.
 4. Create new password
 5. Try logging in again
 
-**If still stuck:** Contact support@flashflowai.com
+**If still stuck:** Contact miles@makingmilesmatter.com
 
 ---
 
@@ -510,7 +510,7 @@ Currency for AI operations. Most features cost 1 credit per use.
 ## 8. Contact & Support
 
 **Email Support:**
-- support@flashflowai.com
+- miles@makingmilesmatter.com
 - Response time: 12-24 hours (Mon-Fri)
 
 **Live Chat:**

@@ -4,22 +4,22 @@ import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import TranscriberCore from '@/components/TranscriberCore';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 export default function YouTubeTranscribePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const router = useRouter();
 
+  // Don't auto-redirect signed-in users to /admin/youtube-transcribe.
+  // That route is the CLIPPER (needs full video download via Cobalt — fragile,
+  // breaks every time the tunnel dies). The transcriber here uses
+  // /api/youtube-transcribe which pulls captions directly — works for any
+  // YouTube video with captions (95%+ of content) without any download.
+  // Just detect logged-in state to optionally show a different upsell.
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        router.push('/admin/youtube-transcribe');
-      } else {
-        setIsLoggedIn(false);
-      }
+      setIsLoggedIn(!!data.user);
     });
-  }, [router]);
+  }, []);
 
   return (
     <div className="w-full">

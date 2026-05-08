@@ -155,7 +155,7 @@ const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
     placeholder: 'https://www.youtube.com/watch?v=...',
     heroTitle: 'Free YouTube Video',
     heroDescription: 'Paste any YouTube URL — break down why it works, analyze the hook, and build your own version.',
-    socialProof: 'Works with any public YouTube video. Captions extracted instantly, Whisper fallback for accuracy.',
+    socialProof: 'Works with any public YouTube video. Captions extracted instantly, with AI transcription fallback for accuracy.',
     howItWorksStep1: 'Copy any public YouTube video link and paste it above.',
     productSearchUrl: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
     productSearchLabel: 'Search Products',
@@ -2239,7 +2239,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                 {
                   step: '2',
                   title: 'AI Transcribes',
-                  desc: 'We extract the audio and use OpenAI Whisper for accurate transcription.',
+                  desc: 'We pull the audio and run it through our AI transcription engine for fast, accurate text.',
                   icon: MessageSquareText,
                 },
                 {

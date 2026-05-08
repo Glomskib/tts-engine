@@ -60,7 +60,7 @@ export default function YouTubeTranscribeLayout({ children }: { children: ReactN
         name: 'How accurate is the transcription?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: "FlashFlow uses YouTube's built-in captions when available, with OpenAI Whisper as a fallback for videos without captions. Accuracy is typically >95% for clear audio.",
+          text: 'FlashFlow uses YouTube\'s built-in captions when available, with high-accuracy AI transcription as fallback for videos without captions. Accuracy is typically >95% for clear audio.',
         },
       },
       {

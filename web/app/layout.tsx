@@ -132,9 +132,9 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
         />
         
-        {/* Performance: Preconnect to external APIs */}
-        <link rel="preconnect" href="https://api.openai.com" crossOrigin="anonymous" />
-        <link rel="preconnect" href="https://replicate.delivery" crossOrigin="anonymous" />
+        {/* Performance: Preconnect to backend services. AI-vendor preconnects
+            removed 2026-05-08 — were leaking OpenAI/Replicate dependency in
+            page source. Negligible perf cost; bigger UX/positioning win. */}
         <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ''} />
         <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ''} />
         <link rel="dns-prefetch" href="https://flashflowai.com" />

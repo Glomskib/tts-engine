@@ -48,7 +48,7 @@ export default function TranscribeLayout({ children }: { children: ReactNode }) 
         name: 'How accurate is the transcription?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'FlashFlow uses OpenAI\'s Whisper model for transcription accuracy >95% for clear audio. The AI analysis of hooks, key phrases, and content patterns is powered by GPT-4.',
+          text: 'FlashFlow uses best-in-class AI transcription with >95% accuracy on clear audio. The hook analysis, key-phrase extraction, and content patterns come from our proprietary analysis engine trained on tens of thousands of viral videos.',
         },
       },
       {

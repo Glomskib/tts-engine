@@ -26,7 +26,8 @@ const footerLinks = {
   legal: [
     { label: 'Terms of Service', href: '/terms' },
     { label: 'Privacy Policy', href: '/privacy' },
-    { label: 'Contact', href: 'mailto:hello@flashflowai.com' },
+    { label: 'Refund Policy', href: '/refund' },
+    { label: 'Contact', href: 'mailto:miles@makingmilesmatter.com' },
   ],
 };
 

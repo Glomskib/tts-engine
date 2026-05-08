@@ -184,8 +184,8 @@ export default function PrivacyPage() {
           </p>
           <p className="leading-relaxed mt-3">
             To exercise any of these rights, email us at{' '}
-            <a href="mailto:hello@flashflowai.com" className="text-teal-400 hover:underline">
-              hello@flashflowai.com
+            <a href="mailto:miles@makingmilesmatter.com" className="text-teal-400 hover:underline">
+              miles@makingmilesmatter.com
             </a>.
           </p>
         </section>
@@ -235,8 +235,8 @@ export default function PrivacyPage() {
             <p><strong className="text-white">FlashFlow AI</strong></p>
             <p>
               Email:{' '}
-              <a href="mailto:hello@flashflowai.com" className="text-teal-400 hover:underline">
-                hello@flashflowai.com
+              <a href="mailto:miles@makingmilesmatter.com" className="text-teal-400 hover:underline">
+                miles@makingmilesmatter.com
               </a>
             </p>
             <p>

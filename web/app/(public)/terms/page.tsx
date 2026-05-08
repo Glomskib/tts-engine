@@ -32,8 +32,8 @@ export default function TermsPage() {
             <li>You are responsible for maintaining the security of your account credentials.</li>
             <li>You are responsible for all activity that occurs under your account.</li>
             <li>You must notify us immediately at{' '}
-              <a href="mailto:hello@flashflowai.com" className="text-teal-400 hover:underline">
-                hello@flashflowai.com
+              <a href="mailto:miles@makingmilesmatter.com" className="text-teal-400 hover:underline">
+                miles@makingmilesmatter.com
               </a>{' '}
               if you suspect unauthorized access.</li>
             <li>One person or legal entity per account. Shared or machine accounts require prior approval.</li>
@@ -283,8 +283,8 @@ export default function TermsPage() {
             <p><strong className="text-white">FlashFlow AI</strong></p>
             <p>
               Email:{' '}
-              <a href="mailto:hello@flashflowai.com" className="text-teal-400 hover:underline">
-                hello@flashflowai.com
+              <a href="mailto:miles@makingmilesmatter.com" className="text-teal-400 hover:underline">
+                miles@makingmilesmatter.com
               </a>
             </p>
             <p>

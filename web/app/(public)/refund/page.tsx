@@ -26,8 +26,8 @@ export default function RefundPage() {
           <ul className="list-disc list-inside space-y-1.5">
             <li>
               Email{' '}
-              <a href="mailto:hello@flashflowai.com" className="text-teal-400 hover:underline">
-                hello@flashflowai.com
+              <a href="mailto:miles@makingmilesmatter.com" className="text-teal-400 hover:underline">
+                miles@makingmilesmatter.com
               </a>{' '}
               with your account email and the Stripe receipt or order number.
             </li>
@@ -71,8 +71,8 @@ export default function RefundPage() {
           <h2 className="text-2xl font-bold text-white mb-3">Contact</h2>
           <p className="leading-relaxed">
             Questions about this policy?{' '}
-            <a href="mailto:hello@flashflowai.com" className="text-teal-400 hover:underline">
-              hello@flashflowai.com
+            <a href="mailto:miles@makingmilesmatter.com" className="text-teal-400 hover:underline">
+              miles@makingmilesmatter.com
             </a>
           </p>
         </section>

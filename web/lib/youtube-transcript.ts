@@ -831,26 +831,21 @@ export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: st
     }
   }
 
-  // Multi-instance fallback: try self-hosted first, public second.
-  // Same pattern as downloadYouTubeVideo() below — see comment there.
-  const candidateUrls: string[] = [];
-  if (process.env.COBALT_API_URL) candidateUrls.push(process.env.COBALT_API_URL);
-  candidateUrls.push('https://api.cobalt.tools');
-
+  // Two-tier failover, same shape as downloadYouTubeVideo() below.
+  // Public api.cobalt.tools no longer serves YouTube — see notes there.
+  const cobaltUrl = process.env.COBALT_API_URL?.trim() || null;
   const cobaltApiKey = process.env.COBALT_API_KEY;
-
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    'User-Agent': UA,
-  };
-  if (cobaltApiKey) headers['Authorization'] = `Api-Key ${cobaltApiKey}`;
-
-  let res: Response | null = null;
   let lastErr: unknown = null;
-  for (const candidateUrl of candidateUrls) {
+
+  if (cobaltUrl) {
     try {
-      const r = await fetch(candidateUrl, {
+      const headers: Record<string, string> = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': UA,
+      };
+      if (cobaltApiKey) headers['Authorization'] = `Api-Key ${cobaltApiKey}`;
+      const r = await fetch(cobaltUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -861,38 +856,76 @@ export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: st
         }),
         signal: AbortSignal.timeout(15000),
       });
-      if (r.ok) { res = r; break; }
-      lastErr = new Error(`cobalt ${candidateUrl} returned ${r.status}`);
+      if (r.ok) {
+        const data = await r.json();
+        if (data.status === 'error') {
+          throw new Error(`cobalt error: ${data.error?.code || JSON.stringify(data.error) || 'unknown'}`);
+        }
+        const audioUrl = data.url;
+        if (audioUrl) {
+          const audioRes = await fetch(audioUrl, {
+            headers: { 'User-Agent': UA },
+            signal: AbortSignal.timeout(120000),
+          });
+          if (audioRes.ok) {
+            const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+            if (audioBuffer.length >= 1000) {
+              const audioPath = join(tmpdir(), `yt-audio-${randomUUID()}.mp3`);
+              await writeFile(audioPath, audioBuffer);
+              return { audioPath, duration };
+            }
+            lastErr = new Error('Downloaded audio file too small');
+          } else {
+            lastErr = new Error(`Audio download returned ${audioRes.status}`);
+          }
+        } else {
+          lastErr = new Error('cobalt: no audio URL in response');
+        }
+      } else {
+        lastErr = new Error(`cobalt ${cobaltUrl} returned ${r.status}`);
+      }
     } catch (e) {
       lastErr = e;
     }
-  }
-  if (!res) {
-    throw new Error(`all cobalt instances unreachable: ${(lastErr as Error)?.message || 'unknown'}`);
-  }
-  const data = await res.json();
-
-  if (data.status === 'error') {
-    throw new Error(`cobalt error: ${data.error?.code || JSON.stringify(data.error) || 'unknown'}`);
+    console.warn('[yt-audio] self-hosted cobalt failed, falling back to ytdl-core:',
+      (lastErr as Error)?.message || 'unknown');
   }
 
-  const audioUrl = data.url;
-  if (!audioUrl) throw new Error('cobalt: no audio URL in response');
-
-  const audioRes = await fetch(audioUrl, {
-    headers: { 'User-Agent': UA },
-    signal: AbortSignal.timeout(120000),
-  });
-
-  if (!audioRes.ok) throw new Error(`Audio download returned ${audioRes.status}`);
-
-  const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
-  if (audioBuffer.length < 1000) throw new Error('Downloaded audio file too small');
-
-  const audioPath = join(tmpdir(), `yt-audio-${randomUUID()}.mp3`);
-  await writeFile(audioPath, audioBuffer);
-
-  return { audioPath, duration };
+  // ── Tier 2 fallback: @distube/ytdl-core ────────────────────────────────
+  try {
+    const ytdl = (await import('@distube/ytdl-core')).default;
+    const info = await ytdl.getInfo(url, {
+      requestOptions: {
+        headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' },
+      },
+    });
+    if (!duration) {
+      duration = parseInt(info.videoDetails.lengthSeconds || '0', 10) || 0;
+    }
+    // Pick best audio-only format.
+    const audioFormats = info.formats
+      .filter((f) => f.hasAudio && !f.hasVideo)
+      .sort((a, b) => (b.audioBitrate || 0) - (a.audioBitrate || 0));
+    const fmt = audioFormats[0] || info.formats.find((f) => f.hasAudio);
+    if (!fmt?.url) throw new Error('ytdl: no audio format available');
+    const audioRes = await fetch(fmt.url, {
+      headers: { 'User-Agent': UA },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(120000),
+    });
+    if (!audioRes.ok) throw new Error(`ytdl audio stream returned ${audioRes.status}`);
+    const audioBuffer = Buffer.from(await audioRes.arrayBuffer());
+    if (audioBuffer.length < 1000) throw new Error('Downloaded audio file too small');
+    // ytdl gives us m4a/webm — keep extension honest so Whisper picks the right decoder.
+    const ext = (fmt.container || 'm4a').replace(/[^a-z0-9]/gi, '') || 'm4a';
+    const audioPath = join(tmpdir(), `yt-audio-${randomUUID()}.${ext}`);
+    await writeFile(audioPath, audioBuffer);
+    return { audioPath, duration };
+  } catch (e) {
+    const ytdlErr = e instanceof Error ? e.message : String(e);
+    const cobaltMsg = lastErr instanceof Error ? lastErr.message : (lastErr ? String(lastErr) : 'no self-hosted cobalt');
+    throw new Error(`cobalt error: all audio download paths failed (cobalt: ${cobaltMsg}; ytdl: ${ytdlErr})`);
+  }
 }
 
 // ============================================================================
@@ -933,29 +966,28 @@ export async function downloadYouTubeVideo(
     }
   }
 
-  // Try our self-hosted Cobalt first (cheaper/faster), then fall back to
-  // public Cobalt instances if the self-hosted is dead. trycloudflare
-  // quick-tunnels expire when cloudflared dies on mini, leaving the env
-  // pointing at a dead host. Auto-failover so YT transcribe never breaks
-  // for the customer just because our tunnel restarted.
-  const candidateUrls: string[] = [];
-  if (process.env.COBALT_API_URL) candidateUrls.push(process.env.COBALT_API_URL);
-  candidateUrls.push('https://api.cobalt.tools'); // public fallback
-
+  // Two-tier failover. Public api.cobalt.tools is no longer usable for YouTube
+  // (Cobalt v11 dropped YT from public services + requires Turnstile JWT, which
+  // a serverless function can't satisfy). So:
+  //   1. Try self-hosted Cobalt if COBALT_API_URL is set (cheap + fast when up)
+  //   2. Fall back to @distube/ytdl-core (real server-side YT extraction —
+  //      Innertube+signature-decode, no third-party tunnel required)
+  // The previous fallback to https://api.cobalt.tools was dead weight and was
+  // why customers kept seeing "Failed to download" even after the failover commit.
+  const cobaltUrl = process.env.COBALT_API_URL?.trim() || null;
   const cobaltApiKey = process.env.COBALT_API_KEY;
-
-  const headers: Record<string, string> = {
-    Accept: 'application/json',
-    'Content-Type': 'application/json',
-    'User-Agent': UA,
-  };
-  if (cobaltApiKey) headers['Authorization'] = `Api-Key ${cobaltApiKey}`;
-
-  let cobaltRes: Response | null = null;
   let lastErr: unknown = null;
-  for (const candidateUrl of candidateUrls) {
+
+  if (cobaltUrl) {
     try {
-      const r = await fetch(candidateUrl, {
+      const headers: Record<string, string> = {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+        'User-Agent': UA,
+      };
+      if (cobaltApiKey) headers['Authorization'] = `Api-Key ${cobaltApiKey}`;
+
+      const r = await fetch(cobaltUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -963,63 +995,108 @@ export async function downloadYouTubeVideo(
           downloadMode: 'auto',
           videoQuality: quality,
           filenameStyle: 'basic',
-          youtubeVideoCodec: 'h264', // mp4-friendly; Supabase + ffmpeg both happy
+          youtubeVideoCodec: 'h264',
         }),
-        signal: AbortSignal.timeout(15_000), // shorter per-attempt to fail fast and try next
+        signal: AbortSignal.timeout(15_000),
       });
+
       if (r.ok) {
-        cobaltRes = r;
-        break;
+        const data = await r.json();
+        if (data.status === 'error') {
+          throw new Error(`cobalt error: ${data.error?.code || JSON.stringify(data.error) || 'unknown'}`);
+        }
+        let streamUrl: string | null = data.url ?? null;
+        if (!streamUrl && data.status === 'picker' && Array.isArray(data.picker)) {
+          const pick = data.picker.find((p: { type?: string; url?: string }) => p.type === 'video') ?? data.picker[0];
+          streamUrl = pick?.url ?? null;
+        }
+        if (streamUrl) {
+          const dlRes = await fetch(streamUrl, {
+            headers: { 'User-Agent': UA },
+            redirect: 'follow',
+            signal: AbortSignal.timeout(180_000),
+          });
+          if (dlRes.ok) {
+            const lenHdr = dlRes.headers.get('content-length');
+            if (lenHdr && Number(lenHdr) > maxBytes) {
+              throw new Error(`max-filesize exceeded: ${lenHdr} > ${maxBytes}`);
+            }
+            const buffer = Buffer.from(await dlRes.arrayBuffer());
+            if (buffer.length < 10_000) throw new Error('Downloaded video file too small (likely an error page)');
+            if (buffer.length > maxBytes) throw new Error(`max-filesize exceeded: ${buffer.length} > ${maxBytes}`);
+            return {
+              videoBuffer: buffer,
+              duration,
+              byteSize: buffer.length,
+              mimeType: 'video/mp4',
+              videoId,
+            };
+          }
+          lastErr = new Error(`cobalt stream returned ${dlRes.status}`);
+        } else {
+          lastErr = new Error('cobalt: no video URL in response');
+        }
+      } else {
+        lastErr = new Error(`cobalt ${cobaltUrl} returned ${r.status}`);
       }
-      // 4xx/5xx — record and try next
-      lastErr = new Error(`cobalt ${candidateUrl} returned ${r.status}`);
     } catch (e) {
-      // Network error / timeout / unreachable — try next candidate
       lastErr = e;
     }
+    // Fall through to ytdl-core when self-hosted Cobalt fails
+    console.warn('[yt-download] self-hosted cobalt failed, falling back to ytdl-core:',
+      (lastErr as Error)?.message || 'unknown');
   }
 
-  if (!cobaltRes) {
-    throw new Error(`all cobalt instances unreachable: ${(lastErr as Error)?.message || 'unknown'}`);
+  // ── Tier 2 fallback: @distube/ytdl-core ────────────────────────────────
+  // Direct Innertube extraction with signature decoding. No third-party tunnel.
+  // Covers the case where COBALT_API_URL is unset OR the self-hosted instance
+  // is down (cloudflared quick-tunnel restart, etc).
+  try {
+    const ytdl = (await import('@distube/ytdl-core')).default;
+    const info = await ytdl.getInfo(url, {
+      requestOptions: {
+        headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' },
+      },
+    });
+    if (!duration) {
+      duration = parseInt(info.videoDetails.lengthSeconds || '0', 10) || 0;
+    }
+    // Pick the best progressive (audio+video) mp4 stream at or below requested quality.
+    const targetHeight = parseInt(quality, 10);
+    const formats = info.formats
+      .filter((f) => f.hasVideo && f.hasAudio && (f.container === 'mp4' || f.mimeType?.includes('mp4')))
+      .filter((f) => !f.height || f.height <= targetHeight)
+      .sort((a, b) => (b.height || 0) - (a.height || 0));
+    const fmt = formats[0];
+    if (!fmt?.url) {
+      throw new Error(
+        'ytdl: no progressive mp4 format available (video may require adaptive download). ' +
+        'Try a shorter or different video, or upload the file directly.'
+      );
+    }
+    const dlRes = await fetch(fmt.url, {
+      headers: { 'User-Agent': UA },
+      redirect: 'follow',
+      signal: AbortSignal.timeout(180_000),
+    });
+    if (!dlRes.ok) throw new Error(`ytdl stream returned ${dlRes.status}`);
+    const lenHdr = dlRes.headers.get('content-length');
+    if (lenHdr && Number(lenHdr) > maxBytes) {
+      throw new Error(`max-filesize exceeded: ${lenHdr} > ${maxBytes}`);
+    }
+    const buffer = Buffer.from(await dlRes.arrayBuffer());
+    if (buffer.length < 10_000) throw new Error('Downloaded video file too small (likely an error page)');
+    if (buffer.length > maxBytes) throw new Error(`max-filesize exceeded: ${buffer.length} > ${maxBytes}`);
+    return {
+      videoBuffer: buffer,
+      duration,
+      byteSize: buffer.length,
+      mimeType: 'video/mp4',
+      videoId: info.videoDetails.videoId || videoId,
+    };
+  } catch (e) {
+    const ytdlErr = e instanceof Error ? e.message : String(e);
+    const cobaltMsg = lastErr instanceof Error ? lastErr.message : (lastErr ? String(lastErr) : 'no self-hosted cobalt');
+    throw new Error(`cobalt error: all download paths failed (cobalt: ${cobaltMsg}; ytdl: ${ytdlErr})`);
   }
-
-  const data = await cobaltRes.json();
-  if (data.status === 'error') {
-    throw new Error(`cobalt error: ${data.error?.code || JSON.stringify(data.error) || 'unknown'}`);
-  }
-
-  // Resolve the actual download URL.
-  // status: 'tunnel' | 'redirect' → data.url is a stream URL.
-  // status: 'picker' → take the video option.
-  let videoUrl: string | null = data.url ?? null;
-  if (!videoUrl && data.status === 'picker' && Array.isArray(data.picker)) {
-    const pick = data.picker.find((p: { type?: string; url?: string }) => p.type === 'video') ?? data.picker[0];
-    videoUrl = pick?.url ?? null;
-  }
-  if (!videoUrl) throw new Error('cobalt: no video URL in response');
-
-  const dlRes = await fetch(videoUrl, {
-    headers: { 'User-Agent': UA },
-    redirect: 'follow',
-    signal: AbortSignal.timeout(180_000), // 3 min — long-form videos on slow CDNs
-  });
-  if (!dlRes.ok) throw new Error(`Video download returned ${dlRes.status}`);
-
-  // Length guard — bail early if cobalt advertises a file beyond our cap.
-  const lenHdr = dlRes.headers.get('content-length');
-  if (lenHdr && Number(lenHdr) > maxBytes) {
-    throw new Error(`max-filesize exceeded: ${lenHdr} > ${maxBytes}`);
-  }
-
-  const buffer = Buffer.from(await dlRes.arrayBuffer());
-  if (buffer.length < 10_000) throw new Error('Downloaded video file too small (likely an error page)');
-  if (buffer.length > maxBytes) throw new Error(`max-filesize exceeded: ${buffer.length} > ${maxBytes}`);
-
-  return {
-    videoBuffer: buffer,
-    duration,
-    byteSize: buffer.length,
-    mimeType: 'video/mp4',
-    videoId,
-  };
 }

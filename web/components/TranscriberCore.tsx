@@ -901,6 +901,27 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
               <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap">{result.transcript}</p>
             </div>
 
+            {/* Upsell: turn this video into clips */}
+            <a
+              href={`/admin/youtube-transcribe?url=${encodeURIComponent(url)}`}
+              className="block bg-gradient-to-r from-teal-500/10 via-teal-500/5 to-transparent border border-teal-500/30 rounded-xl p-5 hover:border-teal-400 hover:bg-teal-500/10 transition-colors group"
+            >
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="text-sm font-semibold text-teal-300 mb-0.5">
+                    Want clips from this video?
+                  </div>
+                  <p className="text-sm text-zinc-400 leading-relaxed">
+                    Turn this transcript into 10–30 short, viral clips ready for TikTok, Reels, and Shorts.
+                  </p>
+                </div>
+                <span className="flex-shrink-0 inline-flex items-center gap-1.5 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-white group-hover:bg-teal-400 transition-colors whitespace-nowrap">
+                  Make clips
+                  <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                </span>
+              </div>
+            </a>
+
             {/* Analysis Cards */}
             {result.analysis && (
               <>

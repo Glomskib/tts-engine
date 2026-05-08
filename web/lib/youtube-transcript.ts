@@ -831,7 +831,12 @@ export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: st
     }
   }
 
-  const cobaltUrl = process.env.COBALT_API_URL || 'https://api.cobalt.tools';
+  // Multi-instance fallback: try self-hosted first, public second.
+  // Same pattern as downloadYouTubeVideo() below — see comment there.
+  const candidateUrls: string[] = [];
+  if (process.env.COBALT_API_URL) candidateUrls.push(process.env.COBALT_API_URL);
+  candidateUrls.push('https://api.cobalt.tools');
+
   const cobaltApiKey = process.env.COBALT_API_KEY;
 
   const headers: Record<string, string> = {
@@ -839,27 +844,31 @@ export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: st
     'Content-Type': 'application/json',
     'User-Agent': UA,
   };
+  if (cobaltApiKey) headers['Authorization'] = `Api-Key ${cobaltApiKey}`;
 
-  // Public cobalt instance requires JWT auth; self-hosted may not
-  if (cobaltApiKey) {
-    headers['Authorization'] = `Api-Key ${cobaltApiKey}`;
+  let res: Response | null = null;
+  let lastErr: unknown = null;
+  for (const candidateUrl of candidateUrls) {
+    try {
+      const r = await fetch(candidateUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          url,
+          downloadMode: 'audio',
+          audioFormat: 'mp3',
+          filenameStyle: 'basic',
+        }),
+        signal: AbortSignal.timeout(15000),
+      });
+      if (r.ok) { res = r; break; }
+      lastErr = new Error(`cobalt ${candidateUrl} returned ${r.status}`);
+    } catch (e) {
+      lastErr = e;
+    }
   }
-
-  const res = await fetch(cobaltUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      url,
-      downloadMode: 'audio',
-      audioFormat: 'mp3',
-      filenameStyle: 'basic',
-    }),
-    signal: AbortSignal.timeout(30000),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => '');
-    throw new Error(`cobalt returned ${res.status}: ${body.slice(0, 200)}`);
+  if (!res) {
+    throw new Error(`all cobalt instances unreachable: ${(lastErr as Error)?.message || 'unknown'}`);
   }
   const data = await res.json();
 
@@ -924,7 +933,15 @@ export async function downloadYouTubeVideo(
     }
   }
 
-  const cobaltUrl = process.env.COBALT_API_URL || 'https://api.cobalt.tools';
+  // Try our self-hosted Cobalt first (cheaper/faster), then fall back to
+  // public Cobalt instances if the self-hosted is dead. trycloudflare
+  // quick-tunnels expire when cloudflared dies on mini, leaving the env
+  // pointing at a dead host. Auto-failover so YT transcribe never breaks
+  // for the customer just because our tunnel restarted.
+  const candidateUrls: string[] = [];
+  if (process.env.COBALT_API_URL) candidateUrls.push(process.env.COBALT_API_URL);
+  candidateUrls.push('https://api.cobalt.tools'); // public fallback
+
   const cobaltApiKey = process.env.COBALT_API_KEY;
 
   const headers: Record<string, string> = {
@@ -934,23 +951,38 @@ export async function downloadYouTubeVideo(
   };
   if (cobaltApiKey) headers['Authorization'] = `Api-Key ${cobaltApiKey}`;
 
-  const cobaltRes = await fetch(cobaltUrl, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      url,
-      downloadMode: 'auto',
-      videoQuality: quality,
-      filenameStyle: 'basic',
-      youtubeVideoCodec: 'h264', // mp4-friendly; Supabase + ffmpeg both happy
-    }),
-    signal: AbortSignal.timeout(30_000),
-  });
-
-  if (!cobaltRes.ok) {
-    const body = await cobaltRes.text().catch(() => '');
-    throw new Error(`cobalt returned ${cobaltRes.status}: ${body.slice(0, 200)}`);
+  let cobaltRes: Response | null = null;
+  let lastErr: unknown = null;
+  for (const candidateUrl of candidateUrls) {
+    try {
+      const r = await fetch(candidateUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          url,
+          downloadMode: 'auto',
+          videoQuality: quality,
+          filenameStyle: 'basic',
+          youtubeVideoCodec: 'h264', // mp4-friendly; Supabase + ffmpeg both happy
+        }),
+        signal: AbortSignal.timeout(15_000), // shorter per-attempt to fail fast and try next
+      });
+      if (r.ok) {
+        cobaltRes = r;
+        break;
+      }
+      // 4xx/5xx — record and try next
+      lastErr = new Error(`cobalt ${candidateUrl} returned ${r.status}`);
+    } catch (e) {
+      // Network error / timeout / unreachable — try next candidate
+      lastErr = e;
+    }
   }
+
+  if (!cobaltRes) {
+    throw new Error(`all cobalt instances unreachable: ${(lastErr as Error)?.message || 'unknown'}`);
+  }
+
   const data = await cobaltRes.json();
   if (data.status === 'error') {
     throw new Error(`cobalt error: ${data.error?.code || JSON.stringify(data.error) || 'unknown'}`);

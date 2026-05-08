@@ -106,7 +106,19 @@ export interface TranscriberCoreProps {
   isPortal: boolean;
   isLoggedIn: boolean;
   planId?: string | null;
-  platform?: 'tiktok' | 'youtube';
+  /** 'auto' detects the platform from the URL the user pastes (TikTok / YouTube / etc.) */
+  platform?: 'tiktok' | 'youtube' | 'auto';
+}
+
+// Auto-detect platform from any pasted URL.
+// Lets users paste anything from any field — backend dispatches correctly.
+export function detectPlatform(url: string): 'youtube' | 'tiktok' | 'unknown' {
+  if (!url) return 'unknown';
+  const u = url.toLowerCase().trim();
+  if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
+  if (u.includes('tiktok.com') || u.includes('vm.tiktok.com')) return 'tiktok';
+  // Future: instagram.com/reel, twitch.tv, vimeo, dailymotion, podcasts (RSS)
+  return 'unknown';
 }
 
 // ============================================================================
@@ -145,6 +157,17 @@ const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
     heroDescription: 'Paste any YouTube URL — break down why it works, analyze the hook, and build your own version.',
     socialProof: 'Works with any public YouTube video. Captions extracted instantly, Whisper fallback for accuracy.',
     howItWorksStep1: 'Copy any public YouTube video link and paste it above.',
+    productSearchUrl: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
+    productSearchLabel: 'Search Products',
+  },
+  auto: {
+    apiEndpoint: '/api/youtube-transcribe', // overridden at runtime based on detected platform
+    name: 'Any video',
+    placeholder: 'Paste any TikTok or YouTube URL — we figure out the rest...',
+    heroTitle: 'Free Video',
+    heroDescription: 'Paste any TikTok or YouTube link. We auto-detect the platform, extract the transcript, analyze the hook, and show you why it works.',
+    socialProof: 'Works with TikTok, YouTube, YouTube Shorts, and youtu.be links. No signup, no watermarks, no tracking.',
+    howItWorksStep1: 'Paste any video link from TikTok or YouTube.',
     productSearchUrl: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
     productSearchLabel: 'Search Products',
   },
@@ -315,6 +338,14 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
   const [rateLimitRemaining, setRateLimitRemaining] = useState<number>(-1);
   const [rateLimitTotal, setRateLimitTotal] = useState<number>(-1);
 
+  // Lead-magnet popup state — fires after first successful transcript for logged-out users
+  const [leadMagnetOpen, setLeadMagnetOpen] = useState(false);
+  const [leadMagnetDismissed, setLeadMagnetDismissed] = useState(false);
+  const [leadMagnetEmail, setLeadMagnetEmail] = useState('');
+  const [leadMagnetSubmitting, setLeadMagnetSubmitting] = useState(false);
+  const [leadMagnetSuccess, setLeadMagnetSuccess] = useState(false);
+  const [leadMagnetError, setLeadMagnetError] = useState('');
+
   const isPaid = usageLimit === -1;
   const isRateLimited = usageRemaining !== null && usageRemaining <= 0 && !isPaid;
 
@@ -335,6 +366,46 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
       })
       .catch(() => {});
   }, [initialLoggedIn]);
+
+  // Trigger lead-magnet popup 6 seconds after first successful transcript for logged-out users.
+  // Doesn't re-fire if user dismissed it once or if they sign up.
+  useEffect(() => {
+    if (!result || isLoggedIn || leadMagnetDismissed || leadMagnetOpen) return;
+    const t = setTimeout(() => setLeadMagnetOpen(true), 6000);
+    return () => clearTimeout(t);
+  }, [result, isLoggedIn, leadMagnetDismissed, leadMagnetOpen]);
+
+  async function handleLeadMagnetSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!leadMagnetEmail.trim() || leadMagnetSubmitting) return;
+    setLeadMagnetSubmitting(true);
+    setLeadMagnetError('');
+    try {
+      const res = await fetch('/api/lead-magnet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: leadMagnetEmail.trim(),
+          name: leadMagnetEmail.trim().split('@')[0],
+        }),
+      });
+      // 404 is acceptable (route not yet deployed); 429 = rate-limited; others surface.
+      if (!res.ok && res.status !== 404 && res.status !== 429) {
+        const j = await res.json().catch(() => ({}));
+        throw new Error(j?.message || j?.error || 'Could not save email');
+      }
+      setLeadMagnetSuccess(true);
+      // Send to signup with email pre-filled after 1.5s
+      setTimeout(() => {
+        const signupUrl = `/login?mode=signup&email=${encodeURIComponent(leadMagnetEmail.trim())}&from=transcriber-popup`;
+        window.location.href = signupUrl;
+      }, 1500);
+    } catch (err) {
+      setLeadMagnetError(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setLeadMagnetSubmitting(false);
+    }
+  }
 
   function updateRateLimits(res: Response) {
     const rlRemaining = res.headers.get('X-RateLimit-Remaining');
@@ -373,7 +444,21 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
     setSaveError('');
 
     try {
-      const res = await fetch(config.apiEndpoint, {
+      // When platform is 'auto', dispatch to the right API based on the URL.
+      // Lets a single field accept anything — TikTok, YouTube, youtu.be, Shorts.
+      let endpoint = config.apiEndpoint;
+      if (platform === 'auto') {
+        const detected = detectPlatform(url);
+        if (detected === 'youtube') endpoint = '/api/youtube-transcribe';
+        else if (detected === 'tiktok') endpoint = '/api/transcribe';
+        else {
+          setError("That doesn't look like a TikTok or YouTube URL. Paste a full link starting with https://");
+          setLoading(false);
+          return;
+        }
+      }
+
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: url.trim() }),
@@ -1110,6 +1195,176 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                   />
                 </div>
               </>
+            )}
+
+            {/* ================================================================ */}
+            {/* FlashFlow Features Grid — sell what FF does that others don't */}
+            {/* ================================================================ */}
+            {result && (
+              <div className="mt-2">
+                <div className="text-center mb-6">
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    Now do something with it →
+                  </h3>
+                  <p className="text-zinc-400 text-sm">
+                    {isLoggedIn
+                      ? 'You unlocked everything. Pick a tool and start.'
+                      : 'Free transcripts forever. Sign up to unlock the full toolkit.'}
+                  </p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {/* Make Clips */}
+                  <a
+                    href={isLoggedIn ? `/admin/youtube-transcribe?url=${encodeURIComponent(url)}` : `/login?mode=signup&from=clip-cta`}
+                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-teal-500 hover:bg-teal-500/5 transition-all"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-9 h-9 rounded-lg bg-teal-500/10 flex items-center justify-center">
+                        <Zap size={18} className="text-teal-400" />
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-teal-500/10 text-teal-400 font-semibold">FREE</span>
+                    </div>
+                    <div className="text-white font-semibold mb-1">Make 10–30 Clips</div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Long video → short clips ready for TikTok, Reels, Shorts. AI picks the best 30s moments.
+                    </p>
+                    <div className="mt-3 text-xs text-teal-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+                      {isLoggedIn ? 'Clip this video' : 'Sign up to clip'} <ArrowRight size={12} />
+                    </div>
+                  </a>
+
+                  {/* Generate Your Own Version */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isLoggedIn) {
+                        window.location.href = '/login?mode=signup&from=rewrite-cta';
+                        return;
+                      }
+                      setRewriteOpen(true);
+                      // Scroll into rewrite section
+                      setTimeout(() => {
+                        document.getElementById('rewrite-section')?.scrollIntoView({ behavior: 'smooth' });
+                      }, 100);
+                    }}
+                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-orange-500 hover:bg-orange-500/5 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                        <Pen size={18} className="text-orange-400" />
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/10 text-orange-400 font-semibold">FREE</span>
+                    </div>
+                    <div className="text-white font-semibold mb-1">Rewrite In Your Voice</div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Same hook, your style. Pick a persona and tone — get a script you can record today.
+                    </p>
+                    <div className="mt-3 text-xs text-orange-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+                      {isLoggedIn ? 'Rewrite it' : 'Sign up to rewrite'} <ArrowRight size={12} />
+                    </div>
+                  </button>
+
+                  {/* Translate */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isLoggedIn) {
+                        window.location.href = '/login?mode=signup&from=translate-cta';
+                        return;
+                      }
+                      setTranslateOpen(true);
+                    }}
+                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-blue-500 hover:bg-blue-500/5 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                        <Languages size={18} className="text-blue-400" />
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 font-semibold">FREE</span>
+                    </div>
+                    <div className="text-white font-semibold mb-1">Translate To Any Language</div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Reach a global audience. Spanish, Portuguese, French, Hindi, Japanese, more.
+                    </p>
+                    <div className="mt-3 text-xs text-blue-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+                      {isLoggedIn ? 'Translate' : 'Sign up to translate'} <ArrowRight size={12} />
+                    </div>
+                  </button>
+
+                  {/* Get Recommendations */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (!isLoggedIn) {
+                        window.location.href = '/login?mode=signup&from=recs-cta';
+                        return;
+                      }
+                      setRecsOpen(true);
+                    }}
+                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-violet-500 hover:bg-violet-500/5 transition-all text-left"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-9 h-9 rounded-lg bg-violet-500/10 flex items-center justify-center">
+                        <Lightbulb size={18} className="text-violet-400" />
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-400 font-semibold">FREE</span>
+                    </div>
+                    <div className="text-white font-semibold mb-1">Get 10 Spinoff Ideas</div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      AI gives you 10 fresh angles + new hook lines based on what made this video work.
+                    </p>
+                    <div className="mt-3 text-xs text-violet-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+                      {isLoggedIn ? 'Get ideas' : 'Sign up for ideas'} <ArrowRight size={12} />
+                    </div>
+                  </button>
+
+                  {/* Save to Library */}
+                  <a
+                    href={isLoggedIn ? '/admin/library' : '/login?mode=signup&from=library-cta'}
+                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-pink-500 hover:bg-pink-500/5 transition-all"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-9 h-9 rounded-lg bg-pink-500/10 flex items-center justify-center">
+                        <Bookmark size={18} className="text-pink-400" />
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-400 font-semibold">FREE</span>
+                    </div>
+                    <div className="text-white font-semibold mb-1">Save To Swipe Library</div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Keep every winning hook, script, and angle. Your personal library of proven viral content.
+                    </p>
+                    <div className="mt-3 text-xs text-pink-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+                      {isLoggedIn ? 'Open library' : 'Sign up to save'} <ArrowRight size={12} />
+                    </div>
+                  </a>
+
+                  {/* Generate Original Video */}
+                  <a
+                    href={isLoggedIn ? '/admin/ai-video-editor' : '/login?mode=signup&from=video-cta'}
+                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-yellow-500 hover:bg-yellow-500/5 transition-all"
+                  >
+                    <div className="flex items-center gap-2 mb-2">
+                      <div className="w-9 h-9 rounded-lg bg-yellow-500/10 flex items-center justify-center">
+                        <Sparkles size={18} className="text-yellow-400" />
+                      </div>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 font-semibold">FREE</span>
+                    </div>
+                    <div className="text-white font-semibold mb-1">AI Video Editor</div>
+                    <p className="text-xs text-zinc-400 leading-relaxed">
+                      Upload your own raw footage — AI cuts the boring parts, fixes pacing, exports clean.
+                    </p>
+                    <div className="mt-3 text-xs text-yellow-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
+                      {isLoggedIn ? 'Open editor' : 'Sign up to edit'} <ArrowRight size={12} />
+                    </div>
+                  </a>
+                </div>
+
+                {!isLoggedIn && (
+                  <div className="mt-6 text-center text-sm text-zinc-400">
+                    Everything above is <span className="text-teal-400 font-semibold">100% free</span> when you sign up. No credit card.
+                  </div>
+                )}
+              </div>
             )}
 
             {/* ================================================================ */}
@@ -2024,6 +2279,108 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             </div>
           </div>
         </section>
+      )}
+
+      {/* ================================================================ */}
+      {/* Lead-magnet popup — fires 6s after first transcript for guests */}
+      {/* ================================================================ */}
+      {leadMagnetOpen && !isLoggedIn && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
+          onClick={() => {
+            setLeadMagnetOpen(false);
+            setLeadMagnetDismissed(true);
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="relative w-full max-w-md bg-gradient-to-br from-zinc-900 via-zinc-900 to-teal-950/30 border border-teal-500/30 rounded-2xl shadow-2xl shadow-teal-500/10 p-6 sm:p-8 animate-in slide-in-from-bottom-4 duration-300"
+          >
+            <button
+              type="button"
+              onClick={() => {
+                setLeadMagnetOpen(false);
+                setLeadMagnetDismissed(true);
+              }}
+              className="absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center text-zinc-500 hover:text-white hover:bg-white/5 transition-colors text-xl leading-none"
+              aria-label="Close"
+            >
+              ×
+            </button>
+
+            {!leadMagnetSuccess ? (
+              <>
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/30 text-xs text-teal-400 font-semibold mb-3">
+                  <Sparkles size={12} /> Limited time
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2 leading-tight">
+                  Unlimited free transcriptions, forever
+                </h2>
+                <p className="text-zinc-400 text-sm mb-5 leading-relaxed">
+                  First 1,000 signups lock in unlimited transcripts + the full toolkit (clips, rewrites, translations, library) at zero cost.{' '}
+                  <span className="text-teal-300 font-semibold">No credit card. No trial.</span>
+                </p>
+
+                <form onSubmit={handleLeadMagnetSubmit} className="space-y-3">
+                  <input
+                    type="email"
+                    required
+                    autoFocus
+                    placeholder="you@email.com"
+                    value={leadMagnetEmail}
+                    onChange={(e) => setLeadMagnetEmail(e.target.value)}
+                    disabled={leadMagnetSubmitting}
+                    className="w-full px-4 py-3 rounded-lg bg-zinc-800 border border-zinc-700 text-white placeholder-zinc-500 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-teal-500 disabled:opacity-50 transition"
+                  />
+                  {leadMagnetError && (
+                    <p className="text-sm text-red-400 flex items-center gap-1.5">
+                      <AlertCircle size={14} /> {leadMagnetError}
+                    </p>
+                  )}
+                  <button
+                    type="submit"
+                    disabled={leadMagnetSubmitting || !leadMagnetEmail.trim()}
+                    className="w-full px-6 py-3 bg-teal-500 text-zinc-900 font-bold rounded-lg hover:bg-teal-400 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {leadMagnetSubmitting ? (
+                      <><Loader2 size={16} className="animate-spin" /> Saving your spot...</>
+                    ) : (
+                      <>Claim my free spot <ArrowRight size={16} /></>
+                    )}
+                  </button>
+                </form>
+
+                <div className="mt-4 pt-4 border-t border-zinc-800 text-xs text-zinc-500 leading-relaxed">
+                  <span className="text-zinc-400">What you get free:</span> unlimited transcripts ·
+                  hook + format + emotion analysis · clip detection · script rewriter · translator ·
+                  swipe library
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setLeadMagnetOpen(false);
+                    setLeadMagnetDismissed(true);
+                  }}
+                  className="mt-3 w-full text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                >
+                  No thanks, I&apos;ll keep paying for TurboScribe
+                </button>
+              </>
+            ) : (
+              <div className="text-center py-4">
+                <div className="w-14 h-14 rounded-full bg-teal-500/10 flex items-center justify-center mx-auto mb-4">
+                  <Check size={28} className="text-teal-400" />
+                </div>
+                <h2 className="text-2xl font-bold text-white mb-2">You&apos;re in!</h2>
+                <p className="text-zinc-400 text-sm">
+                  Sending you to signup to finish setup...
+                </p>
+                <Loader2 size={20} className="animate-spin text-teal-400 mx-auto mt-4" />
+              </div>
+            )}
+          </div>
+        </div>
       )}
     </div>
   );

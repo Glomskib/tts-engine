@@ -1,11 +1,10 @@
 /**
  * Client-side event tracking and analytics
  *
- * Replace console logging with actual analytics service:
- * - Google Analytics: gtag('event', name, params)
- * - Mixpanel: mixpanel.track(name, params)
- * - Amplitude: amplitude.track(name, params)
- * - PostHog: posthog.capture(name, params)
+ * Wired to PostHog via components/PostHogProvider, which calls _setPosthog()
+ * once the SDK has loaded. If no PostHog instance is registered (e.g. local
+ * dev without NEXT_PUBLIC_POSTHOG_KEY), events fall back to console.log in
+ * dev mode and silent no-op in production.
  */
 
 // ============================================
@@ -26,6 +25,12 @@ interface UserProperties {
   [key: string]: unknown;
 }
 
+interface PosthogLike {
+  capture: (name: string, props?: Record<string, unknown>) => void;
+  identify: (id: string, props?: Record<string, unknown>) => void;
+  reset: () => void;
+}
+
 // ============================================
 // State
 // ============================================
@@ -33,6 +38,16 @@ interface UserProperties {
 let userProperties: UserProperties = {};
 let isInitialized = false;
 const eventQueue: TrackingEvent[] = [];
+
+// Set by PostHogProvider once posthog-js has loaded. Kept as a generic
+// PosthogLike so this module doesn't have to import posthog-js directly
+// (it has a sizeable bundle and we don't want it on server-side imports).
+let posthogClient: PosthogLike | null = null;
+
+/** Internal hook for PostHogProvider. Don't call from feature code. */
+export function _setPosthog(client: PosthogLike | null) {
+  posthogClient = client;
+}
 
 // ============================================
 // Core Functions
@@ -64,6 +79,14 @@ export function initTracking(config?: { debug?: boolean }) {
 export function identifyUser(properties: UserProperties) {
   userProperties = { ...userProperties, ...properties };
 
+  if (posthogClient && properties.userId) {
+    posthogClient.identify(properties.userId, {
+      email: properties.email,
+      plan: properties.plan,
+      role: properties.role,
+    });
+  }
+
   if (process.env.NODE_ENV === 'development') {
     console.log('[Tracking] User identified:', properties);
   }
@@ -75,6 +98,10 @@ export function identifyUser(properties: UserProperties) {
 export function resetTracking() {
   userProperties = {};
 
+  if (posthogClient) {
+    posthogClient.reset();
+  }
+
   if (process.env.NODE_ENV === 'development') {
     console.log('[Tracking] Reset');
   }
@@ -84,12 +111,13 @@ export function resetTracking() {
  * Send event to analytics service
  */
 function sendEvent(event: TrackingEvent) {
+  if (posthogClient) {
+    posthogClient.capture(event.name, event.properties);
+  }
+
   if (process.env.NODE_ENV === 'development') {
     console.log('[Tracking]', event.name, event.properties);
   }
-
-  // Production: Send to analytics service
-  // Example: gtag('event', event.name, event.properties);
 }
 
 /**

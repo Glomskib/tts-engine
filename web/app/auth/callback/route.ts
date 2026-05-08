@@ -55,6 +55,12 @@ export async function GET(request: Request) {
     }
 
     if (data?.user) {
+      // Track whether this auth event corresponds to a brand-new account so we
+      // can route them through /onboarding instead of dropping them straight
+      // into the dashboard. Set inside the existingSub branch below where we
+      // already have to decide that.
+      let isNewSignup = false;
+
       // Try to ensure user has subscription and credits (non-fatal errors)
       try {
         // Check if user already has subscription and credits (returning user)
@@ -65,6 +71,7 @@ export async function GET(request: Request) {
           .single();
 
         if (!existingSub) {
+          isNewSignup = true;
           // New user — create default subscription
           const { error: subError } = await supabase
             .from('user_subscriptions')
@@ -204,7 +211,12 @@ export async function GET(request: Request) {
         return redirectRes;
       }
 
-      const dashboardRes = NextResponse.redirect(`${origin}/create`);
+      // Brand-new accounts go through the creator-profile wizard before the
+      // dashboard. Returning users skip straight to /create. The wizard page
+      // itself bounces back to /create if profile is already complete, so this
+      // is safe even if isNewSignup mis-classifies on rare race conditions.
+      const target = isNewSignup ? '/onboarding' : '/create';
+      const dashboardRes = NextResponse.redirect(`${origin}${target}`);
       dashboardRes.cookies.set('ff_ref', '', { maxAge: 0, path: '/' });
       return dashboardRes;
     }

@@ -12,9 +12,10 @@
  * Step 4: GMV bucket (optional) + Finish
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ChevronRight, ChevronLeft, Zap } from 'lucide-react';
 import type { CreatorProfile } from '@/lib/creator-profile/schema';
+import { track } from '@/lib/tracking';
 import {
   CONTENT_TENURE_LABELS,
   TTS_TENURE_LABELS,
@@ -98,6 +99,13 @@ export function CreatorProfileWizard({ onSave, onComplete }: WizardProps) {
 
   const TOTAL_STEPS = 4;
 
+  // Fire onboarding_started once, when the wizard first mounts. Distinct from
+  // /onboarding pageview so we can isolate "user actually saw the wizard" in
+  // the funnel from "user redirected through /onboarding then bounced".
+  useEffect(() => {
+    track('onboarding_started');
+  }, []);
+
   function set<K extends keyof ProfileDraft>(key: K, value: ProfileDraft[K]) {
     setDraft(d => ({ ...d, [key]: value }));
   }
@@ -110,6 +118,7 @@ export function CreatorProfileWizard({ onSave, onComplete }: WizardProps) {
     setSaving(true);
     try {
       await onSave(draft);
+      track('onboarding_step_completed', { step, total_steps: TOTAL_STEPS });
       setStep(s => s + 1);
     } finally {
       setSaving(false);
@@ -121,6 +130,12 @@ export function CreatorProfileWizard({ onSave, onComplete }: WizardProps) {
     try {
       const finalDraft = skipGmv ? { ...draft, monthly_gmv_bucket: undefined } : draft;
       await onComplete(finalDraft);
+      track('onboarding_completed', {
+        skipped_gmv: skipGmv,
+        role: finalDraft.role,
+        tts_status: finalDraft.tiktok_shop_status,
+        primary_goal: finalDraft.primary_goal,
+      });
     } finally {
       setSaving(false);
     }
@@ -130,6 +145,7 @@ export function CreatorProfileWizard({ onSave, onComplete }: WizardProps) {
     setSaving(true);
     try {
       await onComplete(draft);
+      track('onboarding_skipped', { step, fields_filled: Object.keys(draft).length });
     } finally {
       setSaving(false);
     }

@@ -16,16 +16,13 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Link2, Sparkles } from 'lucide-react';
 
-const PRESET_OPTIONS = [
-  { id: 'viral', label: 'Viral hooks', desc: 'Strong opens + cliffhangers' },
-  { id: 'highlights', label: 'Highlights', desc: 'Best moments, fast pace' },
-  { id: 'educational', label: 'Educational', desc: 'Clean explainers' },
-];
+// Preset chips removed 2026-05-07 — Brandon's call. AI moment detector ranks
+// clips on its own; surfacing a style picker just added decision friction
+// before the user even pasted a URL.
 
 export default function ClipperPage() {
   const router = useRouter();
   const [url, setUrl] = useState('');
-  const [preset, setPreset] = useState<string>('viral');
   const [count, setCount] = useState(15);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +38,6 @@ export default function ClipperPage() {
         body: JSON.stringify({
           url: url.trim(),
           workspace: 'clipper',
-          preset,
           target_clip_count: count,
         }),
       });
@@ -89,31 +85,6 @@ export default function ClipperPage() {
           <p className="mt-1.5 text-xs text-muted-foreground">
             Works with YouTube, podcast RSS, Twitch VODs, and most public video URLs (via Cobalt).
           </p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-semibold mb-2">
-            <Sparkles className="inline w-4 h-4 mr-1 -mt-0.5" />
-            Style
-          </label>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            {PRESET_OPTIONS.map((opt) => (
-              <button
-                key={opt.id}
-                type="button"
-                onClick={() => setPreset(opt.id)}
-                disabled={submitting}
-                className={`text-left p-3 rounded-lg border transition ${
-                  preset === opt.id
-                    ? 'border-primary bg-primary/5 ring-1 ring-primary'
-                    : 'border-border hover:border-primary/40'
-                }`}
-              >
-                <div className="font-semibold text-sm">{opt.label}</div>
-                <div className="text-xs text-muted-foreground mt-0.5">{opt.desc}</div>
-              </button>
-            ))}
-          </div>
         </div>
 
         <div>

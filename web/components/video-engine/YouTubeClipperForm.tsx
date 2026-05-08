@@ -17,30 +17,18 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Youtube, Loader2, ArrowRight, AlertTriangle, Zap, Flame, BookOpen,
+  Youtube, Loader2, ArrowRight, AlertTriangle,
 } from 'lucide-react';
-import type { ClipperPreset } from './WorkspaceSelector';
 
 const YT_REGEX = /^(https?:\/\/)?(www\.|m\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/|v\/|live\/)|youtu\.be\/)[A-Za-z0-9_-]{6,}/;
 
-type PresetKey = 'viral' | 'highlights' | 'educational';
-
-const PRESETS: Array<{
-  key: PresetKey;
-  label: string;
-  hint: string;
-  icon: React.ComponentType<{ className?: string }>;
-  clipperPreset: ClipperPreset;
-}> = [
-  { key: 'viral',        label: 'Viral moments', hint: 'Scroll-stopping hooks',        icon: Flame,    clipperPreset: 'viral' },
-  { key: 'highlights',   label: 'Highlights',    hint: 'Short, punchy cuts',           icon: Zap,      clipperPreset: 'highlights' },
-  { key: 'educational',  label: 'Educational',   hint: 'Explainers, clean pacing',     icon: BookOpen, clipperPreset: 'educational' },
-];
+// Preset chips removed 2026-05-07 — Brandon's call. Style picker added decision
+// friction and the AI moment detector picks the best clips regardless. Server
+// route still accepts `preset` for back-compat; we just don't expose it.
 
 export default function YouTubeClipperForm() {
   const router = useRouter();
   const [url, setUrl] = useState('');
-  const [preset, setPreset] = useState<PresetKey | null>(null);
   const [busy, setBusy] = useState(false);
   const [statusLine, setStatusLine] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -70,7 +58,6 @@ export default function YouTubeClipperForm() {
         body: JSON.stringify({
           url: url.trim(),
           workspace: 'clipper',
-          preset: preset ?? null,
         }),
       });
 
@@ -127,42 +114,6 @@ export default function YouTubeClipperForm() {
             disabled={busy}
             className="w-full rounded-xl bg-zinc-950 border border-zinc-800 focus:border-zinc-500 focus:ring-0 outline-none text-zinc-100 placeholder-zinc-600 text-sm sm:text-base px-4 min-h-[52px] disabled:opacity-60"
           />
-        </div>
-
-        <div>
-          <div className="text-[11px] uppercase tracking-wide text-zinc-500 mb-2">
-            Style (optional)
-          </div>
-          <div className="flex flex-wrap gap-2">
-            {PRESETS.map((p) => {
-              const active = preset === p.key;
-              const Icon = p.icon;
-              return (
-                <button
-                  key={p.key}
-                  type="button"
-                  onClick={() => !busy && setPreset(active ? null : p.key)}
-                  disabled={busy}
-                  aria-pressed={active}
-                  className={[
-                    'inline-flex items-center gap-1.5 rounded-full border px-3.5 min-h-[40px] text-sm font-medium transition-colors',
-                    active
-                      ? 'border-zinc-100 bg-zinc-100 text-zinc-900'
-                      : 'border-zinc-800 bg-zinc-950 text-zinc-200 hover:border-zinc-600',
-                    busy ? 'opacity-60 cursor-not-allowed' : '',
-                  ].join(' ')}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
-          {preset && (
-            <p className="mt-2 text-[11px] text-zinc-500">
-              {PRESETS.find((p) => p.key === preset)?.hint}
-            </p>
-          )}
         </div>
 
         <button

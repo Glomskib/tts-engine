@@ -108,6 +108,10 @@
       "schedule": "*/15 * * * *"
     },
     {
+      "path": "/api/cron/hhh-daily-content",
+      "schedule": "0 11 * * *"
+    },
+    {
       "path": "/api/cron/drive-intake-poll",
       "schedule": "*/5 * * * *"
     },

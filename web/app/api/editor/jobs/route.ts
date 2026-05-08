@@ -72,7 +72,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from('ai_edit_jobs')
-    .select('id,title,mode,status,error,output_url,preview_url,created_at,updated_at')
+    .select('id,title,mode,mode_options,status,error,output_url,preview_url,raw_url,assets,created_at,updated_at')
     .eq('user_id', auth.user.id)
     .order('created_at', { ascending: false })
     .limit(50);

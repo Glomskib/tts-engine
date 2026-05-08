@@ -162,8 +162,25 @@ export default function PostingQueuePage() {
   const handleSchedule = async () => {
     if (!scheduleVideoId || !scheduleDate) return;
     setActionLoading(scheduleVideoId);
+    const video = videos.find(v => v.id === scheduleVideoId);
+    if (!video) {
+      showError('Video not found');
+      setActionLoading(null);
+      return;
+    }
+    if (!video.final_video_url) {
+      showError('This video has no final URL yet — render it first');
+      setActionLoading(null);
+      return;
+    }
+    if (!video.script_locked_text) {
+      showError('This video has no caption text — add one before scheduling');
+      setActionLoading(null);
+      return;
+    }
     try {
-      const res = await fetch(`/api/videos/${scheduleVideoId}/execution`, {
+      // Step 1: write the schedule note (existing behavior — preserves audit trail)
+      await fetch(`/api/videos/${scheduleVideoId}/execution`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -172,15 +189,44 @@ export default function PostingQueuePage() {
         }),
       });
 
-      if (res.ok) {
-        showSuccess(`Scheduled for ${scheduleDate}`);
-        // Update the video in the list with the note
-        setVideos(prev => prev.map(v =>
-          v.id === scheduleVideoId ? { ...v } : v
-        ));
+      // Step 2: REAL auto-post via /api/marketing/enqueue → Late.dev pipeline
+      // Default platforms: TikTok + IG Reels + YT Shorts (vertical 9:16 plays well there)
+      const brand = video.brand_name?.toLowerCase().includes('mmm')
+        ? 'Making Miles Matter'
+        : video.brand_name?.toLowerCase().includes('zebby')
+          ? "Zebby's World"
+          : 'FlashFlow';
+
+      const enqueueRes = await fetch('/api/marketing/enqueue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: video.script_locked_text,
+          brand,
+          platforms: ['tiktok', 'pinterest'], // expand once Brandon connects more accounts
+          media: [{ type: 'video', url: video.final_video_url }],
+          publishNow: false,
+          source: 'posting-queue-schedule',
+          meta: {
+            scheduled_for: scheduleDate,
+            video_id: video.id,
+            video_code: video.video_code,
+            product_name: video.product_name,
+          },
+        }),
+      });
+
+      if (enqueueRes.ok) {
+        const result = await enqueueRes.json().catch(() => ({}));
+        showSuccess(`Scheduled for ${scheduleDate} → queued to Late.dev (post id: ${result.post_id || 'pending'})`);
+        setVideos(prev => prev.map(v => v.id === scheduleVideoId ? { ...v } : v));
+      } else if (enqueueRes.status === 503) {
+        showError('Auto-post unavailable: LATE_API_KEY not configured. Note saved but no auto-publish.');
+      } else if (enqueueRes.status === 404) {
+        showError('Marketing pipeline not enabled. Note saved but no auto-publish.');
       } else {
-        const err = await res.json().catch(() => ({}));
-        showError(err.message || 'Failed to schedule');
+        const err = await enqueueRes.json().catch(() => ({}));
+        showError(err.message || 'Note saved but auto-publish failed — check error in marketing queue');
       }
     } catch {
       showError('Network error');

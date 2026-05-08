@@ -65,15 +65,35 @@ interface Webhook {
 
 type TabId = 'account' | 'subscription' | 'notifications' | 'preferences' | 'api-keys' | 'webhooks' | 'data';
 
-const TABS = [
-  { id: 'account' as TabId, label: 'Account', icon: User },
-  { id: 'subscription' as TabId, label: 'Subscription', icon: CreditCard },
-  { id: 'notifications' as TabId, label: 'Notifications', icon: Bell },
-  { id: 'preferences' as TabId, label: 'Preferences', icon: Palette },
-  { id: 'api-keys' as TabId, label: 'API Keys', icon: Key },
-  { id: 'webhooks' as TabId, label: 'Webhooks', icon: Zap },
-  { id: 'data' as TabId, label: 'Data', icon: Download },
+interface TabDef {
+  id: TabId;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  /** If true, only visible for Pro/Founder/Owner tier — hides API + webhook surface from creators. */
+  developerOnly?: boolean;
+}
+
+const ALL_TABS: TabDef[] = [
+  { id: 'account', label: 'Account', icon: User },
+  { id: 'subscription', label: 'Subscription', icon: CreditCard },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'preferences', label: 'Preferences', icon: Palette },
+  { id: 'api-keys', label: 'API Keys', icon: Key, developerOnly: true },
+  { id: 'webhooks', label: 'Webhooks', icon: Zap, developerOnly: true },
+  { id: 'data', label: 'Data', icon: Download },
 ];
+
+/**
+ * Filter tabs based on user tier. API + webhook surface is hidden by default —
+ * only Pro/Founder/Agency/Owner see them. Most creators will never use these
+ * and surfacing them by default just makes the page feel like a developer tool.
+ */
+function visibleTabs(planName: string | undefined | null): TabDef[] {
+  const developerTiers = new Set(['pro', 'founder', 'agency', 'owner', 'admin']);
+  const tierKey = (planName || 'free').toLowerCase();
+  const showDeveloper = developerTiers.has(tierKey);
+  return ALL_TABS.filter((t) => !t.developerOnly || showDeveloper);
+}
 
 const EXPORT_TYPES = [
   { id: 'videos', label: 'Videos', description: 'Pipeline videos with stats and status' },
@@ -565,9 +585,9 @@ export default function SettingsPage() {
           )}
         </div>
 
-        {/* Tabs */}
+        {/* Tabs — developer surface (api-keys, webhooks) hidden for non-Pro users */}
         <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-          {TABS.map(tab => (
+          {visibleTabs(subscription?.planName).map(tab => (
             <button type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}

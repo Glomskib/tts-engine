@@ -37,13 +37,31 @@ interface HookAnalysis {
   line: string;
   style: string;
   strength: number;
+  /** NEW (2026-05-08): why this hook works for this audience */
+  why_strong?: string;
+  /** NEW: 3-5 alternate hook phrasings the user can A/B test */
+  alternatives?: string[];
+}
+
+interface IntentAnalysis {
+  primary: string;
+  explanation: string;
 }
 
 interface ContentBreakdown {
   format: string;
   pacing: string;
   structure: string;
+  /** NEW: how the structure plays out across the video */
+  structure_explained?: string;
 }
+
+/**
+ * NEW shape (2026-05-08): keyPhrases is now an array of objects with WHY each
+ * phrase works, not just bare strings. UI handles both shapes for backward
+ * compat with older analysis records.
+ */
+type KeyPhrase = string | { phrase: string; why_it_works: string };
 
 interface TranscribeResult {
   transcript: string;
@@ -52,12 +70,22 @@ interface TranscribeResult {
   segments: { start: number; end: number; text: string }[];
   analysis: {
     hook: HookAnalysis;
+    intent?: IntentAnalysis;
     content: ContentBreakdown;
-    keyPhrases: string[];
+    keyPhrases: KeyPhrase[];
+    viralPotential?: string[];
     emotionalTriggers: string[];
     whatWorks: string[];
     targetEmotion: string;
   } | null;
+}
+
+/**
+ * Key phrase normalizer — accepts both old string[] and new {phrase, why_it_works}[].
+ */
+function normalizeKeyPhrase(p: KeyPhrase): { phrase: string; why_it_works?: string } {
+  if (typeof p === 'string') return { phrase: p };
+  return { phrase: p.phrase, why_it_works: p.why_it_works };
 }
 
 interface ScriptConcept {
@@ -522,14 +550,22 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
       `Hook: "${a.hook.line}"`,
       `Style: ${a.hook.style}`,
       `Strength: ${a.hook.strength}/10`,
+      a.hook.why_strong ? `Why hook works: ${a.hook.why_strong}` : '',
+      a.hook.alternatives?.length ? `Alt hooks:\n${a.hook.alternatives.map((x) => `  - ${x}`).join('\n')}` : '',
+      a.intent ? `Intent: ${a.intent.primary} — ${a.intent.explanation}` : '',
       `Format: ${a.content.format}`,
       `Pacing: ${a.content.pacing}`,
       `Structure: ${a.content.structure}`,
-      `Key Phrases: ${a.keyPhrases.join(', ')}`,
-      `What Works: ${a.whatWorks.join('; ')}`,
+      a.content.structure_explained ? `Structure detail: ${a.content.structure_explained}` : '',
+      `Key Phrases:\n${a.keyPhrases.map((p) => {
+        const n = normalizeKeyPhrase(p);
+        return `  - ${n.phrase}${n.why_it_works ? ` — ${n.why_it_works}` : ''}`;
+      }).join('\n')}`,
+      a.viralPotential?.length ? `Viral mechanics:\n${a.viralPotential.map((x) => `  - ${x}`).join('\n')}` : '',
+      `What Works:\n${a.whatWorks.map((x) => `  - ${x}`).join('\n')}`,
       `Emotional Triggers: ${a.emotionalTriggers.join(', ')}`,
       `Target Emotion: ${a.targetEmotion}`,
-    ].join('\n');
+    ].filter(Boolean).join('\n');
   }
 
   async function handleAddToWinners() {
@@ -1054,10 +1090,10 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                     </div>
                     <div className="space-y-4">
                       <div>
-                        <span className="text-xs text-zinc-500 uppercase tracking-wide">Hook Line</span>
-                        <p className="text-zinc-200 mt-1 font-medium">&ldquo;{result.analysis.hook.line}&rdquo;</p>
+                        <span className="text-xs text-zinc-500 uppercase tracking-wide">Full Hook</span>
+                        <p className="text-zinc-200 mt-1 font-medium leading-relaxed">&ldquo;{result.analysis.hook.line}&rdquo;</p>
                       </div>
-                      <div className="flex gap-4">
+                      <div className="flex gap-4 flex-wrap">
                         <div>
                           <span className="text-xs text-zinc-500 uppercase tracking-wide">Style</span>
                           <p className="mt-1">
@@ -1080,7 +1116,55 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                             </span>
                           </p>
                         </div>
+                        {result.analysis.intent && (
+                          <div>
+                            <span className="text-xs text-zinc-500 uppercase tracking-wide">Intent</span>
+                            <p className="mt-1">
+                              <span className="inline-flex px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-400 text-sm capitalize">
+                                {result.analysis.intent.primary.replace(/-/g, ' ')}
+                              </span>
+                            </p>
+                          </div>
+                        )}
                       </div>
+
+                      {/* NEW: Why this hook works */}
+                      {result.analysis.hook.why_strong && (
+                        <div className="rounded-lg bg-zinc-800/40 border border-orange-500/20 p-3">
+                          <div className="text-xs text-orange-400 uppercase tracking-wide mb-1">Why this hook works</div>
+                          <p className="text-zinc-300 text-sm leading-relaxed">{result.analysis.hook.why_strong}</p>
+                        </div>
+                      )}
+
+                      {/* NEW: Intent explanation */}
+                      {result.analysis.intent?.explanation && (
+                        <div className="rounded-lg bg-zinc-800/40 border border-blue-500/20 p-3">
+                          <div className="text-xs text-blue-400 uppercase tracking-wide mb-1">What this video wants</div>
+                          <p className="text-zinc-300 text-sm leading-relaxed">{result.analysis.intent.explanation}</p>
+                        </div>
+                      )}
+
+                      {/* NEW: Hook alternatives — actual rewritten lines, A/B-testable */}
+                      {result.analysis.hook.alternatives && result.analysis.hook.alternatives.length > 0 && (
+                        <div className="rounded-lg bg-zinc-800/40 border border-teal-500/20 p-3">
+                          <div className="text-xs text-teal-400 uppercase tracking-wide mb-2">Try these alt hooks (A/B test)</div>
+                          <ul className="space-y-1.5">
+                            {result.analysis.hook.alternatives.map((alt, i) => (
+                              <li key={i} className="flex items-start gap-2 text-sm text-zinc-300">
+                                <button
+                                  type="button"
+                                  onClick={() => copy(alt, `alt-hook-${i}`)}
+                                  className="text-left hover:text-teal-300 transition-colors flex-1"
+                                  title="Click to copy"
+                                >
+                                  <span className="text-teal-500 mr-1">→</span>
+                                  {copiedKey === `alt-hook-${i}` ? <span className="text-green-400">Copied!</span> : <span>&ldquo;{alt}&rdquo;</span>}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -1106,7 +1190,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                     </div>
                   </div>
 
-                  {/* Key Phrases */}
+                  {/* Key Phrases — now with WHY each works */}
                   {result.analysis.keyPhrases.length > 0 && (
                     <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
                       <div className="flex items-center justify-between mb-4">
@@ -1115,7 +1199,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                           Key Phrases
                         </h3>
                         <CopyButton
-                          text={result.analysis.keyPhrases.join(', ')}
+                          text={result.analysis.keyPhrases.map((p) => normalizeKeyPhrase(p).phrase).join(', ')}
                           copyKey="allPhrases"
                           copiedKey={copiedKey}
                           copy={copy}
@@ -1123,21 +1207,33 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                           label="Copy All"
                         />
                       </div>
-                      <div className="flex flex-wrap gap-2">
-                        {result.analysis.keyPhrases.map((phrase, i) => (
-                          <button
-                            key={i}
-                            onClick={() => copy(phrase, `phrase-${i}`)}
-                            className="px-3 py-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm border border-white/5 transition-colors cursor-pointer"
-                            title="Click to copy"
-                          >
-                            {copiedKey === `phrase-${i}` ? (
-                              <span className="text-green-400">Copied!</span>
-                            ) : (
-                              phrase
-                            )}
-                          </button>
-                        ))}
+                      <div className="space-y-2">
+                        {result.analysis.keyPhrases.map((rawPhrase, i) => {
+                          const np = normalizeKeyPhrase(rawPhrase);
+                          return (
+                            <div
+                              key={i}
+                              className="rounded-lg bg-zinc-800/40 border border-white/5 p-3 hover:border-yellow-500/30 transition-colors"
+                            >
+                              <button
+                                onClick={() => copy(np.phrase, `phrase-${i}`)}
+                                className="text-zinc-200 text-sm font-medium text-left w-full"
+                                title="Click to copy"
+                              >
+                                {copiedKey === `phrase-${i}` ? (
+                                  <span className="text-green-400">Copied!</span>
+                                ) : (
+                                  <span>&ldquo;{np.phrase}&rdquo;</span>
+                                )}
+                              </button>
+                              {np.why_it_works && (
+                                <div className="text-xs text-zinc-400 mt-1.5 leading-relaxed">
+                                  <span className="text-zinc-500">why it works:</span> {np.why_it_works}
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   )}

@@ -237,29 +237,63 @@ export async function POST(request: Request) {
     if (anthropicKey && transcript.length > 10) {
       console.log('[transcribe] Running AI analysis...');
       try {
-        const analysisPrompt = `Analyze this TikTok video transcript. Return ONLY valid JSON with no markdown formatting or explanation.
+        // Upgraded 2026-05-08 per Brandon audit. The old prompt produced
+        // half-sentence hooks and generic "what works" feedback. New prompt:
+        // - Forces FULL hook extraction (first 1-3 complete sentences, no truncation)
+        // - Adds INTENT classification (educational/curiosity/commercial/emotional/social)
+        // - Adds per-key-phrase WHY-IT-WORKS explanation (not just the phrase list)
+        // - Adds 3-5 viral phrasing alternatives
+        // - Stricter format breakdown with named structure
+        const analysisPrompt = `You are analyzing a TikTok or short-form video transcript for a creator who wants to study and replicate viral mechanics.
+
+Return ONLY valid JSON. No markdown, no explanation outside the JSON.
 
 TRANSCRIPT:
 ${transcript}
 
-Return this exact JSON structure:
+REQUIRED JSON STRUCTURE:
 {
   "hook": {
-    "line": "<the first sentence/hook line from the transcript>",
-    "style": "<one of: question, shock, relatable, controversial, curiosity, story, instruction>",
-    "strength": <1-10 integer>
+    "line": "<COMPLETE first 1-3 sentences acting as the hook. NEVER truncate mid-sentence. NEVER half a sentence. Capture the full attention-grab.>",
+    "style": "<one of: question, shock, relatable, controversial, curiosity, story, instruction, contrarian, list-tease>",
+    "strength": <1-10 integer>,
+    "why_strong": "<one specific sentence on WHY this hook works for this audience — what mechanic it triggers (curiosity gap, pattern interrupt, status threat, etc.)>",
+    "alternatives": [
+      "<3-5 alternate hook phrasings that target the same audience but use different mechanics — give the actual rewritten line, not a description>"
+    ]
+  },
+  "intent": {
+    "primary": "<one of: educational, entertainment, commercial, emotional, social-proof, curiosity-bait, controversy-bait>",
+    "explanation": "<one sentence: what is this video actually trying to make the viewer DO or FEEL?>"
   },
   "content": {
-    "format": "<e.g. tutorial, story time, product review, skit, rant, educational, day-in-life>",
-    "pacing": "<e.g. fast and punchy, conversational, slow build, rapid-fire>",
-    "structure": "<e.g. hook-problem-solution, hook-story-cta, list format, before/after>"
+    "format": "<one of: tutorial, story-time, product-review, skit, rant, educational, day-in-life, before-after, listicle, reaction, pov, how-to, talking-head, voiceover-broll>",
+    "pacing": "<one of: fast-and-punchy, conversational, slow-build, rapid-fire, deliberate>",
+    "structure": "<one of: hook-problem-solution, hook-story-cta, list-format, before-after, problem-agitation-solution, statement-evidence-takeaway, question-answer-payoff>",
+    "structure_explained": "<one sentence on how the structure plays out across the video — beats by approximate timestamp>"
   },
-  "keyPhrases": ["<3-6 memorable phrases or power words used>"],
-  "emotionalTriggers": ["<2-4 emotions the content targets>"],
+  "keyPhrases": [
+    {
+      "phrase": "<exact phrase from transcript>",
+      "why_it_works": "<one sentence: why this specific phrase lands — pattern, emotional charge, specificity, etc.>"
+    }
+  ],
+  "viralPotential": [
+    "<3-5 specific things in this video that have viral mechanics: stitch-bait moments, comment-bait controversy, shareable sound bites, screenshot-worthy lines, etc.>"
+  ],
+  "emotionalTriggers": ["<2-4 emotions this content targets — be specific: not 'happy' but 'satisfaction-of-being-right' or 'envy-of-the-easy-solution'>"],
   "productMentions": ["<any products/brands mentioned, or empty array>"],
-  "whatWorks": ["<3-5 specific things this creator does well>"],
+  "whatWorks": [
+    "<3-5 specific creator techniques used — not generic praise. Examples: 'opens with first-person stake before pivoting to lesson', 'uses pattern-break at 8s to reset attention', 'specific number in hook ($47, not 'cheap')'>"
+  ],
   "targetEmotion": "<the primary emotion this content targets>"
-}`;
+}
+
+CRITICAL:
+- keyPhrases entries MUST be objects with phrase + why_it_works, NOT bare strings
+- hook.line MUST be complete sentences. If you find yourself ending with "..." you got it wrong — extract more text.
+- alternatives in hook MUST be actual rewritten hook lines, not descriptions like "use a question instead"
+- whatWorks MUST be specific creator techniques, not generic praise like "engaging" or "well-paced"`;
 
         const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -269,12 +303,14 @@ Return this exact JSON structure:
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 1000,
-            temperature: 0.3,
+            // Sonnet for better hook extraction + alternatives quality.
+            // Haiku missed too many full hooks and gave shallow why-it-works.
+            model: 'claude-sonnet-4-5-20250929',
+            max_tokens: 2000,
+            temperature: 0.4,
             messages: [{ role: 'user', content: analysisPrompt }],
           }),
-          signal: AbortSignal.timeout(15000),
+          signal: AbortSignal.timeout(20000),
         });
 
         if (claudeRes.ok) {

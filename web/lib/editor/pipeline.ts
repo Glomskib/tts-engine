@@ -375,13 +375,27 @@ async function uploadToStorage(storagePath: string, localFile: string, contentTy
 export async function ensureEditJobsBucket(): Promise<void> {
   const { data: buckets } = await supabaseAdmin.storage.listBuckets();
   const exists = buckets?.some((b: { name: string }) => b.name === BUCKET_NAME);
-  if (exists) return;
-  const { error } = await supabaseAdmin.storage.createBucket(BUCKET_NAME, {
+  const desired = {
     public: true,
-    fileSizeLimit: 500 * 1024 * 1024,
-  });
-  if (error && !/already exists|duplicate/i.test(error.message)) {
-    throw new Error(`Failed to create bucket: ${error.message}`);
+    fileSizeLimit: 500 * 1024 * 1024, // 500 MB raw videos
+  };
+  if (!exists) {
+    const { error } = await supabaseAdmin.storage.createBucket(BUCKET_NAME, desired);
+    if (error && !/already exists|duplicate/i.test(error.message)) {
+      throw new Error(`Failed to create bucket: ${error.message}`);
+    }
+    return;
+  }
+  // Bucket exists — enforce the size limit. Was creating bucket with 50 MB
+  // Supabase default earlier so older buckets 413 on real videos.
+  // 2026-05-08: Brandon hit this on /admin/editor/new — payload too large.
+  try {
+    const { error } = await supabaseAdmin.storage.updateBucket(BUCKET_NAME, desired);
+    if (error) {
+      console.warn(`[editor] updateBucket warning: ${error.message}`);
+    }
+  } catch (err) {
+    console.warn('[editor] updateBucket failed', err);
   }
 }
 

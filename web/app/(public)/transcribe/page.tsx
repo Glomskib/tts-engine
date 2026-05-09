@@ -4,23 +4,21 @@ import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import TranscriberCore from '@/components/TranscriberCore';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 export default function TranscribePage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const router = useRouter();
 
+  // 2026-05-08: killed auto-redirect to /admin/transcribe for signed-in users.
+  // The public /transcribe page is a lead-magnet — it should work the same for
+  // every visitor. Signed-in users still see the same tool, just with their
+  // usage counter pre-populated. Sending them to /admin/transcribe broke the
+  // shareable-link flow (someone clicking your post bounces to admin instead).
   useEffect(() => {
     const supabase = createBrowserSupabaseClient();
     supabase.auth.getUser().then(({ data }) => {
-      if (data.user) {
-        // Redirect logged-in users to admin transcriber
-        router.push('/admin/transcribe');
-      } else {
-        setIsLoggedIn(false);
-      }
+      setIsLoggedIn(!!data.user);
     });
-  }, [router]);
+  }, []);
 
   return (
     <div className="w-full">

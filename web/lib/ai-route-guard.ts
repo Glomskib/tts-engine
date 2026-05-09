@@ -29,6 +29,17 @@ export interface AiGuardOptions {
   orgLimit?: number;
   /** Skip credit check (for admin or free-tier operations). Default: false. */
   skipCreditCheck?: boolean;
+  /**
+   * Allow anonymous (unauthed) usage. When true, the route gets through with
+   * userId=null and rate limiting falls back to IP. The downstream handler
+   * is responsible for IP-based per-day caps (e.g. /api/transcribe's
+   * `checkRateLimit(ip, null)`). Default: false.
+   *
+   * Use this for public lead-magnet endpoints (/api/transcribe,
+   * /api/youtube-transcribe, /api/lead-magnet) where the "free, no signup"
+   * promise on the public page is the whole point.
+   */
+  allowAnon?: boolean;
 }
 
 export interface AiGuardSuccess {
@@ -55,15 +66,27 @@ export async function aiRouteGuard(
     userLimit = 8,
     orgLimit = 30,
     skipCreditCheck = false,
+    allowAnon = false,
   } = options;
 
   const correlationId = generateCorrelationId();
 
-  // 1. Auth
+  // 1. Auth — required by default, but lead-magnet endpoints opt-in to anon
   const auth = await getApiAuthContext(request);
   if (!auth.user) {
+    if (!allowAnon) {
+      return {
+        error: createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId),
+      };
+    }
+    // Anon path — return success with null userId; route handler does IP rate-limit
     return {
-      error: createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId),
+      error: null,
+      userId: '',           // empty = anon; downstream uses IP from headers
+      userEmail: undefined,
+      isAdmin: false,
+      planId: 'anon',
+      correlationId,
     };
   }
 

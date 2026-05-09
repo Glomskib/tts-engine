@@ -141,7 +141,9 @@ async function prepareAudioFile(videoPath: string): Promise<string> {
 // ============================================================================
 
 export async function POST(request: Request) {
-  const guard = await aiRouteGuard(request, { creditCost: 1, userLimit: 10 });
+  // Public lead-magnet endpoint — anon users get through with IP-based rate
+  // limit (see checkRateLimit below). Authed users get higher tier limits.
+  const guard = await aiRouteGuard(request, { creditCost: 1, userLimit: 10, allowAnon: true, skipCreditCheck: true });
   if (guard.error) return guard.error;
 
   const forwarded = request.headers.get('x-forwarded-for');

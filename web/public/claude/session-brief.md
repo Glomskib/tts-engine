@@ -4,7 +4,7 @@
 
 ---
 
-## Last refreshed: 2026-05-10 ~4:42pm ET
+## Last refreshed: 2026-05-10 ~5:12pm ET
 
 ## Current deploy truth
 
@@ -40,7 +40,7 @@ Fix path when Brandon confirms DNS work:
 - HHH Shopify payment-ready audit saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-payment-ready-audit-2026-05-10.md`. Local theme now loads registration JS, updates Shopify variant IDs before add-to-cart, and passes theme check with 7 layout-only warnings. Not published to Shopify.
 - HHH Shopify product setup packet and draft catalog saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-product-setup-packet-2026-05-10.md` and `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-products-draft-2026-05-10.csv`. Draft only; nothing created in Shopify.
 - MMM hub source is cloned at `~/projects/mmm-hub`; commit `be5c16e` is live on `mmm-hub.vercel.app`. Fixed: added `/api/health`, removed the visible hero photo placeholder, removed fake-looking testimonial content, replaced unverified impact stats with launch-state facts, corrected HHH 2026 date/routes to September 12 and 15/30/62/100, and changed one-time donate CTA away from placeholder checkout.
-- Digital assets: first local product package draft created at `~/Documents/MacBook Pro VAULT/10-Projects/digital-assets/endurance-event-directors-toolkit/`. Public ZIP draft: `endurance-event-directors-toolkit-public-draft.zip` with README, quick start, sales page draft, sponsor pipeline CSV, route readiness, registration/store checklist, volunteer run sheet, and event launch plan. Private HHH dogfood source map is excluded from the ZIP. Launch approval packet now exists at `launch-approval-packet.md` with name, channel, pricing, listing copy, cover brief, and launch copy ready for Brandon review.
+- Digital assets: first local product package draft created at `~/Documents/MacBook Pro VAULT/10-Projects/digital-assets/endurance-event-directors-toolkit/`. Buyer-ready v2 ZIP draft: `endurance-event-directors-toolkit-public-draft-v2.zip` with README, quick start, license/disclaimer, sponsor pipeline CSV, route readiness, registration/store checklist, volunteer run sheet, and event launch plan. Private HHH dogfood source map and seller launch assets are excluded from the buyer ZIP. Seller launch assets now include `assets/cover.svg`, `launch-assets/platform-listing-copy.md`, `launch-assets/support-and-refund-macros.md`, and `launch-assets/final-preflight-checklist.md`. ZIP test passed with 9 files and SHA-256 `35ac90e36bc296b80a6e4a3fe7c2b79931f33062062ff00440fd20afba778c1c`. Launch approval still needed before listing, payment link, or announcement.
 
 ## Standing initiatives — pick from these when idle
 
@@ -51,7 +51,7 @@ Fix path when Brandon confirms DNS work:
 - **MMM hub copy + photo pass:** source cleanup is live at `be5c16e`. Next: fix `makingmilesmatter.org` routing after Brandon confirms DNS/domain path, add real MMM/HHH photos when assets exist, and wire real one-time donations/Stripe checkout after pricing/payment decisions.
 - **HHH Shopify theme:** payment-ready audit, theme check cleanup, and draft product setup packet are done. Next: Brandon approves prices/legal, then create draft Shopify products and run unpublished test orders before any publish.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).
-- **Digital assets:** first local Endurance Event Director's Toolkit ZIP and launch approval packet exist. Next: Brandon approves final name/price/sales channel/refund posture, then create cover image + payment/listing draft. Do not publish or charge without approval.
+- **Digital assets:** Endurance Event Director's Toolkit v2 buyer ZIP, cover SVG, platform listing copy, support/refund macros, and final preflight checklist exist locally. Next: Brandon approves final name/price/sales channel/refund posture, then create the draft product listing. Do not publish or charge without approval.
 
 ## Hands-off — Brandon decides, I draft
 

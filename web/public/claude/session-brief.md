@@ -4,7 +4,7 @@
 
 ---
 
-## Last refreshed: 2026-05-10 ~8:08am ET
+## Last refreshed: 2026-05-10 ~8:36am ET
 
 ## Current deploy truth
 
@@ -32,6 +32,7 @@ Fix path when Brandon confirms DNS work:
 - HHH Facebook posts for June 8 through July 7 drafted at `~/Documents/Claude/Projects/Mac Takeover/HHH-FB-POSTS-60-90-DAYS-2026-06-08.md`.
 - HHH Shopify theme route section now supports four distance route cards locally; production packet saved at `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-map-production-packet-2026-05-10.md`. Not published to Shopify.
 - HHH Shopify payment-ready audit saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-payment-ready-audit-2026-05-10.md`. Local theme now loads registration JS, updates Shopify variant IDs before add-to-cart, and passes theme check with 7 layout-only warnings. Not published to Shopify.
+- HHH Shopify product setup packet and draft catalog saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-product-setup-packet-2026-05-10.md` and `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-products-draft-2026-05-10.csv`. Draft only; nothing created in Shopify.
 
 ## Standing initiatives — pick from these when idle
 
@@ -40,7 +41,7 @@ Fix path when Brandon confirms DNS work:
 - **HHH route maps:** theme supports 15/30/62/100 cards locally. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, and Joshua/logistics review before publishing.
 - **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, upload, and brief-composer pieces are live. Next useful work: browser QA `/admin/brief`, `/admin/board`, and `/admin/tasks`, harden assignment/upload edge cases, then wire Telegram/fleet alert routing after Brandon confirms thread defaults.
 - **MMM hub copy + photo pass:** make it feel real, not template (#83).
-- **HHH Shopify theme:** payment-ready audit + theme check cleanup are done. Next: create/verify registration and add-on products, approve prices/legal copy, then do unpublished test orders before any publish.
+- **HHH Shopify theme:** payment-ready audit, theme check cleanup, and draft product setup packet are done. Next: Brandon approves prices/legal, then create draft Shopify products and run unpublished test orders before any publish.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).
 - **Digital assets:** package HHH event-ops templates/agents into the first income asset.
 

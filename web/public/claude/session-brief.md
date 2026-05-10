@@ -4,22 +4,24 @@
 
 ---
 
-## Last refreshed: 2026-05-10 ~9:08am ET
+## Last refreshed: 2026-05-10 ~9:46am ET
 
 ## Current deploy truth
 
 - **Mission Control:** live match. Local/origin/prod are `43a5851`. MC deploy pipe is working.
 - **FlashFlow:** deploy pipe is working and public bootstrap/session docs are live. Because this brief lives inside the FlashFlow repo, verify the exact current SHA with `https://flashflowai.com/api/health` instead of pinning it here.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `c0cc5bd`. Bare `zebbysworld.com` still returns Shopify 402 HTML because DNS includes both Vercel and Shopify A records. Do not change DNS without Brandon confirming.
+- **MMM hub:** `mmm-hub.vercel.app` is live at `be5c16e` and now has `/api/health`. `makingmilesmatter.org` still serves a tiny JavaScript redirect to `/lander`, so the primary domain is not yet pointed at the Vercel app.
 
-## Top blocker
+## Top blockers
 
-**Zebby's apex DNS is still split.** `www.zebbysworld.com` is the good Vercel path. Bare `zebbysworld.com` still sometimes goes to Shopify (`23.227.38.32`) and fails `/api/health`.
+- **Zebby's apex DNS is still split.** `www.zebbysworld.com` is the good Vercel path. Bare `zebbysworld.com` still sometimes goes to Shopify (`23.227.38.32`) and fails `/api/health`.
+- **MMM primary domain is still not routed to the hub.** `https://mmm-hub.vercel.app/api/health` reports `be5c16e`, but `https://makingmilesmatter.org/` returns a 114-byte redirect shell to `/lander`.
 
 Fix path when Brandon confirms DNS work:
-1. Decide whether apex should point to Vercel or redirect to `www`.
-2. Remove the stray Shopify apex A record if Vercel is canonical.
-3. Verify `https://zebbysworld.com/api/health` reports the same SHA as `git rev-parse --short HEAD`.
+1. Decide the canonical domain for each app before changing DNS.
+2. Remove stray/old routing records only after Brandon confirms the target.
+3. Verify the app health URL reports the same SHA as `git rev-parse --short HEAD`.
 
 ## Recently finished
 
@@ -33,7 +35,7 @@ Fix path when Brandon confirms DNS work:
 - HHH Shopify theme route section now supports four distance route cards locally; production packet saved at `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-map-production-packet-2026-05-10.md`. Not published to Shopify.
 - HHH Shopify payment-ready audit saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-payment-ready-audit-2026-05-10.md`. Local theme now loads registration JS, updates Shopify variant IDs before add-to-cart, and passes theme check with 7 layout-only warnings. Not published to Shopify.
 - HHH Shopify product setup packet and draft catalog saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-product-setup-packet-2026-05-10.md` and `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-products-draft-2026-05-10.csv`. Draft only; nothing created in Shopify.
-- MMM hub live QA/photo replacement list saved to `~/Documents/MacBook Pro VAULT/10-Projects/MMM-hub-photo-replacement-list-2026-05-10.md`. Key findings: `mmm-hub.vercel.app` serves pages, but `makingmilesmatter.org/*` returns a 114-byte JavaScript redirect to `/lander`; source repo is not present on this Mac; home still has a visible hero photo placeholder; donate points at `/checkout-placeholder`.
+- MMM hub source is cloned at `~/projects/mmm-hub`; commit `be5c16e` is live on `mmm-hub.vercel.app`. Fixed: added `/api/health`, removed the visible hero photo placeholder, removed fake-looking testimonial content, replaced unverified impact stats with launch-state facts, corrected HHH 2026 date/routes to September 12 and 15/30/62/100, and changed one-time donate CTA away from placeholder checkout.
 
 ## Standing initiatives — pick from these when idle
 
@@ -41,7 +43,7 @@ Fix path when Brandon confirms DNS work:
 - **HHH Facebook content:** June 8-July 7 batch is drafted. Need Brandon approval before scheduling/posting.
 - **HHH route maps:** theme supports 15/30/62/100 cards locally. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, and Joshua/logistics review before publishing.
 - **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, upload, and brief-composer pieces are live. Next useful work: browser QA `/admin/brief`, `/admin/board`, and `/admin/tasks`, harden assignment/upload edge cases, then wire Telegram/fleet alert routing after Brandon confirms thread defaults.
-- **MMM hub copy + photo pass:** live QA/photo list is done. Next: fix `makingmilesmatter.org` routing, locate/clone `mmm-event-os` or `mmm-hub`, replace hero placeholder, prove/remove fake-looking testimonial/stats, and change donate away from placeholder checkout.
+- **MMM hub copy + photo pass:** source cleanup is live at `be5c16e`. Next: fix `makingmilesmatter.org` routing after Brandon confirms DNS/domain path, add real MMM/HHH photos when assets exist, and wire real one-time donations/Stripe checkout after pricing/payment decisions.
 - **HHH Shopify theme:** payment-ready audit, theme check cleanup, and draft product setup packet are done. Next: Brandon approves prices/legal, then create draft Shopify products and run unpublished test orders before any publish.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).
 - **Digital assets:** package HHH event-ops templates/agents into the first income asset.
@@ -57,6 +59,7 @@ Fix path when Brandon confirms DNS work:
 ## Open questions waiting on Brandon
 
 - Zebby's apex DNS: Vercel vs Shopify canonical path.
+- MMM primary domain: point `makingmilesmatter.org` at the live Vercel hub or keep the current `/lander` path.
 - HHH sponsor batch approval: approve, edit, or hold the Monday-ready send queue.
 - HHH Facebook batch approval: approve, edit, or hold June 8-July 7 posts.
 - HHH route assets: final RideWithGPS/GPX/cue-sheet ownership and logistics review.

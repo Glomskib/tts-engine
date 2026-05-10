@@ -4,39 +4,38 @@
 
 ---
 
-## Last session ended: 2026-05-09 ~10am ET
+## Last session ended: 2026-05-10 ~1:45am ET
 
-## TOP BLOCKER — only Brandon can fix
+## Current deploy truth
 
-**Vercel deploy pipeline disconnected.** `mc.flashflowai.com/api/health` reports version `7e8c5e8` but `origin/main` is at `(latest)` — pushes aren't building. Until this is fixed, every commit lives on origin/main but doesn't reach prod.
+- **Mission Control:** live match. Local/origin/prod are `2076c4d`. MC deploy pipe is working again.
+- **FlashFlow:** live match. Local/origin/prod are `c41751b`. Public bootstrap docs are live.
+- **Zebby's World:** Vercel Git deployment is unblocked and `www.zebbysworld.com/api/health` reports `c0cc5bd`. Apex `zebbysworld.com` still returns Shopify 402 HTML because DNS includes both Vercel and Shopify A records. Do not change DNS without Brandon confirming.
 
-**Fix path (90 seconds):**
-1. https://vercel.com/brandons-projects-94dcab35/mission-control
-2. Deployments tab → look for failed/cancelled in last 24h
-3. OR Settings → Git → confirm "Production Branch: main" + repo connected
-4. OR Usage tab → check for "Paused" / "Limit Reached" banner
+## Top blocker
 
-## Queued for next deploy (will all ship at once when pipe unsticks)
+**Zebby's apex DNS is still split.** `www.zebbysworld.com` is the good Vercel path. Bare `zebbysworld.com` still sometimes goes to Shopify (`23.227.38.32`) and fails `/api/health`.
 
-1. Bolt /health command + haiku fallback
-2. mmm-customer-service Gmail polling agent (drafts replies, Telegram approve)
-3. /mc bookshelf + autonomy layer (heartbeat + auto-decomposer + fleet visualizer)
-4. Middleware allowlist (heartbeat + cron public)
-5. Telegram-chief syntax fix (the actual unblock)
-6. Workspace filter wires through + task comments thread
+Fix path when Brandon confirms DNS work:
+1. Decide whether apex should point to Vercel or redirect to `www`.
+2. Remove the stray Shopify apex A record if Vercel is canonical.
+3. Verify `https://zebbysworld.com/api/health` reports the same SHA as `git rev-parse --short HEAD`.
 
 ## Recently fixed
 
-- Supabase 50MB POST cap diagnosed (FF Editor 413). Fix in code = TUS resumable.
-- node_modules corruption + telegram-chief apostrophe parse error. Local build passes.
-- Bookshelf skeleton built at /mc (6 venture books + spaceship strip).
-- Goals.yaml written as source of truth for auto-decomposer.
+- MC queued commits deployed and verified through `/api/health`.
+- MC Monday-style board work is live through commit `2076c4d`.
+- FlashFlow build/typecheck/deploy are clean at `c41751b`.
+- Zebby's health route now exposes Vercel commit SHA.
+- Zebby's deploy reject was diagnosed: Vercel rejected commits authored by emails not attached to the GitHub account. Repo-local git author is now `228847278+Glomskib@users.noreply.github.com`.
+- Local deploy checker now distinguishes Zebby's broken apex from the live `www` and Vercel branch alias.
+- ChatGPT export found at `~/Downloads/2975b9d45de7932f6cbb70d54b67fc5798f017eacb60a93f1a2fcdab964a0714-2026-04-29-02-50-42-688f2491604c48ff9e8703627c31736e.zip`; search it with `tools/search_chatgpt_export.py`.
 
 ## Standing initiatives — pick from these when idle
 
 - **HHH 2026 sponsor outreach** — 25 personalized first-touch drafts. Already drafted at `~/Documents/Claude/Projects/Mac Takeover/HHH-2026-SPONSOR-OUTREACH-25.md`. Need: contact discovery (Bolt brief queued at `fleet/queued/2026-05-09-sponsor-contacts-research--mini.md`).
 - **HHH FB content next 30 days** — June 8 → July 7. Mini brief queued at `fleet/queued/2026-05-09-hhh-content-60-days--mini.md`.
-- **Monday-style MC Phase 1 remaining** — 8-col table view at /admin/board, colored pills, inline edit, grouped sections, summary bars, top toolbar, assignee picker, file upload via Supabase Storage. Mini brief queued at `fleet/queued/2026-05-09-mc-bookshelf-scaffold--mini.md`.
+- **Monday-style MC Phase 1 remaining** — top toolbar, assignee picker, file upload via Supabase Storage, and `/admin/board` polish after confirming what already shipped in `2076c4d`.
 - **MMM hub copy + photo pass** — make it feel real, not template (#83).
 - **HHH Shopify theme** — wrong-event-identity errors fixed; payment-ready audit pending (#102).
 - **HHH route maps per distance** — 15/30/62/100 (#115).
@@ -53,7 +52,8 @@
 
 - Auto-deploy permissions matrix confirmation (default: copy/posts/drafts auto-ship; net-new pages preview-then-ship; emails/posts/payments always ask)
 - Telegram thread routing (default: Test Queue = new "Claude/Test-Queue" thread, Daily digest = Revenue Lab, Fleet health = new "Claude/Fleet-Status")
-- Vercel pipe unblock (the one above)
+- Zebby's apex DNS: Vercel vs Shopify canonical path.
+- Git author policy: add `miles@makingmilesmatter.com` and/or `brandon@makingmilesmatter.com` to GitHub if Brandon wants those emails to trigger Vercel deploys.
 
 ---
 

@@ -9,7 +9,7 @@
 ## Current deploy truth
 
 - **Mission Control:** live match. Local/origin/prod are `2076c4d`. MC deploy pipe is working again.
-- **FlashFlow:** live match. Local/origin/prod are `c41751b`. Public bootstrap docs are live.
+- **FlashFlow:** live match after the latest docs deploy. Public bootstrap docs are live; confirm the exact SHA with `https://flashflowai.com/api/health`.
 - **Zebby's World:** Vercel Git deployment is unblocked and `www.zebbysworld.com/api/health` reports `c0cc5bd`. Apex `zebbysworld.com` still returns Shopify 402 HTML because DNS includes both Vercel and Shopify A records. Do not change DNS without Brandon confirming.
 
 ## Top blocker
@@ -25,7 +25,7 @@ Fix path when Brandon confirms DNS work:
 
 - MC queued commits deployed and verified through `/api/health`.
 - MC Monday-style board work is live through commit `2076c4d`.
-- FlashFlow build/typecheck/deploy are clean at `c41751b`.
+- FlashFlow build/typecheck/deploy are clean at current HEAD.
 - Zebby's health route now exposes Vercel commit SHA.
 - Zebby's deploy reject was diagnosed: Vercel rejected commits authored by emails not attached to the GitHub account. Repo-local git author is now `228847278+Glomskib@users.noreply.github.com`.
 - Local deploy checker now distinguishes Zebby's broken apex from the live `www` and Vercel branch alias.

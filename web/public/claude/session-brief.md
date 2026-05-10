@@ -4,7 +4,7 @@
 
 ---
 
-## Last refreshed: 2026-05-10 ~9:46am ET
+## Last refreshed: 2026-05-10 ~12:09pm ET
 
 ## Current deploy truth
 
@@ -36,6 +36,7 @@ Fix path when Brandon confirms DNS work:
 - HHH Shopify payment-ready audit saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-payment-ready-audit-2026-05-10.md`. Local theme now loads registration JS, updates Shopify variant IDs before add-to-cart, and passes theme check with 7 layout-only warnings. Not published to Shopify.
 - HHH Shopify product setup packet and draft catalog saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-product-setup-packet-2026-05-10.md` and `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-products-draft-2026-05-10.csv`. Draft only; nothing created in Shopify.
 - MMM hub source is cloned at `~/projects/mmm-hub`; commit `be5c16e` is live on `mmm-hub.vercel.app`. Fixed: added `/api/health`, removed the visible hero photo placeholder, removed fake-looking testimonial content, replaced unverified impact stats with launch-state facts, corrected HHH 2026 date/routes to September 12 and 15/30/62/100, and changed one-time donate CTA away from placeholder checkout.
+- Digital assets: first local product package draft created at `~/Documents/MacBook Pro VAULT/10-Projects/digital-assets/endurance-event-directors-toolkit/`. Public ZIP draft: `endurance-event-directors-toolkit-public-draft.zip` with README, quick start, sales page draft, sponsor pipeline CSV, route readiness, registration/store checklist, volunteer run sheet, and event launch plan. Private HHH dogfood source map is excluded from the ZIP.
 
 ## Standing initiatives — pick from these when idle
 
@@ -46,7 +47,7 @@ Fix path when Brandon confirms DNS work:
 - **MMM hub copy + photo pass:** source cleanup is live at `be5c16e`. Next: fix `makingmilesmatter.org` routing after Brandon confirms DNS/domain path, add real MMM/HHH photos when assets exist, and wire real one-time donations/Stripe checkout after pricing/payment decisions.
 - **HHH Shopify theme:** payment-ready audit, theme check cleanup, and draft product setup packet are done. Next: Brandon approves prices/legal, then create draft Shopify products and run unpublished test orders before any publish.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).
-- **Digital assets:** package HHH event-ops templates/agents into the first income asset.
+- **Digital assets:** first local Endurance Event Director's Toolkit ZIP exists. Next: Brandon approves final name/price/sales channel, then create cover image + payment/listing draft. Do not publish or charge without approval.
 
 ## Hands-off — Brandon decides, I draft
 

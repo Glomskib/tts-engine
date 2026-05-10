@@ -4,7 +4,7 @@
 
 ---
 
-## Last refreshed: 2026-05-10 ~8:36am ET
+## Last refreshed: 2026-05-10 ~9:08am ET
 
 ## Current deploy truth
 
@@ -33,6 +33,7 @@ Fix path when Brandon confirms DNS work:
 - HHH Shopify theme route section now supports four distance route cards locally; production packet saved at `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-map-production-packet-2026-05-10.md`. Not published to Shopify.
 - HHH Shopify payment-ready audit saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-payment-ready-audit-2026-05-10.md`. Local theme now loads registration JS, updates Shopify variant IDs before add-to-cart, and passes theme check with 7 layout-only warnings. Not published to Shopify.
 - HHH Shopify product setup packet and draft catalog saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-product-setup-packet-2026-05-10.md` and `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-products-draft-2026-05-10.csv`. Draft only; nothing created in Shopify.
+- MMM hub live QA/photo replacement list saved to `~/Documents/MacBook Pro VAULT/10-Projects/MMM-hub-photo-replacement-list-2026-05-10.md`. Key findings: `mmm-hub.vercel.app` serves pages, but `makingmilesmatter.org/*` returns a 114-byte JavaScript redirect to `/lander`; source repo is not present on this Mac; home still has a visible hero photo placeholder; donate points at `/checkout-placeholder`.
 
 ## Standing initiatives — pick from these when idle
 
@@ -40,7 +41,7 @@ Fix path when Brandon confirms DNS work:
 - **HHH Facebook content:** June 8-July 7 batch is drafted. Need Brandon approval before scheduling/posting.
 - **HHH route maps:** theme supports 15/30/62/100 cards locally. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, and Joshua/logistics review before publishing.
 - **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, upload, and brief-composer pieces are live. Next useful work: browser QA `/admin/brief`, `/admin/board`, and `/admin/tasks`, harden assignment/upload edge cases, then wire Telegram/fleet alert routing after Brandon confirms thread defaults.
-- **MMM hub copy + photo pass:** make it feel real, not template (#83).
+- **MMM hub copy + photo pass:** live QA/photo list is done. Next: fix `makingmilesmatter.org` routing, locate/clone `mmm-event-os` or `mmm-hub`, replace hero placeholder, prove/remove fake-looking testimonial/stats, and change donate away from placeholder checkout.
 - **HHH Shopify theme:** payment-ready audit, theme check cleanup, and draft product setup packet are done. Next: Brandon approves prices/legal, then create draft Shopify products and run unpublished test orders before any publish.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).
 - **Digital assets:** package HHH event-ops templates/agents into the first income asset.

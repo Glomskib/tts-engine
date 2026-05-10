@@ -4,11 +4,11 @@
 
 ---
 
-## Last refreshed: 2026-05-10 ~12:36pm ET
+## Last refreshed: 2026-05-10 ~1:11pm ET
 
 ## Current deploy truth
 
-- **Mission Control:** live match. Local/origin/prod are `43a5851`. MC deploy pipe is working.
+- **Mission Control:** live match. Local/origin/prod are `aa1b1ac`. MC deploy pipe is working.
 - **FlashFlow:** deploy pipe is working and public bootstrap/session docs are live. Because this brief lives inside the FlashFlow repo, verify the exact current SHA with `https://flashflowai.com/api/health` instead of pinning it here.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `c0cc5bd`. Bare `zebbysworld.com` still returns Shopify 402 HTML because DNS includes both Vercel and Shopify A records. Do not change DNS without Brandon confirming.
 - **MMM hub:** `mmm-hub.vercel.app` is live at `be5c16e` and now has `/api/health`. `makingmilesmatter.org` still serves a tiny JavaScript redirect to `/lander`, so the primary domain is not yet pointed at the Vercel app.
@@ -25,7 +25,8 @@ Fix path when Brandon confirms DNS work:
 
 ## Recently finished
 
-- MC Monday-style Phase 1 is deployed and verified through `/api/health`; current live SHA is `43a5851`. Completed: colored pills, inline edit, grouped sections, summary bars, top toolbar, assignee/row assignment, file upload via Supabase Storage, `/admin/board`, workspace filter, comments, live bookshelf counts, and `/admin/brief` for composing fleet briefs from the UI.
+- MC Monday-style Phase 1 is deployed and verified through `/api/health`; current live SHA is `aa1b1ac`. Completed: colored pills, inline edit, grouped sections, summary bars, top toolbar, assignee/row assignment, file upload via Supabase Storage, `/admin/board`, workspace filter, comments, live bookshelf counts, and `/admin/brief` for composing fleet briefs from the UI.
+- MC Phase 1 smoke coverage is deployed at `aa1b1ac`. Fixed stale task-manager smoke checks after the board refactor and added `mc-phase1-board` coverage for `/admin/board`, `/admin/brief`, BoardView toolbar modes, workspace/person filters, task comments, proof uploads, bookshelf counts, and fleet brief route guards.
 - FlashFlow security cleanup/docs deploy is live; exact SHA is intentionally not pinned in this file because each brief refresh creates a new FlashFlow commit.
 - Zebby's health route exposes Vercel commit SHA; `www` and branch alias report `c0cc5bd`.
 - HHH sponsor contact research saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-contacts-research-2026-05-09.md`.
@@ -43,7 +44,7 @@ Fix path when Brandon confirms DNS work:
 - **HHH sponsor outreach:** research and send queue are ready. Need Brandon approval before any email sends; use `miles@makingmilesmatter.com` only.
 - **HHH Facebook content:** June 8-July 7 batch is drafted. Need Brandon approval before scheduling/posting.
 - **HHH route maps:** theme supports 15/30/62/100 cards locally. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, and Joshua/logistics review before publishing.
-- **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, upload, and brief-composer pieces are live. Next useful work: browser QA `/admin/brief`, `/admin/board`, and `/admin/tasks`, harden assignment/upload edge cases, then wire Telegram/fleet alert routing after Brandon confirms thread defaults.
+- **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, upload, and brief-composer pieces are live and smoke-covered. Next useful work: authenticated browser QA for `/admin/brief`, `/admin/board`, and `/admin/tasks`, harden assignment/upload edge cases, then wire Telegram/fleet alert routing after Brandon confirms thread defaults.
 - **MMM hub copy + photo pass:** source cleanup is live at `be5c16e`. Next: fix `makingmilesmatter.org` routing after Brandon confirms DNS/domain path, add real MMM/HHH photos when assets exist, and wire real one-time donations/Stripe checkout after pricing/payment decisions.
 - **HHH Shopify theme:** payment-ready audit, theme check cleanup, and draft product setup packet are done. Next: Brandon approves prices/legal, then create draft Shopify products and run unpublished test orders before any publish.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).

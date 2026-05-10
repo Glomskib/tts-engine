@@ -4,7 +4,7 @@
 
 ---
 
-## Last refreshed: 2026-05-10 ~6:40am ET
+## Last refreshed: 2026-05-10 ~7:08am ET
 
 ## Current deploy truth
 
@@ -23,7 +23,7 @@ Fix path when Brandon confirms DNS work:
 
 ## Recently finished
 
-- MC Phase 1 closure deployed and verified through `/api/health`; current live SHA is `b1ad9da`.
+- MC Monday-style Phase 1 is deployed and verified through `/api/health`; current live SHA is `b1ad9da`. Completed: colored pills, inline edit, grouped sections, summary bars, top toolbar, assignee/row assignment, file upload via Supabase Storage, `/admin/board`, workspace filter, comments, and live bookshelf counts.
 - FlashFlow security cleanup/docs deploy is live; exact SHA is intentionally not pinned in this file because each brief refresh creates a new FlashFlow commit.
 - Zebby's health route exposes Vercel commit SHA; `www` and branch alias report `c0cc5bd`.
 - HHH sponsor contact research saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-contacts-research-2026-05-09.md`.
@@ -37,7 +37,7 @@ Fix path when Brandon confirms DNS work:
 - **HHH sponsor outreach:** research and send queue are ready. Need Brandon approval before any email sends; use `miles@makingmilesmatter.com` only.
 - **HHH Facebook content:** June 8-July 7 batch is drafted. Need Brandon approval before scheduling/posting.
 - **HHH route maps:** theme supports 15/30/62/100 cards locally. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, and Joshua/logistics review before publishing.
-- **Monday-style MC Phase 1 remaining:** top toolbar, assignee picker, file upload via Supabase Storage, and `/admin/board` polish.
+- **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, and upload pieces are live. Next useful work: browser QA `/admin/board` and `/admin/tasks`, harden assignment/upload edge cases, then wire Telegram/fleet alert routing after Brandon confirms thread defaults.
 - **MMM hub copy + photo pass:** make it feel real, not template (#83).
 - **HHH Shopify theme:** payment-ready audit still pending (#102); local route-card work is not published.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).

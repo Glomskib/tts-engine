@@ -17,3 +17,8 @@ nul
 # Cron / runtime logs (auto-generated, should not be tracked)
 web/data/ri-logs/
 web/data/ri-logs/*
+
+# Browser automation session state — never track
+browser-service/auth-state.json
+browser-service/auth-state*.json
+browser-service/cookies/

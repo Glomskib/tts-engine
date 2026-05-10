@@ -4,12 +4,12 @@
 
 ---
 
-## Last refreshed: 2026-05-10 ~4:10am ET
+## Last refreshed: 2026-05-10 ~6:35am ET
 
 ## Current deploy truth
 
-- **Mission Control:** live match. Local/origin/prod are `5ddb0c6`. MC deploy pipe is working.
-- **FlashFlow:** live match. Local/origin/prod are `cf24c86`. Public bootstrap docs are live.
+- **Mission Control:** live match. Local/origin/prod are `b1ad9da`. MC deploy pipe is working.
+- **FlashFlow:** live match. Local/origin/prod are `b2210bb`. Public bootstrap docs are live.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `c0cc5bd`. Bare `zebbysworld.com` still returns Shopify 402 HTML because DNS includes both Vercel and Shopify A records. Do not change DNS without Brandon confirming.
 
 ## Top blocker
@@ -23,8 +23,8 @@ Fix path when Brandon confirms DNS work:
 
 ## Recently finished
 
-- MC queued commits deployed and verified through `/api/health`; current live SHA is `5ddb0c6`.
-- FlashFlow docs/context deploy is live at `cf24c86`.
+- MC Phase 1 closure deployed and verified through `/api/health`; current live SHA is `b1ad9da`.
+- FlashFlow security cleanup/docs deploy is live at `b2210bb`.
 - Zebby's health route exposes Vercel commit SHA; `www` and branch alias report `c0cc5bd`.
 - HHH sponsor contact research saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-contacts-research-2026-05-09.md`.
 - HHH sponsor send queue saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-outreach-send-queue-2026-05-10.md`.

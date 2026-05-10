@@ -71,6 +71,7 @@ export async function GET() {
   const response = {
     ok: status !== 'unhealthy',
     status,
+    version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local',
     timestamp: new Date().toISOString(),
     responseTime: Date.now() - startTime,
     checks,

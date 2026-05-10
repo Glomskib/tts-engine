@@ -255,8 +255,7 @@ export async function POST(req: NextRequest) {
       messages: [{ role: 'user', content: prompt }],
     });
     const text = completion.content
-      .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-      .map((b) => b.text)
+      .map((b) => (b.type === 'text' ? b.text : ''))
       .join('');
     // Trim any accidental markdown fence
     const jsonText = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
@@ -276,7 +275,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Decorate each with date + enqueue_payload
-  const runId = generateRunId();
+  const runId = generateRunId('hhh-generate-week');
   const posts: PostGenerated[] = parsed.posts.slice(0, count).map((p, i) => {
     const postDate = new Date(startDate);
     postDate.setDate(postDate.getDate() + i);

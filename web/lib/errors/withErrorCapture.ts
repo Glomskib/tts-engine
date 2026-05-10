@@ -37,7 +37,7 @@ export interface ErrorCaptureOptions {
 
 type RouteHandler = (
   request: Request,
-  context: { params: Promise<Record<string, string>> },
+  context?: { params: Promise<Record<string, string>> },
 ) => Promise<Response>;
 
 /**
@@ -66,9 +66,10 @@ export function withErrorCapture(
   handler: RouteHandler,
   options: ErrorCaptureOptions = { routeName: 'unknown' },
 ): RouteHandler {
-  return async (request: Request, context: { params: Promise<Record<string, string>> }) => {
+  return async (request: Request, context?: { params: Promise<Record<string, string>> }) => {
+    const routeContext = context ?? { params: Promise.resolve({}) };
     try {
-      return await handler(request, context);
+      return await handler(request, routeContext);
     } catch (thrown) {
       const error =
         thrown instanceof Error ? thrown : new Error(String(thrown));
@@ -81,7 +82,7 @@ export function withErrorCapture(
         try {
           userId = await options.userIdResolver?.(request);
           workspaceId = await options.workspaceIdResolver?.(request);
-          contentItemId = await options.contentItemIdResolver?.(request, context);
+          contentItemId = await options.contentItemIdResolver?.(request, routeContext);
         } catch {
           // Don't let resolver failure mask the original error
         }

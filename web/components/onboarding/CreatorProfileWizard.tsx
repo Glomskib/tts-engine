@@ -132,9 +132,9 @@ export function CreatorProfileWizard({ onSave, onComplete }: WizardProps) {
       await onComplete(finalDraft);
       track('onboarding_completed', {
         skipped_gmv: skipGmv,
-        role: finalDraft.role,
+        role_type: finalDraft.role_type,
         tts_status: finalDraft.tiktok_shop_status,
-        primary_goal: finalDraft.primary_goal,
+        primary_goal_30d: finalDraft.primary_goal_30d,
       });
     } finally {
       setSaving(false);

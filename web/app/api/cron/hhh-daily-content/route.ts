@@ -119,8 +119,7 @@ ${HHH_BRIEF}`;
   });
 
   const text = completion.content
-    .filter((b): b is { type: 'text'; text: string } => b.type === 'text')
-    .map((b) => b.text)
+    .map((b) => (b.type === 'text' ? b.text : ''))
     .join('');
   const jsonText = text.replace(/^```(?:json)?\n?/, '').replace(/\n?```$/, '').trim();
   return JSON.parse(jsonText);
@@ -145,13 +144,18 @@ export async function GET(req: Request) {
   const targetDateIso = tomorrow.toISOString().slice(0, 10);
 
   // Idempotency check — skip if a post for tomorrow already exists
-  const { data: existing } = await supabaseAdmin
-    .from('marketing_posts')
-    .select('id, status')
-    .eq('meta->>scheduled_for_date', targetDateIso)
-    .eq('meta->>source', 'hhh-daily-cron')
-    .maybeSingle()
-    .catch(() => ({ data: null }));
+  let existing: { id: string; status: string | null } | null = null;
+  try {
+    const result = await supabaseAdmin
+      .from('marketing_posts')
+      .select('id, status')
+      .eq('meta->>scheduled_for_date', targetDateIso)
+      .eq('meta->>source', 'hhh-daily-cron')
+      .maybeSingle();
+    existing = result.data;
+  } catch {
+    existing = null;
+  }
 
   if (existing) {
     return NextResponse.json({

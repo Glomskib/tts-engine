@@ -4,13 +4,13 @@
 
 ---
 
-## Last session ended: 2026-05-10 ~1:45am ET
+## Last refreshed: 2026-05-10 ~4:10am ET
 
 ## Current deploy truth
 
-- **Mission Control:** live match. Local/origin/prod are `2076c4d`. MC deploy pipe is working again.
-- **FlashFlow:** live match after the latest docs deploy. Public bootstrap docs are live; confirm the exact SHA with `https://flashflowai.com/api/health`.
-- **Zebby's World:** Vercel Git deployment is unblocked and `www.zebbysworld.com/api/health` reports `c0cc5bd`. Apex `zebbysworld.com` still returns Shopify 402 HTML because DNS includes both Vercel and Shopify A records. Do not change DNS without Brandon confirming.
+- **Mission Control:** live match. Local/origin/prod are `5ddb0c6`. MC deploy pipe is working.
+- **FlashFlow:** live match. Local/origin/prod are `cf24c86`. Public bootstrap docs are live.
+- **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `c0cc5bd`. Bare `zebbysworld.com` still returns Shopify 402 HTML because DNS includes both Vercel and Shopify A records. Do not change DNS without Brandon confirming.
 
 ## Top blocker
 
@@ -21,25 +21,27 @@ Fix path when Brandon confirms DNS work:
 2. Remove the stray Shopify apex A record if Vercel is canonical.
 3. Verify `https://zebbysworld.com/api/health` reports the same SHA as `git rev-parse --short HEAD`.
 
-## Recently fixed
+## Recently finished
 
-- MC queued commits deployed and verified through `/api/health`.
-- MC Monday-style board work is live through commit `2076c4d`.
-- FlashFlow build/typecheck/deploy are clean at current HEAD.
-- Zebby's health route now exposes Vercel commit SHA.
-- Zebby's deploy reject was diagnosed: Vercel rejected commits authored by emails not attached to the GitHub account. Repo-local git author is now `228847278+Glomskib@users.noreply.github.com`.
-- Local deploy checker now distinguishes Zebby's broken apex from the live `www` and Vercel branch alias.
-- ChatGPT export found at `~/Downloads/2975b9d45de7932f6cbb70d54b67fc5798f017eacb60a93f1a2fcdab964a0714-2026-04-29-02-50-42-688f2491604c48ff9e8703627c31736e.zip`; search it with `tools/search_chatgpt_export.py`.
+- MC queued commits deployed and verified through `/api/health`; current live SHA is `5ddb0c6`.
+- FlashFlow docs/context deploy is live at `cf24c86`.
+- Zebby's health route exposes Vercel commit SHA; `www` and branch alias report `c0cc5bd`.
+- HHH sponsor contact research saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-contacts-research-2026-05-09.md`.
+- HHH sponsor send queue saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-outreach-send-queue-2026-05-10.md`.
+- HHH stale sponsor replacement drafts saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-replacement-drafts-2026-05-10.md`.
+- HHH Facebook posts for June 8 through July 7 drafted at `~/Documents/Claude/Projects/Mac Takeover/HHH-FB-POSTS-60-90-DAYS-2026-06-08.md`.
+- HHH Shopify theme route section now supports four distance route cards locally; production packet saved at `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-map-production-packet-2026-05-10.md`. Not published to Shopify.
 
 ## Standing initiatives — pick from these when idle
 
-- **HHH 2026 sponsor outreach** — 25 personalized first-touch drafts. Already drafted at `~/Documents/Claude/Projects/Mac Takeover/HHH-2026-SPONSOR-OUTREACH-25.md`. Need: contact discovery (Bolt brief queued at `fleet/queued/2026-05-09-sponsor-contacts-research--mini.md`).
-- **HHH FB content next 30 days** — June 8 → July 7. Mini brief queued at `fleet/queued/2026-05-09-hhh-content-60-days--mini.md`.
-- **Monday-style MC Phase 1 remaining** — top toolbar, assignee picker, file upload via Supabase Storage, and `/admin/board` polish after confirming what already shipped in `2076c4d`.
-- **MMM hub copy + photo pass** — make it feel real, not template (#83).
-- **HHH Shopify theme** — wrong-event-identity errors fixed; payment-ready audit pending (#102).
-- **HHH route maps per distance** — 15/30/62/100 (#115).
-- **MMM membership tiers** — finalize pricing + Stripe wiring + signup flow (#109).
+- **HHH sponsor outreach:** research and send queue are ready. Need Brandon approval before any email sends; use `miles@makingmilesmatter.com` only.
+- **HHH Facebook content:** June 8-July 7 batch is drafted. Need Brandon approval before scheduling/posting.
+- **HHH route maps:** theme supports 15/30/62/100 cards locally. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, and Joshua/logistics review before publishing.
+- **Monday-style MC Phase 1 remaining:** top toolbar, assignee picker, file upload via Supabase Storage, and `/admin/board` polish.
+- **MMM hub copy + photo pass:** make it feel real, not template (#83).
+- **HHH Shopify theme:** payment-ready audit still pending (#102); local route-card work is not published.
+- **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).
+- **Digital assets:** package HHH event-ops templates/agents into the first income asset.
 
 ## Hands-off — Brandon decides, I draft
 
@@ -47,12 +49,16 @@ Fix path when Brandon confirms DNS work:
 - Zebby's clinical/medical content — gates on Brandon AND Katlyn
 - Pricing on net-new products
 - Brand voice changes
+- Sending email, posting social, charging money, DNS, or deletes
 
 ## Open questions waiting on Brandon
 
-- Auto-deploy permissions matrix confirmation (default: copy/posts/drafts auto-ship; net-new pages preview-then-ship; emails/posts/payments always ask)
-- Telegram thread routing (default: Test Queue = new "Claude/Test-Queue" thread, Daily digest = Revenue Lab, Fleet health = new "Claude/Fleet-Status")
 - Zebby's apex DNS: Vercel vs Shopify canonical path.
+- HHH sponsor batch approval: approve, edit, or hold the Monday-ready send queue.
+- HHH Facebook batch approval: approve, edit, or hold June 8-July 7 posts.
+- HHH route assets: final RideWithGPS/GPX/cue-sheet ownership and logistics review.
+- Auto-deploy permissions matrix confirmation.
+- Telegram thread routing.
 - Git author policy: add `miles@makingmilesmatter.com` and/or `brandon@makingmilesmatter.com` to GitHub if Brandon wants those emails to trigger Vercel deploys.
 
 ---

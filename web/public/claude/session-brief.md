@@ -4,7 +4,7 @@
 
 ---
 
-## Last refreshed: 2026-05-10 ~7:35am ET
+## Last refreshed: 2026-05-10 ~7:52am ET
 
 ## Current deploy truth
 
@@ -31,6 +31,7 @@ Fix path when Brandon confirms DNS work:
 - HHH stale sponsor replacement drafts saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-replacement-drafts-2026-05-10.md`.
 - HHH Facebook posts for June 8 through July 7 drafted at `~/Documents/Claude/Projects/Mac Takeover/HHH-FB-POSTS-60-90-DAYS-2026-06-08.md`.
 - HHH Shopify theme route section now supports four distance route cards locally; production packet saved at `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-map-production-packet-2026-05-10.md`. Not published to Shopify.
+- HHH Shopify payment-ready audit saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-payment-ready-audit-2026-05-10.md`. Local theme now loads registration JS and updates Shopify variant IDs before add-to-cart. Not published to Shopify.
 
 ## Standing initiatives — pick from these when idle
 
@@ -39,7 +40,7 @@ Fix path when Brandon confirms DNS work:
 - **HHH route maps:** theme supports 15/30/62/100 cards locally. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, and Joshua/logistics review before publishing.
 - **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, upload, and brief-composer pieces are live. Next useful work: browser QA `/admin/brief`, `/admin/board`, and `/admin/tasks`, harden assignment/upload edge cases, then wire Telegram/fleet alert routing after Brandon confirms thread defaults.
 - **MMM hub copy + photo pass:** make it feel real, not template (#83).
-- **HHH Shopify theme:** payment-ready audit still pending (#102); local route-card work is not published.
+- **HHH Shopify theme:** payment-ready audit is done. Next: run Shopify theme check, create/verify registration and add-on products, approve prices/legal copy, then do unpublished test orders before any publish.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).
 - **Digital assets:** package HHH event-ops templates/agents into the first income asset.
 

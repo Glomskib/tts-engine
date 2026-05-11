@@ -204,20 +204,24 @@ export default function LandingPage() {
       )}
 
       {/* ================================================================ */}
-      {/* NAVIGATION — Minimal, single CTA */}
+      {/* NAVIGATION — Log in + Sign up always visible */}
       {/* ================================================================ */}
       {/*
-        Mobile-first nav. Previous version crammed 4 links + logo into ~327px
-        of viewport on a 375px iPhone with 8px gaps — items touched and the
-        "Try Script Generator Free" CTA truncated awkwardly. Fixes:
-        - reduce side padding on mobile (px-4 vs px-6 desktop)
-        - on phones show ONLY logo + the primary CTA; secondary links (Tools,
-          Pricing, Sign In) hide below the sm: breakpoint to give the CTA room
-        - nav items use whitespace-nowrap so they never break across lines
-        - desktop unchanged with all 4 items + larger gaps
+        Findability fix 2026-05-10: Brandon (existing user) couldn't find the
+        login button. Previous nav hid "Sign In" behind `hidden sm:block` so
+        on mobile only logo + one CTA appeared, and on desktop the login was
+        a tiny ghost link that read more like a tagline than a button.
+
+        New layout:
+        - Mobile (<sm): compact logo "FF" + Log in (ghost) + Sign up (primary).
+          All three fit the 375px viewport with 8px gaps.
+        - Desktop (>=sm): logo + name + Tools + Pricing + Log in (outline
+          button) + Sign up (primary). Log in now looks like a real button,
+          not a link.
+        - Authenticated state unchanged: shows "Open FlashFlow" CTA.
       */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-[#09090b]/80 backdrop-blur-xl">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-3">
           <Link href="/" className="flex items-center gap-2 min-w-0">
             <Image
               src={BRAND.logo}
@@ -226,13 +230,13 @@ export default function LandingPage() {
               height={32}
               className="rounded-lg flex-shrink-0"
             />
-            <span className="font-semibold text-lg tracking-tight truncate">{BRAND.name}</span>
+            <span className="hidden sm:inline font-semibold text-lg tracking-tight truncate">{BRAND.name}</span>
           </Link>
-          <div className="flex items-center gap-3 sm:gap-5 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
             <Link href="/tools" className="text-sm text-zinc-400 hover:text-white transition-colors hidden md:block">
               Tools
             </Link>
-            <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
+            <Link href="#pricing" className="text-sm text-zinc-400 hover:text-white transition-colors hidden md:block">
               Pricing
             </Link>
             {!authLoading && authenticated ? (
@@ -245,15 +249,18 @@ export default function LandingPage() {
               </Link>
             ) : (
               <>
-                <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors hidden sm:block">
-                  Sign In
+                <Link
+                  href="/login"
+                  className="text-sm px-3 sm:px-4 py-2 rounded-lg border border-white/15 text-zinc-200 hover:text-white hover:bg-white/5 hover:border-white/30 transition-colors whitespace-nowrap font-medium"
+                >
+                  Log in
                 </Link>
                 <Link
-                  href="/script-generator"
-                  className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors whitespace-nowrap"
+                  href="/signup"
+                  className="text-sm px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold hover:from-teal-400 hover:to-emerald-400 transition-all whitespace-nowrap shadow-lg shadow-teal-500/20"
                 >
-                  <span className="sm:hidden">Try Free</span>
-                  <span className="hidden sm:inline">Try Script Generator Free</span>
+                  <span className="sm:hidden">Sign up</span>
+                  <span className="hidden sm:inline">Sign up free</span>
                 </Link>
               </>
             )}

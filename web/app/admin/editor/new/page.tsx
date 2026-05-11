@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import AdminPageLayout from '../../components/AdminPageLayout';
 import { Upload, ArrowLeft, Zap, Target, ShoppingBag, Mic, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import { uploadResumableToSupabase } from '@/lib/editor/resumable-upload';
 
 type Mode = 'quick' | 'hook' | 'ugc' | 'talking_head';
 type Platform = 'tiktok_shop' | 'tiktok' | 'yt_shorts' | 'yt_long' | 'ig_reels';
@@ -64,21 +65,31 @@ interface UploadProgress {
 }
 
 /**
- * Upload a single file directly to Supabase Storage via signed URL.
- * Bypasses Vercel's 4.5 MB function-payload limit. Reports progress.
+ * Upload a single file directly to Supabase Storage using TUS resumable uploads.
  *
- * Auto-retries the PUT step up to 2 times on transient network errors
- * (xhr.onerror / non-200 5xx) with 1.5s + 4s backoff. Sign + finalize don't
- * retry because they're cheap and a server-side sign failure is usually
- * deterministic (size/mime mismatch).
+ * Why TUS and not a plain signed-URL PUT:
+ * Supabase's standard signed-URL upload is hard-capped at ~50 MB per request,
+ * even on Pro plans. Anything bigger returns HTTP 413. Brandon hit this with
+ * a 124 MB MP4 on 2026-05-10. TUS resumable uploads chunk the file (6 MB at a
+ * time) and accept up to the bucket's fileSizeLimit (500 MB for `edit-jobs`).
+ *
+ * Flow:
+ *   1. /api/editor/jobs/[id]/upload/sign — server validates size/mime + returns storagePath
+ *   2. tus-js-client → Supabase /storage/v1/upload/resumable — chunked, resumable
+ *   3. /api/editor/jobs/[id]/upload/finalize — server verifies + registers the asset
+ *
+ * Network drop mid-upload: tus-js-client resumes from the last completed chunk.
+ * Sign + finalize are cheap, deterministic — they don't retry here.
  */
-async function uploadViaSignedUrl(
+async function uploadViaResumable(
   jobId: string,
   kind: 'raw' | 'broll' | 'product' | 'music',
   file: File,
   onProgress: (pct: number, phase: UploadProgress['status']) => void,
 ): Promise<void> {
-  // 1. Get signed URL (server-validates size + mime, fail-fast)
+  // 1. Sign — server-validates size + mime AND returns the canonical storagePath.
+  //    We don't actually use the signedUrl on the TUS path; the storagePath
+  //    is what we hand to TUS as the object name.
   onProgress(0, 'signing');
   const signRes = await fetch(`/api/editor/jobs/${jobId}/upload/sign`, {
     method: 'POST',
@@ -91,68 +102,21 @@ async function uploadViaSignedUrl(
   }
   const sign = await signRes.json();
 
-  // 2. PUT directly to storage signed URL with progress + auto-retry
-  const MAX_PUT_ATTEMPTS = 3;
-  const BACKOFF_MS = [0, 1500, 4000];
-  let lastErr: Error | null = null;
-  for (let attempt = 0; attempt < MAX_PUT_ATTEMPTS; attempt++) {
-    if (attempt > 0) {
-      await new Promise((r) => setTimeout(r, BACKOFF_MS[attempt]));
-    }
-    onProgress(0, 'uploading');
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('PUT', sign.signedUrl);
-        // Supabase storage requires these headers for direct signed-URL uploads
-        xhr.setRequestHeader('cache-control', 'no-store');
-        xhr.setRequestHeader('x-upsert', 'true');
-        if (file.type) xhr.setRequestHeader('content-type', file.type);
-        xhr.upload.onprogress = (e) => {
-          if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100), 'uploading');
-        };
-        xhr.onload = () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            resolve();
-          } else {
-            const body = xhr.responseText?.slice(0, 300) || '(no response body)';
-            const e = new Error(`Upload failed — server said ${xhr.status}: ${body}`);
-            // Tag retryable: 5xx or 0 (network) get retried; 4xx are deterministic.
-            (e as Error & { retryable?: boolean }).retryable = xhr.status === 0 || xhr.status >= 500;
-            reject(e);
-          }
-        };
-        xhr.onerror = () => {
-          const e = new Error(
-            "Network glitch during upload. We'll retry automatically — keep this tab open.",
-          );
-          (e as Error & { retryable?: boolean }).retryable = true;
-          reject(e);
-        };
-        xhr.ontimeout = () => {
-          const e = new Error('Upload timed out — your file may be too large for your connection. Try a shorter clip.');
-          (e as Error & { retryable?: boolean }).retryable = false;
-          reject(e);
-        };
-        xhr.send(file);
-      });
-      lastErr = null;
-      break; // success
-    } catch (err) {
-      lastErr = err instanceof Error ? err : new Error(String(err));
-      const retryable = (lastErr as Error & { retryable?: boolean }).retryable === true;
-      if (!retryable || attempt === MAX_PUT_ATTEMPTS - 1) {
-        // No more retries — surface the cleaner customer message.
-        const finalMsg = retryable
-          ? `Upload kept failing after ${MAX_PUT_ATTEMPTS} tries. Check your internet connection and try a smaller test clip.`
-          : lastErr.message;
-        throw new Error(finalMsg);
-      }
-      // else loop and retry
-    }
+  // 2. Resumable upload via TUS — bypasses the 50 MB cap, supports 500 MB files.
+  onProgress(0, 'uploading');
+  try {
+    await uploadResumableToSupabase({
+      bucketName: 'edit-jobs',
+      storagePath: sign.storagePath,
+      file,
+      onProgress: (pct) => onProgress(pct, 'uploading'),
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Upload failed';
+    throw new Error(msg);
   }
 
-  // 3. Finalize — registers asset on the job
+  // 3. Finalize — verifies the file landed and registers the asset on the job.
   onProgress(100, 'finalizing');
   const finRes = await fetch(`/api/editor/jobs/${jobId}/upload/finalize`, {
     method: 'POST',
@@ -237,7 +201,7 @@ export default function NewEditJobPage() {
       await Promise.all(
         allPairs.map(async (p) => {
           try {
-            await uploadViaSignedUrl(jobId!, p.kind, p.file, (pct, phase) => {
+            await uploadViaResumable(jobId!, p.kind, p.file, (pct, phase) => {
               setUploadProgress(p.file.name, p.kind, pct, phase);
             });
           } catch (e) {

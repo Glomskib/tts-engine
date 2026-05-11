@@ -43,8 +43,8 @@ export function PublicHeader() {
 
   return (
     <header className="relative z-20 border-b border-white/5">
-      <div className="max-w-6xl mx-auto px-6 py-4 flex items-center justify-between">
-        <Link href="/" className="text-xl font-bold text-teal-400">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between gap-2 sm:gap-3">
+        <Link href="/" className="text-lg sm:text-xl font-bold text-teal-400 flex-shrink-0">
           FlashFlow AI
         </Link>
 
@@ -61,41 +61,48 @@ export function PublicHeader() {
           ))}
         </nav>
 
-        {/* Desktop CTA */}
-        <div className="hidden md:flex items-center gap-3">
-          <Link href="/login" className="text-sm text-zinc-400 hover:text-white transition-colors">
-            Login
+        {/* CTA cluster — Log in + Sign up always visible (mobile + desktop).
+            Mobile gets compact labels; full link list goes in hamburger. */}
+        <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+          <Link
+            href="/login"
+            className="text-sm px-3 sm:px-4 py-2 rounded-lg border border-white/15 text-zinc-200 hover:text-white hover:bg-white/5 hover:border-white/30 transition-colors whitespace-nowrap font-medium"
+          >
+            Log in
           </Link>
           <Link
-            href="/login?mode=signup"
-            className="text-sm px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors font-medium"
+            href="/signup"
+            className="text-sm px-3 sm:px-4 py-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 text-white rounded-lg transition-all font-semibold whitespace-nowrap shadow-lg shadow-teal-500/20"
           >
-            Try Free
+            <span className="sm:hidden">Sign up</span>
+            <span className="hidden sm:inline">Sign up free</span>
           </Link>
-        </div>
 
-        {/* Mobile Menu Button */}
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="md:hidden p-2 text-zinc-400 hover:text-white"
-          aria-label="Toggle menu"
-        >
-          {menuOpen ? (
-            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          ) : (
-            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          )}
-        </button>
+          {/* Mobile Menu Button — sits to the right of the auth buttons so the
+              primary actions stay reachable without opening the sheet. */}
+          <button
+            onClick={() => setMenuOpen(!menuOpen)}
+            className="md:hidden p-2 text-zinc-400 hover:text-white"
+            aria-label="Toggle menu"
+          >
+            {menuOpen ? (
+              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
+          </button>
+        </div>
       </div>
 
-      {/* Mobile Menu */}
+      {/* Mobile Menu — secondary nav links only. Log in + Sign up live in the
+          header bar above so users never have to open this sheet to auth. */}
       {menuOpen && (
         <div className="md:hidden border-t border-white/5 bg-zinc-950/95 backdrop-blur">
-          <nav className="max-w-6xl mx-auto px-6 py-4 space-y-3">
+          <nav className="max-w-6xl mx-auto px-6 py-4 space-y-1">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
@@ -106,22 +113,6 @@ export function PublicHeader() {
                 {link.name}
               </Link>
             ))}
-            <div className="pt-3 border-t border-white/5 space-y-2">
-              <Link
-                href="/login"
-                onClick={() => setMenuOpen(false)}
-                className="block text-sm text-zinc-400 py-2"
-              >
-                Login
-              </Link>
-              <Link
-                href="/login?mode=signup"
-                onClick={() => setMenuOpen(false)}
-                className="block text-sm px-4 py-2.5 bg-teal-600 text-white rounded-lg font-medium text-center"
-              >
-                Try Free
-              </Link>
-            </div>
           </nav>
         </div>
       )}

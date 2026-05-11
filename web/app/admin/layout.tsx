@@ -3,7 +3,7 @@
 import { useState, useEffect, ReactNode } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { X, ChevronDown, User, LogOut, Zap, Search, Sun, Moon, ArrowLeft, Sparkles } from 'lucide-react';
+import { X, ChevronDown, User, LogOut, Zap, Search, Sun, Moon, ArrowLeft } from 'lucide-react';
 import { useCredits } from '@/hooks/useCredits';
 import { getFilteredNavSections } from '@/lib/navigation';
 import { AdminSidebar } from '@/components/admin/AdminSidebar';
@@ -377,7 +377,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <main id="main-content" className="pt-16 pb-[calc(80px+env(safe-area-inset-bottom,0px))] min-h-[100dvh] overflow-x-hidden">
             <GuidedModeBanner />
             <div className="max-w-full">
-              <AdvancedWorkspaceBridge />
               <Link
                 href="/create"
                 className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] mb-3 px-4 no-underline"
@@ -501,7 +500,6 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
           <main id="main-content" className="ml-72 pt-16 min-h-screen">
             <GuidedModeBanner />
             <div className="p-6">
-              <AdvancedWorkspaceBridge />
               <Link
                 href="/create"
                 className="inline-flex items-center gap-1.5 text-xs text-[var(--text-muted)] hover:text-[var(--text)] mb-4 no-underline"
@@ -537,43 +535,3 @@ export default function AdminLayout({ children }: { children: ReactNode }) {
   );
 }
 
-function AdvancedWorkspaceBridge() {
-  const [dismissed, setDismissed] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    try {
-      setDismissed(localStorage.getItem('ff_admin_bridge_seen') === '1');
-    } catch {
-      setDismissed(true);
-    }
-  }, []);
-
-  if (dismissed !== false) return null;
-
-  function handleDismiss() {
-    try { localStorage.setItem('ff_admin_bridge_seen', '1'); } catch {}
-    setDismissed(true);
-  }
-
-  return (
-    <div className="mx-4 md:mx-0 mb-4 rounded-xl border border-amber-400/25 bg-amber-400/[0.06] px-4 py-3 flex items-start gap-3">
-      <div className="w-8 h-8 rounded-lg bg-amber-400/15 border border-amber-400/30 flex items-center justify-center flex-shrink-0">
-        <Sparkles className="w-4 h-4 text-amber-300" />
-      </div>
-      <div className="flex-1 min-w-0 text-sm">
-        <div className="font-semibold text-[var(--text)]">This is the advanced workspace</div>
-        <p className="text-[var(--text-muted)] text-[12.5px] mt-0.5 leading-relaxed">
-          Power tools for managing your whole pipeline. You can always return to the creator flow with <span className="text-zinc-200">Back to FlashFlow</span>.
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={handleDismiss}
-        className="p-1 text-[var(--text-muted)] hover:text-[var(--text)] rounded-md flex-shrink-0"
-        aria-label="Dismiss"
-      >
-        <X className="w-4 h-4" />
-      </button>
-    </div>
-  );
-}

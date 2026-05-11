@@ -6,7 +6,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import { useAuth } from '@/contexts/AuthContext';
 import { BRAND } from '@/lib/navigation';
-import { Sparkles, BookmarkCheck, User, Settings2 } from 'lucide-react';
+import { Sparkles, BookmarkCheck, User } from 'lucide-react';
 
 const NAV = [
   { href: '/create', label: 'Create', icon: Sparkles },
@@ -21,8 +21,13 @@ export default function V1Layout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     if (loading) return;
-    if (!authenticated) router.replace('/login?redirect=' + encodeURIComponent(pathname || '/create'));
-  }, [loading, authenticated, pathname, router]);
+    if (!authenticated) {
+      router.replace('/login?redirect=' + encodeURIComponent(pathname || '/create'));
+      return;
+    }
+    // Admins skip the creator surface entirely — they land in the full app.
+    if (isAdmin) router.replace('/admin/today');
+  }, [loading, authenticated, isAdmin, pathname, router]);
 
   if (loading) {
     return (
@@ -36,6 +41,8 @@ export default function V1Layout({ children }: { children: ReactNode }) {
   }
 
   if (!authenticated) return null;
+  // Admins are being redirected to /admin/today — don't flash the creator surface.
+  if (isAdmin) return null;
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100">
@@ -64,16 +71,6 @@ export default function V1Layout({ children }: { children: ReactNode }) {
                 </Link>
               );
             })}
-            {isAdmin && (
-              <Link
-                href="/admin/today"
-                className="ml-2 flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 hover:bg-white/5 no-underline"
-                title="Open the full admin / advanced surface"
-              >
-                <Settings2 className="w-3.5 h-3.5" />
-                <span className="hidden md:inline">Advanced</span>
-              </Link>
-            )}
           </nav>
         </div>
       </header>

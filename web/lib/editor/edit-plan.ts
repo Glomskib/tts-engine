@@ -401,7 +401,10 @@ export async function buildEditPlan(input: BuildEditPlanInput): Promise<EditPlan
       // Sonnet 4 is the value-prop step. Don't downgrade.
       model: 'claude-sonnet-4-20250514',
       systemPrompt: SYSTEM_PROMPT,
-      maxTokens: 2048,
+      // 4096 (was 2048) — a long video can easily need >2k tokens of keep_ranges
+      // + captions + drop_ranges JSON. Truncated JSON silently falls back to
+      // heuristic which throws away the LLM value-prop.
+      maxTokens: 4096,
       // Lower temp = more deterministic edit decisions.
       temperature: 0.4,
       requestType: 'edit-plan',
@@ -415,6 +418,19 @@ export async function buildEditPlan(input: BuildEditPlanInput): Promise<EditPlan
     // doesn't produce a 0-byte clip.
     if (sanitized.keep_ranges.length === 0) {
       console.warn('[editor/edit-plan] LLM returned 0 keep ranges — falling back', { jobId: input.jobId });
+      return heuristicFallbackPlan(input);
+    }
+
+    // Sanity guard: if the LLM tried to compress a real clip into < 1 second
+    // total (catastrophic over-cut, usually from prompt drift or hallucinated
+    // timestamps), prefer the heuristic so the user gets a usable video back.
+    const totalKept = sanitized.keep_ranges.reduce((acc, r) => acc + (r.end - r.start), 0);
+    if (totalKept < 1.0 && input.sourceDuration >= 5) {
+      console.warn('[editor/edit-plan] LLM keep ranges sum to <1s on a real clip — falling back', {
+        jobId: input.jobId,
+        totalKept,
+        sourceDuration: input.sourceDuration,
+      });
       return heuristicFallbackPlan(input);
     }
 

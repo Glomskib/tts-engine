@@ -469,6 +469,12 @@ export function humanizeEditJobError(err: unknown): string {
   if (/openai|whisper/i.test(raw) && /(5\d\d|timeout|ECONN|EAI_AGAIN)/i.test(raw)) {
     return "Transcription service is having a moment. Hit Retry — your upload is safe.";
   }
+  if (/(model.*deprecated|model.*not found|invalid_request_error.*model)/i.test(raw)) {
+    return "The transcription model needs an update. Tell Brandon — he needs to bump the model name in lib/editor/pipeline.ts. Your upload is safe.";
+  }
+  if (/Bucket not found|bucket.*does not exist/i.test(raw)) {
+    return "Storage bucket missing — the edit-jobs bucket hasn't been created yet. Hit Retry; the pipeline auto-creates it on the next attempt.";
+  }
   if (/AbortError|operation was aborted/i.test(raw)) {
     return "The AI call timed out. Hit Retry — your upload + transcript are saved.";
   }
@@ -560,16 +566,48 @@ export async function processEditJob(
         segments: Array.isArray(existingTranscript.segments) ? existingTranscript.segments : [],
       };
     } else {
+      // Pre-check raw file size on disk — Whisper rejects audio extracts over
+      // 25 MB. 64k mono = ~8 KB/sec, so 25 MB ≈ 52 minutes. If the raw video's
+      // duration would push us close to that, surface the error BEFORE we
+      // even spawn ffmpeg + bill OpenAI.
+      try {
+        const stats = await fs.stat(primary);
+        // Most modern phone clips are 1-5 MB/sec at 4K and ~0.5 MB/sec at
+        // 1080p. A 500 MB raw clip is plausible for ~10-20 min of 1080p,
+        // which is well inside the 52-min Whisper headroom. We just warn.
+        if (stats.size > 480 * 1024 * 1024) {
+          console.warn('[editor] very large raw clip — Whisper may reject if audio > 25 MB after extract', { jobId, size: stats.size });
+        }
+      } catch { /* stat failure isn't fatal */ }
+
       if (!process.env.OPENAI_API_KEY) {
         throw new Error('OPENAI_API_KEY is not set — transcription cannot run. Set this env var and retry.');
       }
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-      // Extract audio for Whisper (smaller upload)
+      // Extract audio for Whisper (smaller upload).
+      //
+      // 64 kbps MONO mp3 — `-ac 1` forces single-channel which is what we
+      // actually want for speech-to-text. The pre-2026-05-11 build said "mono"
+      // in the comment but missed the flag, so we shipped stereo and burned
+      // ~2× the bytes against the Whisper 25 MB upload cap. Mono at 64k =
+      // ~8 KB/sec, which gives us ~52 minutes of headroom — comfortable for
+      // every TikTok/Reel-length raw clip Brandon's creators upload.
       const audioFile = path.join(workDir, 'audio.mp3');
-      // 64k mono mp3 is plenty for Whisper (accuracy unaffected) and frees ~33%
-      // headroom under the 25 MB upload cap for longer clips.
-      await runFfmpeg(['-y', '-i', primary, '-vn', '-acodec', 'libmp3lame', '-b:a', '64k', audioFile]);
+      await runFfmpeg([
+        '-y',
+        '-i', primary,
+        '-vn',
+        '-ac', '1',
+        '-ar', '16000', // 16kHz is the Whisper-native sample rate
+        '-acodec', 'libmp3lame',
+        '-b:a', '64k',
+        audioFile,
+      ]);
 
+      // Whisper-1 stays the default for now (still supported as of 2026-05-11
+      // and we have it billing-attached). If the API ever returns a clear
+      // "model deprecated" error we'll catch it in humanizeEditJobError and
+      // surface a retry hint instead of a stack trace.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tResp: any = await openai.audio.transcriptions.create({
         file: await toFileLike(audioFile, 'audio.mp3'),

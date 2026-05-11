@@ -2,31 +2,33 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Free YouTube Video Transcriber | AI Script Analyzer',
+  title: 'Free YouTube Transcriber — AI-Powered, No Signup Needed | FlashFlow AI',
   description:
-    'Transcribe any YouTube video for free. Get AI-powered hook analysis, key phrases, emotional triggers, and content recommendations. Works with videos, Shorts, and youtu.be links. No signup required.',
+    'Free AI-powered YouTube transcript generator. Paste any URL, get a clean transcript instantly. Bonus AI breakdown included.',
   keywords: [
-    'free youtube video transcriber',
+    'free youtube transcriber',
     'youtube transcript generator',
-    'transcribe youtube video',
+    'youtube transcript online',
+    'transcribe youtube video free',
+    'youtube to text',
     'youtube video to text',
-    'youtube script analyzer',
-    'ai youtube content analyzer',
     'youtube shorts transcriber',
+    'paste youtube into chatgpt',
+    'ai youtube transcript',
   ],
   openGraph: {
-    title: 'Free YouTube Video Transcriber | AI Script Analyzer | FlashFlow AI',
+    title: 'Free YouTube Transcriber — AI-Powered, No Signup Needed | FlashFlow AI',
     description:
-      'Transcribe any YouTube video for free. Get AI-powered hook analysis, key phrases, and content recommendations.',
+      'Paste any YouTube link. Get a clean transcript in seconds. Plus a bonus AI breakdown of hooks, structure, and what works — free.',
     type: 'website',
     images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
     url: 'https://flashflowai.com/youtube-transcribe',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Free YouTube Video Transcriber | FlashFlow AI',
+    title: 'Free YouTube Transcriber | FlashFlow AI',
     description:
-      'Transcribe any YouTube video for free. Get AI-powered hook analysis and content recommendations.',
+      'Paste any YouTube link, get a clean transcript instantly. Bonus AI breakdown included. No signup.',
     images: ['/FFAI.png'],
   },
   alternates: {
@@ -35,6 +37,28 @@ export const metadata: Metadata = {
 };
 
 export default function YouTubeTranscribeLayout({ children }: { children: ReactNode }) {
+  const webAppSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebApplication',
+    name: 'Free YouTube Transcriber',
+    url: 'https://flashflowai.com/youtube-transcribe',
+    description:
+      'Free AI-powered YouTube transcript generator. Paste any URL, get a clean transcript instantly. Bonus AI breakdown of hooks and structure included.',
+    applicationCategory: 'DeveloperApplication',
+    operatingSystem: 'Any',
+    browserRequirements: 'Requires JavaScript. Requires a modern browser.',
+    offers: {
+      '@type': 'Offer',
+      price: 0,
+      priceCurrency: 'USD',
+    },
+    creator: {
+      '@type': 'Organization',
+      name: 'FlashFlow AI',
+      url: 'https://flashflowai.com',
+    },
+  };
+
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -44,7 +68,15 @@ export default function YouTubeTranscribeLayout({ children }: { children: ReactN
         name: 'Is this YouTube transcriber free?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Yes, completely free with no signup required. Paste any YouTube URL and get the full transcript with AI analysis instantly.',
+          text: 'Yes, completely free with no signup required. Paste any YouTube URL and get the full transcript instantly. A bonus AI breakdown is included free.',
+        },
+      },
+      {
+        '@type': 'Question',
+        name: 'Can I paste the transcript into ChatGPT?',
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: 'Yes — that is the main use case. Click the Copy button on the transcript and paste it into ChatGPT, Claude, Notion, Google Docs, or any other tool.',
         },
       },
       {
@@ -65,10 +97,10 @@ export default function YouTubeTranscribeLayout({ children }: { children: ReactN
       },
       {
         '@type': 'Question',
-        name: 'What does the AI analysis include?',
+        name: 'What is the bonus AI breakdown?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'You get hook strength scoring, key phrases extraction, emotional triggers, content structure breakdown, and actionable recommendations to adapt the content for your own videos.',
+          text: 'After the transcript, you also get a free breakdown of the video\'s hook, key phrases, emotional triggers, and pacing structure — useful if you want to learn what makes the video work.',
         },
       },
       {
@@ -76,7 +108,7 @@ export default function YouTubeTranscribeLayout({ children }: { children: ReactN
         name: 'Can I use this for long YouTube videos?',
         acceptedAnswer: {
           '@type': 'Answer',
-          text: 'Yes, the transcriber works with videos of any length. For very long videos, the AI analysis focuses on the most engaging segments including the hook, key transitions, and conclusion.',
+          text: 'Yes, the transcriber works with videos of any length. The transcript covers the full video; the bonus AI analysis focuses on the most engaging segments.',
         },
       },
     ],
@@ -84,6 +116,10 @@ export default function YouTubeTranscribeLayout({ children }: { children: ReactN
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webAppSchema) }}
+      />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema) }}

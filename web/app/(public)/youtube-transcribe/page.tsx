@@ -28,9 +28,9 @@ export default function YouTubeTranscribePage() {
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-red-500/10 border border-red-500/20 text-xs text-red-400 mb-4">
           100% free — no signup required
         </div>
-        <h1 className="text-4xl font-bold mb-4 text-white">Free YouTube Video Transcriber & Script Analyzer</h1>
+        <h1 className="text-4xl font-bold mb-4 text-white">Free YouTube Transcriber</h1>
         <p className="text-lg text-gray-300 mb-8">
-          Paste any YouTube video link to get the full transcript, hook breakdown, and content notes. No signup required.
+          Paste any YouTube link. Get a clean transcript in seconds. Plus an AI breakdown of hooks, structure, and what works &mdash; bonus, free.
         </p>
       </div>
 
@@ -50,13 +50,13 @@ export default function YouTubeTranscribePage() {
             </div>
             <div className="p-4 bg-gray-800/50 rounded-lg">
               <div className="text-3xl font-bold text-red-500 mb-2">2</div>
-              <h3 className="text-lg font-semibold text-white mb-2">We Break It Down</h3>
-              <p className="text-gray-300">Captions get extracted (or audio transcribed), the hook gets scored, key phrases get pulled out, and emotional triggers get flagged.</p>
+              <h3 className="text-lg font-semibold text-white mb-2">Get the Transcript</h3>
+              <p className="text-gray-300">Captions get pulled directly (or audio AI-transcribed if there are none). Clean text, ready to copy &mdash; paste it into ChatGPT, Notion, or anywhere else.</p>
             </div>
             <div className="p-4 bg-gray-800/50 rounded-lg">
               <div className="text-3xl font-bold text-red-500 mb-2">3</div>
-              <h3 className="text-lg font-semibold text-white mb-2">Get Insights & Scripts</h3>
-              <p className="text-gray-300">Copy the transcript, study the hook, or jump into the script writer to make your own version of what works.</p>
+              <h3 className="text-lg font-semibold text-white mb-2">Bonus: AI Breakdown</h3>
+              <p className="text-gray-300">As a free extra, we also analyze the hook, key phrases, pacing, and structure &mdash; so you can see what makes the video work.</p>
             </div>
           </div>
         </section>
@@ -64,30 +64,31 @@ export default function YouTubeTranscribePage() {
         {/* What You Get */}
         <section className="mb-12">
           <h2 className="text-2xl font-bold mb-6 text-white">What You Get</h2>
+          <p className="text-gray-400 text-sm mb-4">The transcript is the main thing. Everything else is a free bonus.</p>
           <ul className="space-y-3 text-gray-300">
             <li className="flex items-start">
               <span className="text-teal-500 mr-3">✓</span>
-              <span><strong>Full Transcript:</strong> Complete spoken text from the video, extracted from captions or AI-transcribed audio</span>
+              <span><strong>Full Transcript (the main event):</strong> Clean, complete text from any YouTube video. One click to copy &mdash; paste it into ChatGPT, Notion, Docs, or wherever you need it.</span>
             </li>
             <li className="flex items-start">
               <span className="text-teal-500 mr-3">✓</span>
-              <span><strong>Hook Analysis:</strong> Hook strength score (1-10) and why it works</span>
+              <span><strong>Works for Shorts &amp; long videos:</strong> youtube.com/watch, youtu.be short links, and YouTube Shorts.</span>
             </li>
             <li className="flex items-start">
               <span className="text-teal-500 mr-3">✓</span>
-              <span><strong>Key Phrases:</strong> The words and phrases doing the heavy lifting</span>
+              <span><strong>No signup, no watermark, no upload:</strong> just paste the URL.</span>
             </li>
             <li className="flex items-start">
               <span className="text-teal-500 mr-3">✓</span>
-              <span><strong>Emotional Triggers:</strong> What emotions the video targets</span>
+              <span><strong>Bonus &mdash; AI Hook Analysis:</strong> Hook strength score (1-10) plus why it works.</span>
             </li>
             <li className="flex items-start">
               <span className="text-teal-500 mr-3">✓</span>
-              <span><strong>Content Structure:</strong> Scene breakdown and pacing analysis</span>
+              <span><strong>Bonus &mdash; Structure &amp; Pacing:</strong> Scene breakdown and pacing notes.</span>
             </li>
             <li className="flex items-start">
               <span className="text-teal-500 mr-3">✓</span>
-              <span><strong>Recommendations:</strong> Specific notes on how to use this in your own content</span>
+              <span><strong>Bonus &mdash; Key Phrases &amp; Emotional Triggers:</strong> The words doing the heavy lifting.</span>
             </li>
           </ul>
         </section>

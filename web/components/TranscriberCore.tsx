@@ -181,8 +181,8 @@ const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
     apiEndpoint: '/api/youtube-transcribe',
     name: 'YouTube',
     placeholder: 'https://www.youtube.com/watch?v=...',
-    heroTitle: 'Free YouTube Video',
-    heroDescription: 'Paste any YouTube URL — break down why it works, analyze the hook, and build your own version.',
+    heroTitle: 'Free YouTube',
+    heroDescription: 'Paste any YouTube link. Get a clean transcript in seconds — copy it and use it anywhere. Bonus: AI breakdown of the hook and structure, free.',
     socialProof: 'Works with any public YouTube video. Captions extracted instantly, with AI transcription fallback for accuracy.',
     howItWorksStep1: 'Copy any public YouTube video link and paste it above.',
     productSearchUrl: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
@@ -894,18 +894,25 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             </div>
           )}
 
-          <h1 className={`font-bold text-white mb-4 leading-tight ${isPortal ? 'text-2xl sm:text-3xl' : 'text-4xl sm:text-5xl'}`}>
+          {/*
+            Visual hero heading. The wrapper page already renders the canonical
+            <h1> ("Free YouTube Transcriber"), so this is a <h2> to avoid
+            dual-H1 SEO penalty. Public-facing copy reframed 2026-05-11 from
+            "Breakdown" → "Transcriber" per Brandon: people search for a
+            transcriber, the breakdown is bonus.
+          */}
+          <h2 className={`font-bold text-white mb-4 leading-tight ${isPortal ? 'text-2xl sm:text-3xl' : 'text-4xl sm:text-5xl'}`}>
             {isPortal ? (
               'Free AI Transcriber'
             ) : (
               <>
                 {config.heroTitle}{' '}
                 <span className="bg-gradient-to-r from-teal-400 to-violet-400 bg-clip-text text-transparent">
-                  Breakdown
+                  Transcriber
                 </span>
               </>
             )}
-          </h1>
+          </h2>
 
           <p className={`text-zinc-400 mb-${isPortal ? '6' : '10'} ${isPortal ? 'text-base' : 'text-lg max-w-xl mx-auto'}`}>
             {config.heroDescription}
@@ -938,7 +945,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                 ) : (
                   <>
                     <MessageSquareText size={18} />
-                    Break Down Video
+                    Transcribe Video
                   </>
                 )}
               </button>
@@ -1005,21 +1012,54 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
               )}
             </div>
 
-            {/* Transcript Card */}
+            {/* Transcript Card — the primary result. Brandon 2026-05-11:
+                visitors want the transcript first, breakdown is bonus. Copy
+                button + Send-to-ChatGPT are the two main actions. */}
             <div className="bg-zinc-900/50 border border-white/10 rounded-xl p-6">
-              <div className="flex items-center justify-between mb-4">
+              <div className="flex items-start justify-between gap-3 mb-4 flex-wrap">
                 <h2 className="text-lg font-semibold text-white flex items-center gap-2">
                   <MessageSquareText size={18} className="text-teal-400" />
                   Transcript
                 </h2>
-                <CopyButton
-                  text={result.transcript}
-                  copyKey="transcript"
-                  copiedKey={copiedKey}
-                  copy={copy}
-                />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <CopyButton
+                    text={result.transcript}
+                    copyKey="transcript"
+                    copiedKey={copiedKey}
+                    copy={copy}
+                  />
+                  {/*
+                    "Send to ChatGPT" — copies the transcript and opens chatgpt.com
+                    in a new tab. ChatGPT does not accept arbitrary prompt-injection
+                    via URL, so the cleanest UX is: copy + open + user pastes.
+                  */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      copy(result.transcript, 'transcript-chatgpt');
+                      window.open('https://chat.openai.com/', '_blank', 'noopener,noreferrer');
+                    }}
+                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-teal-500 hover:bg-teal-400 text-white font-medium transition-colors shrink-0"
+                    title="Copies the transcript and opens ChatGPT in a new tab — just paste."
+                  >
+                    {copiedKey === 'transcript-chatgpt' ? (
+                      <>
+                        <Check size={14} />
+                        Copied! Now paste in ChatGPT
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles size={14} />
+                        Send to ChatGPT
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
               <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap">{result.transcript}</p>
+              <p className="text-xs text-zinc-500 mt-3">
+                Tip: paste this anywhere &mdash; ChatGPT, Claude, Notion, Docs. The AI breakdown below is a free bonus.
+              </p>
             </div>
 
             {/* Upsell: turn this video into clips */}

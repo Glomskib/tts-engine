@@ -54,12 +54,16 @@ export default function RoadmapPage() {
           We build what our users need. Submit a feature request and help shape
           the future of FlashFlow AI.
         </p>
-        <Link
-          href="/contact"
+        {/*
+          2026-05-11: was href="/contact" — that page doesn't exist. Swapped
+          to a mailto so users actually get through.
+        */}
+        <a
+          href="mailto:hello@flashflowai.com?subject=Feature%20request%20for%20FlashFlow%20AI"
           className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-violet-500 hover:from-teal-600 hover:to-violet-600 text-white font-semibold rounded-xl transition-all"
         >
           Request a Feature
-        </Link>
+        </a>
       </div>
 
       {/* Cross-tool links */}

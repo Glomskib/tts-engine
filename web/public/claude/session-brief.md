@@ -4,7 +4,7 @@
 
 ---
 
-## Last refreshed: 2026-05-10 ~9:46pm ET
+## Last refreshed: 2026-05-10 ~10:21pm ET
 
 ## Current deploy truth
 
@@ -42,7 +42,7 @@ Fix path when Brandon confirms DNS work:
 - MMM hub source is cloned at `~/projects/mmm-hub`; commit `73814f5` is live on `mmm-hub.vercel.app`. Fixed: added `/api/health`, removed the visible hero photo placeholder, removed fake-looking testimonial content, replaced unverified impact stats with launch-state facts, corrected HHH 2026 date/routes to September 12 and 15/30/62/100, changed one-time donate CTA away from placeholder checkout, and softened membership/tax wording before Stripe wiring.
 - MMM membership/Stripe approval packet saved to `~/Documents/MacBook Pro VAULT/10-Projects/MMM-membership-stripe-approval-packet-2026-05-10.md`. It recommends the current $5/$15/$35 monthly ladder, nonprofit Stripe env names, checkout test matrix, and a no-charge launch path pending Brandon approval.
 - TCG Buying Group BuybackOS evaluation saved to `~/Documents/MacBook Pro VAULT/10-Projects/TCG-on-BuybackOS-eval-2026-05-10.md`. Recommendation: extend BuybackOS with a narrow Brandon-only TCG operator ledger instead of building from scratch.
-- TCG operator ledger allocation core is built in the isolated BuybackOS worktree `~/.config/superpowers/worktrees/buybackos/tcg-operator-ledger`, branch `codex/tcg-operator-ledger`, local commit `d295eae`. It includes a pure TypeScript allocation engine, targeted test script, and unapplied Supabase migration `00022_tcg_operator_ledger.sql` for TCG members, append-only ledger entries, supplier invoices, group buys, allocations, and member statements. Targeted allocation tests pass. Nothing has been pushed, deployed, migrated, priced, or made public.
+- TCG operator ledger allocation core is built in the isolated BuybackOS worktree `~/.config/superpowers/worktrees/buybackos/tcg-operator-ledger`, branch `codex/tcg-operator-ledger`. Local commits: `d295eae` for the allocation engine/test/migration and `d121f8c` for BuybackOS baseline type/lint/build cleanup. The worktree now passes `npx tsc --noEmit --pretty false`, `npm run lint` with warnings only, `npm run test:tcg-allocation`, and `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=dummy-anon-key npm run build`. Nothing has been pushed, deployed, migrated, priced, or made public.
 - Digital assets: first local product package draft created at `~/Documents/MacBook Pro VAULT/10-Projects/digital-assets/endurance-event-directors-toolkit/`. Buyer-ready v2 ZIP draft: `endurance-event-directors-toolkit-public-draft-v2.zip` with README, quick start, license/disclaimer, sponsor pipeline CSV, route readiness, registration/store checklist, volunteer run sheet, and event launch plan. Private HHH dogfood source map and seller launch assets are excluded from the buyer ZIP. Seller launch assets now include `assets/cover.svg`, `launch-assets/platform-listing-copy.md`, `launch-assets/support-and-refund-macros.md`, and `launch-assets/final-preflight-checklist.md`. ZIP test passed with 9 files and SHA-256 `35ac90e36bc296b80a6e4a3fe7c2b79931f33062062ff00440fd20afba778c1c`. Launch approval still needed before listing, payment link, or announcement.
 
 ## Standing initiatives — pick from these when idle
@@ -54,7 +54,7 @@ Fix path when Brandon confirms DNS work:
 - **MMM hub copy + photo pass:** source cleanup and membership copy safety pass are live at `73814f5`. Next: fix `makingmilesmatter.org` routing after Brandon confirms DNS/domain path, add real MMM/HHH photos when assets exist, and wire real one-time donations/Stripe checkout after pricing/payment decisions.
 - **HHH Shopify theme:** payment-ready audit, theme check cleanup, and draft product setup packet are done. Next: Brandon approves prices/legal, then create draft Shopify products and run unpublished test orders before any publish.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).
-- **TCG Buying Group:** allocation core and initial schema are now built in an isolated BuybackOS worktree. Next unblocked build: reconcile BuybackOS main's dirty/ahead state plus pre-existing lint/typecheck failures, then continue from `codex/tcg-operator-ledger` into `/dashboard/tcg` UI and server actions. Do not apply the migration, enable live Stripe pricing, or open public registration without Brandon approval.
+- **TCG Buying Group:** allocation core, initial schema, and BuybackOS baseline build cleanup are now built in an isolated worktree. Next unblocked build: reconcile BuybackOS main's dirty/ahead local changes with `codex/tcg-operator-ledger`, then continue into `/dashboard/tcg` UI and server actions. Do not apply the migration, enable live Stripe pricing, or open public registration without Brandon approval.
 - **Digital assets:** Endurance Event Director's Toolkit v2 buyer ZIP, cover SVG, platform listing copy, support/refund macros, and final preflight checklist exist locally. Next: Brandon approves final name/price/sales channel/refund posture, then create the draft product listing. Do not publish or charge without approval.
 
 ## Hands-off — Brandon decides, I draft

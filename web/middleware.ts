@@ -88,6 +88,46 @@ export async function middleware(request: NextRequest) {
         loginUrl.searchParams.set('redirect', path)
         return NextResponse.redirect(loginUrl)
       }
+
+      // Block non-admin customers from sensitive admin routes.
+      //
+      // Customer-friendly admin pages (the legacy editors which now redirect
+      // to /create, and the user dashboard pages) are intentionally NOT in
+      // this list — those are accessible to all paying users.
+      //
+      // ADMIN_ONLY_PATHS are operator surfaces only. A logged-in customer
+      // who navigates here gets redirected to /create instead of seeing
+      // other users' data.
+      const ADMIN_ONLY_PATHS = [
+        '/admin/feedback',
+        '/admin/api-docs',
+        '/admin/launch-check',
+        '/admin/render-jobs',
+        '/admin/settings/integrations',
+        '/admin/settings/system-status',
+        '/admin/settings/users',
+        '/admin/command-center',
+        '/admin/system',
+        '/admin/billing-recon',
+        '/admin/users',
+        '/admin/whop',
+        '/admin/affiliate-payouts',
+        '/admin/agents',
+        '/admin/queue',
+      ]
+      const isAdminOnly = ADMIN_ONLY_PATHS.some((p) => path === p || path.startsWith(p + '/'))
+      if (isAdminOnly && !isAdmin(user)) {
+        // Non-admin tried to hit an admin-only surface. Bounce to the canonical
+        // customer surface. Log so we can detect probe attempts.
+        console.warn('[AUTH-MW] non-admin blocked from admin-only path', { path, userId: user.id, email: user.email })
+        return NextResponse.redirect(new URL('/create?from=admin_denied', request.url))
+      }
+
+      // Mission Control is operator-only.
+      if (path.startsWith('/mission-control') && !isAdmin(user)) {
+        console.warn('[AUTH-MW] non-admin blocked from mission-control', { path, userId: user.id, email: user.email })
+        return NextResponse.redirect(new URL('/create?from=mc_denied', request.url))
+      }
     }
   }
 

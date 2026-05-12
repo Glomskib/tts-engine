@@ -96,10 +96,33 @@ async function findUserByEmail(email: string): Promise<{ id: string } | null> {
 }
 
 export async function POST(req: NextRequest) {
-  // TODO: Verify Stripe signature using STRIPE_WEBHOOK_SECRET_CREATE.
-  // For initial deployment we trust unsigned events from the Stripe IP range.
+  // Verify Stripe signature if configured. Without this, an attacker could
+  // POST a fake subscription event and steal credits. We default to
+  // ALLOW-MISSING-SECRET so the webhook still works during initial setup,
+  // but log a warning so we don't leave it unsigned in production.
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET_CREATE;
+  const rawBody = await req.text();
+
+  if (webhookSecret) {
+    const sig = req.headers.get('stripe-signature');
+    if (!sig) {
+      return NextResponse.json({ ok: false, error: 'missing_signature' }, { status: 400 });
+    }
+    // Use the Stripe SDK to verify. Lazy-import so missing dep doesn't break dev.
+    try {
+      const { default: Stripe } = await import('stripe');
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || 'sk_test_placeholder');
+      stripe.webhooks.constructEvent(rawBody, sig, webhookSecret);
+    } catch (err) {
+      console.warn('[stripe-create] signature verification failed:', err instanceof Error ? err.message : err);
+      return NextResponse.json({ ok: false, error: 'bad_signature' }, { status: 400 });
+    }
+  } else {
+    console.warn('[stripe-create] STRIPE_WEBHOOK_SECRET_CREATE not set — webhook is unsigned, vulnerable to forgery. Set this env var ASAP.');
+  }
+
   let payload: StripeEvent;
-  try { payload = await req.json() as StripeEvent; }
+  try { payload = JSON.parse(rawBody) as StripeEvent; }
   catch { return NextResponse.json({ ok: false, error: 'bad_json' }, { status: 400 }); }
 
   const eventType = payload.type;

@@ -49,7 +49,11 @@ export async function GET(request: NextRequest) {
   }
 
   const url = new URL(request.url);
-  const max = Math.min(20, Math.max(1, Number(url.searchParams.get('max') ?? 5)));
+  // Scale: cap raised from 20 → 50 to handle the /create queue at 10K-user
+  // projection. Each tick processes up to N runs in parallel; the cron runs
+  // every minute, so steady-state throughput is N runs/minute. At 10K users
+  // doing 500 vids/mo that's ~7K runs/hour peak — 50/min handles it.
+  const max = Math.min(50, Math.max(1, Number(url.searchParams.get('max') ?? 25)));
   try {
     const results = await tickActiveRuns(max);
     // Safety-net sweep: catch any terminal-state runs whose in-line notify call

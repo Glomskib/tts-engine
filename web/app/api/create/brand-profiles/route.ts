@@ -36,6 +36,19 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({ ok: true, profiles: data || [] });
 }
 
+// Production hard caps — keep brand_profiles row size bounded so a single
+// user can't paste a gigabyte of "sample posts" and break the DB.
+const MAX_TEXT = 4000;          // per single text field
+const MAX_SAMPLE_POSTS = 10;    // max sample posts in the array
+const MAX_SAMPLE_POST_LEN = 4000; // per sample post
+const MAX_PROFILES_PER_USER = 25; // hard ceiling — beyond this is abuse
+
+function cap(value: unknown, max = MAX_TEXT): string | null {
+  if (value == null) return null;
+  const s = String(value);
+  return s.length > max ? s.slice(0, max) : s;
+}
+
 export async function POST(req: NextRequest) {
   const auth = await getApiAuthContext(req).catch(() => null);
   if (!auth?.user?.id) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
@@ -46,18 +59,37 @@ export async function POST(req: NextRequest) {
   const name = String(body.name || '').trim().slice(0, 200);
   if (!name) return NextResponse.json({ ok: false, error: 'name required' }, { status: 400 });
 
+  // Per-user profile ceiling — stops single users from abuse
+  const { count } = await supabaseAdmin
+    .from('brand_profiles')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', auth.user.id);
+  if ((count || 0) >= MAX_PROFILES_PER_USER) {
+    return NextResponse.json({
+      ok: false,
+      error: `You have ${count} brand profiles — that's the max. Delete one before creating another.`,
+    }, { status: 429 });
+  }
+
+  // Sanitize sample_posts: cap count + length per post
+  const rawSamples = Array.isArray(body.sample_posts) ? body.sample_posts : [];
+  const samples = rawSamples
+    .slice(0, MAX_SAMPLE_POSTS)
+    .map((s) => (typeof s === 'string' ? s.slice(0, MAX_SAMPLE_POST_LEN) : ''))
+    .filter(Boolean);
+
   const { data, error } = await supabaseAdmin
     .from('brand_profiles')
     .insert({
       user_id: auth.user.id,
       name,
-      tone_descriptor: body.tone_descriptor ? String(body.tone_descriptor) : null,
-      sample_posts_json: body.sample_posts ? JSON.stringify(body.sample_posts) : '[]',
-      style_notes: body.style_notes ? String(body.style_notes) : null,
-      prohibited_phrases: body.prohibited_phrases ? String(body.prohibited_phrases) : null,
-      preferred_phrases: body.preferred_phrases ? String(body.preferred_phrases) : null,
-      brand_color: body.brand_color ? String(body.brand_color) : null,
-      brand_font: body.brand_font ? String(body.brand_font) : null,
+      tone_descriptor: cap(body.tone_descriptor),
+      sample_posts_json: JSON.stringify(samples),
+      style_notes: cap(body.style_notes),
+      prohibited_phrases: cap(body.prohibited_phrases),
+      preferred_phrases: cap(body.preferred_phrases),
+      brand_color: cap(body.brand_color, 30),
+      brand_font: cap(body.brand_font, 100),
       active: body.active === false ? false : true,
     })
     .select('id')
@@ -81,13 +113,20 @@ export async function PATCH(req: NextRequest) {
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if ('name' in body) updates.name = String(body.name).slice(0, 200);
-  if ('tone_descriptor' in body) updates.tone_descriptor = body.tone_descriptor || null;
-  if ('sample_posts' in body) updates.sample_posts_json = JSON.stringify(body.sample_posts || []);
-  if ('style_notes' in body) updates.style_notes = body.style_notes || null;
-  if ('prohibited_phrases' in body) updates.prohibited_phrases = body.prohibited_phrases || null;
-  if ('preferred_phrases' in body) updates.preferred_phrases = body.preferred_phrases || null;
-  if ('brand_color' in body) updates.brand_color = body.brand_color || null;
-  if ('brand_font' in body) updates.brand_font = body.brand_font || null;
+  if ('tone_descriptor' in body) updates.tone_descriptor = cap(body.tone_descriptor);
+  if ('sample_posts' in body) {
+    const rawSamples = Array.isArray(body.sample_posts) ? body.sample_posts : [];
+    const samples = rawSamples
+      .slice(0, MAX_SAMPLE_POSTS)
+      .map((s) => (typeof s === 'string' ? s.slice(0, MAX_SAMPLE_POST_LEN) : ''))
+      .filter(Boolean);
+    updates.sample_posts_json = JSON.stringify(samples);
+  }
+  if ('style_notes' in body) updates.style_notes = cap(body.style_notes);
+  if ('prohibited_phrases' in body) updates.prohibited_phrases = cap(body.prohibited_phrases);
+  if ('preferred_phrases' in body) updates.preferred_phrases = cap(body.preferred_phrases);
+  if ('brand_color' in body) updates.brand_color = cap(body.brand_color, 30);
+  if ('brand_font' in body) updates.brand_font = cap(body.brand_font, 100);
   if ('active' in body) updates.active = !!body.active;
 
   // Auth: only update profiles owned by this user (service-role bypasses RLS, so we filter manually)

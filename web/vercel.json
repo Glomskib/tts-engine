@@ -20,6 +20,10 @@
       "schedule": "* * * * *"
     },
     {
+      "path": "/api/cron/ve-cleanup",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/cron/check-renders",
       "schedule": "*/2 * * * *"
     },

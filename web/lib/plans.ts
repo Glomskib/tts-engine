@@ -1,10 +1,12 @@
 /**
  * FlashFlow AI — Plan & Tier Definitions
- * Single source of truth for the 5-tier pricing model.
+ * Single source of truth for the 4-tier /create pricing model (2026-05-12).
  *
- * Free → Creator Lite → Creator Pro → Brand → Agency
- * Brand is cheaper than Agency because brands are single companies;
- * agencies manage multiple brands.
+ * Free → Starter ($19) → Creator ($49) → Pro ($99) → Content Fleet (contact)
+ *
+ * Stripe price IDs live in Vercel env (STRIPE_PRICE_*) so we never hardcode.
+ * Legacy lite/pro/business/brand/agency entries are kept under LEGACY_PLANS
+ * below for any old subscriber lookups — do not surface in new UI.
  */
 
 // New pricing structure with monthly/annual billing
@@ -27,65 +29,122 @@ export interface PricingPlan {
   contactEmail?: string;
 }
 
+/**
+ * CANONICAL 2026-05-12 — the 4-tier /create model.
+ * Free is 3 clips LIFETIME (not /mo) to force upgrade after trying it.
+ */
 export const PRICING_PLANS: Record<string, PricingPlan> = {
   free: {
     name: 'Free',
     monthly: { price: 0, display: 'Free', stripePriceId: null },
-    annual: { price: 0, display: 'Free', stripePriceId: null },
-    credits: 5,
-    features: ['5 AI scripts/mo', 'Free TikTok transcriber', 'Free YouTube transcriber', '1 brand'],
+    credits: 3, // lifetime
+    features: [
+      '3 clips total (no time limit, no card)',
+      '720p output',
+      '1 caption style (Bold Yellow)',
+      'TikTok + YouTube Shorts',
+      'No watermark',
+      '7-day clip storage',
+    ],
   },
-  lite: {
-    name: 'Lite',
-    monthly: { price: 9, display: '$9', stripePriceId: 'price_1T0XzpKXraIWnC5D79InCCm4' },
-    annual: {
-      price: 85,
-      display: '$85',
-      monthlyEquiv: '$7.08',
-      stripePriceId: 'price_1T0zgkKXraIWnC5DZX4Ps5vs',
-      savings: '$23',
+  starter: {
+    name: 'Starter',
+    monthly: {
+      price: 19,
+      display: '$19',
+      stripePriceId: process.env.STRIPE_PRICE_STARTER || 'price_1TWJflKXraIWnC5DeVyEv1R5',
     },
     credits: 50,
-    features: ['50 AI scripts/mo', 'Full transcriber', '3 brands', 'Content calendar'],
+    features: [
+      '50 clips per month',
+      '1080p output',
+      'All 6 caption styles',
+      'All 5 aspect ratios',
+      '1 brand voice profile',
+      'Direct publish (TikTok / Reels / Shorts / IG / X)',
+      '30-day clip storage',
+      'Re-renders cheaper than originals',
+    ],
+  },
+  creator: {
+    name: 'Creator',
+    monthly: {
+      price: 49,
+      display: '$49',
+      stripePriceId: process.env.STRIPE_PRICE_CREATOR || 'price_1TWJgNKXraIWnC5DmD4Hv3Yw',
+    },
+    credits: 200,
+    badge: 'Most Popular',
+    features: [
+      '200 clips per month',
+      '1080p output',
+      'All caption styles + custom',
+      '3 brand voice profiles',
+      '100 voice-clone TTS words/month',
+      '90-day clip storage',
+      'Direct publish',
+      'Overage: $0.20/credit',
+    ],
   },
   pro: {
-    name: 'Creator Pro',
-    monthly: { price: 29, display: '$29', stripePriceId: 'price_1T0XzqKXraIWnC5Dwsdf6evK' },
-    annual: {
-      price: 279,
-      display: '$279',
-      monthlyEquiv: '$23.25',
-      stripePriceId: 'price_1T0zhPKXraIWnC5D35M1stDL',
-      savings: '$69',
+    name: 'Pro',
+    monthly: {
+      price: 99,
+      display: '$99',
+      stripePriceId: process.env.STRIPE_PRICE_PRO || 'price_1TWJh7KXraIWnC5DKFScwFcC',
     },
-    credits: null, // unlimited
-    badge: 'Most Popular',
-    features: ['Unlimited scripts', 'Video pipeline', 'Winners bank', 'Analytics', '10 brands'],
+    credits: 500,
+    features: [
+      '500 clips per month',
+      '4K output',
+      'Custom caption font + color',
+      '10 brand voice profiles',
+      '1000 voice-clone TTS words/month',
+      '1-year clip storage',
+      'Direct publish + scheduling',
+      'Overage: $0.20/credit',
+    ],
+  },
+  content_fleet: {
+    name: 'Content Fleet',
+    contactUs: true,
+    contactEmail: 'miles@makingmilesmatter.com',
+    features: [
+      'For agencies running 5+ client brands',
+      'Unlimited clips',
+      'Unlimited brand profiles',
+      'Team seats',
+      'White-label option',
+      'Lifetime clip storage',
+      'Dedicated onboarding + priority pipeline',
+      'Case-by-case pricing',
+    ],
+  },
+};
+
+/**
+ * LEGACY plans — old subscribers may still be mapped here. Do NOT surface in
+ * new UI. Read-only for subscription state lookups; new signups land on the
+ * canonical PRICING_PLANS above.
+ */
+export const LEGACY_PLANS: Record<string, PricingPlan> = {
+  lite: {
+    name: 'Lite (legacy)',
+    monthly: { price: 9, display: '$9', stripePriceId: 'price_1T0XzpKXraIWnC5D79InCCm4' },
+    credits: 50,
+    features: ['Legacy plan — migrated to Starter'],
+  },
+  creator_pro: {
+    name: 'Creator Pro (legacy)',
+    monthly: { price: 29, display: '$29', stripePriceId: 'price_1T0XzqKXraIWnC5Dwsdf6evK' },
+    credits: null,
+    features: ['Legacy plan — migrated to Creator'],
   },
   business: {
-    name: 'Business',
+    name: 'Business (legacy)',
     monthly: { price: 59, display: '$59', stripePriceId: 'price_1SwB7iKXraIWnC5Dxc8nmxVP' },
-    annual: {
-      price: 565,
-      display: '$565',
-      monthlyEquiv: '$47.08',
-      stripePriceId: 'price_1T0zhuKXraIWnC5D3gL2rm8r',
-      savings: '$143',
-    },
     credits: null,
-    features: ['Everything in Pro', 'Priority support', 'Custom integrations', 'Unlimited brands'],
-  },
-  brand: {
-    name: 'Brand',
-    contactUs: true,
-    contactEmail: 'brandon@flashflowai.com',
-    features: ['AI challenge generator (Coming Soon)', 'Creator marketplace (Coming Soon)', 'Campaign analytics'],
-  },
-  agency: {
-    name: 'Agency',
-    contactUs: true,
-    contactEmail: 'brandon@flashflowai.com',
-    features: ['Multi-brand management', 'Team seats', 'White-label options (Coming Soon)'],
+    features: ['Legacy plan — migrated to Pro'],
   },
 };
 

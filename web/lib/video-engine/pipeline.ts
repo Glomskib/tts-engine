@@ -23,6 +23,7 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import type { Mode, RunStatus, TranscriptSegment } from './types';
 import { isMode, getMode } from './modes';
 import { transcribeStorageAsset } from './transcribe';
+import { transcribeWithFallback } from './transcribe-groq';
 import { generateCandidates } from './scoring';
 import { resolveRenderTemplateKeys, getTemplateOrDefault } from './templates';
 import { getCTAOrDefault } from './ctas';
@@ -145,7 +146,9 @@ async function stageTranscribe(run: RunRow): Promise<RunStatus> {
   const asset = await loadAsset(run.id);
   if (!asset) throw new Error('No asset found for run');
 
-  const result = await transcribeStorageAsset({
+  // transcribeWithFallback prefers Groq (60x cheaper, 30x faster) and falls back
+  // to OpenAI Whisper if Groq is unconfigured or errors. Reads GROQ_API_KEY at runtime.
+  const result = await transcribeWithFallback({
     storage_bucket: asset.storage_bucket,
     storage_path: asset.storage_path,
   });

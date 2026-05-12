@@ -24,6 +24,7 @@ import type { Mode, RunStatus, TranscriptSegment } from './types';
 import { isMode, getMode } from './modes';
 import { transcribeStorageAsset } from './transcribe';
 import { transcribeWithFallback } from './transcribe-groq';
+import { rankClips, type RankedClip } from './hook-ranker';
 import { generateCandidates } from './scoring';
 import { resolveRenderTemplateKeys, getTemplateOrDefault } from './templates';
 import { getCTAOrDefault } from './ctas';
@@ -237,6 +238,62 @@ async function stageAnalyze(run: RunRow): Promise<RunStatus> {
     throw new Error("We couldn't find a strong shorter cut from this video yet. Try a longer take with clear intro / payoff moments.");
   }
 
+  // BRAND-VOICE HOOK RANKER (2026-05-12) — beats Opus Clip because the lens
+  // is the user's voice, not a generic curve. Re-ranks the deterministic
+  // candidates from generateCandidates() and attaches feel_diagnosis. Falls
+  // back silently if Anthropic is unavailable or brand profile missing.
+  const rankerContext = run.context_json as Record<string, unknown> | null;
+  const describe = (rankerContext?.describe as string) || '';
+  const vibe = (rankerContext?.vibe as string) || 'real';
+  const brandProfileId = rankerContext?.brand_profile_id as string | null;
+
+  let brandProfile: Parameters<typeof rankClips>[0]['brand_profile'] = null;
+  if (brandProfileId) {
+    const { data: bp } = await supabaseAdmin
+      .from('brand_profiles')
+      .select('name, tone_descriptor, prohibited_phrases, preferred_phrases, sample_posts_json')
+      .eq('id', brandProfileId)
+      .maybeSingle();
+    if (bp) {
+      const samples = (() => {
+        try { return JSON.parse((bp.sample_posts_json as string) || '[]') as string[]; }
+        catch { return []; }
+      })();
+      brandProfile = {
+        name: bp.name as string,
+        tone_descriptor: (bp.tone_descriptor as string) || null,
+        prohibited_phrases: (bp.prohibited_phrases as string) || null,
+        preferred_phrases: (bp.preferred_phrases as string) || null,
+        sample_posts: samples,
+      };
+    }
+  }
+
+  let rankedOverlay: RankedClip[] = [];
+  try {
+    rankedOverlay = await rankClips({
+      segments,
+      target_count: run.target_clip_count,
+      describe,
+      vibe,
+      brand_profile: brandProfile,
+    });
+    console.log(`[ve-pipeline] hook-ranker scored ${rankedOverlay.length} candidates with brand-voice lens`);
+  } catch (err) {
+    console.warn('[ve-pipeline] hook-ranker failed, keeping deterministic order:', err instanceof Error ? err.message : err);
+  }
+
+  // Build a map from start_sec → ranked overlay so we can attach hook_score
+  // + feel_diagnosis to whichever generated candidates the LLM agrees with.
+  const overlayByStart = new Map<string, RankedClip>();
+  for (const r of rankedOverlay) {
+    // Match by approximate start_sec (within 0.5s)
+    overlayByStart.set(r.start_sec.toFixed(1), r);
+  }
+  function findOverlay(candStart: number): RankedClip | undefined {
+    return overlayByStart.get(candStart.toFixed(1));
+  }
+
   if (sourceDuration) {
     for (const c of selected) {
       const candDur = c.end - c.start;
@@ -255,6 +312,18 @@ async function stageAnalyze(run: RunRow): Promise<RunStatus> {
       hookText: c.hookText,
       mode: run.mode,
     });
+    // Look up the brand-voice hook ranker's overlay for this candidate.
+    // If found, fold it into score_breakdown so the rendering stage can
+    // surface feel_diagnosis on the rendered clip.
+    const overlay = findOverlay(c.start);
+    const mergedScoreBreakdown = {
+      ...c.scoreBreakdown,
+      ...(overlay ? {
+        brand_hook_score: overlay.hook_score,
+        feel_diagnosis: overlay.feel_diagnosis,
+        suggested_title: overlay.suggested_title,
+      } : {}),
+    };
     return {
       run_id: run.id,
       asset_id: asset.id,
@@ -264,13 +333,14 @@ async function stageAnalyze(run: RunRow): Promise<RunStatus> {
       text: c.text,
       hook_text: c.hookText,
       clip_type: c.clipType,
-      score: c.score,
-      score_breakdown_json: c.scoreBreakdown,
+      // If the brand-voice ranker liked this candidate, use its higher-confidence score.
+      score: overlay ? Math.max(c.score, overlay.hook_score / 10) : c.score,
+      score_breakdown_json: mergedScoreBreakdown,
       selected: true,
       rank: c.rank,
       hook_strength: insight.hookStrength,
       suggested_use: insight.suggestedUse,
-      selection_reason: insight.selectionReason,
+      selection_reason: overlay?.feel_diagnosis || insight.selectionReason,
       best_for: insight.bestFor,
     };
   });

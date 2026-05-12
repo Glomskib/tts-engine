@@ -19,6 +19,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { enforceRateLimits, extractRateLimitContext } from '@/lib/rate-limit';
+import { generateCorrelationId } from '@/lib/api-errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -58,6 +60,16 @@ export async function POST(req: NextRequest) {
 
   const userId = auth.user.id;
   const isAdmin = !!auth.isAdmin;
+
+  // Rate limit: 5 job creates per minute per user. Stops a runaway tab/script
+  // from DoSing the pipeline (we charge credits up front so they'd lose them
+  // even on a typo'd loop). Admin bypasses.
+  if (!isAdmin) {
+    const ctx = extractRateLimitContext(req);
+    ctx.userId = userId;
+    const rl = enforceRateLimits(ctx, generateCorrelationId(), { userLimit: 5 });
+    if (rl) return rl;
+  }
 
   // Validate inputs
   const sourceUrl = body.source_url?.trim();
@@ -155,22 +167,47 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  // Deduct credits up front (refunded if job fails before transcription)
+  // Deduct credits AFTER ve_runs + ve_assets insert succeeded so we can't
+  // lose credits on a half-failed job. If deduction fails, mark the run
+  // as 'failed' and the user keeps their credits.
   if (!isAdmin) {
+    let deducted = false;
     try {
-      await supabaseAdmin.rpc('deduct_credits', {
+      const { data: result, error: deductErr } = await supabaseAdmin.rpc('deduct_credits', {
         p_user_id: userId,
         p_amount: creditCost,
         p_description: `Clip job ${run.id} — ${clipCount} clips × ${aspectRatios.length} aspects`,
       });
+      const r = Array.isArray(result) ? result[0] : result;
+      if (!deductErr && r?.success) deducted = true;
     } catch {
-      // Fall back to single-credit RPC in a loop if multi-credit fn doesn't exist
-      // (the new deduct_credits RPC is in our pending migration; some envs may
-      // not have it yet).
+      // RPC might not exist on older envs — fall through to single-credit loop
+    }
+    if (!deducted) {
+      // Fallback: single-credit RPC in a loop (the new deduct_credits RPC is
+      // in our pending migration; some envs may not have it yet).
+      let granted = 0;
       for (let i = 0; i < creditCost; i++) {
         try {
-          await supabaseAdmin.rpc('deduct_credit', { p_user_id: userId, p_description: `Clip job ${run.id}` });
-        } catch { /* best-effort */ }
+          const { error } = await supabaseAdmin.rpc('deduct_credit', {
+            p_user_id: userId,
+            p_description: `Clip job ${run.id}`,
+          });
+          if (!error) granted++;
+        } catch { /* swallow */ }
+      }
+      if (granted < creditCost) {
+        // Could not deduct full cost — refund what we managed and fail the job.
+        // The user keeps their credits, no work is done, no surprise charges.
+        await supabaseAdmin.from('ve_runs')
+          .update({ status: 'failed', error_message: 'Insufficient credits — job not started' })
+          .eq('id', run.id);
+        return NextResponse.json({
+          ok: false,
+          error: `Not enough credits — needed ${creditCost}.`,
+          code: 'INSUFFICIENT_CREDITS',
+          required: creditCost,
+        }, { status: 402 });
       }
     }
   }

@@ -117,7 +117,7 @@ export default function CreatePage() {
       }
 
       // 2. PUT the file directly to Supabase Storage. Bypasses our Next.js API
-      //    body size limit (50MB). Supabase signed URL accepts up to 5GB.
+      //    body size limit (50MB). Storage tier caps the actual max file size.
       const xhr = new XMLHttpRequest();
       xhr.open('PUT', reqJson.signed_url, true);
       xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
@@ -125,8 +125,24 @@ export default function CreatePage() {
         if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
       };
       await new Promise<void>((resolve, reject) => {
-        xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload failed: ${xhr.status}`)));
-        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) return resolve();
+          // Parse Supabase's JSON error body for a useful message
+          let detail = '';
+          try {
+            const body = JSON.parse(xhr.responseText || '{}');
+            detail = body.message || body.error || '';
+          } catch { detail = xhr.responseText?.slice(0, 200) || ''; }
+          const sizeMb = (file.size / 1024 / 1024).toFixed(1);
+          if (xhr.status === 413 || /too large|payload/i.test(detail)) {
+            return reject(new Error(`Your video is ${sizeMb} MB — that's bigger than the storage tier allows right now. Try a shorter clip or compress it first. (paste a link to a YouTube/Vimeo/TikTok video instead if you have one)`));
+          }
+          if (xhr.status === 400) {
+            return reject(new Error(`Storage rejected the upload (${sizeMb} MB ${file.type || 'unknown type'}). ${detail || 'No detail returned.'} Try a shorter clip or paste a link to the source video.`));
+          }
+          reject(new Error(`Upload failed: ${xhr.status} ${detail}`));
+        };
+        xhr.onerror = () => reject(new Error('Network error during upload — check your connection.'));
         xhr.send(file);
       });
 
@@ -290,7 +306,7 @@ export default function CreatePage() {
                 <div className="border-2 border-dashed border-gray-700 hover:border-teal-500 rounded-lg p-8 text-center cursor-pointer transition-colors">
                   <Upload className="w-10 h-10 mx-auto text-gray-500 mb-2" />
                   <div className="text-sm font-medium">{sourceName || 'Drop video here or click to choose'}</div>
-                  <div className="text-xs text-gray-500 mt-1">MP4, MOV, WEBM up to 5GB</div>
+                  <div className="text-xs text-gray-500 mt-1">MP4, MOV, WEBM up to 500MB (longer videos: paste a YouTube/Vimeo link instead)</div>
                 </div>
                 <input
                   type="file"

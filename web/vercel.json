@@ -16,6 +16,10 @@
   },
   "crons": [
     {
+      "path": "/api/cron/video-engine-tick",
+      "schedule": "* * * * *"
+    },
+    {
       "path": "/api/cron/check-renders",
       "schedule": "*/2 * * * *"
     },

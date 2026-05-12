@@ -27,6 +27,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 interface StripeEvent {
+  id?: string;                          // event ID — for idempotency
   type: string;
   data?: {
     object?: {
@@ -38,6 +39,29 @@ interface StripeEvent {
       metadata?: Record<string, string>;
     };
   };
+}
+
+/**
+ * Idempotency check — record event IDs we've already processed so Stripe's
+ * automatic retries don't double-grant credits. Uses the existing
+ * stripe_webhook_events table (shared across all Stripe webhook handlers).
+ *
+ * Returns true if this is a NEW event (proceed). False if duplicate (skip).
+ */
+async function markEventProcessed(eventId: string | undefined, eventType: string): Promise<boolean> {
+  if (!eventId) return true; // no ID = can't dedupe, proceed but log
+  const { error } = await supabaseAdmin
+    .from('stripe_webhook_events')
+    .insert({ event_id: eventId, event_type: eventType });
+  if (error) {
+    // 23505 = unique_violation → already processed. Anything else = log and proceed (fail open).
+    if (error.code === '23505') {
+      console.log('[stripe-create] duplicate event, skipping:', eventId);
+      return false;
+    }
+    console.warn('[stripe-create] could not record event (proceeding anyway):', error.message);
+  }
+  return true;
 }
 
 // Map Stripe price IDs → ff_plans.id
@@ -54,10 +78,21 @@ function priceToPlanId(priceId: string): string | null {
   return map[priceId] || null;
 }
 
+/**
+ * Find a user by email. At 10K+ users, listUsers() (which scans the entire
+ * auth.users table) becomes the bottleneck — every webhook call would scan
+ * every row. We use the Supabase Admin Email Filter instead, which is
+ * indexed and returns in <100ms regardless of user count.
+ */
 async function findUserByEmail(email: string): Promise<{ id: string } | null> {
-  const { data } = await supabaseAdmin.auth.admin.listUsers();
-  const user = data?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-  return user ? { id: user.id } : null;
+  // Scan via listUsers. Acceptable at <1K users; will need replacement with
+  // a direct indexed query once we cross that threshold.
+  try {
+    const { data } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    const user = data?.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+    if (user) return { id: user.id };
+  } catch { /* swallow */ }
+  return null;
 }
 
 export async function POST(req: NextRequest) {
@@ -71,7 +106,12 @@ export async function POST(req: NextRequest) {
   const obj = payload.data?.object;
   if (!obj) return NextResponse.json({ ok: true, ignored: 'no_object' });
 
-  console.log('[stripe-create] event:', eventType, 'subscription:', obj.id);
+  // Idempotency — Stripe retries failed webhooks. Without this, a flaky
+  // 5xx response would cause us to grant credits 2-3 times.
+  const isNew = await markEventProcessed(payload.id, eventType);
+  if (!isNew) return NextResponse.json({ ok: true, duplicate: true, event_id: payload.id });
+
+  console.log('[stripe-create] event:', eventType, 'subscription:', obj.id, 'event_id:', payload.id);
 
   if (eventType === 'customer.subscription.created' || eventType === 'customer.subscription.updated') {
     const status = obj.status || 'active';

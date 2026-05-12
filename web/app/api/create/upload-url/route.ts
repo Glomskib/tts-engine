@@ -14,7 +14,11 @@ import { supabaseAdmin } from '@/lib/supabaseAdmin';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const MAX_BYTES = 5 * 1024 * 1024 * 1024; // 5 GB
+// Per-file upload cap. Supabase free tier is 50MB; Pro is up to 50GB.
+// We cap at 500MB by default — most short-form source videos fit. Override via
+// FF_CLIP_UPLOAD_MAX_BYTES env var if the project's Supabase plan supports more.
+const MAX_BYTES = Number(process.env.FF_CLIP_UPLOAD_MAX_BYTES) || 500 * 1024 * 1024;
+
 const ALLOWED_MIMES = new Set([
   'video/mp4', 'video/quicktime', 'video/webm', 'video/x-matroska',
   'video/x-msvideo', 'video/mpeg', 'video/3gpp', 'application/octet-stream',

@@ -21,7 +21,10 @@ const securityHeaders = [
   },
   {
     key: 'Permissions-Policy',
-    value: 'camera=(), microphone=(self), geolocation=()'
+    // camera + microphone enabled for /create's in-browser record. Geolocation
+    // intentionally blocked. 2026-05-12: was 'camera=()' which blocked browser
+    // recording even after user granted permission in the OS dialog.
+    value: 'camera=(self), microphone=(self), geolocation=()'
   },
 ];
 

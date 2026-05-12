@@ -153,7 +153,8 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'PINNED',
     subscriptionType: 'saas',
     items: [
-      { name: 'AI Video Editor', href: '/admin/editor', icon: Clapperboard, subtitle: 'The core: upload → AI cuts → ship vertical video', badge: 'New', tourId: 'nav-autoedit-pinned' },
+      { name: 'Create', href: '/create', icon: Sparkles, subtitle: 'Record, upload, or paste a link → AI clips out → publish. Replaces the old editors.', badge: 'New', tourId: 'nav-create-pinned' },
+      { name: 'My Clips', href: '/clips', icon: Clapperboard, subtitle: 'Every clip you have made, ready to repost or remix' },
       { name: 'Today', href: '/admin/today', icon: Sparkles, subtitle: 'Your daily briefing + the next thing to ship' },
     ],
   },
@@ -172,8 +173,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'CREATE',
     subscriptionType: 'saas',
     items: [
-      { name: 'AI Video Editor', href: '/admin/editor', icon: Clapperboard, subtitle: 'Auto-cut silence, add captions, ship vertical video in minutes', badge: 'New', tourId: 'nav-autoedit' },
-      { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles, subtitle: 'Generate scripts, hooks, and full content packs from one prompt', featureKey: 'skit_generator', tourId: 'nav-content-studio' },
+      { name: 'Create', href: '/create', icon: Sparkles, subtitle: 'Record, upload, or paste a link → AI clips out → publish.', badge: 'New', tourId: 'nav-create' },
       { name: 'Opportunities', href: '/admin/opportunities', icon: Lightbulb, subtitle: 'Personalized daily content ideas based on your niche and trends', minPlan: 'creator_lite' },
       { name: 'Hooks', href: '/admin/hook-generator', icon: Zap, subtitle: 'Generate scroll-stopping hooks for TikTok, Reels, and Shorts' },
       { name: 'Comment Miner', href: '/admin/comment-miner', icon: Pickaxe, subtitle: 'Find viral comments across creators and turn them into content ideas' },
@@ -260,7 +260,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'My Videos', href: '/client/videos', icon: Play },
       { name: 'All Requests', href: '/client/requests', icon: FileText },
       { name: 'Analytics', href: '/client/analytics', icon: BarChart },
-      { name: 'Content Studio', href: '/admin/content-studio', icon: Sparkles },
+      { name: 'Create', href: '/create', icon: Sparkles },
       { name: 'Comment Reply Creator', href: '/admin/tools/tok-comment', icon: MessageSquare },
       { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy },
     ],

@@ -396,6 +396,23 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   if (candErr) throw new Error(`Failed to load candidates: ${candErr.message}`);
   if (!candidates || candidates.length === 0) throw new Error('No selected candidates to assemble');
 
+  // ─── Idempotency guard ────────────────────────────────────────────────
+  // The Vercel function maxDuration is 300s but the synchronous render loop
+  // below can exceed that for multi-clip runs. When that happens, the cron
+  // re-enters stageAssemble for the same run and (without this guard) would
+  // re-INSERT every clip + ff_render_job row — producing 5× the requested
+  // clips. This guard short-circuits the insert path when rows already
+  // exist; the render loop further down then operates on the existing
+  // rows and skips any that already completed.
+  const { data: existingClips } = await supabaseAdmin
+    .from('ve_rendered_clips')
+    .select('id,candidate_id,ff_render_job_id,status,output_url,template_key,cta_key,timeline_json,watermark')
+    .eq('run_id', run.id);
+  const alreadyAssembled = !!(existingClips && existingClips.length > 0);
+  if (alreadyAssembled) {
+    console.log(`[ve-pipeline] stageAssemble re-entry for run=${run.id} — ${existingClips.length} clips already inserted, resuming renders only`);
+  }
+
   const modeCfg = getMode(run.mode);
   const templateKeys = resolveRenderTemplateKeys(
     run.mode,
@@ -423,7 +440,9 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   const dispatchRenderer = (process.env.VIDEO_ENGINE_RENDERER || 'local').toLowerCase();
   const dispatchJobKind: 'shotstack_timeline' | 'clip_render' = 'shotstack_timeline';
 
-  for (let i = 0; i < candidates.length; i++) {
+  // Skip the timeline-build + row-staging when we're re-entering — those
+  // arrays only matter for the INSERT path, which is gated on !alreadyAssembled.
+  for (let i = 0; i < candidates.length && !alreadyAssembled; i++) {
     const cand = candidates[i];
     const templateKey = templateKeys[i % templateKeys.length];
     const template = getTemplateOrDefault(templateKey, run.mode);
@@ -486,15 +505,45 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
     });
   }
 
-  // Insert rendered_clips first so a worker that picks up an ff_render_job
-  // can find its parent row by correlation_id.
-  const { error: rcErr } = await supabaseAdmin.from('ve_rendered_clips').insert(renderedRows);
-  if (rcErr) throw new Error(`Failed to insert rendered_clips: ${rcErr.message}`);
+  // Skip INSERT on re-entry — the row IDs in renderedRows/ffJobRows would
+  // collide with existing rows. We still need the IDs and the candidate map
+  // to drive the render loop, which we backfill from existingClips below.
+  if (!alreadyAssembled) {
+    const { error: rcErr } = await supabaseAdmin.from('ve_rendered_clips').insert(renderedRows);
+    if (rcErr) throw new Error(`Failed to insert rendered_clips: ${rcErr.message}`);
 
-  const { error: ffErr } = await supabaseAdmin.from('ff_render_jobs').insert(ffJobRows);
-  if (ffErr) {
-    await supabaseAdmin.from('ve_rendered_clips').delete().eq('run_id', run.id);
-    throw new Error(`Failed to enqueue ff_render_jobs: ${ffErr.message}`);
+    const { error: ffErr } = await supabaseAdmin.from('ff_render_jobs').insert(ffJobRows);
+    if (ffErr) {
+      await supabaseAdmin.from('ve_rendered_clips').delete().eq('run_id', run.id);
+      throw new Error(`Failed to enqueue ff_render_jobs: ${ffErr.message}`);
+    }
+  } else {
+    // Re-entry — rebuild the parallel arrays so the render loop below
+    // operates on the existing clip rows. Map by candidate_id so the order
+    // matches the existing rows (not the freshly-built ones).
+    renderedRows.length = 0;
+    ffJobRows.length = 0;
+    for (const ec of existingClips!) {
+      renderedRows.push({
+        id: ec.id,
+        run_id: run.id,
+        candidate_id: ec.candidate_id,
+        status: ec.status,
+        output_url: ec.output_url,
+        ff_render_job_id: ec.ff_render_job_id,
+      });
+      ffJobRows.push({
+        id: ec.ff_render_job_id,
+      });
+    }
+    // Reorder candidates to match existingClips's candidate_id order.
+    const candByCid = new Map(candidates.map((c) => [c.id, c]));
+    const reordered = existingClips!
+      .map((ec) => candByCid.get(ec.candidate_id as string))
+      .filter((c): c is typeof candidates[number] => !!c);
+    if (reordered.length === existingClips!.length) {
+      candidates.splice(0, candidates.length, ...reordered);
+    }
   }
 
   // Render each clip. Default path is local ffmpeg (reliable, no external
@@ -510,6 +559,19 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
       const jobRow = ffJobRows[i];
       const jobId = jobRow.id as string;
       const clipId = renderedRow.id as string;
+
+      // Idempotency: skip clips that are already complete from a prior tick.
+      // 'failed' rows are also skipped — they'll need manual retry. Anything
+      // else (queued / rendering with no output_url) gets re-rendered.
+      if (renderedRow.status === 'complete' && renderedRow.output_url) {
+        console.log(`[ve-pipeline] skipping clip ${clipId} — already complete`);
+        continue;
+      }
+      if (renderedRow.status === 'failed') {
+        console.log(`[ve-pipeline] skipping clip ${clipId} — previously failed`);
+        continue;
+      }
+
       const startedAt = new Date().toISOString();
 
       await supabaseAdmin

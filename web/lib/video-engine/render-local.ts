@@ -106,6 +106,25 @@ export async function renderClipLocal(input: LocalRenderInput): Promise<LocalRen
   const endSec = Math.max(startSec + 0.5, Number(input.endSec) || startSec + 1);
   const lengthSec = endSec - startSec;
 
+  // ─── /tmp pre-clean ─────────────────────────────────────────────────
+  // Vercel function /tmp is ~512MB. A 400MB source + intermediate files
+  // from a previous render that didn't finish cleanly will exhaust it
+  // and the next render dies with ENOSPC mid-write. Wipe any stale
+  // ve-* artifacts from prior invocations before we start.
+  try {
+    const tmpDir = tmpdir();
+    const { readdir } = await import('fs/promises');
+    const entries = await readdir(tmpDir);
+    let removed = 0;
+    for (const name of entries) {
+      if (!/^ve-(src|out|music|broll|frame|mod)-/.test(name)) continue;
+      try { await unlink(join(tmpDir, name)); removed++; } catch { /* ignore */ }
+    }
+    if (removed > 0) console.log(`[ve-render-local] cleaned ${removed} stale tmp files before render`);
+  } catch (e) {
+    console.warn('[ve-render-local] tmp pre-clean failed (non-fatal):', e instanceof Error ? e.message : e);
+  }
+
   const workId = randomUUID();
   const srcPath = join(tmpdir(), `ve-src-${workId}.mp4`);
   const outPath = join(tmpdir(), `ve-out-${workId}.mp4`);

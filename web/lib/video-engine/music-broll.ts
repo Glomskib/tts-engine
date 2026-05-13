@@ -1,21 +1,29 @@
 /**
  * Music + B-roll selection for /create's Post Maker mode.
  *
- * - Pixabay Music — free, no attribution, commercial-OK. ~50K tracks.
- *   API: https://pixabay.com/api/docs/#api_search_music
- *   Tracks are downloadable as MP3 via the result `audio` field.
+ * B-roll:
+ *   - Pexels Videos (primary) — free, no attribution, ~5M clips
+ *     https://www.pexels.com/api/documentation/#videos
+ *   - Pixabay Videos (fallback) — free, no attribution, ~200K clips
+ *     https://pixabay.com/api/docs/#api_search_videos
  *
- * - Pexels Videos — free, no attribution, commercial-OK. Millions of clips.
- *   API: https://www.pexels.com/api/documentation/#videos
- *   Videos are streamable/downloadable as MP4 via `video_files[].link`.
+ * Music:
+ *   - Curated R2 bundle (v1) — 50 royalty-free tracks (10 per Vibe) uploaded
+ *     to our R2 bucket under music-bundle/<vibe>/<idx>.mp3 paths. Zero API
+ *     dependency, zero per-render cost. Bundle is populated once via
+ *     scripts/seed-music-bundle.ts.
+ *   - Pixabay's public music API IS NOT accessible — their docs only expose
+ *     images + videos. Music has to be scraped at site-walk time, then we
+ *     serve from R2.
  *
- * Each Vibe maps to specific keyword queries + cadence rules. The pipeline's
- * assembling stage calls pickMusicForVibe() + pickBrollForTranscript() to
- * fetch URLs, then downloads + composites via ffmpeg.
+ * Each Vibe maps to keyword queries (for video) and a specific R2 folder
+ * (for music). Pipeline calls pickMusicForVibe() + pickBrollForTranscript()
+ * to fetch URLs, downloads, composites via ffmpeg in the assembling stage.
  *
  * Env vars:
- *   PIXABAY_API_KEY — free signup at pixabay.com/api/docs/
  *   PEXELS_API_KEY — free signup at pexels.com/api/new
+ *   PIXABAY_API_KEY — free signup at pixabay.com/api/docs/
+ *   R2_BUCKET, R2_ENDPOINT — read from for music-bundle/
  */
 
 export type Vibe = 'hype' | 'calm' | 'real' | 'funny' | 'sad' | string;
@@ -40,47 +48,46 @@ const VIBE_BROLL: Record<string, { keywords: string[]; clipsPerMinute: number; d
   sad:   { keywords: ['rain', 'lonely', 'gray sky', 'empty'],                clipsPerMinute: 3,  durationSec: 4 },
 };
 
-interface PixabayTrack {
-  id: number;
-  audio: string;
-  duration: number;
-  user: string;
-  tags: string;
-}
-
-interface PixabayMusicResponse { hits: PixabayTrack[] }
-
 /**
  * Pick a music track for a given vibe + clip duration.
- * Returns null if no API key or no match.
+ *
+ * Reads from the curated R2 music-bundle. Returns a presigned R2 GET URL
+ * the assembling stage can fetch + mix. The bundle path scheme is:
+ *   music-bundle/<vibe>/<idx>.mp3
+ * where <vibe> ∈ {hype,calm,real,funny,sad} and <idx> ∈ {01..10} (10 per vibe).
+ *
+ * Returns null if R2 not configured or bundle not yet seeded.
+ *
+ * One-time setup: run `scripts/seed-music-bundle.ts` to populate R2 with
+ * 50 royalty-free tracks tagged by Vibe.
  */
 export async function pickMusicForVibe(opts: {
   vibe: Vibe;
   clip_duration_sec: number;
-}): Promise<{ audio_url: string; track_id: number; volume_db: number; duration_sec: number } | null> {
-  const apiKey = process.env.PIXABAY_API_KEY;
-  if (!apiKey) {
-    console.warn('[music-broll] PIXABAY_API_KEY not set — skipping music');
+}): Promise<{ audio_url: string; track_id: string; volume_db: number; duration_sec: number } | null> {
+  // Lazy-import R2 helpers so this lib still type-checks without R2 envs.
+  const { isR2Configured, presignR2Url } = await import('@/lib/storage/r2');
+  if (!isR2Configured()) {
+    console.warn('[music-broll] R2 not configured — skipping music');
     return null;
   }
+
   const profile = VIBE_MUSIC[opts.vibe] || VIBE_MUSIC.real;
-  const url = `https://pixabay.com/api/music/?key=${apiKey}&q=${encodeURIComponent(profile.query)}&per_page=20`;
+  // Pick a random track 01..10 from the vibe folder
+  const idx = String(1 + Math.floor(Math.random() * 10)).padStart(2, '0');
+  const vibeFolder = String(opts.vibe).replace(/[^a-z0-9_-]/gi, '').toLowerCase() || 'real';
+  const key = `music-bundle/${vibeFolder}/${idx}.mp3`;
+
   try {
-    const resp = await fetch(url);
-    if (!resp.ok) return null;
-    const data = await resp.json() as PixabayMusicResponse;
-    if (!data.hits?.length) return null;
-    // Prefer tracks at least as long as the clip; otherwise pick longest.
-    const candidates = data.hits.filter((t) => t.duration >= opts.clip_duration_sec);
-    const chosen = (candidates.length > 0 ? candidates : data.hits)[Math.floor(Math.random() * Math.min(5, (candidates.length > 0 ? candidates : data.hits).length))];
+    const audioUrl = presignR2Url({ method: 'GET', key, expiresInSec: 3600 });
     return {
-      audio_url: chosen.audio,
-      track_id: chosen.id,
+      audio_url: audioUrl,
+      track_id: key,
       volume_db: profile.volumeDb,
-      duration_sec: chosen.duration,
+      duration_sec: opts.clip_duration_sec, // we loop or trim as needed during ffmpeg mix
     };
   } catch (err) {
-    console.warn('[music-broll] Pixabay fetch failed:', err);
+    console.warn('[music-broll] R2 music presign failed:', err);
     return null;
   }
 }

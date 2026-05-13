@@ -81,6 +81,28 @@ export async function transcribeStorageAssetViaGroq(params: {
     await writeFile(tmpPath, Buffer.from(await blob.arrayBuffer()));
   }
 
+  // 1b. NSFW moderation gate — runs before any expensive compute. If the
+  // source is flagged, we throw `content_moderation_failed` and the
+  // pipeline marks the run as failed with that reason visible in the UI.
+  // Moderation skips silently when REPLICATE_API_TOKEN or R2 isn't
+  // configured so dev/local environments don't break.
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { moderateLocalVideo } = require('./moderation') as typeof import('./moderation');
+    const verdict = await moderateLocalVideo(tmpPath);
+    if (!verdict.ok) {
+      // Clean up the tmp file before we throw — finally{} only runs on
+      // returns, and we're aborting early.
+      try { if (existsSync(tmpPath)) await unlink(tmpPath); } catch { /* ignore */ }
+      throw new Error(`content_moderation_failed: ${verdict.reason ?? 'NSFW detected'}`);
+    }
+  } catch (e) {
+    // Re-throw moderation rejections; swallow infra errors so transient
+    // Replicate outages don't kill legitimate runs.
+    if (e instanceof Error && e.message.startsWith('content_moderation_failed')) throw e;
+    console.warn('[transcribe-groq] moderation pass non-fatal:', e instanceof Error ? e.message : e);
+  }
+
   let finalPath = tmpPath;
   const fsize = statSync(tmpPath).size;
 

@@ -101,7 +101,7 @@ async function fetchSource(input: LocalRenderInput, dest: string): Promise<void>
 }
 
 export async function renderClipLocal(input: LocalRenderInput): Promise<LocalRenderResult> {
-  const { sourceBucket, sourcePath, userId, clipId } = input;
+  const { userId, clipId } = input;
   const startSec = Math.max(0, Number(input.startSec) || 0);
   const endSec = Math.max(startSec + 0.5, Number(input.endSec) || startSec + 1);
   const lengthSec = endSec - startSec;
@@ -109,17 +109,39 @@ export async function renderClipLocal(input: LocalRenderInput): Promise<LocalRen
   const workId = randomUUID();
   const srcPath = join(tmpdir(), `ve-src-${workId}.mp4`);
   const outPath = join(tmpdir(), `ve-out-${workId}.mp4`);
-  const cleanup = [srcPath, outPath];
+  const musicPath = join(tmpdir(), `ve-music-${workId}.mp3`);
+  const cleanup: string[] = [srcPath, outPath];
 
   try {
-    // Download source from Supabase Storage.
-    const { data: blob, error: dlErr } = await supabaseAdmin.storage
-      .from(sourceBucket)
-      .download(sourcePath);
-    if (dlErr || !blob) {
-      throw new Error(`Failed to download source ${sourceBucket}/${sourcePath}: ${dlErr?.message ?? 'no blob'}`);
+    // Source: Supabase SDK or HTTPS (R2 / external).
+    await fetchSource(input, srcPath);
+
+    // Music + B-roll downloads run in parallel — none of them block source-fetch.
+    const brollPaths: { path: string; at: number; dur: number }[] = [];
+    const assetDownloads: Promise<unknown>[] = [];
+
+    if (input.music?.audio_url) {
+      assetDownloads.push(downloadUrl(input.music.audio_url, musicPath).catch((e) => {
+        console.warn(`[ve-render-local] music download failed: ${(e as Error).message}`);
+      }));
+      cleanup.push(musicPath);
     }
-    await writeFile(srcPath, Buffer.from(await blob.arrayBuffer()));
+
+    if (Array.isArray(input.broll) && input.broll.length > 0) {
+      // Cap at 6 cutaways per clip so ffmpeg filter graph stays reasonable.
+      for (const [idx, b] of input.broll.slice(0, 6).entries()) {
+        const bPath = join(tmpdir(), `ve-broll-${workId}-${idx}.mp4`);
+        cleanup.push(bPath);
+        brollPaths.push({ path: bPath, at: b.at_sec, dur: b.duration_sec });
+        assetDownloads.push(downloadUrl(b.video_url, bPath).catch((e) => {
+          console.warn(`[ve-render-local] broll download failed for ${idx}: ${(e as Error).message}`);
+          // mark as missing so we skip it in the filter graph
+          brollPaths[brollPaths.length - 1].path = '';
+        }));
+      }
+    }
+
+    if (assetDownloads.length > 0) await Promise.all(assetDownloads);
 
     // ─── Pre-probe: detect leading dead-space so we can start on the punch ───
     // silencedetect emits `silence_end: <sec>` lines on stderr. If the clip
@@ -167,26 +189,100 @@ export async function renderClipLocal(input: LocalRenderInput): Promise<LocalRen
     const fadeOutStart = Math.max(0, trimmedLength - fadeOutSec).toFixed(3);
     const vFilter = `fade=t=in:st=0:d=${fadeInSec}${fadeOutSec > 0 ? `,fade=t=out:st=${fadeOutStart}:d=${fadeOutSec.toFixed(3)}` : ''}`;
     const aFilter = `acompressor=threshold=-18dB:ratio=3:attack=5:release=200,loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=in:st=0:d=${fadeInSec}${fadeOutSec > 0 ? `,afade=t=out:st=${fadeOutStart}:d=${fadeOutSec.toFixed(3)}` : ''}`;
-    await execFileAsync(
-      ffmpeg,
-      [
-        '-i', srcPath,
-        '-ss', trimmedStart.toFixed(3),
-        '-t', trimmedLength.toFixed(3),
-        '-vf', vFilter,
-        '-af', aFilter,
-        '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-crf', '23',
-        '-pix_fmt', 'yuv420p',
-        '-movflags', '+faststart',
-        '-c:a', 'aac',
-        '-b:a', '128k',
-        '-y',
-        outPath,
-      ],
-      { timeout: 180_000, maxBuffer: 32 * 1024 * 1024 },
-    );
+
+    const validBroll = brollPaths.filter((b) => b.path && existsSync(b.path));
+    const hasMusic = existsSync(musicPath);
+    const hasOverlay = validBroll.length > 0 || hasMusic;
+
+    if (!hasOverlay) {
+      // Fast path — simple slice + audio polish.
+      await execFileAsync(
+        ffmpeg,
+        [
+          '-i', srcPath,
+          '-ss', trimmedStart.toFixed(3),
+          '-t', trimmedLength.toFixed(3),
+          '-vf', vFilter,
+          '-af', aFilter,
+          '-c:v', 'libx264',
+          '-preset', 'veryfast',
+          '-crf', '23',
+          '-pix_fmt', 'yuv420p',
+          '-movflags', '+faststart',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-y',
+          outPath,
+        ],
+        { timeout: 180_000, maxBuffer: 32 * 1024 * 1024 },
+      );
+    } else {
+      // Compositing path — filter_complex with optional broll overlays + music.
+      const args: string[] = ['-i', srcPath];
+      if (hasMusic) args.push('-stream_loop', '-1', '-i', musicPath);
+      for (const b of validBroll) args.push('-i', b.path);
+
+      const parts: string[] = [];
+      // Trim source to clip window + apply vocal polish + fades.
+      parts.push(
+        `[0:v]trim=start=${trimmedStart.toFixed(3)}:duration=${trimmedLength.toFixed(3)},setpts=PTS-STARTPTS,${vFilter}[vbase]`,
+      );
+      parts.push(
+        `[0:a]atrim=start=${trimmedStart.toFixed(3)}:duration=${trimmedLength.toFixed(3)},asetpts=PTS-STARTPTS,${aFilter}[abase]`,
+      );
+
+      // Chain B-roll overlays. Each broll is shifted so its frame 0 aligns
+      // with its scheduled at_sec, then enable= controls visibility window.
+      let curV = 'vbase';
+      const brollFirstIdx = hasMusic ? 2 : 1;
+      for (let i = 0; i < validBroll.length; i++) {
+        const b = validBroll[i];
+        const at = Math.max(0, Math.min(b.at, trimmedLength - 0.2));
+        const dur = Math.max(0.4, Math.min(b.dur, trimmedLength - at));
+        if (dur <= 0.4) continue;
+        const inIdx = brollFirstIdx + i;
+        parts.push(
+          `[${inIdx}:v]scale=iw:ih,setpts=PTS-STARTPTS+${at.toFixed(3)}/TB[br${i}]`,
+        );
+        const nextV = i === validBroll.length - 1 ? 'vout' : `vmix${i}`;
+        parts.push(
+          `[${curV}][br${i}]overlay=enable='between(t,${at.toFixed(3)},${(at + dur).toFixed(3)})':eof_action=pass[${nextV}]`,
+        );
+        curV = nextV;
+      }
+      if (curV !== 'vout') parts.push(`[${curV}]null[vout]`);
+
+      // Mix in music (ducked under speech). Music input loops via -stream_loop -1.
+      if (hasMusic) {
+        const musicVol = Number.isFinite(input.music?.volume_db) ? input.music!.volume_db : -16;
+        parts.push(`[1:a]volume=${musicVol}dB,atrim=duration=${trimmedLength.toFixed(3)},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.4,afade=t=out:st=${Math.max(0, trimmedLength - 0.6).toFixed(3)}:d=0.6[mbg]`);
+        parts.push(`[abase][mbg]amix=inputs=2:duration=first:weights=1 0.6:normalize=0[aout]`);
+      } else {
+        parts.push(`[abase]anull[aout]`);
+      }
+
+      const filterComplex = parts.join(';');
+      await execFileAsync(
+        ffmpeg,
+        [
+          ...args,
+          '-filter_complex', filterComplex,
+          '-map', '[vout]',
+          '-map', '[aout]',
+          '-c:v', 'libx264',
+          '-preset', 'veryfast',
+          '-crf', '23',
+          '-pix_fmt', 'yuv420p',
+          '-movflags', '+faststart',
+          '-c:a', 'aac',
+          '-b:a', '128k',
+          '-shortest',
+          '-y',
+          outPath,
+        ],
+        { timeout: 240_000, maxBuffer: 64 * 1024 * 1024 },
+      );
+    }
 
     if (!existsSync(outPath)) throw new Error('ffmpeg produced no output file');
     const { size: bytes } = await stat(outPath);
@@ -195,19 +291,49 @@ export async function renderClipLocal(input: LocalRenderInput): Promise<LocalRen
     const outputStoragePath = `ve-renders/${userId}/${clipId}.mp4`;
     const body = await readFile(outPath);
 
+    // Prefer R2 for renders when configured (free egress at scale).
+    if (isR2Configured()) {
+      const r2Bucket = process.env.R2_BUCKET || 'flashflow-output';
+      const r2Key = `ve-renders/${userId}/${clipId}.mp4`;
+      const putUrl = presignR2Url({ method: 'PUT', key: r2Key, expiresInSec: 600, contentType: 'video/mp4' });
+      const putResp = await fetch(putUrl, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'video/mp4' },
+        body,
+      });
+      if (!putResp.ok) {
+        const text = await putResp.text().catch(() => '');
+        throw new Error(`R2 PUT failed ${putResp.status}: ${text.slice(0, 200)}`);
+      }
+      // Signed read URL for the client. 7-day window so the UI download link
+      // outlives the typical user review/repost cadence.
+      const readUrl = presignR2Url({ method: 'GET', key: r2Key, expiresInSec: 7 * 24 * 3600 });
+      return {
+        outputUrl: readUrl,
+        outputPath: r2Key,
+        outputBucket: r2Bucket,
+        outputBackend: 'r2',
+        durationSec: trimmedLength,
+        bytes,
+      };
+    }
+
+    // Fallback: Supabase Storage public bucket.
     const { error: upErr } = await supabaseAdmin.storage
-      .from(OUTPUT_BUCKET)
+      .from(SUPA_OUTPUT_BUCKET)
       .upload(outputStoragePath, body, {
         contentType: 'video/mp4',
         upsert: true,
       });
     if (upErr) throw new Error(`Failed to upload rendered clip: ${upErr.message}`);
 
-    const outputUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${OUTPUT_BUCKET}/${outputStoragePath}`;
+    const outputUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/${SUPA_OUTPUT_BUCKET}/${outputStoragePath}`;
 
     return {
       outputUrl,
       outputPath: outputStoragePath,
+      outputBucket: SUPA_OUTPUT_BUCKET,
+      outputBackend: 'supabase',
       durationSec: trimmedLength,
       bytes,
     };

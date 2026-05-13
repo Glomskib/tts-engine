@@ -30,6 +30,7 @@ import { resolveRenderTemplateKeys, getTemplateOrDefault } from './templates';
 import { getCTAOrDefault } from './ctas';
 import { renderVideo as shotstackRenderVideo, getRenderStatus as shotstackGetStatus } from '@/lib/shotstack';
 import { renderClipLocal } from './render-local';
+import { pickMusicForVibe, pickBrollForTranscript } from './music-broll';
 import { deriveInsights } from './insights';
 import { detectIntent } from './intent';
 import { resolveVEPlan, WATERMARK_TEXT } from './limits';
@@ -514,13 +515,40 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
         .eq('id', clipId);
 
       try {
+        // Music + B-roll layering — only for affiliate/nonprofit (Post Maker
+        // polish output). Clipper mode is volume-first → skip enrichment to
+        // keep renders fast and source-faithful.
+        const ctx = (run.context_json ?? {}) as Record<string, unknown>;
+        const vibe = (ctx.vibe as string) || 'real';
+        const enrich = run.mode === 'affiliate' || run.mode === 'nonprofit';
+        const clipDuration = Math.max(0.5, Number(cand.end_sec) - Number(cand.start_sec));
+
+        let music: { audio_url: string; volume_db: number } | null = null;
+        let broll: Array<{ at_sec: number; duration_sec: number; video_url: string }> = [];
+        if (enrich) {
+          try {
+            music = await pickMusicForVibe({ vibe, clip_duration_sec: clipDuration });
+          } catch (e) { console.warn('[ve-pipeline] music pick failed:', (e as Error).message); }
+          try {
+            broll = await pickBrollForTranscript({
+              vibe,
+              transcript_text: String(cand.text || ''),
+              total_duration_sec: clipDuration,
+              vertical: true,
+            });
+          } catch (e) { console.warn('[ve-pipeline] broll pick failed:', (e as Error).message); }
+        }
+
         const result = await renderClipLocal({
           sourceBucket: asset.storage_bucket,
           sourcePath: asset.storage_path,
+          sourceUrl: asset.storage_url || null,
           startSec: Number(cand.start_sec),
           endSec: Number(cand.end_sec),
           userId: run.user_id,
           clipId,
+          music: music ? { audio_url: music.audio_url, volume_db: music.volume_db } : null,
+          broll: broll.map((b) => ({ at_sec: b.at_sec, duration_sec: b.duration_sec, video_url: b.video_url })),
         });
         const completedAt = new Date().toISOString();
         await supabaseAdmin

@@ -126,6 +126,28 @@ async function setStatus(
 
 async function fail(runId: string, err: unknown, fromStatus: RunStatus = 'created'): Promise<TickResult> {
   const message = err instanceof Error ? err.message : String(err);
+
+  // Sentry breadcrumb — at $50K MRR every failed run needs a structured
+  // capture so we can debug at 2am via the dashboard, not via log diving.
+  // Lazy-import so we don't add Sentry overhead to a healthy run.
+  try {
+    const SentryMod = await import('@sentry/nextjs');
+    SentryMod.captureException(err instanceof Error ? err : new Error(message), {
+      tags: {
+        pipeline_stage: fromStatus,
+        run_id: runId,
+        ff_subsystem: 'video-engine',
+      },
+      extra: {
+        runId,
+        fromStatus,
+        message: message.slice(0, 1000),
+      },
+    });
+  } catch {
+    // Sentry not configured — fall through silently
+  }
+
   await supabaseAdmin
     .from('ve_runs')
     .update({

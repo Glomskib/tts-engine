@@ -57,6 +57,83 @@ export async function GET() {
     message: process.env.STRIPE_SECRET_KEY ? undefined : 'Not configured',
   });
 
+  // Groq Whisper — transcription. Just env-check + quick HEAD; we don't burn
+  // an API quota just for health checks.
+  checks.push({
+    name: 'groq',
+    status: process.env.GROQ_API_KEY ? 'pass' : 'fail',
+    message: process.env.GROQ_API_KEY ? undefined : 'GROQ_API_KEY missing — transcription falls back to OpenAI',
+  });
+
+  // Replicate — render compute
+  checks.push({
+    name: 'replicate',
+    status: process.env.REPLICATE_API_TOKEN ? 'pass' : 'fail',
+    message: process.env.REPLICATE_API_TOKEN ? undefined : 'REPLICATE_API_TOKEN missing — face-tracking + AI b-roll disabled',
+  });
+
+  // Anthropic — hook ranker
+  checks.push({
+    name: 'anthropic',
+    status: process.env.ANTHROPIC_API_KEY ? 'pass' : 'fail',
+    message: process.env.ANTHROPIC_API_KEY ? undefined : 'ANTHROPIC_API_KEY missing — hook ranker falls back to deterministic',
+  });
+
+  // R2 — storage
+  const r2Configured = !!(process.env.R2_ACCESS_KEY_ID && process.env.R2_SECRET_ACCESS_KEY
+                       && process.env.R2_ENDPOINT && process.env.R2_BUCKET);
+  checks.push({
+    name: 'r2_storage',
+    status: r2Configured ? 'pass' : 'fail',
+    message: r2Configured ? undefined : 'R2 not configured — uploads fall back to Supabase Storage (50MB cap)',
+  });
+
+  // Pexels — B-roll
+  checks.push({
+    name: 'pexels',
+    status: process.env.PEXELS_API_KEY ? 'pass' : 'fail',
+    message: process.env.PEXELS_API_KEY ? undefined : 'PEXELS_API_KEY missing — B-roll cutaways disabled',
+  });
+
+  // Stripe webhook signing secret — critical for production
+  checks.push({
+    name: 'stripe_webhook_secret',
+    status: process.env.STRIPE_WEBHOOK_SECRET_CREATE ? 'pass' : 'fail',
+    message: process.env.STRIPE_WEBHOOK_SECRET_CREATE
+      ? undefined
+      : 'STRIPE_WEBHOOK_SECRET_CREATE missing — webhook accepts unsigned events (forgery risk)',
+  });
+
+  // ve_runs queue depth — early warning for pipeline backlog
+  const queueStart = Date.now();
+  try {
+    const { count: pendingCount } = await supabaseAdmin
+      .from('ve_runs')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['created', 'transcribing', 'analyzing', 'assembling', 'rendering']);
+
+    const depth = pendingCount ?? 0;
+    // Yellow at 50 in queue, red at 200 (we process up to 25/min = backlog
+    // means we're losing the race against incoming jobs).
+    let qStatus: 'pass' | 'fail' = 'pass';
+    let qMsg: string | undefined;
+    if (depth > 200) { qStatus = 'fail'; qMsg = `Queue depth ${depth} — pipeline backlog`; }
+    else if (depth > 50) { qMsg = `Queue depth ${depth} — busy but OK`; }
+    checks.push({
+      name: 'pipeline_queue',
+      status: qStatus,
+      message: qMsg,
+      responseTime: Date.now() - queueStart,
+    });
+  } catch (err) {
+    checks.push({
+      name: 'pipeline_queue',
+      status: 'fail',
+      message: err instanceof Error ? err.message : 'queue check failed',
+      responseTime: Date.now() - queueStart,
+    });
+  }
+
   // Determine overall status
   const failedChecks = checks.filter((c) => c.status === 'fail');
   const dbFailed = failedChecks.some((c) => c.name === 'database');

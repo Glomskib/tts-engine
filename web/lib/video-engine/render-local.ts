@@ -21,10 +21,14 @@ import { randomUUID } from 'crypto';
 import { execFile, execSync } from 'child_process';
 import { promisify } from 'util';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { isR2Configured, presignR2Url } from '@/lib/storage/r2';
 
 const execFileAsync = promisify(execFile);
 
-const OUTPUT_BUCKET = 'renders';
+const SUPA_OUTPUT_BUCKET = 'renders';
+
+interface BrollClip { at_sec: number; duration_sec: number; video_url: string }
+interface MusicTrack { audio_url: string; volume_db: number }
 
 function getFFmpegPath(): string {
   try {
@@ -41,17 +45,59 @@ function getFFmpegPath(): string {
 export interface LocalRenderInput {
   sourceBucket: string;
   sourcePath: string;
+  /** Optional — when set, the source is fetched directly via this URL instead
+   *  of via Supabase SDK. Used for R2 + external sources. */
+  sourceUrl?: string | null;
   startSec: number;
   endSec: number;
   userId: string;
   clipId: string;
+  /** Optional music track to mix under the speech. Music ducks below speech. */
+  music?: MusicTrack | null;
+  /** Optional B-roll cutaways. Each clip overlays at at_sec for duration_sec. */
+  broll?: BrollClip[];
 }
 
 export interface LocalRenderResult {
   outputUrl: string;
   outputPath: string;
+  outputBucket: string;
+  outputBackend: 'r2' | 'supabase';
   durationSec: number;
   bytes: number;
+}
+
+/**
+ * Download a remote URL (R2 signed URL, public URL, etc.) to a tmp file.
+ */
+async function downloadUrl(url: string, dest: string): Promise<void> {
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error(`fetch ${url}: ${resp.status}`);
+  await writeFile(dest, Buffer.from(await resp.arrayBuffer()));
+}
+
+/**
+ * Resolve the source to a local tmp file.
+ * - If sourceUrl provided → fetch via HTTPS
+ * - Else → use Supabase SDK to download from sourceBucket/sourcePath
+ */
+async function fetchSource(input: LocalRenderInput, dest: string): Promise<void> {
+  const isR2 = input.sourceBucket === (process.env.R2_BUCKET || 'flashflow-output')
+            || input.sourceBucket?.startsWith('r2');
+  if (input.sourceUrl) {
+    await downloadUrl(input.sourceUrl, dest);
+    return;
+  }
+  if (isR2) {
+    throw new Error('R2 source needs sourceUrl');
+  }
+  const { data: blob, error: dlErr } = await supabaseAdmin.storage
+    .from(input.sourceBucket)
+    .download(input.sourcePath);
+  if (dlErr || !blob) {
+    throw new Error(`Failed to download source ${input.sourceBucket}/${input.sourcePath}: ${dlErr?.message ?? 'no blob'}`);
+  }
+  await writeFile(dest, Buffer.from(await blob.arrayBuffer()));
 }
 
 export async function renderClipLocal(input: LocalRenderInput): Promise<LocalRenderResult> {

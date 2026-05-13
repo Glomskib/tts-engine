@@ -32,13 +32,87 @@ const VIBES: { key: Vibe; label: string; emoji: string; hint: string }[] = [
   { key: 'sad',   label: 'Sad',   emoji: '💔', hint: 'Heavy moments, minor key, lingering shots' },
 ];
 
-const CAPTION_STYLES: { key: string; label: string; preview: string }[] = [
-  { key: 'karaoke',      label: 'Karaoke',         preview: 'Word-by-word highlight — highest retention' },
-  { key: 'bold_yellow',  label: 'Bold Yellow',     preview: 'Big yellow MrBeast-style' },
-  { key: 'subtle_white', label: 'Subtle White',    preview: 'Clean white, no fuss' },
-  { key: 'mr_beast',     label: 'MrBeast Big',     preview: 'Huge bold + outline' },
-  { key: 'newscast',     label: 'Two-Line News',   preview: 'Bottom 2-line styled' },
-  { key: 'slow_reader',  label: 'Slow Reader',     preview: 'Bigger text, slower pace' },
+/**
+ * Caption style registry. Each entry carries the metadata for the picker AND
+ * a `renderPreview()` that draws a stylized mini-mockup of what that caption
+ * looks like over a video frame. The mockups are CSS — no images — so they
+ * load instantly and stay sharp on any DPI.
+ */
+const CAPTION_STYLES: {
+  key: string;
+  label: string;
+  preview: string;
+  /** A tiny mock of the caption rendered on a mock video frame. */
+  renderPreview: () => React.ReactNode;
+}[] = [
+  {
+    key: 'karaoke',
+    label: 'Karaoke',
+    preview: 'Word-by-word highlight — highest retention',
+    renderPreview: () => (
+      <div className="flex items-center justify-center gap-1 font-extrabold text-base">
+        <span className="text-white">THIS</span>
+        <span className="text-yellow-400 bg-black/70 px-1 rounded">HOOK</span>
+        <span className="text-white/50">SLAPS</span>
+      </div>
+    ),
+  },
+  {
+    key: 'bold_yellow',
+    label: 'Bold Yellow',
+    preview: 'Big yellow with black stroke',
+    renderPreview: () => (
+      <div
+        className="text-yellow-400 font-black text-lg tracking-tight"
+        style={{ WebkitTextStroke: '1.5px black', textShadow: '0 2px 6px rgba(0,0,0,0.8)' }}
+      >
+        THIS HOOK
+      </div>
+    ),
+  },
+  {
+    key: 'subtle_white',
+    label: 'Subtle White',
+    preview: 'Clean white, no fuss',
+    renderPreview: () => (
+      <div className="text-white font-medium text-sm" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.7)' }}>
+        this hook is clean
+      </div>
+    ),
+  },
+  {
+    key: 'mr_beast',
+    label: 'MrBeast Big',
+    preview: 'Huge bold with thick outline',
+    renderPreview: () => (
+      <div
+        className="text-white font-black text-xl tracking-tight uppercase"
+        style={{ WebkitTextStroke: '2px black', textShadow: '0 3px 8px rgba(0,0,0,0.9)' }}
+      >
+        WAIT FOR IT
+      </div>
+    ),
+  },
+  {
+    key: 'newscast',
+    label: 'Two-Line News',
+    preview: 'Bottom 2-line styled bar',
+    renderPreview: () => (
+      <div className="absolute bottom-1 left-1 right-1 bg-red-700 text-white text-[10px] font-bold uppercase px-2 py-1 leading-tight tracking-wide">
+        BREAKING<br />THIS HOOK
+      </div>
+    ),
+  },
+  {
+    key: 'slow_reader',
+    label: 'Slow Reader',
+    preview: 'Bigger text, slower pace',
+    renderPreview: () => (
+      <div className="text-white font-semibold text-lg" style={{ textShadow: '0 2px 4px rgba(0,0,0,0.7)' }}>
+        this · hook · is · slow
+      </div>
+    ),
+  },
 ];
 
 interface BrandProfile { id: string; name: string; tone_descriptor: string | null }
@@ -583,19 +657,31 @@ export default function CreatePage() {
           </div>
         </Section>
 
-        {/* 6 · Caption style */}
+        {/* 6 · Caption style — visual previews so users see exactly what they're picking */}
         <Section title="6 · Caption style">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {CAPTION_STYLES.map((s) => (
               <button
                 key={s.key}
                 onClick={() => setCaptionStyle(s.key)}
-                className={`p-3 rounded-lg border text-left transition-colors ${
+                className={`rounded-lg border text-left transition-colors overflow-hidden ${
                   captionStyle === s.key ? 'bg-teal-600/20 border-teal-500' : 'bg-gray-900 border-gray-700 hover:border-gray-500'
                 }`}
               >
-                <div className="text-sm font-medium">{s.label}</div>
-                <div className="text-xs text-gray-400 mt-1 leading-tight">{s.preview}</div>
+                {/* Mock video frame with the actual caption style rendered on it */}
+                <div
+                  className="relative h-20 flex items-center justify-center overflow-hidden"
+                  style={{
+                    background:
+                      'linear-gradient(135deg, #1e293b 0%, #334155 40%, #475569 70%, #64748b 100%)',
+                  }}
+                >
+                  {s.renderPreview()}
+                </div>
+                <div className="p-2">
+                  <div className="text-sm font-medium">{s.label}</div>
+                  <div className="text-xs text-gray-400 leading-tight">{s.preview}</div>
+                </div>
               </button>
             ))}
           </div>

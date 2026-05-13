@@ -161,8 +161,11 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Redirect authenticated users from landing page to the Create flow (V1)
-  if (user && path === '/') {
+  // Redirect authenticated users from landing page to the Create flow (V1).
+  // Bypass with ?marketing=1 so Brandon can preview the public homepage
+  // while logged in.
+  const marketingBypass = request.nextUrl.searchParams.get('marketing') === '1'
+  if (user && path === '/' && !marketingBypass) {
     return NextResponse.redirect(new URL('/create', request.url))
   }
 

@@ -149,9 +149,11 @@ async function stageTranscribe(run: RunRow): Promise<RunStatus> {
 
   // transcribeWithFallback prefers Groq (60x cheaper, 30x faster) and falls back
   // to OpenAI Whisper if Groq is unconfigured or errors. Reads GROQ_API_KEY at runtime.
+  // storage_url is passed so R2-backed assets can be fetched via signed URL.
   const result = await transcribeWithFallback({
     storage_bucket: asset.storage_bucket,
     storage_path: asset.storage_path,
+    storage_url: asset.storage_url,
   });
 
   // Persist transcript + chunks atomically (best-effort — Supabase REST has no real tx).

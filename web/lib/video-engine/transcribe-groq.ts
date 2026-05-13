@@ -49,22 +49,37 @@ export interface GroqTranscriptResult {
 export async function transcribeStorageAssetViaGroq(params: {
   storage_bucket: string;
   storage_path: string;
+  storage_url?: string | null;  // For R2 / external sources we fetch via signed URL
 }): Promise<GroqTranscriptResult> {
   const groqKey = process.env.GROQ_API_KEY;
   if (!groqKey) throw new Error('GROQ_API_KEY not configured');
 
-  // 1. Download the asset
-  const { data: blob, error: dlError } = await supabaseAdmin.storage
-    .from(params.storage_bucket)
-    .download(params.storage_path);
-  if (dlError || !blob) {
-    throw new Error(`Storage download failed: ${dlError?.message}`);
-  }
+  // 1. Download the asset.
+  // R2 (or any non-Supabase bucket): fetch directly via the signed URL
+  //   we stored at job-create time.
+  // Supabase: use the storage SDK.
+  const isR2 = params.storage_bucket === 'flashflow-output'
+            || params.storage_bucket === (process.env.R2_BUCKET || '')
+            || params.storage_bucket?.startsWith('r2');
 
   const ext = (params.storage_path.split('.').pop() || 'mp4').toLowerCase();
   const safeExt = ALLOWED_EXTS.has(ext) ? ext : 'mp4';
   const tmpPath = join(tmpdir(), `groq-${randomUUID()}.${safeExt}`);
-  await writeFile(tmpPath, Buffer.from(await blob.arrayBuffer()));
+
+  if (isR2) {
+    if (!params.storage_url) throw new Error('R2 download requires storage_url');
+    const resp = await fetch(params.storage_url);
+    if (!resp.ok) throw new Error(`R2 fetch ${resp.status}: ${resp.statusText}`);
+    await writeFile(tmpPath, Buffer.from(await resp.arrayBuffer()));
+  } else {
+    const { data: blob, error: dlError } = await supabaseAdmin.storage
+      .from(params.storage_bucket)
+      .download(params.storage_path);
+    if (dlError || !blob) {
+      throw new Error(`Storage download failed: ${dlError?.message}`);
+    }
+    await writeFile(tmpPath, Buffer.from(await blob.arrayBuffer()));
+  }
 
   let finalPath = tmpPath;
   const fsize = statSync(tmpPath).size;
@@ -130,6 +145,7 @@ export async function transcribeStorageAssetViaGroq(params: {
 export async function transcribeWithFallback(params: {
   storage_bucket: string;
   storage_path: string;
+  storage_url?: string | null;
 }): Promise<GroqTranscriptResult> {
   if (process.env.GROQ_API_KEY) {
     try {
@@ -138,8 +154,11 @@ export async function transcribeWithFallback(params: {
       console.warn('[transcribe] Groq failed, falling back to OpenAI:', err instanceof Error ? err.message : err);
     }
   }
-  // Fallback to existing OpenAI Whisper path
+  // Fallback to existing OpenAI Whisper path (Supabase-only)
   const { transcribeStorageAsset } = await import('./transcribe');
-  const r = await transcribeStorageAsset(params);
+  const r = await transcribeStorageAsset({
+    storage_bucket: params.storage_bucket,
+    storage_path: params.storage_path,
+  });
   return r;
 }

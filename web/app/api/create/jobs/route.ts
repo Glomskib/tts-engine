@@ -25,8 +25,7 @@ import { generateCorrelationId } from '@/lib/api-errors';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const SOURCE_BUCKET = 'clip-sources';
-const RENDERS_BUCKET = 'renders'; // existing engine writes here
+const SUPA_SOURCE_BUCKET = 'clip-sources';
 
 interface CreateBody {
   source_url?: string;
@@ -37,6 +36,43 @@ interface CreateBody {
   caption_style?: string;
   clip_count?: number;
   aspect_ratios?: string[];
+  /** Storage path returned by /api/create/upload-url — passed back so we
+   *  don't have to re-parse it from the signed URL. */
+  storage_path?: string;
+  /** 'r2' | 'supabase' — also from /api/create/upload-url */
+  backend?: string;
+}
+
+/**
+ * Identify storage backend from the source URL pattern.
+ * Returns { bucket, path } the pipeline can use to download.
+ */
+function parseSourceLocation(sourceUrl: string, storagePathHint?: string, backendHint?: string):
+  { bucket: string; path: string } {
+  // R2: <account-id>.r2.cloudflarestorage.com/<bucket>/<key>?X-Amz-...
+  if (backendHint === 'r2' || /r2\.cloudflarestorage\.com/.test(sourceUrl)) {
+    const bucket = process.env.R2_BUCKET || 'flashflow-output';
+    if (storagePathHint) return { bucket, path: storagePathHint };
+    // Parse path out of URL
+    try {
+      const u = new URL(sourceUrl);
+      // pathname is /<bucket>/<key...>
+      const parts = u.pathname.split('/').filter(Boolean);
+      if (parts.length >= 2 && parts[0] === bucket) {
+        return { bucket, path: parts.slice(1).join('/') };
+      }
+      return { bucket, path: u.pathname.replace(/^\//, '') };
+    } catch {
+      return { bucket, path: storagePathHint || 'unknown' };
+    }
+  }
+  // Supabase: https://<proj>.supabase.co/storage/v1/object/(sign|public)/<bucket>/<path>
+  try {
+    const u = new URL(sourceUrl);
+    const m = u.pathname.match(/\/object\/(?:sign|public)\/([^/]+)\/(.+)$/);
+    if (m) return { bucket: m[1], path: m[2] };
+  } catch { /* fall through */ }
+  return { bucket: SUPA_SOURCE_BUCKET, path: storagePathHint || 'unknown' };
 }
 
 function vibeToContext(vibe: string): Record<string, string> {
@@ -140,15 +176,17 @@ export async function POST(req: NextRequest) {
 
   // Attach the asset (uploaded file OR link) — required by the pipeline tick worker
   if (sourceUrl) {
-    // sourceUrl is a Supabase signed read URL from /api/create/upload-url
+    // sourceUrl is a presigned read URL from /api/create/upload-url.
+    // Detects R2 vs Supabase from the URL pattern + hints.
+    const { bucket, path } = parseSourceLocation(sourceUrl, body.storage_path, body.backend);
     const { error: assetErr } = await supabaseAdmin.from('ve_assets').insert({
       run_id: run.id,
       user_id: userId,
-      storage_bucket: SOURCE_BUCKET,
-      storage_path: extractStoragePath(sourceUrl, SOURCE_BUCKET) || 'unknown',
+      storage_bucket: bucket,
+      storage_path: path,
       storage_url: sourceUrl,
       original_filename: null,
-      metadata: { source_kind: 'upload' },
+      metadata: { source_kind: 'upload', backend: body.backend || (bucket === (process.env.R2_BUCKET || 'flashflow-output') ? 'r2' : 'supabase') },
     });
     if (assetErr) {
       console.error('[create/jobs] asset insert failed', assetErr);
@@ -159,7 +197,7 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin.from('ve_assets').insert({
       run_id: run.id,
       user_id: userId,
-      storage_bucket: SOURCE_BUCKET,
+      storage_bucket: SUPA_SOURCE_BUCKET,
       storage_path: `link/${run.id}`,
       storage_url: sourceLink,
       original_filename: sourceLink,

@@ -62,6 +62,8 @@ export default function CreatePage() {
   const [uploadProgress, setUploadProgress] = useState<number | null>(null);
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [sourceName, setSourceName] = useState<string | null>(null);
+  const [sourceStoragePath, setSourceStoragePath] = useState<string | null>(null);
+  const [sourceBackend, setSourceBackend] = useState<string | null>(null);
   const [linkValue, setLinkValue] = useState('');
   const [creating, setCreating] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -148,6 +150,8 @@ export default function CreatePage() {
 
       setSourceUrl(reqJson.public_url);
       setSourceName(file.name);
+      setSourceStoragePath(reqJson.storage_path || null);
+      setSourceBackend(reqJson.backend || null);
       setUploadProgress(100);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
@@ -212,6 +216,8 @@ export default function CreatePage() {
       const body = {
         source_url: sourceUrl,
         source_link: linkValue || null,
+        storage_path: sourceStoragePath,
+        backend: sourceBackend,
         describe,
         vibe: vibe === 'custom' ? customVibe : vibe,
         brand_profile_id: brandId,
@@ -235,11 +241,11 @@ export default function CreatePage() {
     } finally {
       setCreating(false);
     }
-  }, [sourceUrl, linkValue, describe, vibe, customVibe, brandId, captionStyle, clipCount, aspectRatios]);
+  }, [sourceUrl, sourceStoragePath, sourceBackend, linkValue, describe, vibe, customVibe, brandId, captionStyle, clipCount, aspectRatios]);
 
   // ── UI ────────────────────────────────────────────────────────────────
   if (jobId) {
-    return <JobProgress jobId={jobId} onNewJob={() => { setJobId(null); setSourceUrl(null); setSourceName(null); setLinkValue(''); setUploadProgress(null); }} />;
+    return <JobProgress jobId={jobId} onNewJob={() => { setJobId(null); setSourceUrl(null); setSourceName(null); setSourceStoragePath(null); setSourceBackend(null); setLinkValue(''); setUploadProgress(null); }} />;
   }
 
   return (
@@ -306,7 +312,7 @@ export default function CreatePage() {
                 <div className="border-2 border-dashed border-gray-700 hover:border-teal-500 rounded-lg p-8 text-center cursor-pointer transition-colors">
                   <Upload className="w-10 h-10 mx-auto text-gray-500 mb-2" />
                   <div className="text-sm font-medium">{sourceName || 'Drop video here or click to choose'}</div>
-                  <div className="text-xs text-gray-500 mt-1">MP4, MOV, WEBM up to 500MB (longer videos: paste a YouTube/Vimeo link instead)</div>
+                  <div className="text-xs text-gray-500 mt-1">MP4, MOV, WEBM up to 2GB</div>
                 </div>
                 <input
                   type="file"

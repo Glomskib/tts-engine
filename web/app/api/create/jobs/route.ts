@@ -27,7 +27,17 @@ export const dynamic = 'force-dynamic';
 
 const SUPA_SOURCE_BUCKET = 'clip-sources';
 
+interface AdditionalSource {
+  read_url: string;
+  storage_path: string;
+  backend: string;
+  filename: string;
+}
+
 interface CreateBody {
+  /** 'post' (Post Maker — multi-take, 1-2 outputs) | 'clip' (Clip Picker —
+   *  long-form, N clips). Drives different downstream behavior. */
+  mode?: 'post' | 'clip';
   source_url?: string;
   source_link?: string;
   describe?: string;
@@ -41,6 +51,9 @@ interface CreateBody {
   storage_path?: string;
   /** 'r2' | 'supabase' — also from /api/create/upload-url */
   backend?: string;
+  /** For Post Maker multi-take: additional uploaded sources beyond the primary.
+   *  Pipeline can use these later to pick the best take. */
+  additional_sources?: AdditionalSource[];
 }
 
 /**
@@ -145,15 +158,22 @@ export async function POST(req: NextRequest) {
 
   // Create the run row (using the existing ve_runs schema)
   // We treat clip_count as target_clip_count, store our extras in context_json.
+  const mode = body.mode === 'clip' ? 'clip' : 'post';
   const context = {
     ...vibeToContext(vibe),
+    mode,
     describe,
     caption_style: captionStyle,
     aspect_ratios: aspectRatios,
     brand_profile_id: body.brand_profile_id || null,
     source_kind: sourceUrl ? 'upload' : 'link',
     source_link: sourceLink || null,
-    created_via: 'create_page_v1',
+    additional_sources: body.additional_sources || [],
+    created_via: 'create_page_v2_modes',
+    // Storage retention hint — ve-cleanup uses this to decide source delete timing.
+    // Post Maker source can be deleted fast (we only output 1-2 polished clips);
+    // Clip Picker may need source longer if user wants to re-cut.
+    source_retention_minutes: mode === 'post' ? 30 : 240,
   };
 
   const { data: run, error: runErr } = await supabaseAdmin

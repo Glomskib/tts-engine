@@ -3,67 +3,111 @@
 /**
  * /create — the canonical AI clip tool.
  *
- * One page. Four entry methods (Record / Upload / Link / Drive). One describe
- * prompt with mic. One Vibe pick. One Brand pick. One Caption-style pick. One
- * "Create" button. Then the queue + clips.
+ * Two modes, one tool:
+ *   - Post Maker: TikTok/Reels/Shorts creators. 1-3 source takes, 1-2 polished
+ *     outputs per platform. Multi-file upload. Karaoke captions, music, B-roll
+ *     auto-tuned to the chosen vibe.
+ *   - Clip Picker: long-form creators (podcasts, interviews, streams). 1 long
+ *     source, 5-10 ranked clips out, each standalone.
  *
- * Replaces the 5 legacy editor pages (admin/editor, admin/clipper, admin/studio,
- * admin/video-editing, admin/content-studio). Those now 301 to /create.
- *
- * Phase 0: signed-URL upload to Supabase Storage (no 50MB API cap).
- * Phase 1: this shell + job creation hitting the existing ve_runs pipeline.
+ * Same backend pipeline (ve_runs), different defaults + UI presentation.
+ * Storage backend: Cloudflare R2 when configured, Supabase fallback.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Mic, Upload, Link as LinkIcon, Video, Loader2, AlertTriangle, Sparkles, CheckCircle2 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/client';
+import {
+  Mic, Upload, Link as LinkIcon, Video, Loader2, AlertTriangle, Sparkles,
+  X, ChevronRight,
+} from 'lucide-react';
 
+type Mode = 'post' | 'clip';
 type Entry = 'record' | 'upload' | 'link' | 'drive';
 type Vibe = 'hype' | 'calm' | 'real' | 'funny' | 'sad' | 'custom';
 
 const VIBES: { key: Vibe; label: string; emoji: string; hint: string }[] = [
-  { key: 'hype',   label: 'Hype',   emoji: '⚡', hint: 'High energy, fast cuts, big captions' },
-  { key: 'calm',   label: 'Calm',   emoji: '🌿', hint: 'Slow pacing, soft captions, breathing room' },
-  { key: 'real',   label: 'Real',   emoji: '🎙️', hint: 'Plain talk, no hype, friend-to-friend' },
-  { key: 'funny',  label: 'Funny',  emoji: '😂', hint: 'Punchy beats, comedic timing on cuts' },
-  { key: 'sad',    label: 'Sad',    emoji: '💔', hint: 'Heavy moments, minor key, lingering shots' },
+  { key: 'hype',  label: 'Hype',  emoji: '⚡', hint: 'High energy, fast cuts, big captions' },
+  { key: 'calm',  label: 'Calm',  emoji: '🌿', hint: 'Slow pacing, soft captions, breathing room' },
+  { key: 'real',  label: 'Real',  emoji: '🎙️', hint: 'Plain talk, no hype, friend-to-friend' },
+  { key: 'funny', label: 'Funny', emoji: '😂', hint: 'Punchy beats, comedic timing on cuts' },
+  { key: 'sad',   label: 'Sad',   emoji: '💔', hint: 'Heavy moments, minor key, lingering shots' },
 ];
 
 const CAPTION_STYLES: { key: string; label: string; preview: string }[] = [
-  { key: 'bold_yellow',   label: 'Bold Yellow',     preview: 'Big yellow MrBeast-style' },
-  { key: 'subtle_white',  label: 'Subtle White',    preview: 'Clean white, no fuss' },
-  { key: 'mr_beast',      label: 'MrBeast Big',     preview: 'Huge bold + outline' },
-  { key: 'karaoke',       label: 'Karaoke',         preview: 'Word-by-word highlight' },
-  { key: 'newscast',      label: 'Two-Line News',   preview: 'Bottom 2-line styled' },
-  { key: 'slow_reader',   label: 'Slow Reader',     preview: 'Bigger text, slower pace' },
+  { key: 'karaoke',      label: 'Karaoke',         preview: 'Word-by-word highlight — highest retention' },
+  { key: 'bold_yellow',  label: 'Bold Yellow',     preview: 'Big yellow MrBeast-style' },
+  { key: 'subtle_white', label: 'Subtle White',    preview: 'Clean white, no fuss' },
+  { key: 'mr_beast',     label: 'MrBeast Big',     preview: 'Huge bold + outline' },
+  { key: 'newscast',     label: 'Two-Line News',   preview: 'Bottom 2-line styled' },
+  { key: 'slow_reader',  label: 'Slow Reader',     preview: 'Bigger text, slower pace' },
 ];
 
-interface BrandProfile {
-  id: string;
-  name: string;
-  tone_descriptor: string | null;
+interface BrandProfile { id: string; name: string; tone_descriptor: string | null }
+interface CreditState { remaining: number; isUnlimited: boolean; plan: string }
+
+interface UploadedSource {
+  filename: string;
+  signedUrl: string;     // upload PUT target (no longer needed once upload done)
+  readUrl: string;       // GET URL for the pipeline
+  storagePath: string;
+  backend: string;
+  sizeBytes: number;
+  progress: number;      // 0-100
+  done: boolean;
 }
 
-interface CreditState {
-  remaining: number;
-  isUnlimited: boolean;
-  plan: string;
-}
+/** Mode-specific defaults — picked for "best practices" per platform. */
+const MODE_DEFAULTS: Record<Mode, {
+  label: string;
+  blurb: string;
+  clipCount: number;
+  aspectRatios: string[];
+  captionStyle: string;
+  vibe: Vibe;
+  maxSources: number;
+  minSources: number;
+  promptPlaceholder: string;
+}> = {
+  post: {
+    label: 'Post Maker',
+    blurb: 'TikTok / Reels / Shorts. Polish a take (or pick from a few) into one ready-to-post clip.',
+    clipCount: 1,
+    aspectRatios: ['9:16'],
+    captionStyle: 'karaoke',
+    vibe: 'real',
+    maxSources: 5,
+    minSources: 1,
+    promptPlaceholder: 'What\'s the post about? e.g. "review of my new gravel bike — focus on the climb at the end"',
+  },
+  clip: {
+    label: 'Clip Picker',
+    blurb: 'Long video → short clips. 5-10 highlights with feel scores, each one standalone.',
+    clipCount: 5,
+    aspectRatios: ['9:16'],
+    captionStyle: 'bold_yellow',
+    vibe: 'real',
+    maxSources: 1,
+    minSources: 1,
+    promptPlaceholder: 'What kind of clips? e.g. "the 3 most insightful moments" or "every time the guest laughs"',
+  },
+};
 
 export default function CreatePage() {
+  // ── Mode + defaults ────────────────────────────────────────────────────
+  const [mode, setMode] = useState<Mode>('post');
+  const defaults = MODE_DEFAULTS[mode];
+
+  // ── Inputs ─────────────────────────────────────────────────────────────
   const [entry, setEntry] = useState<Entry>('upload');
   const [describe, setDescribe] = useState('');
-  const [vibe, setVibe] = useState<Vibe>('real');
+  const [vibe, setVibe] = useState<Vibe>(defaults.vibe);
   const [customVibe, setCustomVibe] = useState('');
   const [brandId, setBrandId] = useState<string | null>(null);
-  const [captionStyle, setCaptionStyle] = useState<string>('bold_yellow');
-  const [clipCount, setClipCount] = useState(3);
-  const [aspectRatios, setAspectRatios] = useState<string[]>(['9:16']);
-  const [uploadProgress, setUploadProgress] = useState<number | null>(null);
-  const [sourceUrl, setSourceUrl] = useState<string | null>(null);
-  const [sourceName, setSourceName] = useState<string | null>(null);
-  const [sourceStoragePath, setSourceStoragePath] = useState<string | null>(null);
-  const [sourceBackend, setSourceBackend] = useState<string | null>(null);
+  const [captionStyle, setCaptionStyle] = useState<string>(defaults.captionStyle);
+  const [clipCount, setClipCount] = useState(defaults.clipCount);
+  const [aspectRatios, setAspectRatios] = useState<string[]>(defaults.aspectRatios);
+
+  // ── Sources (multi-file capable) ───────────────────────────────────────
+  const [sources, setSources] = useState<UploadedSource[]>([]);
   const [linkValue, setLinkValue] = useState('');
   const [creating, setCreating] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
@@ -78,7 +122,15 @@ export default function CreatePage() {
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // ── Load credits + brand profiles ──────────────────────────────────────
+  // When mode changes, apply mode defaults (only override if user hasn't customized)
+  useEffect(() => {
+    setClipCount(MODE_DEFAULTS[mode].clipCount);
+    setAspectRatios(MODE_DEFAULTS[mode].aspectRatios);
+    setCaptionStyle(MODE_DEFAULTS[mode].captionStyle);
+    setVibe(MODE_DEFAULTS[mode].vibe);
+  }, [mode]);
+
+  // Load credits + brand profiles
   useEffect(() => {
     void (async () => {
       try {
@@ -95,17 +147,27 @@ export default function CreatePage() {
   }, []);
 
   // ── Cost preview ───────────────────────────────────────────────────────
-  const creditCost = (() => {
-    // 1 credit per clip × number of aspect ratios. Re-renders cheaper handled server-side.
-    return clipCount * aspectRatios.length;
-  })();
+  // Post Maker: 1 credit per platform (aspect ratio). Clip Picker: 1 per clip × aspects.
+  const creditCost = mode === 'post'
+    ? aspectRatios.length
+    : clipCount * aspectRatios.length;
 
-  // ── Upload via signed URL (Phase 0 — bypasses 50MB API cap) ────────────
-  const handleFileUpload = useCallback(async (file: File) => {
-    setError(null);
-    setUploadProgress(0);
+  // ── Upload one file (called per file in multi-file flow) ───────────────
+  const uploadOneFile = useCallback(async (file: File): Promise<UploadedSource | null> => {
+    const placeholder: UploadedSource = {
+      filename: file.name,
+      signedUrl: '',
+      readUrl: '',
+      storagePath: '',
+      backend: '',
+      sizeBytes: file.size,
+      progress: 0,
+      done: false,
+    };
+    setSources((prev) => [...prev, placeholder]);
+    const idx = sources.length; // index of just-pushed item (approximate)
+
     try {
-      // 1. Ask server for a signed upload URL (server checks auth + reserves a storage path)
       const reqResp = await fetch('/api/create/upload-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -113,55 +175,82 @@ export default function CreatePage() {
       });
       const reqJson = await reqResp.json();
       if (!reqResp.ok || !reqJson.ok) {
-        setError(reqJson.error || 'Could not start upload. Are you on a plan that includes uploads?');
-        setUploadProgress(null);
-        return;
+        setError(reqJson.error || 'Could not start upload.');
+        setSources((prev) => prev.filter((s) => s.filename !== file.name || s.done));
+        return null;
       }
 
-      // 2. PUT the file directly to Supabase Storage. Bypasses our Next.js API
-      //    body size limit (50MB). Storage tier caps the actual max file size.
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', reqJson.signed_url, true);
-      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-      xhr.upload.onprogress = (ev) => {
-        if (ev.lengthComputable) setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
-      };
+      // PUT direct to storage
       await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('PUT', reqJson.signed_url, true);
+        xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+        xhr.upload.onprogress = (ev) => {
+          if (!ev.lengthComputable) return;
+          const pct = Math.round((ev.loaded / ev.total) * 100);
+          setSources((prev) => prev.map((s, i) => i === idx || s.filename === file.name && !s.done ? { ...s, progress: pct } : s));
+        };
         xhr.onload = () => {
           if (xhr.status >= 200 && xhr.status < 300) return resolve();
-          // Parse Supabase's JSON error body for a useful message
           let detail = '';
-          try {
-            const body = JSON.parse(xhr.responseText || '{}');
-            detail = body.message || body.error || '';
-          } catch { detail = xhr.responseText?.slice(0, 200) || ''; }
+          try { detail = JSON.parse(xhr.responseText || '{}').message || ''; } catch { detail = xhr.responseText?.slice(0, 200) || ''; }
           const sizeMb = (file.size / 1024 / 1024).toFixed(1);
           if (xhr.status === 413 || /too large|payload/i.test(detail)) {
-            return reject(new Error(`Your video is ${sizeMb} MB — that's bigger than the storage tier allows right now. Try a shorter clip or compress it first. (paste a link to a YouTube/Vimeo/TikTok video instead if you have one)`));
+            return reject(new Error(`${file.name} (${sizeMb}MB) — too large for the current storage tier. Compress it first or paste a link.`));
           }
-          if (xhr.status === 400) {
-            return reject(new Error(`Storage rejected the upload (${sizeMb} MB ${file.type || 'unknown type'}). ${detail || 'No detail returned.'} Try a shorter clip or paste a link to the source video.`));
-          }
-          reject(new Error(`Upload failed: ${xhr.status} ${detail}`));
+          reject(new Error(`Upload of ${file.name} failed: ${xhr.status} ${detail}`));
         };
         xhr.onerror = () => reject(new Error('Network error during upload — check your connection.'));
         xhr.send(file);
       });
 
-      setSourceUrl(reqJson.public_url);
-      setSourceName(file.name);
-      setSourceStoragePath(reqJson.storage_path || null);
-      setSourceBackend(reqJson.backend || null);
-      setUploadProgress(100);
+      const uploaded: UploadedSource = {
+        filename: file.name,
+        signedUrl: reqJson.signed_url,
+        readUrl: reqJson.public_url,
+        storagePath: reqJson.storage_path,
+        backend: reqJson.backend,
+        sizeBytes: file.size,
+        progress: 100,
+        done: true,
+      };
+      setSources((prev) => {
+        // Replace placeholder by filename
+        const cleaned = prev.filter((s) => !(s.filename === file.name && !s.done));
+        return [...cleaned, uploaded];
+      });
+      return uploaded;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed');
-      setUploadProgress(null);
+      setSources((prev) => prev.filter((s) => !(s.filename === file.name && !s.done)));
+      return null;
     }
+  }, [sources.length]);
+
+  // ── Drop / pick multiple files ─────────────────────────────────────────
+  const handleMultiFile = useCallback(async (fileList: FileList | File[]) => {
+    setError(null);
+    const files = Array.from(fileList);
+    const remaining = defaults.maxSources - sources.filter((s) => s.done).length;
+    if (files.length > remaining) {
+      setError(`This mode allows ${defaults.maxSources} sources max. You've already got ${sources.filter((s) => s.done).length}.`);
+      return;
+    }
+    // Upload in parallel
+    await Promise.all(files.map((f) => uploadOneFile(f)));
+  }, [sources, uploadOneFile, defaults.maxSources]);
+
+  const removeSource = useCallback((filename: string) => {
+    setSources((prev) => prev.filter((s) => s.filename !== filename));
   }, []);
 
-  // ── In-browser recording (Snapchat-style) ──────────────────────────────
+  // ── In-browser recording (single take, appends to sources) ────────────
   const startRecording = useCallback(async () => {
     setRecorderError(null);
+    if (sources.filter((s) => s.done).length >= defaults.maxSources) {
+      setRecorderError(`Already at max ${defaults.maxSources} sources for this mode.`);
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1080 }, height: { ideal: 1920 }, facingMode: 'user' },
@@ -182,18 +271,18 @@ export default function CreatePage() {
       rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       rec.onstop = async () => {
         const blob = new Blob(chunksRef.current, { type: mime });
-        const filename = `recording-${Date.now()}.webm`;
-        await handleFileUpload(new File([blob], filename, { type: mime }));
+        const filename = `take-${sources.filter((s) => s.done).length + 1}-${Date.now()}.webm`;
+        await uploadOneFile(new File([blob], filename, { type: mime }));
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       };
-      rec.start(1000); // collect data each second
+      rec.start(1000);
       recorderRef.current = rec;
       setRecording(true);
     } catch (e) {
       setRecorderError(e instanceof Error ? e.message : 'Could not access camera/mic');
     }
-  }, [handleFileUpload]);
+  }, [sources, uploadOneFile, defaults.maxSources]);
 
   const stopRecording = useCallback(() => {
     recorderRef.current?.stop();
@@ -203,21 +292,32 @@ export default function CreatePage() {
   // ── Submit job ─────────────────────────────────────────────────────────
   const createJob = useCallback(async () => {
     setError(null);
-    if (!sourceUrl && !linkValue) {
+    const readySources = sources.filter((s) => s.done);
+    if (readySources.length === 0 && !linkValue) {
       setError('Add a source first — record, upload, or paste a link.');
       return;
     }
-    if (!describe.trim() && vibe !== 'custom') {
-      setError('Describe what you want or pick a vibe — anything is fine, just give me a hint.');
+    if (readySources.length < defaults.minSources && !linkValue) {
+      setError(`Need at least ${defaults.minSources} source for ${defaults.label}.`);
       return;
     }
     setCreating(true);
     try {
+      // For multi-source uploads we send the FIRST source as primary (pipeline
+      // currently treats one asset per run) and stash the rest in metadata so
+      // a future multi-take selector can pick. v1 ships with single-source
+      // execution + the multi-file scaffolding ready.
+      const primary = readySources[0];
       const body = {
-        source_url: sourceUrl,
+        mode,
+        source_url: primary?.readUrl,
         source_link: linkValue || null,
-        storage_path: sourceStoragePath,
-        backend: sourceBackend,
+        storage_path: primary?.storagePath,
+        backend: primary?.backend,
+        // Additional sources go in metadata so the pipeline tick can read them later
+        additional_sources: readySources.slice(1).map((s) => ({
+          read_url: s.readUrl, storage_path: s.storagePath, backend: s.backend, filename: s.filename,
+        })),
         describe,
         vibe: vibe === 'custom' ? customVibe : vibe,
         brand_profile_id: brandId,
@@ -232,7 +332,7 @@ export default function CreatePage() {
       });
       const j = await r.json();
       if (!r.ok || !j.ok) {
-        setError(j.error || 'Could not start the job. Check credits or try again in a minute.');
+        setError(j.error || 'Could not start the job. Check credits or try again.');
       } else {
         setJobId(j.job_id);
       }
@@ -241,38 +341,57 @@ export default function CreatePage() {
     } finally {
       setCreating(false);
     }
-  }, [sourceUrl, sourceStoragePath, sourceBackend, linkValue, describe, vibe, customVibe, brandId, captionStyle, clipCount, aspectRatios]);
+  }, [sources, linkValue, mode, describe, vibe, customVibe, brandId, captionStyle, clipCount, aspectRatios, defaults]);
 
-  // ── UI ────────────────────────────────────────────────────────────────
+  // ── UI ─────────────────────────────────────────────────────────────────
   if (jobId) {
-    return <JobProgress jobId={jobId} onNewJob={() => { setJobId(null); setSourceUrl(null); setSourceName(null); setSourceStoragePath(null); setSourceBackend(null); setLinkValue(''); setUploadProgress(null); }} />;
+    return <JobProgress jobId={jobId} onNewJob={() => { setJobId(null); setSources([]); setLinkValue(''); }} />;
   }
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
+      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
+
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold flex items-center gap-2">
               <Sparkles className="w-7 h-7 text-teal-400" />
               Create
             </h1>
-            <p className="text-sm text-gray-400 mt-1">Record, upload, or paste a link. Tell us the vibe. We make the clips.</p>
+            <p className="text-sm text-gray-400 mt-1">Record or upload. We do the rest.</p>
           </div>
           {credits && (
             <div className="text-right">
               <div className="text-xs text-gray-400 uppercase tracking-wider">Credits</div>
-              <div className="text-lg font-semibold">
-                {credits.isUnlimited ? '∞' : credits.remaining}
-              </div>
+              <div className="text-lg font-semibold">{credits.isUnlimited ? '∞' : credits.remaining}</div>
               <div className="text-xs text-gray-500">{credits.plan}</div>
             </div>
           )}
         </div>
 
-        {/* 1 · Source picker */}
-        <Section title="1 · Source">
+        {/* MODE PICKER */}
+        <div className="grid grid-cols-2 gap-2 mb-6 p-1 bg-gray-900 border border-gray-800 rounded-xl">
+          {(['post', 'clip'] as Mode[]).map((m) => (
+            <button
+              key={m}
+              onClick={() => setMode(m)}
+              className={`p-3 rounded-lg text-left transition-colors ${
+                mode === m ? 'bg-teal-600/30 border border-teal-500' : 'bg-transparent hover:bg-gray-800 border border-transparent'
+              }`}
+            >
+              <div className="font-semibold text-sm">
+                {m === 'post' ? '📱 Post Maker' : '✂️ Clip Picker'}
+              </div>
+              <div className="text-xs text-gray-400 mt-1 leading-snug">
+                {MODE_DEFAULTS[m].blurb}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        {/* 1 · SOURCES */}
+        <Section title={mode === 'post' ? `1 · Your take${defaults.maxSources > 1 ? 's' : ''} (up to ${defaults.maxSources})` : '1 · Source'}>
           <div className="grid grid-cols-4 gap-2 mb-4">
             <EntryTab active={entry === 'record'} onClick={() => setEntry('record')} icon={<Video className="w-4 h-4" />} label="Record" />
             <EntryTab active={entry === 'upload'} onClick={() => setEntry('upload')} icon={<Upload className="w-4 h-4" />} label="Upload" />
@@ -288,7 +407,7 @@ export default function CreatePage() {
                   onClick={startRecording}
                   className="w-full py-3 bg-red-600 hover:bg-red-700 rounded-lg font-medium flex items-center justify-center gap-2"
                 >
-                  <Video className="w-5 h-5" /> Start recording
+                  <Video className="w-5 h-5" /> Record {mode === 'post' && sources.filter((s) => s.done).length > 0 ? `another take (${sources.filter((s) => s.done).length}/${defaults.maxSources})` : ''}
                 </button>
               ) : (
                 <button
@@ -307,29 +426,20 @@ export default function CreatePage() {
           )}
 
           {entry === 'upload' && (
-            <div>
-              <label className="block w-full">
-                <div className="border-2 border-dashed border-gray-700 hover:border-teal-500 rounded-lg p-8 text-center cursor-pointer transition-colors">
-                  <Upload className="w-10 h-10 mx-auto text-gray-500 mb-2" />
-                  <div className="text-sm font-medium">{sourceName || 'Drop video here or click to choose'}</div>
-                  <div className="text-xs text-gray-500 mt-1">MP4, MOV, WEBM up to 2GB</div>
-                </div>
-                <input
-                  type="file"
-                  accept="video/*"
-                  className="hidden"
-                  onChange={(e) => e.target.files?.[0] && void handleFileUpload(e.target.files[0])}
-                />
-              </label>
-              {uploadProgress !== null && (
-                <div className="mt-3">
-                  <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
-                    <div className="h-full bg-teal-500 transition-all" style={{ width: `${uploadProgress}%` }} />
-                  </div>
-                  <div className="text-xs text-gray-400 mt-1">{uploadProgress < 100 ? `Uploading ${uploadProgress}%` : '✓ Uploaded'}</div>
-                </div>
-              )}
-            </div>
+            <label className="block w-full">
+              <div className="border-2 border-dashed border-gray-700 hover:border-teal-500 rounded-lg p-8 text-center cursor-pointer transition-colors">
+                <Upload className="w-10 h-10 mx-auto text-gray-500 mb-2" />
+                <div className="text-sm font-medium">Drop video{defaults.maxSources > 1 ? '(s)' : ''} here or click to choose</div>
+                <div className="text-xs text-gray-500 mt-1">MP4, MOV, WEBM — up to 2GB each{mode === 'post' ? ` · max ${defaults.maxSources} takes` : ''}</div>
+              </div>
+              <input
+                type="file"
+                accept="video/*"
+                multiple={defaults.maxSources > 1}
+                className="hidden"
+                onChange={(e) => e.target.files && void handleMultiFile(e.target.files)}
+              />
+            </label>
           )}
 
           {entry === 'link' && (
@@ -344,17 +454,40 @@ export default function CreatePage() {
 
           {entry === 'drive' && (
             <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 text-sm text-gray-300">
-              <div className="font-medium mb-2">Drive folder watcher (coming v1.1)</div>
-              <p className="text-xs text-gray-500">
-                Share a Google Drive folder with the FlashFlow service account once, and every new video you drop in gets auto-clipped and dropped back into a paired output folder. Set up arriving next ship.
-              </p>
+              <div className="font-medium mb-1">Drive folder watcher (coming soon)</div>
+              <p className="text-xs text-gray-500">Share a folder once, every new video auto-clips.</p>
+            </div>
+          )}
+
+          {/* Source list (multi-file) */}
+          {sources.length > 0 && (
+            <div className="mt-3 space-y-2">
+              {sources.map((s) => (
+                <div key={s.filename + s.progress} className="flex items-center gap-2 bg-gray-900 border border-gray-700 rounded-lg p-2">
+                  <Video className="w-4 h-4 text-gray-400 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm font-medium truncate">{s.filename}</div>
+                    <div className="text-xs text-gray-500">
+                      {(s.sizeBytes / 1024 / 1024).toFixed(1)} MB · {s.done ? '✓ ready' : `${s.progress}% uploaded`}
+                    </div>
+                    {!s.done && (
+                      <div className="h-1 mt-1 bg-gray-800 rounded-full overflow-hidden">
+                        <div className="h-full bg-teal-500" style={{ width: `${s.progress}%` }} />
+                      </div>
+                    )}
+                  </div>
+                  <button onClick={() => removeSource(s.filename)} className="p-1 text-gray-500 hover:text-red-400">
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ))}
             </div>
           )}
         </Section>
 
         {/* 2 · Describe */}
-        <Section title="2 · Describe">
-          <DescribeBox value={describe} onChange={setDescribe} />
+        <Section title="2 · What do you want?">
+          <DescribeBox value={describe} onChange={setDescribe} placeholder={defaults.promptPlaceholder} />
         </Section>
 
         {/* 3 · Vibe */}
@@ -364,8 +497,8 @@ export default function CreatePage() {
               <button
                 key={v.key}
                 onClick={() => setVibe(v.key)}
-                className={`px-3 py-2 rounded-full text-sm font-medium border transition-colors ${
-                  vibe === v.key ? 'bg-teal-600 border-teal-500 text-white' : 'bg-gray-900 border-gray-700 hover:border-gray-500'
+                className={`px-3 py-2 rounded-full text-sm font-medium border ${
+                  vibe === v.key ? 'bg-teal-600 border-teal-500' : 'bg-gray-900 border-gray-700 hover:border-gray-500'
                 }`}
                 title={v.hint}
               >
@@ -386,7 +519,7 @@ export default function CreatePage() {
               type="text"
               value={customVibe}
               onChange={(e) => setCustomVibe(e.target.value)}
-              placeholder='Describe your own vibe — "cinematic Loro Piana ad" or "energetic gym bro"'
+              placeholder='Describe your own vibe'
               className="mt-3 w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg focus:border-teal-500 outline-none text-sm"
             />
           )}
@@ -412,8 +545,46 @@ export default function CreatePage() {
           )}
         </Section>
 
-        {/* 5 · Captions */}
-        <Section title="5 · Caption style">
+        {/* 5 · Output settings */}
+        <Section title={mode === 'post' ? '5 · Platforms' : '5 · Output'}>
+          {mode === 'clip' && (
+            <div className="mb-3">
+              <label className="text-xs text-gray-400 uppercase tracking-wider">How many clips?</label>
+              <input
+                type="number"
+                min={1}
+                max={10}
+                value={clipCount}
+                onChange={(e) => setClipCount(Math.max(1, Math.min(10, parseInt(e.target.value) || 1)))}
+                className="mt-1 w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-teal-500"
+              />
+            </div>
+          )}
+
+          <label className="text-xs text-gray-400 uppercase tracking-wider">{mode === 'post' ? 'Platforms' : 'Aspect ratios'}</label>
+          <div className="mt-1 flex flex-wrap gap-2">
+            {[
+              { ar: '9:16', tag: 'TikTok · Reels · Shorts' },
+              { ar: '1:1',  tag: 'IG feed' },
+              { ar: '4:5',  tag: 'IG portrait' },
+              { ar: '16:9', tag: 'X · LinkedIn · YT' },
+            ].map(({ ar, tag }) => (
+              <button
+                key={ar}
+                onClick={() => setAspectRatios((cur) => cur.includes(ar) ? cur.filter((x) => x !== ar) : [...cur, ar])}
+                className={`px-3 py-2 rounded-lg text-left border ${
+                  aspectRatios.includes(ar) ? 'bg-teal-600/20 border-teal-500' : 'bg-gray-900 border-gray-700'
+                }`}
+              >
+                <div className="text-sm font-medium">{ar}</div>
+                <div className="text-xs text-gray-500">{tag}</div>
+              </button>
+            ))}
+          </div>
+        </Section>
+
+        {/* 6 · Caption style */}
+        <Section title="6 · Caption style">
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {CAPTION_STYLES.map((s) => (
               <button
@@ -424,40 +595,9 @@ export default function CreatePage() {
                 }`}
               >
                 <div className="text-sm font-medium">{s.label}</div>
-                <div className="text-xs text-gray-400 mt-1">{s.preview}</div>
+                <div className="text-xs text-gray-400 mt-1 leading-tight">{s.preview}</div>
               </button>
             ))}
-          </div>
-        </Section>
-
-        {/* 6 · Output */}
-        <Section title="6 · Output">
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="text-xs text-gray-400 uppercase tracking-wider">How many clips?</label>
-              <input
-                type="number"
-                min={1}
-                max={8}
-                value={clipCount}
-                onChange={(e) => setClipCount(Math.max(1, Math.min(8, parseInt(e.target.value) || 1)))}
-                className="mt-1 w-full px-3 py-2 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-teal-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 uppercase tracking-wider">Aspect ratios</label>
-              <div className="mt-1 flex flex-wrap gap-1">
-                {['9:16', '1:1', '4:5', '16:9'].map((ar) => (
-                  <button
-                    key={ar}
-                    onClick={() => setAspectRatios((cur) => cur.includes(ar) ? cur.filter((x) => x !== ar) : [...cur, ar])}
-                    className={`px-2 py-1 rounded text-xs font-medium border ${
-                      aspectRatios.includes(ar) ? 'bg-teal-600 border-teal-500' : 'bg-gray-900 border-gray-700'
-                    }`}
-                  >{ar}</button>
-                ))}
-              </div>
-            </div>
           </div>
         </Section>
 
@@ -470,17 +610,21 @@ export default function CreatePage() {
         )}
 
         {/* Create button */}
-        <div className="sticky bottom-4">
+        <div className="sticky bottom-4 mt-2">
           <button
             onClick={createJob}
-            disabled={creating || (!sourceUrl && !linkValue)}
+            disabled={creating || (sources.filter((s) => s.done).length === 0 && !linkValue)}
             className="w-full py-4 bg-teal-500 hover:bg-teal-600 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-xl font-semibold text-lg flex items-center justify-center gap-2 shadow-lg"
           >
-            {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : <Sparkles className="w-5 h-5" />}
-            Create — {creditCost} credit{creditCost === 1 ? '' : 's'}
+            {creating ? <Loader2 className="w-5 h-5 animate-spin" /> : <ChevronRight className="w-5 h-5" />}
+            {mode === 'post'
+              ? `Polish my post — ${creditCost} credit${creditCost === 1 ? '' : 's'}`
+              : `Cut ${clipCount} clip${clipCount === 1 ? '' : 's'} — ${creditCost} credit${creditCost === 1 ? '' : 's'}`}
           </button>
           <div className="text-center text-xs text-gray-500 mt-2">
-            {clipCount} clip{clipCount === 1 ? '' : 's'} × {aspectRatios.length} aspect{aspectRatios.length === 1 ? '' : 's'} · re-renders cost less
+            {mode === 'post'
+              ? `${aspectRatios.length} platform${aspectRatios.length === 1 ? '' : 's'} · 1 polished clip each · sources auto-delete after rendering`
+              : `${clipCount} clip${clipCount === 1 ? '' : 's'} × ${aspectRatios.length} aspect${aspectRatios.length === 1 ? '' : 's'} · sources auto-delete after rendering`}
           </div>
         </div>
       </div>
@@ -515,7 +659,7 @@ function EntryTab({ active, onClick, icon, label }: { active: boolean; onClick: 
   );
 }
 
-function DescribeBox({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function DescribeBox({ value, onChange, placeholder }: { value: string; onChange: (v: string) => void; placeholder?: string }) {
   const [listening, setListening] = useState(false);
   const recognitionRef = useRef<unknown>(null);
 
@@ -553,7 +697,7 @@ function DescribeBox({ value, onChange }: { value: string; onChange: (v: string)
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        placeholder='Tell us what to make — "3 hype clips with hooks that land in 2 seconds" — or just talk to it.'
+        placeholder={placeholder || 'Tell us what to make — or talk to it.'}
         rows={3}
         className="w-full px-4 py-3 pr-14 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-teal-500 resize-none text-sm"
       />

@@ -286,12 +286,39 @@ export async function GET(req: NextRequest) {
 
   const { data: rows } = await supabaseAdmin
     .from('ve_runs')
-    .select('id, status, created_at, completed_at, target_clip_count, context_json')
+    .select('id, status, created_at, completed_at, target_clip_count, context_json, error_message')
     .eq('user_id', auth.user.id)
     .order('created_at', { ascending: false })
     .limit(30);
 
-  return NextResponse.json({ ok: true, jobs: rows || [] });
+  // Pull rendered clips for any complete/rendering jobs so /clips can show
+  // them inline (with play + download) instead of bouncing back to /create.
+  const jobs = rows || [];
+  const interestingIds = jobs
+    .filter((r) => r.status === 'complete' || r.status === 'rendering')
+    .map((r) => r.id);
+
+  let clipsByRun: Record<string, Array<{ id: string; output_url: string | null; duration_sec: number | null; status: string }>> = {};
+  if (interestingIds.length > 0) {
+    const { data: clips } = await supabaseAdmin
+      .from('ve_rendered_clips')
+      .select('id, run_id, output_url, duration_sec, status')
+      .in('run_id', interestingIds);
+    clipsByRun = (clips || []).reduce((acc, c) => {
+      const runId = c.run_id as string;
+      if (!acc[runId]) acc[runId] = [];
+      acc[runId].push({
+        id: c.id as string,
+        output_url: c.output_url as string | null,
+        duration_sec: (c.duration_sec as number | null) ?? null,
+        status: c.status as string,
+      });
+      return acc;
+    }, {} as typeof clipsByRun);
+  }
+
+  const enriched = jobs.map((j) => ({ ...j, clips: clipsByRun[j.id as string] || [] }));
+  return NextResponse.json({ ok: true, jobs: enriched });
 }
 
 // ── helpers ────────────────────────────────────────────────────────────

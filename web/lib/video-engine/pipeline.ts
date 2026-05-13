@@ -52,11 +52,14 @@ interface RunRow {
   error_message: string | null;
   watermark: boolean;
   plan_id_at_run: string | null;
-  product_name: string | null;
-  product_url: string | null;
-  product_platform: string | null;
-  product_price_cents: number | null;
-  coupon_code: string | null;
+  // Product / coupon fields are not real columns on ve_runs — they live in
+  // context_json and are merged on read where needed. Kept optional here
+  // so we don't churn the downstream reader code.
+  product_name?: string | null;
+  product_url?: string | null;
+  product_platform?: string | null;
+  product_price_cents?: number | null;
+  coupon_code?: string | null;
 }
 
 interface AssetRow {
@@ -83,7 +86,11 @@ const PACKAGING_PER_TICK = 2;   // throttle Claude calls per cron tick
 async function loadRun(runId: string): Promise<RunRow | null> {
   const { data, error } = await supabaseAdmin
     .from('ve_runs')
-    .select('id,user_id,mode,preset_keys,status,target_clip_count,context_json,attempts,error_message,watermark,plan_id_at_run,product_name,product_url,product_platform,product_price_cents,coupon_code')
+    // NOTE: product_* + coupon_code are planned columns that never landed in
+    // the ve_runs schema — they live in context_json instead. Selecting them
+    // hard-fails the tick. We pull only real columns; downstream code reads
+    // product info from context_json (mergedContext) which already carries it.
+    .select('id,user_id,mode,preset_keys,status,target_clip_count,context_json,attempts,error_message,watermark,plan_id_at_run')
     .eq('id', runId)
     .single();
   if (error) throw new Error(`Failed to load run ${runId}: ${error.message}`);

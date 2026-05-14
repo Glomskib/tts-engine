@@ -15,7 +15,30 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Sparkles, Loader2, Plus, Download, ExternalLink, AlertTriangle } from 'lucide-react';
+import { Sparkles, Loader2, Plus, Download, ExternalLink, AlertTriangle, Copy, Share2, Check } from 'lucide-react';
+
+/**
+ * Compose a TikTok / Reels / Shorts–ready caption from the run's context.
+ * No new AI call — just stitches together describe + vibe + auto-hashtags.
+ * Stays under TikTok's 2200-char cap. Real best-in-class would add the
+ * AI-generated hook line; that requires a backend pass we'll add later.
+ */
+function composeCaption(describe: string, vibe: string | undefined): string {
+  const desc = (describe || '').trim();
+  const v = (vibe || 'real').toLowerCase();
+  const VIBE_TAGS: Record<string, string[]> = {
+    hype:  ['#hype', '#energy', '#viral', '#fyp', '#trending'],
+    calm:  ['#calm', '#aesthetic', '#peaceful', '#vibes'],
+    real:  ['#real', '#authentic', '#fyp', '#storytime'],
+    funny: ['#funny', '#comedy', '#fyp', '#lol'],
+    sad:   ['#sad', '#emotional', '#realtalk', '#feels'],
+  };
+  const tags = VIBE_TAGS[v] || VIBE_TAGS.real;
+  const baseTags = ['#tiktok', '#reels', '#shorts'];
+  const hashtags = [...new Set([...tags, ...baseTags])].join(' ');
+  const body = desc || 'New clip is up 🔥';
+  return `${body}\n\n${hashtags}`.slice(0, 2150);
+}
 
 interface Clip {
   id: string;
@@ -139,38 +162,7 @@ function JobCard({ job }: { job: JobRow }) {
       {done && ready.length > 0 && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pb-4">
           {ready.map((c) => (
-            <div key={c.id} className="bg-black rounded-lg overflow-hidden border border-gray-800">
-              <video
-                src={c.output_url || ''}
-                controls
-                playsInline
-                preload="metadata"
-                className="w-full aspect-[9/16] bg-black"
-              />
-              <div className="flex items-center justify-between px-3 py-2 text-xs">
-                <span className="text-gray-400">
-                  {c.duration_sec ? `${c.duration_sec.toFixed(1)}s` : ''}
-                </span>
-                <div className="flex items-center gap-2">
-                  <a
-                    href={c.output_url || '#'}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-gray-300 hover:text-white inline-flex items-center gap-1"
-                    title="Open in new tab"
-                  >
-                    <ExternalLink className="w-3.5 h-3.5" />
-                  </a>
-                  <a
-                    href={c.output_url || '#'}
-                    download
-                    className="px-2 py-1 bg-teal-600 hover:bg-teal-500 rounded text-white inline-flex items-center gap-1"
-                  >
-                    <Download className="w-3.5 h-3.5" /> Download
-                  </a>
-                </div>
-              </div>
-            </div>
+            <ClipCard key={c.id} clip={c} job={job} />
           ))}
         </div>
       )}
@@ -180,6 +172,104 @@ function JobCard({ job }: { job: JobRow }) {
           Job completed but no clip URLs returned — this is rare. Try re-creating.
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Per-clip render — video player + copy-caption + share + download.
+ *
+ * Why this exists vs inlining: each clip has its own copied/shared state
+ * for button feedback. Hoisting into a component keeps the parent simple.
+ *
+ * Best-in-class polish: Copy Caption pre-fills with the job's describe +
+ * vibe-aware hashtags so the user can paste straight into TikTok/Reels.
+ * Share uses Web Share API on mobile (native share sheet → IG, TikTok,
+ * Messages) and falls back to copy URL on desktop.
+ */
+function ClipCard({ clip, job }: { clip: Clip; job: JobRow }) {
+  const [copiedField, setCopiedField] = useState<'url' | 'caption' | null>(null);
+  const caption = composeCaption(job.context_json?.describe ?? '', job.context_json?.vibe);
+
+  async function copy(text: string, field: 'url' | 'caption') {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      setTimeout(() => setCopiedField(null), 1800);
+    } catch {
+      // older browsers — fall through silently; user can still right-click copy
+    }
+  }
+
+  async function share() {
+    if (!clip.output_url) return;
+    const shareData = {
+      title: job.context_json?.describe || 'My FlashFlow clip',
+      text: caption,
+      url: clip.output_url,
+    };
+    // navigator.share is mobile-first; desktop typically lacks it
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await (navigator as { share: (d: ShareData) => Promise<void> }).share(shareData);
+        return;
+      } catch {
+        // user dismissed — fall through to copy
+      }
+    }
+    void copy(clip.output_url, 'url');
+  }
+
+  return (
+    <div className="bg-black rounded-lg overflow-hidden border border-gray-800">
+      <video
+        src={clip.output_url || ''}
+        controls
+        playsInline
+        preload="metadata"
+        className="w-full aspect-[9/16] bg-black"
+      />
+      <div className="flex items-center justify-between px-3 py-2 text-xs">
+        <span className="text-gray-400">
+          {clip.duration_sec ? `${clip.duration_sec.toFixed(1)}s` : ''}
+        </span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => void copy(caption, 'caption')}
+            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-200 inline-flex items-center gap-1"
+            title="Copy TikTok-ready caption (describe + hashtags)"
+          >
+            {copiedField === 'caption' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+            Caption
+          </button>
+          <button
+            type="button"
+            onClick={() => void share()}
+            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-200 inline-flex items-center gap-1"
+            title="Share (uses native share sheet on mobile)"
+          >
+            {copiedField === 'url' ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Share2 className="w-3.5 h-3.5" />}
+            Share
+          </button>
+          <a
+            href={clip.output_url || '#'}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-200 inline-flex items-center gap-1"
+            title="Open in new tab"
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </a>
+          <a
+            href={clip.output_url || '#'}
+            download
+            className="px-2 py-1 bg-teal-600 hover:bg-teal-500 rounded text-white inline-flex items-center gap-1"
+          >
+            <Download className="w-3.5 h-3.5" /> Save
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

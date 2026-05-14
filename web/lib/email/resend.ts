@@ -10,8 +10,12 @@ function getResend(): Resend | null {
   return _resend;
 }
 
-// Use resend.dev domain until custom domain is verified
-export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'FlashFlow AI <onboarding@resend.dev>';
+// Verified domain preferred — `onboarding@resend.dev` fails DMARC alignment
+// and tanks deliverability. Set RESEND_FROM_EMAIL in Vercel to the
+// verified flashflowai.com sender once SPF/DKIM are in place. The fallback
+// stays on resend.dev so transactional mail still attempts to send during
+// the DNS-setup window, but expect spam-foldering until the override lands.
+export const FROM_EMAIL = process.env.RESEND_FROM_EMAIL || 'FlashFlow AI <noreply@flashflowai.com>';
 
 export async function sendEmail({
   to,

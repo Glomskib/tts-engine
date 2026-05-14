@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import {
   Mic, Upload, Link as LinkIcon, Video, Loader2, AlertTriangle, Sparkles,
   X, ChevronRight,
@@ -438,11 +439,35 @@ export default function CreatePage() {
           {credits && (
             <div className="text-right">
               <div className="text-xs text-gray-400 uppercase tracking-wider">Credits</div>
-              <div className="text-lg font-semibold">{credits.isUnlimited ? '∞' : credits.remaining}</div>
+              <div className={`text-lg font-semibold ${!credits.isUnlimited && credits.remaining <= 2 ? 'text-amber-400' : ''}`}>
+                {credits.isUnlimited ? '∞' : credits.remaining}
+              </div>
               <div className="text-xs text-gray-500">{credits.plan}</div>
             </div>
           )}
         </div>
+
+        {/* Low-credit warning — best-in-class SaaS surfaces this BEFORE the
+            user hits 402 mid-flow. Threshold: ≤2 credits, not unlimited. */}
+        {credits && !credits.isUnlimited && credits.remaining <= 2 && credits.remaining > 0 && (
+          <div className="mb-4 bg-amber-950/40 border border-amber-700/50 rounded-lg px-4 py-3 text-sm text-amber-200 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <div>
+              Only {credits.remaining} credit{credits.remaining === 1 ? '' : 's'} left.{' '}
+              <Link href="/pricing" className="underline font-medium hover:text-amber-100">Upgrade to keep creating →</Link>
+            </div>
+          </div>
+        )}
+        {credits && !credits.isUnlimited && credits.remaining === 0 && (
+          <div className="mb-4 bg-red-950/40 border border-red-700 rounded-lg px-4 py-3 text-sm text-red-200 flex items-start gap-2">
+            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <div>
+              You&apos;re out of credits.{' '}
+              <Link href="/pricing" className="underline font-medium hover:text-red-100">Pick a plan →</Link>{' '}
+              — your work won&apos;t process until you upgrade.
+            </div>
+          </div>
+        )}
 
         {/* MODE PICKER */}
         <div className="grid grid-cols-2 gap-2 mb-6 p-1 bg-gray-900 border border-gray-800 rounded-xl">
@@ -510,6 +535,11 @@ export default function CreatePage() {
                 type="file"
                 accept="video/*"
                 multiple={defaults.maxSources > 1}
+                // `capture="environment"` on mobile prompts the rear camera +
+                // gallery picker instead of just gallery. Submagic's whole
+                // moat is phone-first creator UX — match it.
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                {...({ capture: 'environment' } as any)}
                 className="hidden"
                 onChange={(e) => e.target.files && void handleMultiFile(e.target.files)}
               />

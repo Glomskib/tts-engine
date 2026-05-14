@@ -165,6 +165,49 @@ async function fail(runId: string, err: unknown, fromStatus: RunStatus = 'create
       last_tick_at: new Date().toISOString(),
     })
     .eq('id', runId);
+
+  // Credit refund — credits were deducted at job-create time. When the
+  // pipeline can't deliver any clips at all, the user shouldn't lose
+  // those credits to a failure they didn't cause (Groq outage, ffmpeg
+  // crash, NSFW false-positive, Vercel timeout). Best-in-class SaaS
+  // refunds on engine failures.
+  //
+  // Only refund if NO clips successfully rendered for this run — partial
+  // success means the user got value and shouldn't be made whole.
+  try {
+    const { data: anyComplete } = await supabaseAdmin
+      .from('ve_rendered_clips')
+      .select('id')
+      .eq('run_id', runId)
+      .eq('status', 'complete')
+      .not('output_url', 'is', null)
+      .limit(1);
+    if (!anyComplete || anyComplete.length === 0) {
+      const { data: runRow } = await supabaseAdmin
+        .from('ve_runs')
+        .select('user_id, target_clip_count')
+        .eq('id', runId)
+        .single();
+      if (runRow?.user_id) {
+        const refundAmt = Math.max(1, Number(runRow.target_clip_count) || 1);
+        try {
+          // grant_credits may not exist on older envs — try/catch swallows
+          // missing-function errors so we don't fail the failure handler.
+          await supabaseAdmin.rpc('grant_credits', {
+            p_user_id: runRow.user_id,
+            p_amount: refundAmt,
+            p_description: `Refund — pipeline failure on run ${runId.slice(0, 8)}: ${message.slice(0, 80)}`,
+          });
+          console.log(`[ve-pipeline] refunded ${refundAmt} credits to ${runRow.user_id} for failed run ${runId}`);
+        } catch (rpcErr) {
+          console.warn('[ve-pipeline] grant_credits RPC not available — manual reconciliation needed:', rpcErr instanceof Error ? rpcErr.message : rpcErr);
+        }
+      }
+    }
+  } catch (refundErr) {
+    console.warn('[ve-pipeline] refund attempt failed (non-fatal):', refundErr instanceof Error ? refundErr.message : refundErr);
+  }
+
   notifyTerminalRun(runId).catch(() => {});
   return { runId, fromStatus, toStatus: 'failed', message };
 }

@@ -298,11 +298,23 @@ export async function GET(req: NextRequest) {
     .filter((r) => r.status === 'complete' || r.status === 'rendering')
     .map((r) => r.id);
 
-  let clipsByRun: Record<string, Array<{ id: string; output_url: string | null; duration_sec: number | null; status: string }>> = {};
+  let clipsByRun: Record<string, Array<{
+    id: string;
+    output_url: string | null;
+    duration_sec: number | null;
+    status: string;
+    caption_text: string | null;
+    hashtags: string[];
+    suggested_title: string | null;
+    cta_suggestion: string | null;
+  }>> = {};
   if (interestingIds.length > 0) {
+    // Surface the AI-packaged metadata (caption_text, hashtags, suggested_title,
+    // cta_suggestion) so /clips can show a one-click "Copy Caption" with the
+    // model-generated text instead of a heuristic fallback.
     const { data: clips } = await supabaseAdmin
       .from('ve_rendered_clips')
-      .select('id, run_id, output_url, duration_sec, status')
+      .select('id, run_id, output_url, duration_sec, status, caption_text, hashtags, suggested_title, cta_suggestion')
       .in('run_id', interestingIds);
     clipsByRun = (clips || []).reduce((acc, c) => {
       const runId = c.run_id as string;
@@ -312,6 +324,10 @@ export async function GET(req: NextRequest) {
         output_url: c.output_url as string | null,
         duration_sec: (c.duration_sec as number | null) ?? null,
         status: c.status as string,
+        caption_text: (c.caption_text as string | null) ?? null,
+        hashtags: Array.isArray(c.hashtags) ? (c.hashtags as string[]) : [],
+        suggested_title: (c.suggested_title as string | null) ?? null,
+        cta_suggestion: (c.cta_suggestion as string | null) ?? null,
       });
       return acc;
     }, {} as typeof clipsByRun);

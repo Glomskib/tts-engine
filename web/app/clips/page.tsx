@@ -45,6 +45,14 @@ interface Clip {
   output_url: string | null;
   duration_sec: number | null;
   status: string;
+  /** AI-packaged caption (Anthropic via packaging.ts). null when missing. */
+  caption_text?: string | null;
+  /** AI-packaged hashtags (lowercase, no #). Empty array when missing. */
+  hashtags?: string[];
+  /** AI-packaged title suggestion (used as headline). */
+  suggested_title?: string | null;
+  /** AI-packaged CTA hint. */
+  cta_suggestion?: string | null;
 }
 
 interface JobRow {
@@ -189,7 +197,14 @@ function JobCard({ job }: { job: JobRow }) {
  */
 function ClipCard({ clip, job }: { clip: Clip; job: JobRow }) {
   const [copiedField, setCopiedField] = useState<'url' | 'caption' | null>(null);
-  const caption = composeCaption(job.context_json?.describe ?? '', job.context_json?.vibe);
+  // Prefer the AI-packaged caption (Anthropic via packaging.ts) when
+  // present. Falls back to a heuristic composition for older clips that
+  // were rendered before packaging was wired.
+  const aiCaption = (clip.caption_text || '').trim();
+  const aiHashtags = (clip.hashtags || []).map((h) => `#${h.replace(/^#+/, '')}`).join(' ');
+  const caption = aiCaption
+    ? (aiHashtags ? `${aiCaption}\n\n${aiHashtags}` : aiCaption)
+    : composeCaption(job.context_json?.describe ?? '', job.context_json?.vibe);
 
   async function copy(text: string, field: 'url' | 'caption') {
     try {
@@ -222,6 +237,11 @@ function ClipCard({ clip, job }: { clip: Clip; job: JobRow }) {
 
   return (
     <div className="bg-black rounded-lg overflow-hidden border border-gray-800">
+      {clip.suggested_title && (
+        <div className="px-3 pt-2 pb-1 text-xs font-semibold text-gray-200 truncate" title={clip.suggested_title}>
+          {clip.suggested_title}
+        </div>
+      )}
       <video
         src={clip.output_url || ''}
         controls

@@ -906,20 +906,50 @@ export async function tickRun(runId: string): Promise<TickResult> {
 
 /**
  * Pick up to `max` active runs and tick each. Used by the cron handler.
+ *
+ * Concurrency: every-minute cron + ~5min render windows means multiple
+ * function invocations are alive at once. Without a claim each invocation
+ * picks the same oldest runs and races on shared /tmp + duplicate inserts.
+ *
+ * Claim model: a run is "claimed" if last_tick_at was updated within the
+ * last CLAIM_TTL_MS. We do a conditional UPDATE that bumps last_tick_at
+ * only when the row's current last_tick_at is older than that window (or
+ * NULL). The UPDATE returns the rows we actually claimed — anything else
+ * is being handled by a concurrent worker.
  */
+const CLAIM_TTL_MS = 4 * 60 * 1000;
+
 export async function tickActiveRuns(max = 5): Promise<TickResult[]> {
-  const { data: rows } = await supabaseAdmin
+  const cutoff = new Date(Date.now() - CLAIM_TTL_MS).toISOString();
+
+  // First pass: find candidates ordered by stalest last_tick_at.
+  const { data: candidates } = await supabaseAdmin
     .from('ve_runs')
-    .select('id')
+    .select('id,last_tick_at')
     .not('status', 'in', '(complete,failed)')
     .order('last_tick_at', { ascending: true, nullsFirst: true })
-    .limit(max);
+    .limit(max * 3); // overfetch so claim contention still leaves us work
 
-  if (!rows || rows.length === 0) return [];
+  if (!candidates || candidates.length === 0) return [];
+
+  // Second pass: attempt to claim each by conditional UPDATE. Only the
+  // first worker whose UPDATE wins the WHERE clause gets the row back.
+  const claimed: string[] = [];
+  for (const c of candidates) {
+    if (claimed.length >= max) break;
+    const id = c.id as string;
+    const { data: upd } = await supabaseAdmin
+      .from('ve_runs')
+      .update({ last_tick_at: new Date().toISOString() })
+      .eq('id', id)
+      .or(`last_tick_at.is.null,last_tick_at.lt.${cutoff}`)
+      .select('id');
+    if (upd && upd.length > 0) claimed.push(id);
+  }
 
   const results: TickResult[] = [];
-  for (const r of rows) {
-    results.push(await tickRun(r.id as string));
+  for (const id of claimed) {
+    results.push(await tickRun(id));
   }
   return results;
 }

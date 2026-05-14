@@ -106,19 +106,28 @@ export async function renderClipLocal(input: LocalRenderInput): Promise<LocalRen
   const endSec = Math.max(startSec + 0.5, Number(input.endSec) || startSec + 1);
   const lengthSec = endSec - startSec;
 
-  // ─── /tmp pre-clean ─────────────────────────────────────────────────
-  // Vercel function /tmp is ~512MB. A 400MB source + intermediate files
-  // from a previous render that didn't finish cleanly will exhaust it
-  // and the next render dies with ENOSPC mid-write. Wipe any stale
-  // ve-* artifacts from prior invocations before we start.
+  // ─── /tmp pre-clean (age-gated) ─────────────────────────────────────
+  // Vercel function /tmp is ~512MB and is shared across concurrent
+  // invocations on the same warm lambda. A blanket wipe would delete
+  // files an in-flight render is actively using and crash it — which
+  // is exactly what happened the first time we tried. Only delete
+  // ve-* files that are at least 2 minutes old (no in-flight render
+  // takes longer than that without already being abandoned by the
+  // 300s function timeout).
   try {
     const tmpDir = tmpdir();
     const { readdir } = await import('fs/promises');
     const entries = await readdir(tmpDir);
     let removed = 0;
+    const cutoffMs = Date.now() - 2 * 60 * 1000;
     for (const name of entries) {
       if (!/^ve-(src|out|music|broll|frame|mod)-/.test(name)) continue;
-      try { await unlink(join(tmpDir, name)); removed++; } catch { /* ignore */ }
+      try {
+        const s = await stat(join(tmpDir, name));
+        if (s.mtimeMs > cutoffMs) continue; // skip files an active render owns
+        await unlink(join(tmpDir, name));
+        removed++;
+      } catch { /* ignore — best-effort */ }
     }
     if (removed > 0) console.log(`[ve-render-local] cleaned ${removed} stale tmp files before render`);
   } catch (e) {

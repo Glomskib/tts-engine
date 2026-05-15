@@ -1,22 +1,22 @@
 # This Week Command Board
 
-Updated: 2026-05-15 12:40pm ET
+Updated: 2026-05-15 4:50pm ET
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
 ## Live Health
 
 - Mission Control: live at `90686ef`.
-- FlashFlow: live at current FlashFlow `master`; check `https://flashflowai.com/api/health` after each brief push.
-- Zebby's World: app is healthy at `www.zebbysworld.com` and the Vercel branch alias. Bare `zebbysworld.com` is still routed away from the app.
+- FlashFlow: live at `e685df1`; `/pricing` and generated OG/Twitter image fixes are deployed. Check `https://flashflowai.com/api/health` after each brief push.
+- Zebby's World: app is healthy at `www.zebbysworld.com` and the Vercel branch alias. Bare `zebbysworld.com` is still split between Shopify and Vercel.
 - MMM hub: app is healthy at `mmm-hub.vercel.app`. `makingmilesmatter.org/api/health` is still routed to Mission Control.
 
 ## Brandon Approval Gates
 
 These are the decisions blocking public launch or money movement. Do not do them without Brandon.
 
-1. Zebby's domain path: make `www.zebbysworld.com` canonical and redirect bare domain there, or keep bare domain on Shopify.
-2. MMM domain path: point `makingmilesmatter.org` to the MMM hub, or keep the current non-hub routing.
+1. Zebby's domain path: approve removing Shopify apex A record `23.227.38.32` and keeping Vercel A record `76.76.21.21`, or keep bare domain on Shopify.
+2. MMM domain path: approve moving `makingmilesmatter.org` and `www.makingmilesmatter.org` aliases from Mission Control to MMM Hub, or keep current Mission Control routing.
 3. TCG merge path: merge BuybackOS PR #1, retarget/merge PR #2, then approve production Supabase migrations.
 4. HHH sponsor outreach: approve, edit, or hold the prepared sponsor send queue. Approval sheet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-approval-sheet-2026-05-15.md`.
 5. HHH Facebook batch: approve, edit, or hold the June 8-July 7 posts.
@@ -26,6 +26,7 @@ These are the decisions blocking public launch or money movement. Do not do them
 
 AI agents can keep doing this without Brandon clicks:
 
+- Refresh deploy/context docs and rerun health checks, but after every FlashFlow push verify `/api/health` matches `git rev-parse --short HEAD`.
 - Production-session QA for Mission Control `/admin/brief`, `/admin/board`, and `/admin/tasks`.
 - Draft-only HHH sponsor/email/social refinements using `miles@makingmilesmatter.com` as the sender identity, but do not send.
 - MMM photo/copy inventory and Stripe test plan, but do not create live payment links.
@@ -38,6 +39,7 @@ Brandon can unblock a lane with one sentence:
 
 - `DNS: Zebby WWW canonical`
 - `DNS: MMM hub canonical`
+- `DNS: approve both from domain packet`
 - `TCG: merge PR1 then PR2; stop before prod migration`
 - `TCG: merge PR1 then PR2 and prepare prod migration approval packet`
 - `HHH sponsors: approved to send`

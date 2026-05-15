@@ -4,12 +4,12 @@
 
 ---
 
-## Last refreshed: 2026-05-15 ~12:40pm ET
+## Last refreshed: 2026-05-15 4:50pm ET
 
 ## Current deploy truth
 
 - **Mission Control:** live match. Local/origin/prod are `90686ef`. MC deploy pipe is working. `mc.flashflowai.com` was briefly mis-aliased to the wrong Vercel project (`mc-flashflowai`) on May 15; it has been restored to the `mission-control` deployment.
-- **FlashFlow:** deploy pipe is healthy. This file lives inside the FlashFlow app, so every brief refresh creates a new health SHA; verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
+- **FlashFlow:** live match. Local/origin/prod are `e685df1`. Pricing page and dynamic OG/Twitter image fixes are deployed. This file lives inside the FlashFlow app, so every brief refresh creates a new health SHA; verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `46f6b5a`. Bare `zebbysworld.com` still returns Shopify 402 HTML. Do not change DNS without Brandon confirming.
 - **MMM hub:** `mmm-hub.vercel.app` is live at `73814f5`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports Mission Control SHA `90686ef` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
 - **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists the exact approval gates and safe autonomous work.
@@ -24,6 +24,8 @@ Fix path when Brandon confirms DNS work:
 2. Remove stray/old routing records only after Brandon confirms the target.
 3. Verify the app health URL reports the same SHA as `git rev-parse --short HEAD`.
 
+Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing-approval-packet-2026-05-15.md`.
+
 ## Recently finished
 
 - MC Monday-style Phase 1 is deployed and verified through `/api/health`; current live SHA is `9fd692b`. Completed: colored pills, inline edit, grouped sections, summary bars, top toolbar, assignee/row assignment, file upload via Supabase Storage, `/admin/board`, workspace filter, comments, live bookshelf counts, and `/admin/brief` for composing fleet briefs from the UI.
@@ -33,6 +35,7 @@ Fix path when Brandon confirms DNS work:
 - MC proof/upload edge cases are hardened and deployed at `9fd692b`. Uploads now reject wrong content types and oversized multipart requests before parsing, sanitize optional form fields, strip risky leading-dot filenames, and use `COALESCE` for proof counters. JSON proof posts now reject malformed/non-object JSON and non-string proof values before insert/validation. Verified locally with full dev-open smoke: 288 pass, 0 fail, 0 warn, 0 skip.
 - MC custom domain alias was repaired after `mc.flashflowai.com` started returning Vercel `NOT_FOUND`; `vercel alias set mission-control-2ed7oirlf-brandons-projects-94dcab35.vercel.app mc.flashflowai.com` restored the domain and `/api/health` now reports the current Mission Control deploy SHA.
 - MC Memory OS is live through Turso snapshot storage, `/api/admin/memory/snapshot` accepts either configured MC token, the pusher install path resolves tokens automatically while trimming auth headers, and its launchd plist now uses a resolved `npx` path. Current live SHA: `90686ef`.
+- FlashFlow pricing/metadata deploy pipe is repaired at `e685df1`. Fixes included: active pricing tiers on `/pricing`, local `dynamic = 'force-static'` for `twitter-image.tsx`, and Satori-safe `display: flex` in the generated `opengraph-image`. Verified: `/api/health` reports `e685df1`, `/pricing` returns 200, `/opengraph-image` returns PNG 200, Vercel deployment Ready and aliased.
 - FlashFlow launch-week create polish is deployed at `65108df`: `/create` now has opt-in B-roll/music toggles defaulting off, the cooking page has friendlier progress/copy/share/failure states, homepage auth redirect was relaxed, public privacy copy uses generic vendor categories, and layout metadata supports Google Search Console + Bing verification through env vars.
 - Zebby's health route exposes Vercel commit SHA; `www` and branch alias report `c0cc5bd`.
 - HHH sponsor contact research saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-contacts-research-2026-05-09.md`.
@@ -73,8 +76,8 @@ Fix path when Brandon confirms DNS work:
 
 ## Open questions waiting on Brandon
 
-- Zebby's apex DNS: Vercel vs Shopify canonical path.
-- MMM primary domain: point `makingmilesmatter.org` at the live Vercel hub or keep the current `/lander` path.
+- Zebby's apex DNS: Vercel vs Shopify canonical path. Use `domain-routing-approval-packet-2026-05-15.md`; do not change DNS without Brandon.
+- MMM primary domain: move `makingmilesmatter.org` / `www.makingmilesmatter.org` aliases to MMM Hub or keep current Mission Control routing. Use `domain-routing-approval-packet-2026-05-15.md`; do not change aliases without Brandon.
 - HHH sponsor batch approval: approve, edit, or hold the Monday-ready send queue.
 - HHH Facebook batch approval: approve, edit, or hold June 8-July 7 posts.
 - HHH route assets: final RideWithGPS/GPX/cue-sheet ownership and logistics review.

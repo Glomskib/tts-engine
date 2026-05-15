@@ -4,6 +4,16 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { PRICING_PLANS } from '@/lib/plans';
 
+// Opt this page out of static prerendering. Round 2 of the homepage fix
+// (PostHogProvider Suspense move) made every 'use client' page eligible for
+// static prerender at build time. /pricing has a latent runtime bug that
+// only crashes during prerender (TypeError: Cannot read properties of
+// undefined (reading 'name') somewhere in the bundled output). Using
+// force-dynamic restores per-request rendering — what /pricing always
+// effectively did before — and unblocks the deploy. The latent bug should
+// still be tracked down separately, but it's not blocking ads.
+export const dynamic = 'force-dynamic';
+
 export default function PricingPage() {
   const [isAnnual, setIsAnnual] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
@@ -117,39 +127,39 @@ export default function PricingPage() {
             </ul>
           </div>
 
-          {/* Lite Plan */}
+          {/* Starter Plan */}
           <div className="rounded-xl p-6 border border-gray-700 bg-gray-800/30 hover:border-gray-600 transition-all flex flex-col">
-            <h3 className="text-xl font-bold mb-1">{PRICING_PLANS.lite.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">For early-stage creators on TikTok &amp; Reels</p>
+            <h3 className="text-xl font-bold mb-1">{PRICING_PLANS.starter.name}</h3>
+            <p className="text-gray-400 text-sm mb-4">For creators building a repeatable short-form engine</p>
 
             <div className="mb-1">
               <span className="text-4xl font-bold">
-                ${isAnnual && PRICING_PLANS.lite.annual ? Math.floor(PRICING_PLANS.lite.annual.price / 12) : PRICING_PLANS.lite.monthly?.price}
+                ${isAnnual && PRICING_PLANS.starter.annual ? Math.floor(PRICING_PLANS.starter.annual.price / 12) : PRICING_PLANS.starter.monthly?.price}
               </span>
               <span className="text-gray-400 text-sm">/month</span>
             </div>
-            {isAnnual && PRICING_PLANS.lite.annual ? (
+            {isAnnual && PRICING_PLANS.starter.annual ? (
               <p className="text-xs text-emerald-400 mb-6">
-                <span className="line-through text-gray-500 mr-1">${PRICING_PLANS.lite.monthly?.price}/mo</span>
-                Save {PRICING_PLANS.lite.annual.savings}/yr
+                <span className="line-through text-gray-500 mr-1">${PRICING_PLANS.starter.monthly?.price}/mo</span>
+                Save {PRICING_PLANS.starter.annual.savings}/yr
               </p>
             ) : (
               <p className="text-xs text-gray-500 mb-6">
-                or {PRICING_PLANS.lite.annual?.monthlyEquiv}/mo billed annually
+                50 clips per month
               </p>
             )}
 
             <button
               type="button"
-              onClick={() => handleCheckout('lite', isAnnual)}
+              onClick={() => handleCheckout('starter', isAnnual)}
               disabled={checkoutLoading !== null}
               className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-6 transition bg-gray-700 text-white hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {checkoutLoading === 'lite' ? 'Redirecting…' : 'Choose Lite'}
+              {checkoutLoading === 'starter' ? 'Redirecting…' : 'Choose Starter'}
             </button>
 
             <ul className="space-y-2.5 flex-1">
-              {PRICING_PLANS.lite.features.map((feature, idx) => (
+              {PRICING_PLANS.starter.features.map((feature, idx) => (
                 <li key={idx} className="flex items-start text-sm">
                   <span className="text-teal-500 mr-2 mt-0.5">✓</span>
                   <span className="text-gray-300">{feature}</span>
@@ -158,13 +168,54 @@ export default function PricingPage() {
             </ul>
           </div>
 
-          {/* Pro Plan (Most Popular) */}
+          {/* Creator Plan (Most Popular) */}
           <div className="rounded-xl p-6 border-2 border-teal-500 bg-teal-500/5 shadow-lg shadow-teal-500/10 transition-all flex flex-col relative">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-teal-500 text-white text-xs rounded-full font-semibold whitespace-nowrap">
-              {PRICING_PLANS.pro.badge}
+              {PRICING_PLANS.creator.badge}
             </div>
-            <h3 className="text-xl font-bold mb-1 mt-2">{PRICING_PLANS.pro.name}</h3>
+            <h3 className="text-xl font-bold mb-1 mt-2">{PRICING_PLANS.creator.name}</h3>
             <p className="text-gray-400 text-sm mb-4">For serious TikTok, Reels, and YouTube creators</p>
+
+            <div className="mb-1">
+              <span className="text-4xl font-bold">
+                ${isAnnual && PRICING_PLANS.creator.annual ? Math.floor(PRICING_PLANS.creator.annual.price / 12) : PRICING_PLANS.creator.monthly?.price}
+              </span>
+              <span className="text-gray-400 text-sm">/month</span>
+            </div>
+            {isAnnual && PRICING_PLANS.creator.annual ? (
+              <p className="text-xs text-emerald-400 mb-6">
+                <span className="line-through text-gray-500 mr-1">${PRICING_PLANS.creator.monthly?.price}/mo</span>
+                Save {PRICING_PLANS.creator.annual.savings}/yr
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500 mb-6">
+                200 clips per month
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={() => handleCheckout('creator', isAnnual)}
+              disabled={checkoutLoading !== null}
+              className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-6 transition bg-teal-500 text-white hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {checkoutLoading === 'creator' ? 'Redirecting…' : 'Choose Creator'}
+            </button>
+
+            <ul className="space-y-2.5 flex-1">
+              {PRICING_PLANS.creator.features.map((feature, idx) => (
+                <li key={idx} className="flex items-start text-sm">
+                  <span className="text-teal-500 mr-2 mt-0.5">✓</span>
+                  <span className="text-gray-300">{feature}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/* Pro Plan */}
+          <div className="rounded-xl p-6 border border-gray-700 bg-gray-800/30 hover:border-gray-600 transition-all flex flex-col">
+            <h3 className="text-xl font-bold mb-1">{PRICING_PLANS.pro.name}</h3>
+            <p className="text-gray-400 text-sm mb-4">For multi-brand creators, agencies, and small business owners</p>
 
             <div className="mb-1">
               <span className="text-4xl font-bold">
@@ -179,7 +230,7 @@ export default function PricingPage() {
               </p>
             ) : (
               <p className="text-xs text-gray-500 mb-6">
-                or {PRICING_PLANS.pro.annual?.monthlyEquiv}/mo billed annually
+                500 clips per month
               </p>
             )}
 
@@ -187,9 +238,9 @@ export default function PricingPage() {
               type="button"
               onClick={() => handleCheckout('pro', isAnnual)}
               disabled={checkoutLoading !== null}
-              className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-6 transition bg-teal-500 text-white hover:bg-teal-600 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-6 transition bg-gray-700 text-white hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {checkoutLoading === 'pro' ? 'Redirecting…' : 'Choose Creator Pro'}
+              {checkoutLoading === 'pro' ? 'Redirecting…' : 'Choose Pro'}
             </button>
 
             <ul className="space-y-2.5 flex-1">
@@ -201,54 +252,13 @@ export default function PricingPage() {
               ))}
             </ul>
           </div>
-
-          {/* Business Plan */}
-          <div className="rounded-xl p-6 border border-gray-700 bg-gray-800/30 hover:border-gray-600 transition-all flex flex-col">
-            <h3 className="text-xl font-bold mb-1">{PRICING_PLANS.business.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">For multi-brand creators, agencies, and small business owners</p>
-
-            <div className="mb-1">
-              <span className="text-4xl font-bold">
-                ${isAnnual && PRICING_PLANS.business.annual ? Math.floor(PRICING_PLANS.business.annual.price / 12) : PRICING_PLANS.business.monthly?.price}
-              </span>
-              <span className="text-gray-400 text-sm">/month</span>
-            </div>
-            {isAnnual && PRICING_PLANS.business.annual ? (
-              <p className="text-xs text-emerald-400 mb-6">
-                <span className="line-through text-gray-500 mr-1">${PRICING_PLANS.business.monthly?.price}/mo</span>
-                Save {PRICING_PLANS.business.annual.savings}/yr
-              </p>
-            ) : (
-              <p className="text-xs text-gray-500 mb-6">
-                or {PRICING_PLANS.business.annual?.monthlyEquiv}/mo billed annually
-              </p>
-            )}
-
-            <button
-              type="button"
-              onClick={() => handleCheckout('business', isAnnual)}
-              disabled={checkoutLoading !== null}
-              className="block w-full py-3 px-4 rounded-lg font-semibold text-center mb-6 transition bg-gray-700 text-white hover:bg-gray-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {checkoutLoading === 'business' ? 'Redirecting…' : 'Choose Business'}
-            </button>
-
-            <ul className="space-y-2.5 flex-1">
-              {PRICING_PLANS.business.features.map((feature, idx) => (
-                <li key={idx} className="flex items-start text-sm">
-                  <span className="text-teal-500 mr-2 mt-0.5">✓</span>
-                  <span className="text-gray-300">{feature}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
         </div>
 
         {/* Enterprise Plans */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-          {['brand', 'agency'].map((planKey) => {
+        <div className="mt-8 grid grid-cols-1 gap-6 max-w-md mx-auto">
+          {['content_fleet'].map((planKey) => {
             const plan = PRICING_PLANS[planKey as keyof typeof PRICING_PLANS];
-            if (!plan.contactUs) return null;
+            if (!plan?.contactUs) return null;
 
             return (
               <div key={planKey} className="rounded-xl p-6 border border-gray-700 bg-gray-800/30 hover:border-gray-600 transition-all">
@@ -307,19 +317,19 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold mb-2">What&apos;s included in the free plan?</h3>
             <p className="text-gray-300">
-              5 AI scripts per month for TikTok, Reels, or YouTube — your choice of platform per script. Unlimited transcriptions of TikToks, Reels, or YouTube videos with our free transcriber tools. 1 brand. You can try the script generator and transcriber without even creating an account.
+              3 clips total, no card required. You get 720p output, one caption style, TikTok and YouTube Shorts formats, no watermark, and 7-day clip storage so you can see whether FlashFlow fits your workflow.
             </p>
           </div>
           <div>
-            <h3 className="text-lg font-bold mb-2">What happens when I run out of scripts?</h3>
+            <h3 className="text-lg font-bold mb-2">What happens when I run out of clips?</h3>
             <p className="text-gray-300">
-              Your existing scripts and transcriptions are always accessible. You just can&apos;t generate new scripts until your credits reset next month, or you upgrade. The free transcriber tools are always available regardless.
+              Your existing clips stay accessible through their storage window. To create more, upgrade to Starter, Creator, or Pro and your monthly clip credits start immediately.
             </p>
           </div>
           <div>
             <h3 className="text-lg font-bold mb-2">What&apos;s the difference between the tiers?</h3>
             <p className="text-gray-300">
-              Free is for testing across any platform. Lite ($9) gives you 50 scripts/mo (any combination of TikTok, Reels, or YouTube) + content calendar. Creator Pro ($29) is unlimited scripts on every platform + Winners Bank + analytics + video pipeline. Business ($59) adds priority support, unlimited brands, and is the right fit for agencies and business owners running multiple accounts.
+              Free is for testing. Starter gives you 50 clips per month, Creator gives you 200 clips plus custom caption styles and voice-clone TTS, and Pro gives you 500 clips, 4K output, scheduling, and more brand profiles. Content Fleet is for agencies running 5+ client brands.
             </p>
           </div>
           <div>
@@ -345,7 +355,7 @@ export default function PricingPage() {
 
       {/* Bottom CTA */}
       <div className="max-w-4xl mx-auto px-4 py-16 text-center border-t border-gray-700">
-        <h2 className="text-3xl font-bold mb-4">Start generating scripts in 30 seconds</h2>
+        <h2 className="text-3xl font-bold mb-4">Start making clips in 30 seconds</h2>
         <p className="text-gray-300 mb-8">Free plan. No credit card. No commitment.</p>
         <div className="flex gap-4 justify-center flex-wrap">
           <Link

@@ -4,12 +4,12 @@
 
 ---
 
-## Last refreshed: 2026-05-15 ~7:35am ET
+## Last refreshed: 2026-05-15 ~8:10am ET
 
 ## Current deploy truth
 
 - **Mission Control:** live match. Local/origin/prod are `9700687`. MC deploy pipe is working. `mc.flashflowai.com` was briefly mis-aliased to the wrong Vercel project (`mc-flashflowai`) on May 15; it has been restored to the `mission-control` deployment and `/api/health` reports `9700687`.
-- **FlashFlow:** live match. Local/origin/prod are `65108df`. Launch-week create polish, SEO verification env slots, and this brief refresh are deployed.
+- **FlashFlow:** live match before this brief refresh. Local/origin/prod were `bcb2f64`; after this brief commit, verify the exact live SHA with `https://flashflowai.com/api/health`.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `46f6b5a`. Bare `zebbysworld.com` still returns Shopify 402 HTML. Do not change DNS without Brandon confirming.
 - **MMM hub:** `mmm-hub.vercel.app` is live at `73814f5`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports `9700687` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
 
@@ -43,7 +43,7 @@ Fix path when Brandon confirms DNS work:
 - MMM hub source is cloned at `~/projects/mmm-hub`; commit `73814f5` is live on `mmm-hub.vercel.app`. Fixed: added `/api/health`, removed the visible hero photo placeholder, removed fake-looking testimonial content, replaced unverified impact stats with launch-state facts, corrected HHH 2026 date/routes to September 12 and 15/30/62/100, changed one-time donate CTA away from placeholder checkout, and softened membership/tax wording before Stripe wiring.
 - MMM membership/Stripe approval packet saved to `~/Documents/MacBook Pro VAULT/10-Projects/MMM-membership-stripe-approval-packet-2026-05-10.md`. It recommends the current $5/$15/$35 monthly ladder, nonprofit Stripe env names, checkout test matrix, and a no-charge launch path pending Brandon approval.
 - TCG Buying Group BuybackOS evaluation saved to `~/Documents/MacBook Pro VAULT/10-Projects/TCG-on-BuybackOS-eval-2026-05-10.md`. Recommendation: extend BuybackOS with a narrow Brandon-only TCG operator ledger instead of building from scratch.
-- TCG operator ledger is built and locally migration-validated in the isolated BuybackOS worktree `~/.config/superpowers/worktrees/buybackos/tcg-operator-ledger`, branch `codex/tcg-operator-ledger`. Local commits: `d295eae` allocation engine/test/migration, `d121f8c` BuybackOS baseline type/lint/build cleanup, `c956def` `/dashboard/tcg`, `eeaecdb` Brandon-only write actions, `a11f2ce` transaction-safe `post_tcg_group_buy_allocations` RPC, and `33f38da` local Supabase validation. Local Supabase applies through `20260511161525`; the TCG worktree passes the TCG unit/action/dashboard/RPC tests, local Supabase lint, type-check, lint with warnings only, and production build. TCG itself has not been pushed, deployed, migrated to production, priced, or made public.
+- TCG operator ledger is now in draft PR #2: `https://github.com/Glomskib/buybackos/pull/2`, branch `codex/tcg-operator-ledger-stacked`, stacked on BuybackOS base-stack PR #1. GitHub reports PR #2 `MERGEABLE`. It includes allocation core, `/dashboard/tcg`, Brandon-only write actions, transaction-safe allocation RPC wiring, and validated migrations/scripts. Verified after stacking: `npm run test:tcg-allocation`, `npm run test:tcg-dashboard`, `npm run test:tcg-actions`, `npm run test:tcg-rpc`, `npx tsc --noEmit --pretty false`, `npm run lint` with warnings only, and production build with dummy local Supabase env. Rollback-only local RPC smoke was attempted but Docker was not running on this Mac, so it could not connect to the local Supabase container. TCG has not been merged, deployed to production, migrated to production, priced, or made public.
 - BuybackOS base stack is now in draft PR #1: `https://github.com/Glomskib/buybackos/pull/1`, branch `codex/buybackos-base-stack`. It includes the 22 local base commits plus the baseline cleanup, has been merged with the current `origin/main` snapshot, and GitHub reports it `MERGEABLE`. Verified in the isolated worktree: `npx tsc --noEmit --pretty false`, `npm run lint` with warnings only, and production build with dummy local Supabase env.
 - Digital assets: first local product package draft created at `~/Documents/MacBook Pro VAULT/10-Projects/digital-assets/endurance-event-directors-toolkit/`. Buyer-ready v2 ZIP draft: `endurance-event-directors-toolkit-public-draft-v2.zip` with README, quick start, license/disclaimer, sponsor pipeline CSV, route readiness, registration/store checklist, volunteer run sheet, and event launch plan. Private HHH dogfood source map and seller launch assets are excluded from the buyer ZIP. Seller launch assets now include `assets/cover.svg`, `launch-assets/platform-listing-copy.md`, `launch-assets/support-and-refund-macros.md`, and `launch-assets/final-preflight-checklist.md`. ZIP test passed with 9 files and SHA-256 `35ac90e36bc296b80a6e4a3fe7c2b79931f33062062ff00440fd20afba778c1c`. Launch approval still needed before listing, payment link, or announcement.
 
@@ -56,7 +56,7 @@ Fix path when Brandon confirms DNS work:
 - **MMM hub copy + photo pass:** source cleanup and membership copy safety pass are live at `73814f5`. Next: fix `makingmilesmatter.org` routing after Brandon confirms DNS/domain path, add real MMM/HHH photos when assets exist, and wire real one-time donations/Stripe checkout after pricing/payment decisions.
 - **HHH Shopify theme:** payment-ready audit, theme check cleanup, and draft product setup packet are done. Next: Brandon approves prices/legal, then create draft Shopify products and run unpublished test orders before any publish.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).
-- **TCG Buying Group:** allocation core, initial schema, BuybackOS baseline cleanup, `/dashboard/tcg` operator read view, Brandon-only write actions, transaction-safe allocation RPC, and local Supabase smoke validation are built in an isolated worktree. Next unblocked step: review/merge BuybackOS draft PR #1, then rebase the TCG worktree and push TCG as its own draft PR. Do not apply production migrations, enable live Stripe pricing, or open public registration without Brandon approval.
+- **TCG Buying Group:** PR #1 (BuybackOS base stack) and stacked PR #2 (TCG operator ledger) are both open as drafts and mergeable. Next unblocked step: review/merge PR #1, then retarget/merge PR #2. Do not apply production migrations, enable live Stripe pricing, or open public registration without Brandon approval.
 - **Digital assets:** Endurance Event Director's Toolkit v2 buyer ZIP, cover SVG, platform listing copy, support/refund macros, and final preflight checklist exist locally. Next: Brandon approves final name/price/sales channel/refund posture, then create the draft product listing. Do not publish or charge without approval.
 
 ## Hands-off — Brandon decides, I draft
@@ -76,7 +76,7 @@ Fix path when Brandon confirms DNS work:
 - HHH route assets: final RideWithGPS/GPX/cue-sheet ownership and logistics review.
 - Auto-deploy permissions matrix confirmation.
 - Telegram thread routing.
-- BuybackOS base stack: draft PR #1 is open and mergeable; decide whether to review/merge it so TCG can be rebased into a focused draft PR.
+- BuybackOS / TCG merge order: draft PR #1 is open and mergeable; stacked draft PR #2 is open and mergeable against PR #1. Review/merge PR #1 first, then retarget/merge PR #2.
 - Git author policy: add `miles@makingmilesmatter.com` and/or `brandon@makingmilesmatter.com` to GitHub if Brandon wants those emails to trigger Vercel deploys.
 
 ---

@@ -4,7 +4,7 @@
 
 ---
 
-## Last refreshed: 2026-05-15 ~9:12am ET
+## Last refreshed: 2026-05-15 ~12:40pm ET
 
 ## Current deploy truth
 
@@ -37,6 +37,7 @@ Fix path when Brandon confirms DNS work:
 - Zebby's health route exposes Vercel commit SHA; `www` and branch alias report `c0cc5bd`.
 - HHH sponsor contact research saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-contacts-research-2026-05-09.md`.
 - HHH sponsor send queue saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-outreach-send-queue-2026-05-10.md`.
+- HHH sponsor approval sheet saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-approval-sheet-2026-05-15.md`. It normalizes the first send batch to locked HHH tiers: Headline $2,500 / Contributing $1,000 / Supporting $300 / In-kind, and flags old draft language that must not go out.
 - HHH stale sponsor replacement drafts saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-replacement-drafts-2026-05-10.md`.
 - HHH Facebook posts for June 8 through July 7 drafted at `~/Documents/Claude/Projects/Mac Takeover/HHH-FB-POSTS-60-90-DAYS-2026-06-08.md`.
 - HHH Shopify theme route section now supports four distance route cards locally; production packet saved at `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-map-production-packet-2026-05-10.md`. Not published to Shopify.
@@ -52,7 +53,7 @@ Fix path when Brandon confirms DNS work:
 
 ## Standing initiatives — pick from these when idle
 
-- **HHH sponsor outreach:** research and send queue are ready. Need Brandon approval before any email sends; use `miles@makingmilesmatter.com` only.
+- **HHH sponsor outreach:** research, send queue, and tier-correct approval sheet are ready. Need Brandon approval before any email sends; use `miles@makingmilesmatter.com` only.
 - **HHH Facebook content:** June 8-July 7 batch is drafted. Need Brandon approval before scheduling/posting.
 - **HHH route maps:** theme supports 15/30/62/100 cards locally. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, and Joshua/logistics review before publishing.
 - **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, upload, and brief-composer pieces are live, smoke-covered, and locally browser-QAable without Brandon clicks. Next useful work: production-session browser QA for `/admin/brief`, `/admin/board`, and `/admin/tasks`, then wire Telegram/fleet alert routing after Brandon confirms thread defaults.

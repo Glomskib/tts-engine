@@ -103,7 +103,7 @@ export default function RootLayout({
     applicationCategory: 'Multimedia',
     operatingSystem: 'Web',
     url: 'https://flashflowai.com',
-    description: 'The all-in-one growth engine for TikTok Shop affiliates and creators. Affiliate Hub, hook generator (5+ AI providers), AI video editor, comment miner, multi-account TikTok publishing, and commission tracking — in one tool.',
+    description: 'The all-in-one growth engine for TikTok Shop affiliates and creators. Affiliate Hub, AI hook generator, AI video editor, comment miner, multi-account TikTok publishing, and commission tracking — in one tool.',
     offers: {
       '@type': 'Offer',
       price: '0',
@@ -132,11 +132,11 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationSchema) }}
         />
         
-        {/* Performance: Preconnect to backend services. AI-vendor preconnects
-            removed 2026-05-08 — were leaking OpenAI/Replicate dependency in
-            page source. Negligible perf cost; bigger UX/positioning win. */}
-        <link rel="preconnect" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ''} />
-        <link rel="dns-prefetch" href={process.env.NEXT_PUBLIC_SUPABASE_URL || ''} />
+        {/* Performance: only preconnect to first-party origin. Backend-vendor
+            preconnects intentionally omitted — they leaked the underlying
+            stack (OpenAI/Replicate/Supabase) in page source, which we want
+            hidden from public competitors and prospective customers. The
+            perf cost is negligible vs. the positioning/IP benefit. */}
         <link rel="dns-prefetch" href="https://flashflowai.com" />
         
         {/* Performance: Prefetch critical navigation */}

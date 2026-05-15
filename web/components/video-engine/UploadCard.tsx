@@ -205,14 +205,15 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
           if (xhr.status >= 200 && xhr.status < 300) return resolve();
           const body = (xhr.responseText || '').slice(0, 400);
           console.error('[UploadCard] PUT_FAIL', { status: xhr.status, statusText: xhr.statusText, body });
-          // Try to parse Supabase's JSON error envelope for a human message.
+          // Try to parse the storage backend's JSON error envelope for a human
+          // message. Never surface vendor/product names to end users.
           let friendly = `Upload failed (HTTP ${xhr.status || 'network'})`;
           try {
             const parsed = body ? JSON.parse(body) : null;
             const msg = parsed?.message || parsed?.error || parsed?.statusCode;
             if (msg) friendly = `Upload failed (${xhr.status}): ${String(msg).slice(0, 200)}`;
           } catch { /* non-JSON body, keep generic */ }
-          if (xhr.status === 413) friendly = 'That file is larger than the storage cap. We raised the app limit to 2 GB but the Supabase bucket still needs to be updated.';
+          if (xhr.status === 413) friendly = 'That file is larger than the current upload limit. Try compressing the video or splitting it into shorter takes.';
           reject(new Error(friendly));
         };
         xhr.onerror = () => {

@@ -82,7 +82,7 @@ export default async function Image() {
         >
           <div
             style={{
-              display: 'inline-flex',
+              display: 'flex',
               alignSelf: 'flex-start',
               padding: '8px 16px',
               backgroundColor: 'rgba(20, 184, 166, 0.12)',

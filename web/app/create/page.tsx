@@ -535,11 +535,11 @@ export default function CreatePage() {
                 type="file"
                 accept="video/*"
                 multiple={defaults.maxSources > 1}
-                // `capture="environment"` on mobile prompts the rear camera +
-                // gallery picker instead of just gallery. Submagic's whole
-                // moat is phone-first creator UX — match it.
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                {...({ capture: 'environment' } as any)}
+                // No `capture` attr — on iOS Safari, setting capture forces
+                // the camera-only picker and hides Photos/Files. Without it
+                // the user gets the native picker: Photo Library, Take
+                // Photo or Video, Choose File. The Record tab handles
+                // direct camera capture; Upload is for existing media.
                 className="hidden"
                 onChange={(e) => e.target.files && void handleMultiFile(e.target.files)}
               />

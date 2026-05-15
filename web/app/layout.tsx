@@ -51,23 +51,19 @@ export const metadata: Metadata = {
     siteName: "FlashFlow AI",
     type: "website",
     locale: "en_US",
-    images: [
-      {
-        url: "https://flashflowai.com/logo.png",
-        width: 1024,
-        height: 1024,
-        alt: "FlashFlow AI - Teal Lightning Bolt Logo",
-      },
-    ],
+    // og:image is supplied by web/app/opengraph-image.tsx (Next.js file-based
+    // metadata convention). The generated 1200x630 PNG renders the hero card
+    // for FB/LinkedIn/iMessage ad previews. Don't add images here — file-based
+    // metadata takes precedence for the same route segment, and a hardcoded
+    // entry would split into two og:image tags.
   },
   twitter: {
     // summary_large_image gives us a bigger preview card when the URL is shared
     // on X/Twitter and many other clients that respect Twitter card tags.
-    // iMessage / SMS still use Open Graph above, which is unchanged.
+    // The image is supplied by web/app/twitter-image.tsx (same 1200x630).
     card: "summary_large_image",
     title: "FlashFlow AI — Growth Engine for TikTok Shop Affiliates",
     description: "Find products, generate hooks, edit videos, publish to TikTok, track commissions — in one tool. Try free.",
-    images: ["https://flashflowai.com/logo.png"],
   },
   manifest: "/manifest.json",
   appleWebApp: {

@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode, Suspense } from 'react';
+import { ReactNode } from 'react';
 import { ErrorBoundary } from './ui/ErrorBoundary';
 import { ThemeProvider } from '@/app/components/ThemeProvider';
 import { AuthProvider } from '@/contexts/AuthContext';
@@ -12,6 +12,9 @@ interface ProvidersProps {
   children: ReactNode;
 }
 
+// PostHogProvider now handles its own Suspense internally and renders the
+// useSearchParams hook in a SIBLING of children (not a parent), so the page
+// tree no longer bails out to client-side rendering. See PostHogProvider.tsx.
 export function Providers({ children }: ProvidersProps) {
   return (
     <ErrorBoundary>
@@ -19,12 +22,7 @@ export function Providers({ children }: ProvidersProps) {
         <AuthProvider>
           <ToastProvider>
             <OfflineIndicator />
-            {/* PostHogProvider uses useSearchParams — must be inside Suspense
-                so static prerender doesn't bail with the Next.js search-params
-                opt-in bailout. Falls through transparently when no key is set. */}
-            <Suspense fallback={null}>
-              <PostHogProvider>{children}</PostHogProvider>
-            </Suspense>
+            <PostHogProvider>{children}</PostHogProvider>
           </ToastProvider>
         </AuthProvider>
       </ThemeProvider>

@@ -16,7 +16,7 @@
  * and the existing dev-mode console.log fallback in lib/tracking remains.
  */
 
-import { ReactNode, useEffect } from 'react';
+import { ReactNode, Suspense, useEffect } from 'react';
 import { usePathname, useSearchParams } from 'next/navigation';
 import posthog from 'posthog-js';
 import { useAuth } from '@/contexts/AuthContext';
@@ -46,7 +46,22 @@ function ensureInitialized() {
   initialized = true;
 }
 
-export function PostHogProvider({ children }: { children: ReactNode }) {
+// ============================================================
+// PostHogPageTracker — isolates the useSearchParams hook so it
+// can't propagate the dynamic-rendering bailout to children.
+//
+// IMPORTANT: useSearchParams in App Router forces every parent
+// up to the nearest Suspense boundary to render dynamically.
+// Previously PostHogProvider used this hook AND wrapped
+// `{children}` — which made the landing page bail out to CSR
+// (BAILOUT_TO_CLIENT_SIDE_RENDERING in the prerendered HTML, so
+// FB/Google ad scrapers saw nothing).
+//
+// The tracker is now a SIBLING of children, wrapped in its own
+// Suspense. Children render fully static; only the (invisible)
+// tracker component suspends.
+// ============================================================
+function PostHogPageTracker() {
   const { user, authenticated } = useAuth();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -60,8 +75,6 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!initialized) return;
     if (authenticated && user?.id) {
-      // Identify in PostHog directly + mirror into our tracking shim so any
-      // call site that reads userProperties keeps working.
       posthog.identify(user.id, { email: user.email ?? undefined });
       identifyUser({ userId: user.id, email: user.email ?? undefined });
     } else if (!authenticated) {
@@ -79,5 +92,16 @@ export function PostHogProvider({ children }: { children: ReactNode }) {
     posthog.capture('$pageview', { $current_url: window.location.origin + url });
   }, [pathname, searchParams]);
 
-  return <>{children}</>;
+  return null;
+}
+
+export function PostHogProvider({ children }: { children: ReactNode }) {
+  return (
+    <>
+      <Suspense fallback={null}>
+        <PostHogPageTracker />
+      </Suspense>
+      {children}
+    </>
+  );
 }

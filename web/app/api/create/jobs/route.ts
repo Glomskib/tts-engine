@@ -54,6 +54,10 @@ interface CreateBody {
   /** For Post Maker multi-take: additional uploaded sources beyond the primary.
    *  Pipeline can use these later to pick the best take. */
   additional_sources?: AdditionalSource[];
+  /** Opt-in polish. Both default false at the UI; pipeline reads context_json
+   *  and only layers B-roll / music when explicitly enabled. */
+  enable_broll?: boolean;
+  enable_music?: boolean;
 }
 
 /**
@@ -169,6 +173,11 @@ export async function POST(req: NextRequest) {
     source_kind: sourceUrl ? 'upload' : 'link',
     source_link: sourceLink || null,
     additional_sources: body.additional_sources || [],
+    // Polish flags from the /create UI. Pipeline gates B-roll/music on these.
+    // Defaults match the UI defaults (OFF) so legacy callers without the
+    // fields keep historical behavior elsewhere via the mode-based check.
+    enable_broll: body.enable_broll === true,
+    enable_music: body.enable_music === true,
     created_via: 'create_page_v2_modes',
     // Storage retention hint — ve-cleanup uses this to decide source delete timing.
     // Post Maker source can be deleted fast (we only output 1-2 polished clips);

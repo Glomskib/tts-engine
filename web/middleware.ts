@@ -161,13 +161,11 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Redirect authenticated users from landing page to the Create flow (V1).
-  // Bypass with ?marketing=1 so Brandon can preview the public homepage
-  // while logged in.
-  const marketingBypass = request.nextUrl.searchParams.get('marketing') === '1'
-  if (user && path === '/' && !marketingBypass) {
-    return NextResponse.redirect(new URL('/create', request.url))
-  }
+  // 2026-05-15: previously redirected logged-in users from / → /create. Killed
+  // because it broke "click the logo to go home" UX and made it impossible to
+  // re-share the homepage URL once logged in. Logged-in users hitting / now
+  // see the marketing homepage like everyone else; nav already exposes /create
+  // prominently for one-click access to the tool.
 
   return response
 }

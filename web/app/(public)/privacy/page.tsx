@@ -71,36 +71,51 @@ export default function PrivacyPage() {
           </p>
           <ul className="list-disc list-inside space-y-1.5">
             <li>
-              <strong>Stripe</strong> &mdash; payment processing. Stripe receives your billing
-              details and is governed by&nbsp;
+              <strong>Payment processor</strong> &mdash; we use Stripe to handle billing.
+              Stripe receives your payment details and is governed by{' '}
               <a href="https://stripe.com/privacy" target="_blank" rel="noopener noreferrer" className="text-teal-400 hover:underline">
                 Stripe&rsquo;s Privacy Policy
-              </a>.
+              </a>. Card numbers and bank details never touch our servers.
             </li>
             <li>
-              <strong>Supabase</strong> &mdash; database hosting and authentication. Data is stored
-              in Supabase&rsquo;s SOC 2-compliant infrastructure.
+              <strong>Cloud database &amp; authentication provider</strong> &mdash; user
+              accounts, content metadata, and application data are stored in a SOC 2-compliant
+              managed database service.
             </li>
             <li>
-              <strong>TikTok API</strong> &mdash; video importing, transcription, and performance
-              data retrieval. We access only the data you authorize.
+              <strong>Cloud storage providers</strong> &mdash; your uploaded videos and
+              generated clips are stored in encrypted object storage at industry-leading
+              providers. Files are deleted on the retention schedule described below.
             </li>
             <li>
-              <strong>Anthropic &amp; OpenAI</strong> &mdash; AI model providers used for script
-              generation. Prompts may include your product data; outputs are returned to you and
-              not used to train third-party models.
+              <strong>TikTok API</strong> &mdash; video importing, transcription, and
+              performance data retrieval. We access only the data you authorize.
             </li>
             <li>
-              <strong>Vercel</strong> &mdash; application hosting and edge delivery.
+              <strong>AI inference partners</strong> &mdash; transcription, script
+              generation, and other model-powered features are served by leading AI
+              providers. Inputs may include the content you submit; outputs are returned to
+              you. We do not permit these partners to train their general-purpose models on
+              your inputs.
             </li>
             <li>
-              <strong>Google Analytics / Meta Pixel / TikTok Pixel</strong> &mdash; anonymized
-              website analytics and ad-campaign measurement.
+              <strong>Application hosting provider</strong> &mdash; the FlashFlow application
+              and edge delivery are hosted with a major cloud-platform vendor.
+            </li>
+            <li>
+              <strong>Analytics &amp; advertising pixels</strong> &mdash; anonymized website
+              analytics and ad-campaign measurement (Google, Meta, TikTok pixels). You can
+              opt out via the cookie banner.
             </li>
           </ul>
           <p className="leading-relaxed mt-3">
             We may also disclose information when required by law, in response to valid legal
             process, or to protect our rights, property, or safety.
+          </p>
+          <p className="leading-relaxed mt-3 text-xs text-gray-500">
+            Vendors may change from time to time. A current named list of subprocessors is
+            available on request to{' '}
+            <a href="mailto:privacy@flashflowai.com" className="underline hover:text-gray-300">privacy@flashflowai.com</a>.
           </p>
         </section>
 

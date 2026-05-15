@@ -191,6 +191,10 @@ export default function CreatePage() {
   const [credits, setCredits] = useState<CreditState | null>(null);
   const [recording, setRecording] = useState(false);
   const [recorderError, setRecorderError] = useState<string | null>(null);
+  // Polish: defaults to OFF so we don't quietly add B-roll/music to every clip.
+  // Brandon's call — make these explicit opt-in instead of auto-applied.
+  const [enableBroll, setEnableBroll] = useState(false);
+  const [enableMusic, setEnableMusic] = useState(false);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -441,6 +445,8 @@ export default function CreatePage() {
         caption_style: captionStyle,
         clip_count: clipCount,
         aspect_ratios: aspectRatios,
+        enable_broll: enableBroll,
+        enable_music: enableMusic,
       };
       const r = await fetch('/api/create/jobs', {
         method: 'POST',
@@ -458,7 +464,7 @@ export default function CreatePage() {
     } finally {
       setCreating(false);
     }
-  }, [sources, linkValue, mode, describe, vibe, customVibe, brandId, captionStyle, clipCount, aspectRatios, defaults]);
+  }, [sources, linkValue, mode, describe, vibe, customVibe, brandId, captionStyle, clipCount, aspectRatios, enableBroll, enableMusic, defaults]);
 
   // ── UI ─────────────────────────────────────────────────────────────────
   if (jobId) {
@@ -759,6 +765,26 @@ export default function CreatePage() {
           </div>
         </Section>
 
+        {/* 7 · Polish — optional layering (formerly auto-applied). Default OFF
+            because creators want their own footage to lead; auto B-roll/music
+            often felt like filler. Turn on per-project when you want extra. */}
+        <Section title="7 · Polish (optional)">
+          <div className="space-y-2">
+            <ToggleRow
+              label="Add B-roll"
+              sublabel="Cuts in stock clips that match your vibe + transcript. Off = your footage only."
+              checked={enableBroll}
+              onChange={setEnableBroll}
+            />
+            <ToggleRow
+              label="Add background music"
+              sublabel="Layers a vibe-matched track under your audio. Off = clean voice only."
+              checked={enableMusic}
+              onChange={setEnableMusic}
+            />
+          </div>
+        </Section>
+
         {/* Error */}
         {error && (
           <div className="mb-4 bg-red-950/40 border border-red-700 rounded-lg px-4 py-3 text-sm text-red-200 flex items-start gap-2">
@@ -800,6 +826,28 @@ function Section({ title, children }: { title: string; children: React.ReactNode
       <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">{title}</h2>
       {children}
     </div>
+  );
+}
+
+function ToggleRow({
+  label, sublabel, checked, onChange,
+}: { label: string; sublabel: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onChange(!checked)}
+      className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
+        checked ? 'bg-teal-600/15 border-teal-500' : 'bg-gray-900 border-gray-700 hover:border-gray-500'
+      }`}
+    >
+      <div className={`mt-0.5 flex-shrink-0 w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${checked ? 'bg-teal-500 justify-end' : 'bg-gray-700 justify-start'}`}>
+        <div className="w-5 h-5 bg-white rounded-full shadow" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium">{label}</div>
+        <div className="text-xs text-gray-400 leading-snug">{sublabel}</div>
+      </div>
+    </button>
   );
 }
 
@@ -879,9 +927,39 @@ interface JobStatus {
   error_message?: string | null;
 }
 
+// ──────────────────────────────────────────────────────────────────────
+// Cooking page — shown while the job runs and after it completes.
+// ──────────────────────────────────────────────────────────────────────
+
+/** Pipeline stages in order, with friendly copy. Map ve_runs.status → index. */
+const STAGES: { key: string; label: string; sub: string }[] = [
+  { key: 'transcribing', label: 'Listening',         sub: 'Picking up every word + timestamps' },
+  { key: 'analyzing',    label: 'Finding moments',   sub: 'Scoring hooks and re-watch parts' },
+  { key: 'assembling',   label: 'Writing captions',  sub: 'Karaoke-syncing the words' },
+  { key: 'rendering',    label: 'Final render',      sub: 'Stitching video, audio, and text' },
+];
+
+/** "What's happening?" copy by status. Shown above the stage tracker. */
+const STATUS_COPY: Record<string, { title: string; sub: string }> = {
+  created:      { title: 'Queued',                    sub: 'Right behind the projects ahead of you. Usually a few seconds.' },
+  transcribing: { title: 'Listening to your video',   sub: 'Picking up every word and the moment it was spoken.' },
+  analyzing:    { title: 'Picking the best moments',  sub: 'Finding the parts people will rewatch and re-share.' },
+  assembling:   { title: 'Writing captions and hooks',sub: 'Pulling your describe + vibe into copy that sounds like a real creator.' },
+  rendering:    { title: 'Final render',              sub: 'Stitching video, audio, and captions into the final file.' },
+};
+
 function JobProgress({ jobId, onNewJob }: { jobId: string; onNewJob: () => void }) {
   const [job, setJob] = useState<JobStatus | null>(null);
+  const [elapsedSec, setElapsedSec] = useState(0);
+  const [copiedClipId, setCopiedClipId] = useState<string | null>(null);
 
+  // Elapsed timer (lets us show an honest "running for 47s" instead of fake ETAs)
+  useEffect(() => {
+    const t = setInterval(() => setElapsedSec((s) => s + 1), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  // Status polling (unchanged backoff behavior)
   useEffect(() => {
     let active = true;
     const poll = async () => {
@@ -900,59 +978,161 @@ function JobProgress({ jobId, onNewJob }: { jobId: string; onNewJob: () => void 
     return () => { active = false; };
   }, [jobId]);
 
-  const pct = job?.progress_pct ?? 0;
-  const status = job?.status ?? 'queued';
+  const status = job?.status ?? 'created';
+  const pct = job?.progress_pct ?? 5;
   const isDone = status === 'complete';
   const isFailed = status === 'failed';
+  const copy = STATUS_COPY[status] || STATUS_COPY.created;
+  const currentStageIdx = STAGES.findIndex((s) => s.key === status);
+  const stagesDone = currentStageIdx === -1 ? (isDone ? STAGES.length : 0) : currentStageIdx;
+  const mmss = `${Math.floor(elapsedSec / 60)}:${(elapsedSec % 60).toString().padStart(2, '0')}`;
+
+  const copyClipLink = async (clipId: string, url: string) => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopiedClipId(clipId);
+      setTimeout(() => setCopiedClipId((c) => (c === clipId ? null : c)), 2000);
+    } catch { /* clipboard blocked, no-op */ }
+  };
+
+  const shareClip = async (clipId: string, url: string) => {
+    // Use native share on phones; fall back to copy.
+    if (typeof navigator !== 'undefined' && 'share' in navigator) {
+      try {
+        await (navigator as Navigator & { share: (d: { url: string; title?: string }) => Promise<void> })
+          .share({ url, title: 'My FlashFlow clip' });
+        return;
+      } catch { /* user cancelled or unsupported */ }
+    }
+    void copyClipLink(clipId, url);
+  };
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
-      <div className="max-w-2xl mx-auto px-4 py-8 sm:py-12">
-        <h1 className="text-3xl font-bold mb-6">
-          {isDone ? '✓ Done' : isFailed ? 'Something broke' : 'Cooking…'}
-        </h1>
-
-        {!isDone && !isFailed && (
-          <div className="mb-6">
-            <div className="h-3 bg-gray-800 rounded-full overflow-hidden mb-2">
-              <div className="h-full bg-teal-500 transition-all duration-500" style={{ width: `${pct}%` }} />
-            </div>
-            <div className="text-sm text-gray-400 capitalize">{status.replace(/_/g, ' ')} · {pct}%</div>
+      <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h1 className="text-2xl sm:text-3xl font-bold">
+              {isDone ? '✓ Your clips are ready' : isFailed ? 'Something broke' : copy.title}
+            </h1>
+            {!isDone && !isFailed && (
+              <div className="text-xs text-gray-500 font-mono tabular-nums">{mmss}</div>
+            )}
           </div>
-        )}
+          {!isFailed && (
+            <p className="text-sm text-gray-400 leading-snug">
+              {isDone
+                ? `${job?.clips?.length ?? 0} ready · play, download, share — or queue another while these were good.`
+                : copy.sub}
+            </p>
+          )}
+        </div>
 
-        {isFailed && job?.error_message && (
+        {/* Failure banner */}
+        {isFailed && (
           <div className="mb-6 bg-red-950/40 border border-red-700 rounded-lg px-4 py-3 text-sm text-red-200">
-            {job.error_message}
+            <div className="font-medium mb-1">We hit a snag rendering this one.</div>
+            <div className="text-red-300/80 text-xs">{job?.error_message || 'Unknown error. Try again or contact support if it keeps happening.'}</div>
+            <button
+              onClick={onNewJob}
+              className="mt-3 px-3 py-1.5 bg-red-700/40 hover:bg-red-700/60 rounded-md text-xs font-medium"
+            >
+              Start over
+            </button>
           </div>
         )}
 
+        {/* Stage tracker — hide once done */}
+        {!isDone && !isFailed && (
+          <div className="mb-6 bg-gray-900 border border-gray-800 rounded-xl p-4">
+            <div className="h-2 bg-gray-800 rounded-full overflow-hidden mb-4">
+              <div className="h-full bg-teal-500 transition-all duration-700" style={{ width: `${pct}%` }} />
+            </div>
+            <div className="space-y-2">
+              {STAGES.map((stage, idx) => {
+                const done = idx < stagesDone;
+                const active = idx === stagesDone || (idx === currentStageIdx);
+                return (
+                  <div
+                    key={stage.key}
+                    className={`flex items-start gap-3 text-sm transition-opacity ${active ? 'opacity-100' : done ? 'opacity-100' : 'opacity-40'}`}
+                  >
+                    <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
+                      done ? 'bg-teal-500 text-gray-950' :
+                      active ? 'bg-teal-600/30 border border-teal-500 text-teal-300' :
+                      'bg-gray-800 border border-gray-700 text-gray-500'
+                    }`}>
+                      {done ? '✓' : active ? <Loader2 className="w-3 h-3 animate-spin" /> : idx + 1}
+                    </div>
+                    <div className="flex-1 min-w-0 pt-0.5">
+                      <div className={`font-medium ${active ? 'text-white' : 'text-gray-300'}`}>{stage.label}</div>
+                      <div className="text-xs text-gray-500">{stage.sub}</div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-4 pt-3 border-t border-gray-800 text-xs text-gray-500">
+              Typical render: 1–3 min for short clips, up to 5 min for long sources. Safe to navigate away — your clips will be in <Link href="/clips" className="text-teal-400 underline">My Clips</Link>.
+            </div>
+          </div>
+        )}
+
+        {/* Clips list */}
         {job?.clips && job.clips.length > 0 && (
           <div className="space-y-4">
             {job.clips.map((c, idx) => (
               <div key={c.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="font-semibold">Clip {idx + 1}{c.duration_sec ? ` · ${c.duration_sec.toFixed(0)}s` : ''}</div>
+                <div className="flex items-center justify-between mb-3 gap-2">
+                  <div className="font-semibold truncate">
+                    Clip {idx + 1}
+                    {c.duration_sec ? <span className="text-gray-500 font-normal"> · {c.duration_sec.toFixed(0)}s</span> : null}
+                  </div>
                   {c.hook_score != null && (
-                    <span className={`text-xs px-2 py-1 rounded-full ${c.hook_score >= 7 ? 'bg-green-700/30 text-green-300' : c.hook_score >= 4 ? 'bg-yellow-700/30 text-yellow-300' : 'bg-gray-700 text-gray-300'}`}>
+                    <span className={`flex-shrink-0 text-xs px-2 py-1 rounded-full ${c.hook_score >= 7 ? 'bg-green-700/30 text-green-300' : c.hook_score >= 4 ? 'bg-yellow-700/30 text-yellow-300' : 'bg-gray-700 text-gray-300'}`}>
                       Feel {c.hook_score.toFixed(1)}/10
                     </span>
                   )}
                 </div>
                 {c.output_url ? (
-                  <video src={c.output_url} controls className="w-full aspect-[9/16] bg-black rounded-lg" />
+                  <video
+                    src={c.output_url}
+                    controls
+                    playsInline
+                    preload="metadata"
+                    className="w-full aspect-[9/16] bg-black rounded-lg"
+                  />
                 ) : (
-                  <div className="aspect-[9/16] bg-gray-800 rounded-lg flex items-center justify-center text-gray-500 text-sm">
-                    Rendering…
+                  <div className="aspect-[9/16] bg-gray-800 rounded-lg flex flex-col items-center justify-center text-gray-500 text-sm gap-2">
+                    <Loader2 className="w-6 h-6 animate-spin opacity-50" />
+                    <span>Rendering this clip…</span>
                   </div>
                 )}
                 {c.feel_diagnosis && (
-                  <div className="text-xs text-gray-400 mt-2 italic">{c.feel_diagnosis}</div>
+                  <div className="text-xs text-gray-400 mt-2 italic leading-snug">{c.feel_diagnosis}</div>
                 )}
                 {c.output_url && (
-                  <div className="flex gap-2 mt-3">
-                    <a href={c.output_url} download className="flex-1 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-sm font-medium text-center">Download</a>
-                    <button className="flex-1 py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-sm font-medium">Publish</button>
+                  <div className="grid grid-cols-3 gap-2 mt-3">
+                    <a
+                      href={c.output_url}
+                      download
+                      className="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs sm:text-sm font-medium text-center"
+                    >
+                      Download
+                    </a>
+                    <button
+                      onClick={() => copyClipLink(c.id, c.output_url!)}
+                      className="py-2 bg-gray-700 hover:bg-gray-600 rounded-lg text-xs sm:text-sm font-medium"
+                    >
+                      {copiedClipId === c.id ? '✓ Copied' : 'Copy link'}
+                    </button>
+                    <button
+                      onClick={() => shareClip(c.id, c.output_url!)}
+                      className="py-2 bg-teal-600 hover:bg-teal-500 rounded-lg text-xs sm:text-sm font-medium"
+                    >
+                      Share
+                    </button>
                   </div>
                 )}
               </div>
@@ -960,6 +1140,7 @@ function JobProgress({ jobId, onNewJob }: { jobId: string; onNewJob: () => void 
           </div>
         )}
 
+        {/* Sticky footer actions */}
         <div className="mt-8 flex gap-2">
           <button
             onClick={onNewJob}
@@ -967,10 +1148,17 @@ function JobProgress({ jobId, onNewJob }: { jobId: string; onNewJob: () => void 
           >
             <Sparkles className="w-4 h-4" /> Make another
           </button>
-          <a href="/clips" className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-medium text-center">
+          <Link href="/clips" className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-medium text-center">
             My Clips
-          </a>
+          </Link>
         </div>
+
+        {/* Tiny help line — only show during processing */}
+        {!isDone && !isFailed && (
+          <div className="mt-4 text-center text-xs text-gray-600">
+            Bug or stuck? <Link href="/support" className="underline hover:text-gray-400">Tell us</Link> — we read everything.
+          </div>
+        )}
       </div>
     </div>
   );

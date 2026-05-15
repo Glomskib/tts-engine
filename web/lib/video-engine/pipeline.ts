@@ -627,20 +627,28 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
         .eq('id', clipId);
 
       try {
-        // Music + B-roll layering — only for affiliate/nonprofit (Post Maker
-        // polish output). Clipper mode is volume-first → skip enrichment to
-        // keep renders fast and source-faithful.
+        // Music + B-roll layering. As of 2026-05-15 these are explicitly
+        // opt-in per project (enable_broll / enable_music in context_json),
+        // because users felt the auto-layer was filler rather than polish.
+        // Backward-compat: legacy callers that never set the flags still
+        // get the old mode-based default (affiliate/nonprofit enrich).
         const ctx = (run.context_json ?? {}) as Record<string, unknown>;
         const vibe = (ctx.vibe as string) || 'real';
-        const enrich = run.mode === 'affiliate' || run.mode === 'nonprofit';
+        const legacyEnrich = run.mode === 'affiliate' || run.mode === 'nonprofit';
+        const explicitBroll = typeof ctx.enable_broll === 'boolean' ? (ctx.enable_broll as boolean) : null;
+        const explicitMusic = typeof ctx.enable_music === 'boolean' ? (ctx.enable_music as boolean) : null;
+        const doBroll = explicitBroll === null ? legacyEnrich : explicitBroll;
+        const doMusic = explicitMusic === null ? legacyEnrich : explicitMusic;
         const clipDuration = Math.max(0.5, Number(cand.end_sec) - Number(cand.start_sec));
 
         let music: { audio_url: string; volume_db: number } | null = null;
         let broll: Array<{ at_sec: number; duration_sec: number; video_url: string }> = [];
-        if (enrich) {
+        if (doMusic) {
           try {
             music = await pickMusicForVibe({ vibe, clip_duration_sec: clipDuration });
           } catch (e) { console.warn('[ve-pipeline] music pick failed:', (e as Error).message); }
+        }
+        if (doBroll) {
           try {
             broll = await pickBrollForTranscript({
               vibe,

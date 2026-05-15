@@ -76,6 +76,16 @@ export const metadata: Metadata = {
     title: "FlashFlow AI",
   },
   category: "technology",
+  // Search Console verification. Set GOOGLE_SITE_VERIFICATION (and optionally
+  // BING_SITE_VERIFICATION) in Vercel env after starting verification in
+  // Google Search Console → "HTML tag" method. Value is the content="" string
+  // from the meta tag Google gives you (NOT the full tag, just the token).
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+    other: process.env.BING_SITE_VERIFICATION
+      ? { 'msvalidate.01': process.env.BING_SITE_VERIFICATION }
+      : undefined,
+  },
 };
 
 export default function RootLayout({

@@ -326,6 +326,16 @@ export default function CreatePage() {
       setRecorderError(`Already at max ${defaults.maxSources} sources for this mode.`);
       return;
     }
+    // Hard pre-flight checks before requesting the camera so iOS users get
+    // a useful error instead of a silent "Could not access camera/mic".
+    if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) {
+      setRecorderError('This browser does not support in-page recording. Use Upload instead.');
+      return;
+    }
+    if (typeof MediaRecorder === 'undefined') {
+      setRecorderError('Recording is not supported in this browser. Use Upload instead.');
+      return;
+    }
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { width: { ideal: 1080 }, height: { ideal: 1920 }, facingMode: 'user' },
@@ -336,18 +346,41 @@ export default function CreatePage() {
         videoPreviewRef.current.srcObject = stream;
         void videoPreviewRef.current.play();
       }
-      const mime = MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
-        ? 'video/webm;codecs=vp9,opus'
-        : MediaRecorder.isTypeSupported('video/webm;codecs=vp8,opus')
-        ? 'video/webm;codecs=vp8,opus'
-        : 'video/webm';
-      const rec = new MediaRecorder(stream, { mimeType: mime });
+      // iOS Safari supports MediaRecorder only with mp4/h264+aac. Chrome/Firefox
+      // prefer webm/vp9/opus. Try the best mime each platform actually supports;
+      // bail with a friendly error if none work rather than throwing.
+      const candidates = [
+        'video/mp4;codecs=h264,aac',
+        'video/mp4;codecs=avc1.42E01E,mp4a.40.2',
+        'video/mp4',
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm',
+      ];
+      const mime = candidates.find((c) => {
+        try { return MediaRecorder.isTypeSupported(c); } catch { return false; }
+      }) || '';
+      let rec: MediaRecorder;
+      try {
+        rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+      } catch (mrErr) {
+        stream.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+        setRecorderError(
+          mrErr instanceof Error
+            ? `Recorder couldn’t start: ${mrErr.message}. Try Upload instead.`
+            : 'Recorder couldn’t start. Try Upload instead.',
+        );
+        return;
+      }
+      const ext = (mime.includes('mp4') ? 'mp4' : 'webm');
       chunksRef.current = [];
       rec.ondataavailable = (e) => { if (e.data.size > 0) chunksRef.current.push(e.data); };
       rec.onstop = async () => {
-        const blob = new Blob(chunksRef.current, { type: mime });
-        const filename = `take-${sources.filter((s) => s.done).length + 1}-${Date.now()}.webm`;
-        await uploadOneFile(new File([blob], filename, { type: mime }));
+        const blobType = rec.mimeType || mime || `video/${ext}`;
+        const blob = new Blob(chunksRef.current, { type: blobType });
+        const filename = `take-${sources.filter((s) => s.done).length + 1}-${Date.now()}.${ext}`;
+        await uploadOneFile(new File([blob], filename, { type: blobType }));
         stream.getTracks().forEach((t) => t.stop());
         streamRef.current = null;
       };
@@ -355,7 +388,16 @@ export default function CreatePage() {
       recorderRef.current = rec;
       setRecording(true);
     } catch (e) {
-      setRecorderError(e instanceof Error ? e.message : 'Could not access camera/mic');
+      // Distinguish permission-denied so users know to enable camera in Settings.
+      const msg = e instanceof Error ? e.message : '';
+      const name = e instanceof Error ? e.name : '';
+      if (name === 'NotAllowedError' || /denied|permission/i.test(msg)) {
+        setRecorderError('Camera/mic blocked. Allow access in your browser settings, then tap Record again.');
+      } else if (name === 'NotFoundError' || /no camera|no device|not found/i.test(msg)) {
+        setRecorderError('No camera found on this device. Use Upload instead.');
+      } else {
+        setRecorderError(msg || 'Could not access camera/mic');
+      }
     }
   }, [sources, uploadOneFile, defaults.maxSources]);
 
@@ -500,7 +542,7 @@ export default function CreatePage() {
 
           {entry === 'record' && (
             <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
-              <video ref={videoPreviewRef} className="w-full aspect-[9/16] bg-black rounded mb-3" muted playsInline />
+              <video ref={videoPreviewRef} className="w-full aspect-[9/16] bg-black rounded mb-3" muted playsInline autoPlay />
               {!recording ? (
                 <button
                   onClick={startRecording}

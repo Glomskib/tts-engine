@@ -4,19 +4,20 @@
 
 ---
 
-## Last refreshed: 2026-05-15 ~8:40am ET
+## Last refreshed: 2026-05-15 ~9:04am ET
 
 ## Current deploy truth
 
-- **Mission Control:** live match. Local/origin/prod are `3f9f93a`. MC deploy pipe is working. `mc.flashflowai.com` was briefly mis-aliased to the wrong Vercel project (`mc-flashflowai`) on May 15; it has been restored to the `mission-control` deployment.
+- **Mission Control:** live match. Local/origin/prod are `555439a`. MC deploy pipe is working. `mc.flashflowai.com` was briefly mis-aliased to the wrong Vercel project (`mc-flashflowai`) on May 15; it has been restored to the `mission-control` deployment.
 - **FlashFlow:** deploy pipe is healthy. This file lives inside the FlashFlow app, so every brief refresh creates a new health SHA; verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `46f6b5a`. Bare `zebbysworld.com` still returns Shopify 402 HTML. Do not change DNS without Brandon confirming.
-- **MMM hub:** `mmm-hub.vercel.app` is live at `73814f5`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports `9700687` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
+- **MMM hub:** `mmm-hub.vercel.app` is live at `73814f5`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports Mission Control SHA `555439a` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
+- **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists the exact approval gates and safe autonomous work.
 
 ## Top blockers
 
 - **Zebby's apex DNS is still split.** `www.zebbysworld.com` is the good Vercel path. Bare `zebbysworld.com` still sometimes goes to Shopify (`23.227.38.32`) and fails `/api/health`.
-- **MMM primary domain is still not routed to the hub.** `https://mmm-hub.vercel.app/api/health` reports `73814f5`, but `https://makingmilesmatter.org/api/health` reports Mission Control SHA `9700687`.
+- **MMM primary domain is still not routed to the hub.** `https://mmm-hub.vercel.app/api/health` reports `73814f5`, but `https://makingmilesmatter.org/api/health` reports Mission Control SHA `555439a`.
 
 Fix path when Brandon confirms DNS work:
 1. Decide the canonical domain for each app before changing DNS.
@@ -31,6 +32,7 @@ Fix path when Brandon confirms DNS work:
 - MC agent status sync is hardened and deployed at `07cf982`. Mission Control task update, complete, block, verify, and proof auto-complete routes now free/block agents by `id` OR `name`, matching the board assignment behavior and legacy task route. Smoke coverage now guards that pattern.
 - MC proof/upload edge cases are hardened and deployed at `9fd692b`. Uploads now reject wrong content types and oversized multipart requests before parsing, sanitize optional form fields, strip risky leading-dot filenames, and use `COALESCE` for proof counters. JSON proof posts now reject malformed/non-object JSON and non-string proof values before insert/validation. Verified locally with full dev-open smoke: 288 pass, 0 fail, 0 warn, 0 skip.
 - MC custom domain alias was repaired after `mc.flashflowai.com` started returning Vercel `NOT_FOUND`; `vercel alias set mission-control-2ed7oirlf-brandons-projects-94dcab35.vercel.app mc.flashflowai.com` restored the domain and `/api/health` now reports the current Mission Control deploy SHA.
+- MC Memory OS is live through Turso snapshot storage, and `/api/admin/memory/snapshot` now accepts either configured MC token. Current live SHA: `555439a`.
 - FlashFlow launch-week create polish is deployed at `65108df`: `/create` now has opt-in B-roll/music toggles defaulting off, the cooking page has friendlier progress/copy/share/failure states, homepage auth redirect was relaxed, public privacy copy uses generic vendor categories, and layout metadata supports Google Search Console + Bing verification through env vars.
 - Zebby's health route exposes Vercel commit SHA; `www` and branch alias report `c0cc5bd`.
 - HHH sponsor contact research saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-contacts-research-2026-05-09.md`.
@@ -46,6 +48,7 @@ Fix path when Brandon confirms DNS work:
 - TCG operator ledger is now in draft PR #2: `https://github.com/Glomskib/buybackos/pull/2`, branch `codex/tcg-operator-ledger-stacked`, stacked on BuybackOS base-stack PR #1. GitHub reports PR #2 `MERGEABLE`. It includes allocation core, `/dashboard/tcg`, Brandon-only write actions, transaction-safe allocation RPC wiring, validated migrations/scripts, and `docs/tcg-operator-ledger-rollout.md` with merge order, verification, production gates, and rollback notes. Verified after stacking: `npm run test:tcg-allocation`, `npm run test:tcg-dashboard`, `npm run test:tcg-actions`, `npm run test:tcg-rpc`, `npx tsc --noEmit --pretty false`, `npm run lint` with warnings only, and production build with dummy local Supabase env. Rollback-only local RPC smoke was attempted but Docker was not running on this Mac, so it could not connect to the local Supabase container. TCG has not been merged, deployed to production, migrated to production, priced, or made public.
 - BuybackOS base stack is now in draft PR #1: `https://github.com/Glomskib/buybackos/pull/1`, branch `codex/buybackos-base-stack`. It includes the 22 local base commits plus the baseline cleanup, has been merged with the current `origin/main` snapshot, and GitHub reports it `MERGEABLE`. Verified in the isolated worktree: `npx tsc --noEmit --pretty false`, `npm run lint` with warnings only, and production build with dummy local Supabase env.
 - Digital assets: first local product package draft created at `~/Documents/MacBook Pro VAULT/10-Projects/digital-assets/endurance-event-directors-toolkit/`. Buyer-ready v2 ZIP draft: `endurance-event-directors-toolkit-public-draft-v2.zip` with README, quick start, license/disclaimer, sponsor pipeline CSV, route readiness, registration/store checklist, volunteer run sheet, and event launch plan. Private HHH dogfood source map and seller launch assets are excluded from the buyer ZIP. Seller launch assets now include `assets/cover.svg`, `launch-assets/platform-listing-copy.md`, `launch-assets/support-and-refund-macros.md`, and `launch-assets/final-preflight-checklist.md`. ZIP test passed with 9 files and SHA-256 `35ac90e36bc296b80a6e4a3fe7c2b79931f33062062ff00440fd20afba778c1c`. Launch approval still needed before listing, payment link, or announcement.
+- This-week command board published at `https://flashflowai.com/claude/this-week-command-board.md` so agents can keep moving on safe work and Brandon can unblock launch gates with one-line approvals.
 
 ## Standing initiatives — pick from these when idle
 

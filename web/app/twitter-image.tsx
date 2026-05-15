@@ -6,4 +6,7 @@
 // rather than maintaining two visuals.
 // ============================================================
 
-export { default, size, contentType, alt, dynamic } from './opengraph-image';
+export { default, size, contentType, alt } from './opengraph-image';
+
+// Route segment config must be statically analyzable in this file.
+export const dynamic = 'force-static';

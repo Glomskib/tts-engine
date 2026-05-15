@@ -1,12 +1,12 @@
 # This Week Command Board
 
-Updated: 2026-05-15 9:08am ET
+Updated: 2026-05-15 9:12am ET
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
 ## Live Health
 
-- Mission Control: live at `0dad20e`.
+- Mission Control: live at `90686ef`.
 - FlashFlow: live at current FlashFlow `master`; check `https://flashflowai.com/api/health` after each brief push.
 - Zebby's World: app is healthy at `www.zebbysworld.com` and the Vercel branch alias. Bare `zebbysworld.com` is still routed away from the app.
 - MMM hub: app is healthy at `mmm-hub.vercel.app`. `makingmilesmatter.org/api/health` is still routed to Mission Control.

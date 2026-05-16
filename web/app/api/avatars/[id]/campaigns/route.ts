@@ -41,7 +41,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!auth?.user?.id) return createApiErrorResponse('UNAUTHORIZED', 'Sign in', 401, correlationId);
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return createApiErrorResponse('CONFIG', 'ANTHROPIC_API_KEY missing', 503, correlationId);
+  if (!apiKey) return createApiErrorResponse('CONFIG_ERROR', 'ANTHROPIC_API_KEY missing', 503, correlationId);
 
   const { data: avatar } = await supabaseAdmin
     .from('brand_profiles')
@@ -91,7 +91,7 @@ Plan the campaign now.`;
     structure = JSON.parse(cleaned);
   } catch (e: unknown) {
     const m = e instanceof Error ? e.message : 'Claude call failed';
-    return createApiErrorResponse('UPSTREAM', m, 502, correlationId);
+    return createApiErrorResponse('AI_ERROR', m, 502, correlationId);
   }
 
   const { data, error } = await supabaseAdmin

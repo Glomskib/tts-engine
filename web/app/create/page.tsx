@@ -553,7 +553,8 @@ export default function CreatePage() {
             {/* Admin-only — customers should never see "Render: No agent"
                 or any internal infra status. Gated on the isAdmin flag
                 from AuthContext. */}
-            {isAdmin && <RenderAgentBadge />}
+            {isAdmin && <a href="/studio" className="text-xs font-medium px-3 py-1.5 rounded-full bg-teal-500/20 text-teal-300 border border-teal-500/30 hover:bg-teal-500/30">📱 Studio (beta)</a>
+              <RenderAgentBadge />}
             {credits && (
               <div className="text-right">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">Credits</div>

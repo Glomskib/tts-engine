@@ -1,12 +1,12 @@
 {
-  "name": "FlashFlow AI",
+  "name": "FlashFlow AI — Studio",
   "short_name": "FlashFlow",
-  "description": "AI-powered video production pipeline",
-  "start_url": "/admin/pipeline",
+  "description": "Record, polish, and post short-form clips for TikTok, Reels, and Shorts.",
+  "start_url": "/studio",
   "display": "standalone",
   "background_color": "#09090b",
   "theme_color": "#14b8a6",
-  "orientation": "portrait-primary",
+  "orientation": "portrait",
   "scope": "/",
   "icons": [
     {
@@ -22,29 +22,65 @@
       "purpose": "any maskable"
     }
   ],
-  "categories": ["business", "productivity"],
+  "categories": [
+    "business",
+    "productivity"
+  ],
   "screenshots": [],
   "shortcuts": [
+    {
+      "name": "Open Studio",
+      "short_name": "Studio",
+      "url": "/studio",
+      "description": "Record a new clip"
+    },
+    {
+      "name": "My Library",
+      "short_name": "Library",
+      "url": "/library",
+      "description": "Browse finished clips"
+    },
+    {
+      "name": "Queue",
+      "short_name": "Queue",
+      "url": "/studio/queue",
+      "description": "See clips in progress"
+    },
     {
       "name": "Pipeline",
       "short_name": "Pipeline",
       "description": "Manage your video production pipeline",
       "url": "/admin/pipeline",
-      "icons": [{ "src": "/FFAI.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/FFAI.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Content Studio",
       "short_name": "Studio",
       "description": "Create new content",
       "url": "/admin/content-studio",
-      "icons": [{ "src": "/FFAI.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/FFAI.png",
+          "sizes": "192x192"
+        }
+      ]
     },
     {
       "name": "Winners Bank",
       "short_name": "Winners",
       "description": "View winning content",
       "url": "/admin/winners",
-      "icons": [{ "src": "/FFAI.png", "sizes": "192x192" }]
+      "icons": [
+        {
+          "src": "/FFAI.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }

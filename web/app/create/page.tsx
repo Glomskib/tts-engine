@@ -230,6 +230,62 @@ export default function CreatePage() {
     })();
   }, []);
 
+  // ── Resume an in-progress job ──────────────────────────────────────────
+  // If the user arrives at /create?job=<id> (from an email/notification) OR
+  // there's an in-flight job stashed in sessionStorage (so a page refresh
+  // doesn't drop them back into an empty upload form), surface the
+  // JobProgress view instead of the upload form.
+  //
+  // Was a bug: previously hitting /create while a job was running just
+  // showed a blank upload screen — users thought their job vanished.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const url = new URL(window.location.href);
+    const fromQuery = url.searchParams.get('job');
+    const fromStorage = sessionStorage.getItem('ff_active_job');
+    const candidate = fromQuery || fromStorage;
+    if (!candidate) return;
+    // Validate the job still exists + isn't terminal. If terminal (done /
+    // failed), drop the stashed value and let the user see the upload form.
+    void (async () => {
+      try {
+        const res = await fetch(`/api/create/jobs/${encodeURIComponent(candidate)}`, {
+          cache: 'no-store',
+        });
+        if (!res.ok) {
+          sessionStorage.removeItem('ff_active_job');
+          return;
+        }
+        const data = await res.json();
+        const status = data?.status as string | undefined;
+        const terminal = status === 'done' || status === 'failed' || status === 'completed';
+        if (terminal) {
+          // For a finished job from an email link, send them straight to /clips
+          // so they can see the output. For a stashed-but-stale id, just clear it.
+          if (fromQuery) {
+            window.location.replace('/clips');
+            return;
+          }
+          sessionStorage.removeItem('ff_active_job');
+          return;
+        }
+        setJobId(candidate);
+      } catch {
+        sessionStorage.removeItem('ff_active_job');
+      }
+    })();
+  }, []);
+
+  // Stash / clear the active job id so a refresh resumes the progress view.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (jobId) {
+      sessionStorage.setItem('ff_active_job', jobId);
+    } else {
+      sessionStorage.removeItem('ff_active_job');
+    }
+  }, [jobId]);
+
   // ── Cost preview ───────────────────────────────────────────────────────
   // Post Maker: 1 credit per platform (aspect ratio). Clip Picker: 1 per clip × aspects.
   const creditCost = mode === 'post'

@@ -49,15 +49,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const correlationId = generateCorrelationId();
   const auth = await getApiAuthContext(req).catch(() => null);
   if (!auth?.user?.id) return createApiErrorResponse('UNAUTHORIZED', 'Sign in', 401, correlationId);
+  const userId = auth.user.id;
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return createApiErrorResponse('CONFIG', 'GEMINI_API_KEY missing', 503, correlationId);
+  if (!apiKey) return createApiErrorResponse('CONFIG_ERROR', 'GEMINI_API_KEY missing', 503, correlationId);
 
   const { data: avatar } = await supabaseAdmin
     .from('brand_profiles')
     .select('id, avatar_display_name, name, avatar_visual_recipe, avatar_visual_reference_url, avatar_visual_refs_json')
     .eq('id', id)
-    .eq('user_id', auth.user.id)
+    .eq('user_id', userId)
     .maybeSingle();
   if (!avatar) return createApiErrorResponse('NOT_FOUND', 'avatar not found', 404, correlationId);
 
@@ -90,12 +91,18 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         }),
       });
       if (!r.ok) continue;
-      const json = await r.json() as { candidates?: { content?: { parts?: { inlineData?: { data: string; mimeType: string } }[] }[] } };
+      const json = await r.json() as {
+        candidates?: Array<{
+          content?: {
+            parts?: Array<{ inlineData?: { data: string; mimeType: string } }>;
+          };
+        }>;
+      };
       const part = json.candidates?.[0]?.content?.parts?.find(p => p.inlineData)?.inlineData;
       if (!part) continue;
       const buf = Buffer.from(part.data, 'base64');
       const ext = part.mimeType.includes('png') ? 'png' : 'jpg';
-      const path = `${auth.user.id}/avatars/${id}/scene-${tag}-${Date.now()}.${ext}`;
+      const path = `${userId}/avatars/${id}/scene-${tag}-${Date.now()}.${ext}`;
 
       // Ensure bucket
       const { data: buckets } = await supabaseAdmin.storage.listBuckets();
@@ -110,7 +117,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const { data: row } = await supabaseAdmin
         .from('avatar_scenes')
         .insert({
-          user_id: auth.user.id,
+          user_id: userId,
           brand_profile_id: id,
           scene_tag: tag,
           description: recipe,

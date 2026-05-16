@@ -25,7 +25,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     await supabaseAdmin.storage.createBucket('avatar-assets', { public: true }).catch(() => {});
   }
   const { data, error } = await supabaseAdmin.storage.from('avatar-assets').createSignedUploadUrl(path);
-  if (error || !data) return createApiErrorResponse('STORAGE', error?.message || 'mint failed', 500, correlationId);
+  if (error || !data) return createApiErrorResponse('STORAGE_ERROR', error?.message || 'mint failed', 500, correlationId);
   const { data: pub } = supabaseAdmin.storage.from('avatar-assets').getPublicUrl(path);
 
   return NextResponse.json({

@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
   if (!auth?.user?.id) return createApiErrorResponse('UNAUTHORIZED', 'Sign in', 401, correlationId);
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) return createApiErrorResponse('CONFIG', 'ANTHROPIC_API_KEY missing', 503, correlationId);
+  if (!apiKey) return createApiErrorResponse('CONFIG_ERROR', 'ANTHROPIC_API_KEY missing', 503, correlationId);
 
   let body: { prompt?: string; avatar_id?: string; product_name?: string };
   try { body = await req.json(); }
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
     intent = await parseIntent(apiKey, prompt);
   } catch (e: unknown) {
     const m = e instanceof Error ? e.message : 'intent parse failed';
-    return createApiErrorResponse('UPSTREAM', m, 502, correlationId);
+    return createApiErrorResponse('AI_ERROR', m, 502, correlationId);
   }
 
   // Step 2: resolve avatar
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       .eq('is_avatar', true)
       .eq('active', true);
     if (!matches || matches.length === 0) {
-      return createApiErrorResponse('SETUP_INCOMPLETE', 'No avatars yet — create one at /avatars first', 400, correlationId);
+      return createApiErrorResponse('PRECONDITION_FAILED', 'No avatars yet — create one at /avatars first', 400, correlationId);
     }
     // simple: pick first avatar whose niche/personality includes any keyword from intent.avatar_persona
     const persona = intent.avatar_persona?.toLowerCase() || '';

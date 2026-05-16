@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!auth?.user?.id) return createApiErrorResponse('UNAUTHORIZED', 'Sign in', 401, correlationId);
 
   const apiKey = process.env.HEYGEN_API_KEY;
-  if (!apiKey) return createApiErrorResponse('CONFIG', 'HEYGEN_API_KEY not configured', 503, correlationId);
+  if (!apiKey) return createApiErrorResponse('CONFIG_ERROR', 'HEYGEN_API_KEY not configured', 503, correlationId);
 
   const { data: avatar } = await supabaseAdmin
     .from('brand_profiles')
@@ -22,7 +22,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .eq('user_id', auth.user.id)
     .maybeSingle();
   if (!avatar) return createApiErrorResponse('NOT_FOUND', 'avatar not found', 404, correlationId);
-  if (!avatar.heygen_custom_avatar_id) return createApiErrorResponse('SETUP_INCOMPLETE', 'No HeyGen custom avatar yet. Upload photo first.', 400, correlationId);
+  if (!avatar.heygen_custom_avatar_id) return createApiErrorResponse('PRECONDITION_FAILED', 'No HeyGen custom avatar yet. Upload photo first.', 400, correlationId);
 
   let body: { line?: string } = {};
   try { body = await req.json(); } catch {}
@@ -44,11 +44,11 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!r.ok) {
     const txt = await r.text().catch(() => '');
-    return createApiErrorResponse('UPSTREAM', `HeyGen ${r.status}: ${txt.slice(0, 300)}`, 502, correlationId);
+    return createApiErrorResponse('AI_ERROR', `HeyGen ${r.status}: ${txt.slice(0, 300)}`, 502, correlationId);
   }
   const j = await r.json() as { data?: { video_id?: string } };
   const videoId = j.data?.video_id;
-  if (!videoId) return createApiErrorResponse('UPSTREAM', 'HeyGen returned no video_id', 502, correlationId);
+  if (!videoId) return createApiErrorResponse('AI_ERROR', 'HeyGen returned no video_id', 502, correlationId);
 
   return NextResponse.json({ ok: true, heygen_video_id: videoId, status: 'pending', correlation_id: correlationId });
 }
@@ -59,7 +59,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const auth = await getApiAuthContext(req).catch(() => null);
   if (!auth?.user?.id) return createApiErrorResponse('UNAUTHORIZED', 'Sign in', 401, correlationId);
   const apiKey = process.env.HEYGEN_API_KEY;
-  if (!apiKey) return createApiErrorResponse('CONFIG', 'HEYGEN_API_KEY missing', 503, correlationId);
+  if (!apiKey) return createApiErrorResponse('CONFIG_ERROR', 'HEYGEN_API_KEY missing', 503, correlationId);
 
   const url = new URL(req.url);
   const videoId = url.searchParams.get('video_id');
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const r = await fetch(`https://api.heygen.com/v1/video_status.get?video_id=${videoId}`, {
     headers: { 'X-Api-Key': apiKey },
   });
-  if (!r.ok) return createApiErrorResponse('UPSTREAM', `HeyGen ${r.status}`, 502, correlationId);
+  if (!r.ok) return createApiErrorResponse('AI_ERROR', `HeyGen ${r.status}`, 502, correlationId);
   const j = await r.json() as { data?: { status?: string; video_url?: string; thumbnail_url?: string } };
   const status = j.data?.status;
   const videoUrl = j.data?.video_url;

@@ -4,12 +4,12 @@
 
 ---
 
-## Last refreshed: 2026-05-15 10:05pm ET
+## Last refreshed: 2026-05-16 1:33am ET
 
 ## Current deploy truth
 
 - **Mission Control:** live match. Local/origin/prod are `90686ef`. MC deploy pipe is working. `mc.flashflowai.com` was briefly mis-aliased to the wrong Vercel project (`mc-flashflowai`) on May 15; it has been restored to the `mission-control` deployment.
-- **FlashFlow:** deploy pipe is healthy. The checker at the start of this refresh saw local/origin/prod in sync at `ed140de`; this public-doc update will create a newer FlashFlow health SHA, so always verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
+- **FlashFlow:** deploy pipe is healthy. The checker at the start of this refresh saw local/origin/prod in sync at `d947379`; this public-doc update will create a newer FlashFlow health SHA, so always verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `46f6b5a`. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch. Do not change DNS without Brandon confirming.
 - **MMM hub:** `mmm-hub.vercel.app` is live at `e6c27e7`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports Mission Control SHA `90686ef` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
 - **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists the exact approval gates and safe autonomous work.
@@ -18,6 +18,7 @@
 
 - **Zebby's apex DNS is still split/broken.** `www.zebbysworld.com` is the good Vercel path. Bare `zebbysworld.com` currently fails health because the certificate/domain path does not match.
 - **MMM primary domain is still not routed to the hub.** `https://mmm-hub.vercel.app/api/health` reports `e6c27e7`, but `https://makingmilesmatter.org/api/health` reports Mission Control SHA `90686ef`.
+- **HHH public comms are draft-ready but approval-locked.** Sponsor test emails and the Facebook clean v2 batch exist locally, but nothing has been sent, scheduled, or posted.
 
 Fix path when Brandon confirms DNS work:
 1. Decide the canonical domain for each app before changing DNS.
@@ -41,8 +42,9 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - HHH sponsor contact research saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-contacts-research-2026-05-09.md`.
 - HHH sponsor send queue saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-outreach-send-queue-2026-05-10.md`.
 - HHH sponsor approval sheet saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-approval-sheet-2026-05-15.md`. It normalizes the first send batch to locked HHH tiers: Headline $2,500 / Contributing $1,000 / Supporting $300 / In-kind, and flags old draft language that must not go out.
+- HHH sponsor test-batch helper saved to `~/Documents/Command-Center/hhh-sponsor-test-batch-after-approval.command` with runbook `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-send-runbook-2026-05-16.md`. Prepared review copies live in `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/`; `manifest.json` shows 5 drafts, 0 test emails sent, 0 live emails sent. Approval phrase: `HHH sponsors: approve test batch 1`.
 - HHH stale sponsor replacement drafts saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-replacement-drafts-2026-05-10.md`.
-- HHH Facebook posts for June 8 through July 7 drafted at `~/Documents/Claude/Projects/Mac Takeover/HHH-FB-POSTS-60-90-DAYS-2026-06-08.md`.
+- HHH Facebook posts for June 8 through July 7 drafted at `~/Documents/Claude/Projects/Mac Takeover/HHH-FB-POSTS-60-90-DAYS-2026-06-08.md`. Clean v2 review draft is now saved at `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-review-2026-05-16.md` with preflight `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-preflight-2026-05-16.md`. Verification: 634 lines, zero risk-scan hits for old sponsor tiers, old price claims, direct `Register:` CTAs, deadline pressure, or duplicate HHH hashtags. No posts scheduled or published. Scheduling approval phrase: `HHH Facebook: approved to schedule cleaned v2`.
 - HHH Shopify theme route section now supports four distance route cards locally; production packet saved at `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-map-production-packet-2026-05-10.md`. Not published to Shopify.
 - HHH Shopify payment-ready audit saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-payment-ready-audit-2026-05-10.md`. Local theme now loads registration JS, updates Shopify variant IDs before add-to-cart, and passes theme check with 7 layout-only warnings. Not published to Shopify.
 - HHH Shopify product setup packet and draft catalog saved to `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-product-setup-packet-2026-05-10.md` and `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-shopify-products-draft-2026-05-10.csv`. Draft only; nothing created in Shopify.
@@ -52,12 +54,14 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - TCG operator ledger is now in draft PR #2: `https://github.com/Glomskib/buybackos/pull/2`, branch `codex/tcg-operator-ledger-stacked`, stacked on BuybackOS base-stack PR #1. GitHub reports PR #2 `MERGEABLE`. It includes allocation core, `/dashboard/tcg`, Brandon-only write actions, transaction-safe allocation RPC wiring, validated migrations/scripts, and `docs/tcg-operator-ledger-rollout.md` with merge order, verification, production gates, and rollback notes. Verified after stacking: `npm run test:tcg-allocation`, `npm run test:tcg-dashboard`, `npm run test:tcg-actions`, `npm run test:tcg-rpc`, `npx tsc --noEmit --pretty false`, `npm run lint` with warnings only, and production build with dummy local Supabase env. Rollback-only local RPC smoke was attempted but Docker was not running on this Mac, so it could not connect to the local Supabase container. TCG has not been merged, deployed to production, migrated to production, priced, or made public.
 - BuybackOS base stack is now in draft PR #1: `https://github.com/Glomskib/buybackos/pull/1`, branch `codex/buybackos-base-stack`. It includes the 22 local base commits plus the baseline cleanup, has been merged with the current `origin/main` snapshot, and GitHub reports it `MERGEABLE`. Verified in the isolated worktree: `npx tsc --noEmit --pretty false`, `npm run lint` with warnings only, and production build with dummy local Supabase env.
 - Digital assets: first local product package draft created at `~/Documents/MacBook Pro VAULT/10-Projects/digital-assets/endurance-event-directors-toolkit/`. Buyer-ready v3 ZIP draft: `endurance-event-directors-toolkit-public-draft-v3.zip` with README, quick start, license/disclaimer, sponsor pipeline CSV, route readiness, registration/store checklist, volunteer run sheet, and event launch plan. Private HHH/Brandon/dogfood source material and seller launch assets are excluded from the buyer ZIP. Seller launch assets include `assets/cover.svg`, `launch-assets/platform-listing-copy.md`, `launch-assets/support-and-refund-macros.md`, and `launch-assets/final-preflight-checklist.md`. ZIP extraction and leak scan passed with SHA-256 `bd486d92e74ddf5f1f6863672067ccfaabc3b0689ba6cfa6b32c2a0918049206`. Do not upload v2; launch approval is still needed before listing, payment link, or announcement.
+- Guarded domain helper saved to `~/Documents/Command-Center/fix-domain-routing-after-approval.command`. It dry-runs MMM/Zebby's routing fixes and requires exact approval phrases before changing Vercel aliases or GoDaddy DNS. Do not run apply mode without Brandon.
+- Guarded TCG merge helper saved to `~/Documents/Command-Center/tcg-merge-after-approval.command` with runbook `~/Documents/MacBook Pro VAULT/10-Projects/TCG-merge-after-approval-runbook-2026-05-15.md`. It dry-runs cleanly and requires approval phrase `TCG: merge PR1 then PR2; stop before prod migration`.
 - This-week command board published at `https://flashflowai.com/claude/this-week-command-board.md` so agents can keep moving on safe work and Brandon can unblock launch gates with one-line approvals.
 
 ## Standing initiatives — pick from these when idle
 
-- **HHH sponsor outreach:** research, send queue, and tier-correct approval sheet are ready. Need Brandon approval before any email sends; use `miles@makingmilesmatter.com` only.
-- **HHH Facebook content:** June 8-July 7 batch is drafted. Need Brandon approval before scheduling/posting.
+- **HHH sponsor outreach:** research, send queue, tier-correct approval sheet, and guarded test-batch helper are ready. Need Brandon approval before any email sends; use `miles@makingmilesmatter.com` only.
+- **HHH Facebook content:** June 8-July 7 clean v2 review batch is ready with zero risk-scan hits. Need Brandon approval before scheduling/posting.
 - **HHH route maps:** theme supports 15/30/62/100 cards locally. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, and Joshua/logistics review before publishing.
 - **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, upload, and brief-composer pieces are live, smoke-covered, and locally browser-QAable without Brandon clicks. Next useful work: production-session browser QA for `/admin/brief`, `/admin/board`, and `/admin/tasks`, then wire Telegram/fleet alert routing after Brandon confirms thread defaults.
 - **MMM hub copy + photo pass:** source cleanup, membership copy safety, and donation/checkout-placeholder safety copy are live at `e6c27e7`. Next: fix `makingmilesmatter.org` routing after Brandon confirms DNS/domain path, add real MMM/HHH photos when assets exist, and wire real one-time donations/Stripe checkout after pricing/payment decisions.
@@ -78,8 +82,8 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 
 - Zebby's apex DNS: Vercel vs Shopify canonical path. Use `domain-routing-approval-packet-2026-05-15.md`; do not change DNS without Brandon.
 - MMM primary domain: move `makingmilesmatter.org` / `www.makingmilesmatter.org` aliases to MMM Hub or keep current Mission Control routing. Use `domain-routing-approval-packet-2026-05-15.md`; do not change aliases without Brandon.
-- HHH sponsor batch approval: approve, edit, or hold the Monday-ready send queue.
-- HHH Facebook batch approval: approve, edit, or hold June 8-July 7 posts.
+- HHH sponsor batch approval: approve, edit, or hold the Monday-ready send queue. Use `HHH sponsors: approve test batch 1` to send only the guarded internal test copies.
+- HHH Facebook batch approval: approve, edit, or hold the June 8-July 7 clean v2 batch. Use `HHH Facebook: approved to schedule cleaned v2` only when the final cleaned batch is approved for scheduling.
 - HHH route assets: final RideWithGPS/GPX/cue-sheet ownership and logistics review.
 - Auto-deploy permissions matrix confirmation.
 - Telegram thread routing.

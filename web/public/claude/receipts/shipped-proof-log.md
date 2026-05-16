@@ -31,3 +31,5 @@ This file is append-only. Use `scripts/memory/write-work-receipt.sh` after every
 ---
 
 _New entries appended below by `scripts/memory/write-work-receipt.sh`._
+
+- **2026-05-16** [HHH 2026] — Facebook June 8-July 7 clean v2 review batch prepared locally. Review file: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-review-2026-05-16.md`; preflight: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-preflight-2026-05-16.md`. Verification: 634 lines, zero risk-scan hits for old tiers/old pricing/direct registration/deadline pressure/duplicate HHH hashtags. No posts scheduled or published.

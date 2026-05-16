@@ -6,20 +6,32 @@
 
 ## Last manual edit: 2026-05-15
 
-## Authoritative Update - 2026-05-15 10:05pm ET
+## Authoritative Update - 2026-05-16 1:33am ET
 
 Read `session-brief.md` and `this-week-command-board.md` first. They are the current source of truth.
 
 Current deploy truth:
 
 - Mission Control is live-match healthy at `90686ef`.
-- FlashFlow deploy pipe is healthy; the checker at the start of this refresh saw local/origin/prod in sync at `ed140de`. Public-doc refreshes create a newer FlashFlow health SHA, so verify `/api/health` against local HEAD after every push.
+- FlashFlow deploy pipe is healthy; the checker at the start of this refresh saw local/origin/prod in sync at `d947379`. Public-doc refreshes create a newer FlashFlow health SHA, so verify `/api/health` against local HEAD after every push.
 - Zebby's app is live on `www.zebbysworld.com` / Vercel branch alias at `46f6b5a`; bare `zebbysworld.com` is blocked by apex DNS/certificate mismatch.
 - MMM Hub is live on `mmm-hub.vercel.app` at `e6c27e7`; `makingmilesmatter.org` is still routed to Mission Control.
+- HHH sponsor outreach and Facebook content are in guarded draft state. Sponsor test copies exist locally with 0 sends. Facebook clean v2 exists locally with zero risk-scan hits. Nothing has been sent, scheduled, or posted.
 
 Do not change DNS or Vercel aliases without Brandon. Exact domain approval packet:
 
 `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing-approval-packet-2026-05-15.md`
+
+Guarded helper after approval:
+
+`~/Documents/Command-Center/fix-domain-routing-after-approval.command`
+
+Current HHH approval-ready files:
+
+- Sponsor test runbook: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-send-runbook-2026-05-16.md`
+- Sponsor review copies: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/`
+- Facebook clean v2 review: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-review-2026-05-16.md`
+- Facebook clean v2 preflight: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-preflight-2026-05-16.md`
 
 ## STATUS — DEPLOY UNBLOCKED ✓
 

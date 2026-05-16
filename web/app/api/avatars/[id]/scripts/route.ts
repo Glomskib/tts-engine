@@ -26,6 +26,7 @@ interface ScriptOut {
   cta: string;
   captions: string;
   hashtags: string;
+  scene_tag?: string;
 }
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const correlationId = generateCorrelationId();
   const auth = await getApiAuthContext(req).catch(() => null);
   if (!auth?.user?.id) return createApiErrorResponse('UNAUTHORIZED', 'Sign in', 401, correlationId);
+  const userId = auth.user.id;
 
   const apiKey = process.env.ANTHROPIC_API_KEY;
   if (!apiKey) return createApiErrorResponse('CONFIG_ERROR', 'ANTHROPIC_API_KEY missing', 503, correlationId);
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .from('brand_profiles')
     .select('*')
     .eq('id', id)
-    .eq('user_id', auth.user.id)
+    .eq('user_id', userId)
     .maybeSingle();
   if (!avatar) return createApiErrorResponse('NOT_FOUND', 'avatar not found', 404, correlationId);
 
@@ -101,7 +103,7 @@ VOICE RULES (must follow every time):
 - Allowed claim language: ${allowedClaims.join('; ') || '(use only general lifestyle/use-case language)'}
 - PROHIBITED claim language (never use): ${prohibitedClaims.join('; ') || '(default health claims forbidden: cure, treat, prevent, diagnose, guaranteed)'}
 
-OUTPUT: a JSON array. Each item: { "script_type": "<kind>", "hook": "<10-15 word opener>", "body": "<full script>", "cta": "<single line>", "captions": "<karaoke-style on-screen captions>", "hashtags": "<6-10 hashtags space-separated>" }
+OUTPUT: a JSON array. Each item: { "script_type": "<kind>", "hook": "<10-15 word opener>", "body": "<full script>", "cta": "<single line>", "captions": "<karaoke-style on-screen captions>", "hashtags": "<6-10 hashtags space-separated>", "scene_tag": "<one of: kitchen|desk|outdoors|cafe|studio|gym|car|walking|product|selfie — pick what best matches the script setting>" }
 
 Do NOT wrap in markdown. Output raw JSON array only.`;
 
@@ -135,7 +137,7 @@ Each script must feel like the same person (${avatar.avatar_display_name || avat
 
   // Insert each script
   const rows = scripts.slice(0, 50).map(s => ({
-    user_id: auth.user.id,
+    user_id: userId,
     brand_profile_id: id,
     campaign_id: body.campaign_id || null,
     script_type: String(s.script_type || 'unknown').slice(0, 40),
@@ -144,6 +146,7 @@ Each script must feel like the same person (${avatar.avatar_display_name || avat
     cta: String(s.cta || '').slice(0, 500),
     captions: String(s.captions || '').slice(0, 2000),
     hashtags: String(s.hashtags || '').slice(0, 500),
+    scene_tag: s.scene_tag ? String(s.scene_tag).slice(0, 40) : null,
     source: 'avatar-batch',
     source_prompt: productName,
   }));

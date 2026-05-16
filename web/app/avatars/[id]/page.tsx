@@ -77,6 +77,7 @@ export default function AvatarDetailPage() {
 
             <div className="flex flex-wrap gap-2 mt-4">
               <Link href={`/avatars/${id}/scripts/new`} className="px-3 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-sm font-semibold flex items-center gap-1.5"><Sparkles className="w-4 h-4" /> Generate scripts</Link>
+              <Link href={`/avatars/${id}/scenes`} className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold flex items-center gap-1.5 border border-white/10"><span>🎬</span> Scenes</Link>
               <Link href={`/avatars/${id}/campaigns/new`} className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold flex items-center gap-1.5 border border-white/10"><Calendar className="w-4 h-4" /> New campaign</Link>
               <Link href={`/studio/oneprompt?avatar=${id}`} className="px-3 py-2 rounded-lg bg-purple-600/30 border border-purple-500 hover:bg-purple-600/40 text-sm font-semibold flex items-center gap-1.5 text-purple-100">⚡ One-prompt video</Link>
             </div>

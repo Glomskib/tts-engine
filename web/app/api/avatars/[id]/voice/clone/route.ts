@@ -13,7 +13,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!auth?.user?.id) return createApiErrorResponse('UNAUTHORIZED', 'Sign in', 401, correlationId);
 
   const apiKey = process.env.ELEVENLABS_API_KEY;
-  if (!apiKey) return createApiErrorResponse('CONFIG', 'ELEVENLABS_API_KEY not configured — add it in Vercel env', 503, correlationId);
+  if (!apiKey) return createApiErrorResponse('CONFIG_ERROR', 'ELEVENLABS_API_KEY not configured — add it in Vercel env', 503, correlationId);
 
   let body: { sample_urls?: string[]; name?: string };
   try { body = await req.json(); }
@@ -51,10 +51,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!r.ok) {
     const txt = await r.text().catch(() => '');
-    return createApiErrorResponse('UPSTREAM', `ElevenLabs ${r.status}: ${txt.slice(0, 300)}`, 502, correlationId);
+    return createApiErrorResponse('AI_ERROR', `ElevenLabs ${r.status}: ${txt.slice(0, 300)}`, 502, correlationId);
   }
   const j = await r.json() as { voice_id?: string };
-  if (!j.voice_id) return createApiErrorResponse('UPSTREAM', 'ElevenLabs returned no voice_id', 502, correlationId);
+  if (!j.voice_id) return createApiErrorResponse('AI_ERROR', 'ElevenLabs returned no voice_id', 502, correlationId);
 
   await supabaseAdmin
     .from('brand_profiles')

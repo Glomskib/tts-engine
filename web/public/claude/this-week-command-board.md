@@ -7,7 +7,7 @@ Purpose: keep the AI fleet pointed at work that can finish this week, and keep i
 ## Live Health
 
 - Mission Control: live at `5d8db46`.
-- FlashFlow: deploy pipe is healthy at `384513e` before this docs refresh. Check `https://flashflowai.com/api/health` after each brief push because the docs live inside FlashFlow.
+- FlashFlow: deploy pipe is healthy at `1213507` before this docs refresh. Check `https://flashflowai.com/api/health` after each brief push because the docs live inside FlashFlow.
 - Zebby's World: app is healthy at `www.zebbysworld.com` and the Vercel branch alias. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch.
 - MMM hub: app is healthy at `mmm-hub.vercel.app` on `e6c27e7`. `makingmilesmatter.org/api/health` is still routed to Mission Control.
 

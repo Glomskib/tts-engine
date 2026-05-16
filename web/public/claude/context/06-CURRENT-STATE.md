@@ -6,17 +6,19 @@
 
 ## Last manual edit: 2026-05-15
 
-## Authoritative Update - 2026-05-16 7:59am ET
+## Authoritative Update - 2026-05-16 2:55pm ET
 
 Read `session-brief.md` and `this-week-command-board.md` first. They are the current source of truth.
 
 Current deploy truth:
 
 - Mission Control is live-match healthy at `90686ef`.
-- FlashFlow deploy pipe is healthy at `0a97ca1` before this docs refresh. Public-doc refreshes create a newer FlashFlow health SHA, so verify `/api/health` against local HEAD after every push.
+- FlashFlow deploy pipe is healthy at `1b92526` before this docs refresh. Public-doc refreshes create a newer FlashFlow health SHA, so verify `/api/health` against local HEAD after every push.
 - Zebby's app is live on `www.zebbysworld.com` / Vercel branch alias at `46f6b5a`; bare `zebbysworld.com` is blocked by apex DNS/certificate mismatch.
 - MMM Hub is live on `mmm-hub.vercel.app` at `e6c27e7`; `makingmilesmatter.org` is still routed to Mission Control.
-- HHH sponsor outreach, Facebook content, and route assets are in guarded draft state. Sponsor test copies exist locally with 0 sends. Facebook clean v2 plus approval tracker exist locally with zero risk-scan hits. Route/logistics worksheet exists locally with 4 route rows x 19 columns. Nothing has been sent, scheduled, posted, uploaded, or published.
+- HHH sponsor outreach, Facebook content, and route assets are in guarded draft state. Sponsor test copies exist locally with 0 sends. Facebook clean v2 plus approval tracker, asset shot list, asset request packet, and asset preflight exist locally with zero risk-scan hits; image inbox currently has 0 of 30 files. Route/logistics worksheet and route asset request packet exist locally; route preflight currently lists 35 missing/review blockers. Nothing has been sent, scheduled, posted, uploaded, or published.
+- TCG PR #1 and PR #2 are mergeable but still drafts; Vercel has an author-email policy warning, not a code conflict. Read `~/Documents/MacBook Pro VAULT/10-Projects/TCG-author-email-policy-unblock-2026-05-16.md` before merge approval.
+- Digital asset v3 buyer ZIP is structurally ready for Brandon review. Local preflight and draft listing bundle helpers exist; latest bundle is `~/Documents/MacBook Pro VAULT/10-Projects/digital-asset-draft-listing-bundle-2026-05-16-132700/`. Do not publish, upload, charge, email, or post publicly without Brandon approval.
 
 Do not change DNS or Vercel aliases without Brandon. Exact domain approval packet:
 
@@ -30,7 +32,7 @@ Read-only launch status helper:
 
 `~/Documents/Command-Center/this-week-launch-status.command --write-report`
 
-It prints the deploy state, HHH sponsor/Facebook/route readiness, TCG PR state, digital asset ZIP safety, guarded helpers, next blockers, and Brandon's decision menu. It does not send, post, charge, change DNS, publish Shopify, merge PRs, run migrations, or delete data.
+It prints the deploy state, HHH sponsor/Facebook/route readiness, TCG readiness, digital asset ZIP/listing-bundle safety, guarded helpers, next blockers, and Brandon's decision menu. It does not send, post, charge, change DNS, publish Shopify, merge PRs, run migrations, or delete data.
 
 Current HHH approval-ready files:
 
@@ -40,7 +42,10 @@ Current HHH approval-ready files:
 - Facebook clean v2 preflight: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-preflight-2026-05-16.md`
 - Facebook scheduling packet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-scheduling-packet-2026-05-16.md`
 - Facebook approval tracker: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-approval-tracker-2026-05-16.csv`
+- Facebook asset shot list: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-asset-shot-list-2026-05-16.md`
+- Facebook asset request packet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-asset-request-packet-2026-05-16.md`
 - Route assets approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-assets-approval-packet-2026-05-16.md`
+- Route assets request packet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-assets-request-packet-2026-05-16.md`
 - Route logistics worksheet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-review-worksheet-2026-05-16.csv`
 
 Fastest useful approvals now:
@@ -50,6 +55,7 @@ Fastest useful approvals now:
 - `HHH sponsors: approve test batch 1`
 - `HHH Facebook: approved to schedule cleaned v2`
 - `TCG: merge PR1 then PR2; stop before prod migration`
+- `Digital asset: approve v3 ZIP, price is $49, channel is Gumroad, refund window is 14 days, create draft listing only.`
 
 ## STATUS — DEPLOY UNBLOCKED ✓
 

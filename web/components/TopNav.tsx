@@ -14,13 +14,14 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sparkles, Camera, Library, CreditCard, Menu, X } from 'lucide-react';
+import { Sparkles, Camera, Library, CreditCard, Menu, X, User } from 'lucide-react';
 import { useState } from 'react';
 
 const HIDDEN_PREFIXES = ['/studio', '/admin', '/cooking', '/auth', '/onboarding'];
 
 const LINKS: { href: string; label: string; Icon: typeof Sparkles }[] = [
   { href: '/create', label: 'Create', Icon: Sparkles },
+  { href: '/avatars', label: 'Avatars', Icon: User },
   { href: '/studio', label: 'Studio', Icon: Camera },
   { href: '/library', label: 'Library', Icon: Library },
   { href: '/pricing', label: 'Pricing', Icon: CreditCard },

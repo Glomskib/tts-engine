@@ -6,16 +6,16 @@
 
 ## Last manual edit: 2026-05-15
 
-## Authoritative Update - 2026-05-15 4:50pm ET
+## Authoritative Update - 2026-05-15 10:05pm ET
 
 Read `session-brief.md` and `this-week-command-board.md` first. They are the current source of truth.
 
 Current deploy truth:
 
 - Mission Control is live-match healthy at `90686ef`.
-- FlashFlow is live-match healthy at `e685df1`. Pricing, homepage static SSR, and generated OG/Twitter card fixes are deployed and verified.
-- Zebby's app is live on `www.zebbysworld.com` / Vercel branch alias at `46f6b5a`; bare `zebbysworld.com` is blocked by split Shopify/Vercel DNS.
-- MMM Hub is live on `mmm-hub.vercel.app` at `73814f5`; `makingmilesmatter.org` is still routed to Mission Control.
+- FlashFlow deploy pipe is healthy; the checker at the start of this refresh saw local/origin/prod in sync at `ed140de`. Public-doc refreshes create a newer FlashFlow health SHA, so verify `/api/health` against local HEAD after every push.
+- Zebby's app is live on `www.zebbysworld.com` / Vercel branch alias at `46f6b5a`; bare `zebbysworld.com` is blocked by apex DNS/certificate mismatch.
+- MMM Hub is live on `mmm-hub.vercel.app` at `e6c27e7`; `makingmilesmatter.org` is still routed to Mission Control.
 
 Do not change DNS or Vercel aliases without Brandon. Exact domain approval packet:
 

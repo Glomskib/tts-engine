@@ -1,15 +1,15 @@
 # This Week Command Board
 
-Updated: 2026-05-15 4:50pm ET
+Updated: 2026-05-15 10:05pm ET
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
 ## Live Health
 
 - Mission Control: live at `90686ef`.
-- FlashFlow: live at `e685df1`; `/pricing` and generated OG/Twitter image fixes are deployed. Check `https://flashflowai.com/api/health` after each brief push.
-- Zebby's World: app is healthy at `www.zebbysworld.com` and the Vercel branch alias. Bare `zebbysworld.com` is still split between Shopify and Vercel.
-- MMM hub: app is healthy at `mmm-hub.vercel.app`. `makingmilesmatter.org/api/health` is still routed to Mission Control.
+- FlashFlow: deploy pipe is healthy; the checker saw `ed140de` before this docs refresh. Check `https://flashflowai.com/api/health` after each brief push because the docs live inside FlashFlow.
+- Zebby's World: app is healthy at `www.zebbysworld.com` and the Vercel branch alias. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch.
+- MMM hub: app is healthy at `mmm-hub.vercel.app` on `e6c27e7`. `makingmilesmatter.org/api/health` is still routed to Mission Control.
 
 ## Brandon Approval Gates
 
@@ -31,7 +31,7 @@ AI agents can keep doing this without Brandon clicks:
 - Draft-only HHH sponsor/email/social refinements using `miles@makingmilesmatter.com` as the sender identity, but do not send.
 - MMM photo/copy inventory and Stripe test plan, but do not create live payment links.
 - TCG PR review, test reruns, docs, and local-only migration rehearsal.
-- Digital asset listing drafts, cover variants, support macros, and preflight checks, but do not publish or charge.
+- Digital asset listing drafts, cover variants, support macros, and preflight checks. Use the v3 buyer ZIP only; do not publish or charge.
 
 ## One-Reply Commands
 

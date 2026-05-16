@@ -513,6 +513,50 @@ export default function LandingPage() {
       </section>
 
       {/* ================================================================ */}
+      {/* SECTION 8.5 — AFFILIATE / REFERRAL PROGRAM */}
+      {/* ================================================================ */}
+      <section className="relative py-16 px-6 border-t border-white/5">
+        <div className="max-w-5xl mx-auto">
+          <div className="relative rounded-3xl bg-gradient-to-br from-teal-500/10 via-emerald-500/5 to-transparent border border-teal-500/20 p-8 sm:p-12 overflow-hidden">
+            {/* Decorative glow */}
+            <div
+              aria-hidden
+              className="absolute -top-20 -right-20 w-72 h-72 bg-teal-500/15 rounded-full blur-3xl pointer-events-none"
+            />
+            <div className="relative flex flex-col md:flex-row items-start md:items-center gap-8">
+              <div className="flex-1">
+                <p className="text-xs font-semibold tracking-widest text-teal-400 mb-3">EARN WITH FLASHFLOW</p>
+                <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-3 leading-tight">
+                  Share FlashFlow. Earn{' '}
+                  <span className="bg-gradient-to-r from-emerald-300 to-teal-300 bg-clip-text text-transparent">
+                    30% recurring.
+                  </span>
+                </h2>
+                <p className="text-zinc-400 leading-relaxed max-w-2xl">
+                  Every creator you bring in earns you 30% of their subscription — for as long as they pay.
+                  No tiers, no cap. Pays out monthly via Stripe.
+                </p>
+              </div>
+              <div className="flex flex-col gap-3 shrink-0 w-full md:w-auto">
+                <Link
+                  href="/login?mode=signup&utm=referral"
+                  className="inline-flex items-center justify-center px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-colors"
+                >
+                  Get your referral link
+                </Link>
+                <Link
+                  href="/account/referrals"
+                  className="inline-flex items-center justify-center px-6 py-3 rounded-xl border border-white/15 text-zinc-200 hover:bg-white/5 transition-colors text-sm"
+                >
+                  Already a user? See your link
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
       {/* SECTION 9 — SOCIAL PROOF */}
       {/* ================================================================ */}
       <section className="relative py-20 px-6 border-t border-white/5">
@@ -554,6 +598,78 @@ export default function LandingPage() {
           <p className="text-center mt-8 text-xs text-zinc-600">
             Sample voices representative of beta users. Names + handles obscured during pre-launch.
           </p>
+        </div>
+      </section>
+
+      {/* ================================================================ */}
+      {/* SECTION 9.5 — AFFILIATE PROGRAM                                  */}
+      {/* Surfaces the existing /api/referrals flow. Creators recommending */}
+      {/* FlashFlow to other creators get 30% recurring on every paid sub  */}
+      {/* they refer. Built into auth via ?ref=<code> capture (see         */}
+      {/* components/landing/ReferralBanner.tsx).                          */}
+      {/* ================================================================ */}
+      <section className="relative py-20 px-6 border-t border-white/5 bg-gradient-to-b from-transparent via-teal-500/[0.03] to-transparent">
+        <div className="max-w-5xl mx-auto">
+          <div className="grid lg:grid-cols-2 gap-10 items-center">
+            <div>
+              <p className="text-sm font-medium text-teal-400 uppercase tracking-widest mb-4">Earn With Us</p>
+              <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mb-4">
+                Tell other creators about FlashFlow.{' '}
+                <span className="bg-gradient-to-r from-teal-300 via-cyan-300 to-teal-400 bg-clip-text text-transparent">
+                  Keep 30% of every sub.
+                </span>
+              </h2>
+              <p className="text-lg text-zinc-400 leading-relaxed mb-6">
+                Every paid creator you refer pays you 30% of their subscription. Every month they stay, you keep getting paid. No cap, no clawback, no nonsense.
+              </p>
+              <ul className="space-y-2 text-sm text-zinc-300 mb-8">
+                <li className="flex gap-2">
+                  <span className="text-teal-400 mt-0.5">✓</span> 30% recurring on every paid plan they hold
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-teal-400 mt-0.5">✓</span> Personal link tracked by referral code
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-teal-400 mt-0.5">✓</span> Payouts via Stripe — direct to your account
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-teal-400 mt-0.5">✓</span> Auto-attribution even if they sign up days later
+                </li>
+              </ul>
+              <Link
+                href="/signup?intent=affiliate"
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-white text-zinc-900 font-semibold hover:bg-zinc-100 transition-colors"
+              >
+                Get your referral link →
+              </Link>
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 bg-teal-500/10 rounded-3xl blur-3xl" />
+              <div className="relative rounded-2xl border border-teal-500/30 bg-zinc-900/80 p-8 backdrop-blur-xl">
+                <div className="text-xs font-semibold uppercase tracking-wider text-teal-400 mb-3">
+                  Quick math
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <div className="text-zinc-500 text-sm">10 creators on Creator Pro ($49/mo)</div>
+                    <div className="text-3xl font-bold text-white">$147<span className="text-base font-normal text-zinc-500">/mo recurring</span></div>
+                  </div>
+                  <div className="border-t border-white/5 pt-4">
+                    <div className="text-zinc-500 text-sm">50 creators on Creator Pro</div>
+                    <div className="text-3xl font-bold text-white">$735<span className="text-base font-normal text-zinc-500">/mo recurring</span></div>
+                  </div>
+                  <div className="border-t border-white/5 pt-4">
+                    <div className="text-zinc-500 text-sm">100 creators (mix of tiers)</div>
+                    <div className="text-3xl font-bold text-emerald-400">~$1,500<span className="text-base font-normal text-zinc-500">/mo</span></div>
+                  </div>
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-6">
+                  Illustrative math at 30% recurring × monthly plan price. Actual earnings depend on plan mix and retention.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

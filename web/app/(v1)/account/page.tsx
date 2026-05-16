@@ -100,13 +100,7 @@ export default function AccountPage() {
 
       {/* Billing */}
       <Card icon={CreditCard} title="Billing">
-        <Link
-          href="/admin/billing"
-          className="inline-flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white no-underline group"
-        >
-          Manage billing
-          <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
-        </Link>
+        <BillingActions isFree={isFree} />
       </Card>
 
       {/* Advanced access — admins only */}
@@ -176,3 +170,65 @@ function Stat({ label, value, cap }: { label: string; value: number; cap: number
     </div>
   );
 }
+
+function BillingActions({ isFree }: { isFree: boolean }) {
+  const [opening, setOpening] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const openPortal = async () => {
+    setErr(null);
+    setOpening(true);
+    try {
+      const res = await fetch("/api/stripe/portal", { method: "POST" });
+      const data = await res.json();
+      if (res.ok && data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      if (res.status === 404) {
+        // No active subscription — send them to pricing
+        window.location.href = "/pricing";
+        return;
+      }
+      setErr(data.error || "Could not open billing portal. Try again.");
+    } catch {
+      setErr("Network error. Please try again.");
+    } finally {
+      setOpening(false);
+    }
+  };
+
+  if (isFree) {
+    return (
+      <div className="space-y-2">
+        <p className="text-xs text-zinc-500">You're on the free plan. Upgrade for more clips and unlocks.</p>
+        <Link
+          href="/pricing"
+          className="inline-flex items-center gap-1.5 text-sm text-teal-300 hover:text-teal-200 no-underline group"
+        >
+          See pricing
+          <ArrowRight className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
+        </Link>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <button
+        type="button"
+        onClick={openPortal}
+        disabled={opening}
+        className="inline-flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white no-underline group disabled:opacity-60 disabled:cursor-wait"
+      >
+        {opening ? "Opening…" : "Manage subscription"}
+        <ExternalLink className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100" />
+      </button>
+      <p className="text-[11px] text-zinc-500">
+        Update payment, change plan, download invoices, or cancel — all through Stripe.
+      </p>
+      {err && <p className="text-xs text-red-400">{err}</p>}
+    </div>
+  );
+}
+

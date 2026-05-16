@@ -27,6 +27,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { deleteR2Object, isR2Configured, presignR2Url } from '@/lib/storage/r2';
 import { createHash } from 'crypto';
+import Stripe from 'stripe';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,8 +42,51 @@ interface DeletionStats {
   ve_runs_deleted: number;
   rendered_clips_deleted: number;
   credit_rows_deleted: number;
+  stripe_subscriptions_canceled: number;
   auth_user_deleted: boolean;
   errors: string[];
+}
+
+/**
+ * Cancel any live Stripe subscriptions for the user (looked up by email).
+ *
+ * IMPORTANT: must run BEFORE the auth.users delete — once the auth row is
+ * gone we lose the email anchor and the subscription would silently keep
+ * billing. Cancellation is `cancel_at_period_end: false` (immediate) so the
+ * user doesn't get a final charge after they explicitly asked for deletion.
+ *
+ * Failures are logged into stats.errors but do NOT abort the deletion —
+ * the user still gets their data removed; the worst case is a stuck
+ * subscription that ops can clean up manually.
+ */
+async function cancelStripeSubscriptions(email: string | null): Promise<{ count: number; errors: string[] }> {
+  if (!email || !process.env.STRIPE_SECRET_KEY) return { count: 0, errors: [] };
+  const errors: string[] = [];
+  let count = 0;
+  try {
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+      apiVersion: '2026-01-28.clover',
+    });
+    const customers = await stripe.customers.list({ email, limit: 5 });
+    for (const c of customers.data) {
+      const subs = await stripe.subscriptions.list({ customer: c.id, status: 'all', limit: 25 });
+      for (const sub of subs.data) {
+        if (sub.status === 'canceled' || sub.status === 'incomplete_expired') continue;
+        try {
+          await stripe.subscriptions.cancel(sub.id, {
+            invoice_now: false,
+            prorate: false,
+          });
+          count++;
+        } catch (e) {
+          errors.push(`stripe subscription ${sub.id}: ${e instanceof Error ? e.message : 'unknown'}`);
+        }
+      }
+    }
+  } catch (e) {
+    errors.push(`stripe lookup: ${e instanceof Error ? e.message : 'unknown'}`);
+  }
+  return { count, errors };
 }
 
 /**
@@ -102,6 +146,7 @@ export async function POST(req: NextRequest) {
     ve_runs_deleted: 0,
     rendered_clips_deleted: 0,
     credit_rows_deleted: 0,
+    stripe_subscriptions_canceled: 0,
     auth_user_deleted: false,
     errors: [],
   };
@@ -125,17 +170,35 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 3. DB tables — order matters (FKs cascade where set, manual elsewhere) ──
+  // script_events / script_patterns are from the rating-system migration —
+  // safe to list here even before the migration is applied; deletes against
+  // missing tables just error harmlessly into stats.errors and proceed.
   const tableDeletes: Array<[string, keyof DeletionStats]> = [
     ['ve_rendered_clips', 'rendered_clips_deleted'],
     ['ve_clip_candidates', 'rendered_clips_deleted'], // reuses counter
     ['ve_transcripts', 'rendered_clips_deleted'],     // reuses counter
     ['ve_assets', 've_runs_deleted'],                  // reuses counter
     ['ve_runs', 've_runs_deleted'],
+    ['script_events', 've_runs_deleted'],              // rating-system events
     ['brand_profiles', 'brand_profiles_deleted'],
     ['credit_transactions', 'credit_rows_deleted'],
     ['user_credits', 'credit_rows_deleted'],
     ['user_subscriptions', 'credit_rows_deleted'],
   ];
+
+  // script_patterns is keyed by account_id (= user_id in our one-user-per-
+  // account model) instead of user_id. Run separately so the eq() match is
+  // on the right column.
+  try {
+    const { error, count } = await supabaseAdmin
+      .from('script_patterns')
+      .delete({ count: 'exact' })
+      .eq('account_id', userId);
+    if (error) stats.errors.push(`script_patterns: ${error.message}`);
+    else if (count) stats.rendered_clips_deleted += count;
+  } catch (err) {
+    stats.errors.push(`script_patterns exception: ${err instanceof Error ? err.message : err}`);
+  }
 
   for (const [table, _statKey] of tableDeletes) {
     try {
@@ -156,6 +219,16 @@ export async function POST(req: NextRequest) {
       stats.errors.push(`${table} exception: ${err instanceof Error ? err.message : err}`);
     }
   }
+
+  // ── 3b. Cancel any live Stripe subscriptions BEFORE the auth row goes ──
+  //
+  // Order matters: we can only find their Stripe customer via their email
+  // address, which we'd lose if auth was already deleted. Cancellation is
+  // immediate (not at_period_end) — the user asked to be forgotten, so we
+  // don't let one more billing cycle squeak through.
+  const stripeResult = await cancelStripeSubscriptions(email);
+  stats.stripe_subscriptions_canceled = stripeResult.count;
+  stats.errors.push(...stripeResult.errors);
 
   // ── 4. GDPR audit log (anonymized — proof of compliance) ────────────
   try {

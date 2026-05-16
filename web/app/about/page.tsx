@@ -80,14 +80,56 @@ export default function AboutPage() {
         </ul>
       </section>
 
-      {/* How It Started */}
+      {/* From the Founder — first-person, humanizes the product.
+          DRAFT: Brandon should edit pacing/voice before this lands in
+          marketing material. Story details are accurate per session
+          context (brain surgery, Making Miles Matter, multi-venture
+          solo operator) but the narrative line is the AI's draft. */}
+      <section className="max-w-4xl mx-auto px-4 py-12 border-t border-gray-700">
+        <h2 className="text-3xl font-bold mb-2">From the Founder</h2>
+        <p className="text-sm text-gray-500 mb-8">Brandon Glomski</p>
+
+        <div className="space-y-5 text-lg text-gray-300 leading-relaxed">
+          <p>
+            I built FlashFlow because I was tired of watching good products
+            lose to good editors. People with something worth selling were
+            losing to people with a faster cut.
+          </p>
+          <p>
+            I&apos;m a solo operator running a handful of things at once —
+            FlashFlow AI, a nonprofit called{' '}
+            <a href="https://makingmilesmatter.com" className="text-teal-400 hover:text-teal-300 underline underline-offset-2" target="_blank" rel="noopener noreferrer">Making Miles Matter</a>{' '}
+            (a cycling event for chronic illness research), and a chronic-
+            illness app I built for my wife. After brain surgery a couple
+            years ago, I came back with a clearer picture of what I wanted
+            to spend my time on: tools that compress the gap between &ldquo;I
+            have an idea&rdquo; and &ldquo;it&apos;s in front of people.&rdquo;
+          </p>
+          <p>
+            That&apos;s what FlashFlow is. Drop a video, pick a vibe, ship.
+            No editor breath down your neck, no rate card, no 48-hour
+            turnaround. Just clips your audience wants to watch.
+          </p>
+          <p>
+            I use it for my own posts. The people I built it for use it
+            for theirs. If you&apos;re a TikTok Shop seller, a creator
+            stuck on hook number forty-seven, or an agency drowning in
+            client briefs — this is for you.
+          </p>
+          <p className="text-base text-gray-400 italic pt-2">
+            — Brandon
+          </p>
+        </div>
+      </section>
+
+      {/* How It Started — kept as supporting context for the founder story. */}
       <section className="max-w-4xl mx-auto px-4 py-12 border-t border-gray-700">
         <h2 className="text-3xl font-bold mb-6">How It Started</h2>
         <p className="text-lg text-gray-300 mb-6">
-          FlashFlow was built because content creators were struggling. TikTok Shop sellers had products that could sell, but couldn't create the videos. Video agencies charged $500–$5,000 per video. Freelance UGC creators were overwhelmed with requests.
+          FlashFlow was built because content creators were struggling. TikTok Shop sellers had products that could sell, but couldn&apos;t create the videos. Video agencies charged $500–$5,000 per video. Freelance UGC creators were overwhelmed with requests.
         </p>
         <p className="text-lg text-gray-300 mb-6">
-          We realized: if you can analyze what makes a TikTok viral, you can generate a script. If you can generate a script, an AI avatar can perform it. If an AI avatar can perform it, you can test 10 versions of the same product and keep the winner.
+          We realized: if you can analyze what makes a TikTok viral, you can generate a script. If you can generate a script, you can test 10 versions of the same product and keep the winner.
         </p>
         <p className="text-lg text-gray-300">
           FlashFlow AI was born to automate that entire workflow.

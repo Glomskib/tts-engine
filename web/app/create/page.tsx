@@ -21,6 +21,7 @@ import {
   X, ChevronRight,
 } from 'lucide-react';
 import { RenderAgentBadge } from '@/components/admin/RenderAgentBadge';
+import CreateOnboarding from '@/components/CreateOnboarding';
 import { useAuth } from '@/contexts/AuthContext';
 
 type Mode = 'post' | 'clip';
@@ -534,6 +535,9 @@ export default function CreatePage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      {/* First-visit onboarding tour. Self-gates on localStorage so existing
+          users never see it. Dismissable any time. */}
+      <CreateOnboarding />
       <div className="max-w-2xl mx-auto px-4 py-6 sm:py-10">
 
         {/* Header */}
@@ -1035,23 +1039,58 @@ function JobProgress({ jobId, onNewJob }: { jobId: string; onNewJob: () => void 
     return () => clearInterval(t);
   }, []);
 
-  // Status polling (unchanged backoff behavior)
+  // Near-real-time status polling.
+  //
+  // Adaptive interval: poll fast during the engaged early window (where the
+  // visitor is actively staring at the screen), then back off so we don't
+  // hammer the API on long render queues.
+  //   0-60s:    every 1s   (feels real-time during transcribe/analyze)
+  //   60-300s:  every 2s
+  //   300s+:    every 5s
+  // Plus: immediate refresh when the tab regains focus, so people who tabbed
+  // away to TikTok don't come back to a stale screen.
   useEffect(() => {
     let active = true;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const start = Date.now();
+
+    const nextDelay = () => {
+      const elapsed = (Date.now() - start) / 1000;
+      if (elapsed < 60) return 1000;
+      if (elapsed < 300) return 2000;
+      return 5000;
+    };
+
     const poll = async () => {
+      if (!active) return;
       try {
         const r = await fetch(`/api/create/jobs/${jobId}`, { cache: 'no-store' });
         const j = (await r.json()) as JobStatus;
-        if (active) setJob(j);
-        if (active && j.status && !['complete', 'failed'].includes(j.status)) {
-          setTimeout(poll, 2500);
+        if (!active) return;
+        setJob(j);
+        if (j.status && !['complete', 'failed'].includes(j.status)) {
+          timer = setTimeout(poll, nextDelay());
         }
       } catch {
-        if (active) setTimeout(poll, 5000);
+        if (active) timer = setTimeout(poll, 5000);
       }
     };
+
+    // Refresh immediately on tab focus.
+    const onVisible = () => {
+      if (document.visibilityState === 'visible' && active) {
+        if (timer) clearTimeout(timer);
+        void poll();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     void poll();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      if (timer) clearTimeout(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [jobId]);
 
   const status = job?.status ?? 'created';

@@ -9,7 +9,7 @@
 ## Current deploy truth
 
 - **Mission Control:** live match. Local/origin/prod are `5d8db46`. MC deploy pipe is working. `mc.flashflowai.com` was briefly mis-aliased to the wrong Vercel project (`mc-flashflowai`) on May 15; it has been restored to the `mission-control` deployment.
-- **FlashFlow:** deploy pipe is healthy. Local/origin/prod are `b9e0710` before this docs refresh. This public-doc update will create a newer FlashFlow health SHA, so always verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
+- **FlashFlow:** deploy pipe is healthy. Local/origin/prod are `384513e` before this docs refresh. This public-doc update will create a newer FlashFlow health SHA, so always verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `46f6b5a`. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch. Do not change DNS without Brandon confirming.
 - **MMM hub:** `mmm-hub.vercel.app` is live at `e6c27e7`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports Mission Control SHA `5d8db46` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
 - **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists the exact approval gates, safe autonomous work, and Brandon's one-line decision menu.
@@ -31,7 +31,7 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 ## Recently finished
 
 - MC full local route smoke QA is now easy and verified at `5d8db46`. Added `npm run dev:qa` so agents start Mission Control with safe local open auth, updated the smoke-suite hint, verified `npm run dev:qa` + `npm run smoke` at 288 pass / 0 fail / 0 warn / 0 skip, pushed, and verified `https://mc.flashflowai.com/api/health` reports `5d8db46`.
-- FlashFlow redeploy with CRON_SECRET applied is live at `b9e0710`; `https://flashflowai.com/api/health` matched local/origin before this docs refresh.
+- FlashFlow CRON_SECRET redeploy path is live at `384513e`; `https://flashflowai.com/api/health` matched local/origin before this docs refresh.
 - MC Monday-style Phase 1 is deployed and verified through `/api/health`; current live SHA is `9fd692b`. Completed: colored pills, inline edit, grouped sections, summary bars, top toolbar, assignee/row assignment, file upload via Supabase Storage, `/admin/board`, workspace filter, comments, live bookshelf counts, and `/admin/brief` for composing fleet briefs from the UI.
 - MC Phase 1 smoke coverage is live. Fixed stale task-manager smoke checks after the board refactor and added `mc-phase1-board` coverage for `/admin/board`, `/admin/brief`, BoardView toolbar modes, workspace/person filters, task comments, proof uploads, bookshelf counts, and fleet brief route guards.
 - MC local browser QA is unblocked and deployed at `4a69912`. Middleware now honors `MC_DEV_OPEN_AUTH=true` only in `next dev` and only when no MC tokens are configured, forwards trusted local admin headers, and local SQLite auto-creates `./data` for clean checkouts. Verified `/admin/board`, `/admin/tasks`, `/admin/brief`, and board API locally.

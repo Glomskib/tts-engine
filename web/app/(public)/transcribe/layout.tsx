@@ -18,7 +18,7 @@ export const metadata: Metadata = {
     description:
       'Transcribe any TikTok video for free. Get AI-powered hook analysis, key phrases, and content recommendations.',
     type: 'website',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     url: 'https://flashflowai.com/transcribe',
   },
   twitter: {
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
     title: 'Free TikTok Video Transcriber | FlashFlow AI',
     description:
       'Transcribe any TikTok video for free. Get AI-powered hook analysis and content recommendations.',
-    images: ['/FFAI.png'],
+    images: ['/opengraph-image'],
   },
 };
 

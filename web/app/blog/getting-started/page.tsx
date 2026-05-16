@@ -9,14 +9,14 @@ export const metadata: Metadata = {
     title: 'Getting Started with FlashFlow AI',
     description: 'Your first AI script in 60 seconds. Beginner-friendly guide.',
     type: 'article',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     url: 'https://flashflowai.com/blog/getting-started',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Getting Started with FlashFlow AI',
     description: 'Your first AI script in 60 seconds. Beginner-friendly guide.',
-    images: ['/FFAI.png'],
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: 'https://flashflowai.com/blog/getting-started',

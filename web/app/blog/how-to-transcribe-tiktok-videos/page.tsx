@@ -9,14 +9,14 @@ export const metadata: Metadata = {
     title: 'How to Transcribe TikTok Videos for Free in 2026',
     description: 'Free TikTok video transcriber guide with step-by-step instructions and best practices.',
     type: 'article',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     url: 'https://flashflowai.com/blog/how-to-transcribe-tiktok-videos',
   },
   twitter: {
     card: 'summary_large_image',
     title: 'How to Transcribe TikTok Videos for Free in 2026',
     description: 'Free TikTok video transcriber guide with step-by-step instructions.',
-    images: ['/FFAI.png'],
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: 'https://flashflowai.com/blog/how-to-transcribe-tiktok-videos',

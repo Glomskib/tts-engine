@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Welcome — Set Up Your Account | FlashFlow AI',
     description: 'Quick onboarding to set up your creator profile, niche, and goals.',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     type: 'website',
   },
   alternates: {

@@ -9,14 +9,14 @@ export const metadata: Metadata = {
     title: 'About FlashFlow AI',
     description: 'AI-powered TikTok & YouTube content creation for creators, sellers, and agencies. Free transcriber and script generator included.',
     type: 'website',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     url: 'https://flashflowai.com/about',
   },
   twitter: {
     card: 'summary',
     title: 'About FlashFlow AI',
     description: 'AI-powered script generator and video transcriber for TikTok & YouTube creators.',
-    images: ['/FFAI.png'],
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: 'https://flashflowai.com/about',

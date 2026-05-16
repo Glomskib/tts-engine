@@ -9,14 +9,14 @@ export const metadata: Metadata = {
     title: 'FlashFlow AI for Creators',
     description: 'AI-generated TikTok scripts in 30 seconds. 20+ personas. Zero creative burnout.',
     type: 'website',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     url: 'https://flashflowai.com/creators',
   },
   twitter: {
     card: 'summary',
     title: 'FlashFlow AI for Creators',
     description: 'AI-generated TikTok scripts in 30 seconds. 20+ personas. Zero creative burnout.',
-    images: ['/FFAI.png'],
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: 'https://flashflowai.com/creators',

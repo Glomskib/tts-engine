@@ -9,14 +9,14 @@ export const metadata: Metadata = {
     title: 'Blog | FlashFlow AI',
     description: 'TikTok content creation guides, hook formulas, and strategy insights.',
     type: 'website',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     url: 'https://flashflowai.com/blog',
   },
   twitter: {
     card: 'summary',
     title: 'Blog | FlashFlow AI',
     description: 'TikTok content creation guides, hook formulas, and strategy insights.',
-    images: ['/FFAI.png'],
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: 'https://flashflowai.com/blog',

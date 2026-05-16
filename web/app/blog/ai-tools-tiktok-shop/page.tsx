@@ -9,7 +9,7 @@ export const metadata: Metadata = {
     title: '5 AI Tools Every TikTok Shop Seller Needs in 2026',
     description: 'The essential AI tools that top TikTok Shop sellers use to scale. Tested and ranked.',
     type: 'article',
-    images: [{ url: '/FFAI.png', width: 512, height: 512 }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
   },
 };
 

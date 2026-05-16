@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     description:
       'Paste any YouTube link. Get a clean transcript in seconds. Plus a bonus AI breakdown of hooks, structure, and what works — free.',
     type: 'website',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     url: 'https://flashflowai.com/youtube-transcribe',
   },
   twitter: {
@@ -29,7 +29,7 @@ export const metadata: Metadata = {
     title: 'Free YouTube Transcriber | FlashFlow AI',
     description:
       'Paste any YouTube link, get a clean transcript instantly. Bonus AI breakdown included. No signup.',
-    images: ['/FFAI.png'],
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: 'https://flashflowai.com/youtube-transcribe',

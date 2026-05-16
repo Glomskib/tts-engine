@@ -26,14 +26,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       type: 'article',
       publishedTime: post.publishedAt,
       authors: [post.author],
-      images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+      images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
       url: `https://flashflowai.com/blog/${slug}`,
     },
     twitter: {
       card: 'summary_large_image',
       title: post.title,
       description: post.description,
-      images: ['/FFAI.png'],
+      images: ['/opengraph-image'],
     },
     alternates: {
       canonical: `https://flashflowai.com/blog/${slug}`,

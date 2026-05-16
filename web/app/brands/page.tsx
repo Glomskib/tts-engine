@@ -9,14 +9,14 @@ export const metadata: Metadata = {
     title: 'FlashFlow AI for Brands',
     description: 'Give every affiliate creator product-specific scripts that actually convert.',
     type: 'website',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     url: 'https://flashflowai.com/brands',
   },
   twitter: {
     card: 'summary',
     title: 'FlashFlow AI for Brands',
     description: 'Give every affiliate creator product-specific scripts that actually convert.',
-    images: ['/FFAI.png'],
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: 'https://flashflowai.com/brands',

@@ -9,14 +9,14 @@ export const metadata: Metadata = {
     title: '10 TikTok Hook Formulas That Actually Go Viral',
     description: 'Tested hook patterns from viral TikTok videos. Use these formulas to stop the scroll.',
     type: 'article',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     url: 'https://flashflowai.com/blog/10-tiktok-hook-formulas',
   },
   twitter: {
     card: 'summary_large_image',
     title: '10 TikTok Hook Formulas That Actually Go Viral',
     description: 'Tested hook patterns from viral TikTok videos. Use these formulas to stop the scroll.',
-    images: ['/FFAI.png'],
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: 'https://flashflowai.com/blog/10-tiktok-hook-formulas',

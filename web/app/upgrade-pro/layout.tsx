@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Upgrade to Pro | FlashFlow AI',
     description: 'Unlock the full FlashFlow Pro toolkit — unlimited renders, advanced AI editor, custom branding, priority support.',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
     type: 'website',
   },
   alternates: {

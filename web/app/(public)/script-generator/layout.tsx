@@ -20,16 +20,18 @@ export const metadata: Metadata = {
       'AI-powered script generator for TikTok creators. Get scroll-stopping hooks, beat-by-beat dialogue, and CTAs in seconds.',
     type: 'website',
     url: 'https://flashflowai.com/script-generator',
-    // No `images:` — Next.js inherits the root opengraph-image.tsx
-    // (1200×630 hero card) via metadata merging. Hardcoding here would
-    // block that inheritance and leave us with no og:image at all.
+    // Point explicitly at the root /opengraph-image dynamic route — the
+    // 1200×630 hero card. (Auto-inheritance from app/opengraph-image.tsx
+    // doesn't fire when a child segment defines its own openGraph block,
+    // which we want for the page-specific title/description above.)
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Free TikTok Script Generator | FlashFlow AI',
     description:
       'Generate viral TikTok scripts in seconds. 20+ persona presets, TikTok Shop compliant.',
-    // Same — inherits twitter-image.tsx from root.
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: 'https://flashflowai.com/script-generator',

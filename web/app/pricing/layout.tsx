@@ -9,13 +9,13 @@ export const metadata: Metadata = {
     description:
       'AI-powered TikTok Shop scripts from $0/mo. 4 tiers: Free, Creator Lite, Creator Pro, and Business. Enterprise plans available.',
     url: 'https://flashflowai.com/pricing',
-    images: [{ url: '/FFAI.png', width: 512, height: 512, alt: 'FlashFlow AI Logo' }],
+    images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
   },
   twitter: {
     card: 'summary',
     title: 'FlashFlow AI Pricing — Plans That Grow With You',
     description: 'AI-powered TikTok Shop scripts from $0/mo. Free, Lite, Creator Pro, and Business tiers.',
-    images: ['/FFAI.png'],
+    images: ['/opengraph-image'],
   },
   alternates: {
     canonical: 'https://flashflowai.com/pricing',

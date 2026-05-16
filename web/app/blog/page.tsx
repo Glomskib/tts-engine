@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BreadcrumbSchema } from '@/components/BreadcrumbSchema';
 
 export const metadata: Metadata = {
   title: 'Blog - TikTok Content Tips & Guides',
@@ -83,6 +84,12 @@ export default function BlogPage() {
 
   return (
     <div className="min-h-screen bg-[#09090b] text-white">
+      <BreadcrumbSchema
+        trail={[
+          { name: 'Home', url: 'https://flashflowai.com/' },
+          { name: 'Blog', url: 'https://flashflowai.com/blog' },
+        ]}
+      />
       {/* Hero */}
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <h1 className="text-5xl font-bold mb-6">Content Strategy Guides</h1>

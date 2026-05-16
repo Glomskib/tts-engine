@@ -24,9 +24,30 @@ import { initTracking, identifyUser, resetTracking, _setPosthog } from '@/lib/tr
 
 let initialized = false;
 
+function hasAnalyticsConsent(): boolean {
+  if (typeof document === 'undefined') return false;
+  try {
+    // Cookie set by web/components/CookieConsent.tsx — 'accept' opts in to
+    // analytics, 'reject' opts out. No cookie at all = no consent yet, so we
+    // do NOT track until the visitor responds to the banner. GDPR/CCPA-safe
+    // default.
+    const fromCookie = document.cookie
+      .split(';')
+      .map((c) => c.trim())
+      .find((c) => c.startsWith('ff_consent='))
+      ?.split('=')[1];
+    if (fromCookie) return fromCookie === 'accept';
+    const fromStorage = localStorage.getItem('ff_consent');
+    return fromStorage === 'accept';
+  } catch {
+    return false;
+  }
+}
+
 function ensureInitialized() {
   if (initialized) return;
   if (typeof window === 'undefined') return;
+  if (!hasAnalyticsConsent()) return; // gated on user opt-in
   const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
   if (!key) return; // graceful no-op when unset
 
@@ -67,8 +88,13 @@ function PostHogPageTracker() {
   const searchParams = useSearchParams();
 
   // SDK init (run once, client-side).
+  // Also re-attempt init when the visitor accepts cookies — `ff:consent` event
+  // is dispatched by web/components/CookieConsent.tsx after a choice is saved.
   useEffect(() => {
     ensureInitialized();
+    const onConsent = () => ensureInitialized();
+    window.addEventListener('ff:consent', onConsent);
+    return () => window.removeEventListener('ff:consent', onConsent);
   }, []);
 
   // Identify / reset on auth changes.

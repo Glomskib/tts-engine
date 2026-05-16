@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/Providers";
+import CookieConsent from "@/components/CookieConsent";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -156,6 +157,8 @@ export default function RootLayout({
       >
         <Providers>
           {children}
+          {/* Cookie consent banner — first-visit only, no-op after a choice. */}
+          <CookieConsent />
         </Providers>
       </body>
     </html>

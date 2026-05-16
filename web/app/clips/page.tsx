@@ -105,16 +105,35 @@ export default function ClipsPage() {
             <Loader2 className="w-6 h-6 animate-spin" />
           </div>
         ) : jobs.length === 0 ? (
-          <div className="text-center py-16 bg-gray-900 border border-gray-800 rounded-xl">
-            <Sparkles className="w-12 h-12 mx-auto text-gray-600 mb-4" />
-            <h2 className="text-xl font-semibold mb-2">No clips yet</h2>
-            <p className="text-gray-400 mb-6">Make your first one — should take under a minute.</p>
-            <Link
-              href="/create"
-              className="inline-block px-6 py-3 bg-teal-500 hover:bg-teal-600 rounded-lg font-medium"
-            >
-              Start a clip →
-            </Link>
+          // Empty state — give new users an obvious primary path AND a
+          // low-commitment secondary path. Helps tire-kickers who aren't
+          // ready to upload yet still see value.
+          <div className="text-center py-16 px-6 bg-gradient-to-b from-zinc-900 to-zinc-900/40 border border-zinc-800 rounded-2xl">
+            <div className="relative w-16 h-16 mx-auto mb-5">
+              <div className="absolute inset-0 bg-teal-500/20 rounded-2xl blur-xl" />
+              <div className="relative w-16 h-16 mx-auto rounded-2xl bg-teal-500/10 border border-teal-500/30 flex items-center justify-center">
+                <Sparkles className="w-7 h-7 text-teal-400" />
+              </div>
+            </div>
+            <h2 className="text-2xl font-bold text-white mb-2">Your clips library is empty</h2>
+            <p className="text-zinc-400 mb-2 max-w-md mx-auto">
+              Upload a video — we pick the best moments, add karaoke captions, and ship vertical clips ready for TikTok, Reels, and Shorts.
+            </p>
+            <p className="text-xs text-zinc-500 mb-8">Usually under a minute. No watermarks. Yours to keep.</p>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
+              <Link
+                href="/create"
+                className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 rounded-xl font-semibold text-white shadow-lg shadow-teal-500/20 transition-all"
+              >
+                <Plus className="w-4 h-4" /> Make your first clip
+              </Link>
+              <Link
+                href="/script-generator"
+                className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 border border-white/10 hover:bg-white/5 hover:border-white/20 rounded-xl font-medium text-zinc-300 transition-all"
+              >
+                Or try the free script generator
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="space-y-4">

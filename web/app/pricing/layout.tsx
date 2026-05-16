@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BreadcrumbSchema } from '@/components/BreadcrumbSchema';
 
 export const metadata: Metadata = {
   title: 'Pricing — FlashFlow AI | Plans for Creators & Businesses',
@@ -22,6 +23,76 @@ export const metadata: Metadata = {
   },
 };
 
+// Schema.org Product with per-tier Offer entries. Google rich-snippets pricing
+// directly from this when paired with the page's PriceSpecification on each
+// card. AggregateOffer surfaces "from $0" in SERP.
+const PRICING_SCHEMA = {
+  '@context': 'https://schema.org',
+  '@type': 'Product',
+  name: 'FlashFlow AI',
+  description:
+    'AI-powered TikTok Shop content engine — scripts, hooks, clips, publishing, commissions.',
+  brand: { '@type': 'Brand', name: 'FlashFlow AI' },
+  offers: {
+    '@type': 'AggregateOffer',
+    priceCurrency: 'USD',
+    lowPrice: '0',
+    highPrice: '99',
+    offerCount: 4,
+    offers: [
+      {
+        '@type': 'Offer',
+        name: 'Free',
+        price: '0',
+        priceCurrency: 'USD',
+        url: 'https://flashflowai.com/pricing',
+        availability: 'https://schema.org/InStock',
+      },
+      {
+        '@type': 'Offer',
+        name: 'Starter',
+        price: '19',
+        priceCurrency: 'USD',
+        url: 'https://flashflowai.com/pricing',
+        availability: 'https://schema.org/InStock',
+        eligibleQuantity: { '@type': 'QuantitativeValue', unitCode: 'MON' },
+      },
+      {
+        '@type': 'Offer',
+        name: 'Creator',
+        price: '49',
+        priceCurrency: 'USD',
+        url: 'https://flashflowai.com/pricing',
+        availability: 'https://schema.org/InStock',
+        eligibleQuantity: { '@type': 'QuantitativeValue', unitCode: 'MON' },
+      },
+      {
+        '@type': 'Offer',
+        name: 'Pro',
+        price: '99',
+        priceCurrency: 'USD',
+        url: 'https://flashflowai.com/pricing',
+        availability: 'https://schema.org/InStock',
+        eligibleQuantity: { '@type': 'QuantitativeValue', unitCode: 'MON' },
+      },
+    ],
+  },
+};
+
 export default function PricingLayout({ children }: { children: React.ReactNode }) {
-  return children;
+  return (
+    <>
+      <BreadcrumbSchema
+        trail={[
+          { name: 'Home', url: 'https://flashflowai.com/' },
+          { name: 'Pricing', url: 'https://flashflowai.com/pricing' },
+        ]}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(PRICING_SCHEMA) }}
+      />
+      {children}
+    </>
+  );
 }

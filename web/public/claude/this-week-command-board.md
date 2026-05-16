@@ -1,13 +1,13 @@
 # This Week Command Board
 
-Updated: 2026-05-16 3:33am ET
+Updated: 2026-05-16 7:59am ET
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
 ## Live Health
 
 - Mission Control: live at `90686ef`.
-- FlashFlow: deploy pipe is healthy; the checker saw `637132e` before this docs refresh. Check `https://flashflowai.com/api/health` after each brief push because the docs live inside FlashFlow.
+- FlashFlow: deploy pipe is healthy at `0a97ca1` before this docs refresh. Check `https://flashflowai.com/api/health` after each brief push because the docs live inside FlashFlow.
 - Zebby's World: app is healthy at `www.zebbysworld.com` and the Vercel branch alias. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch.
 - MMM hub: app is healthy at `mmm-hub.vercel.app` on `e6c27e7`. `makingmilesmatter.org/api/health` is still routed to Mission Control.
 
@@ -22,6 +22,20 @@ These are the decisions blocking public launch or money movement. Do not do them
 5. HHH Facebook batch: approve, edit, or hold the June 8-July 7 clean v2 posts. Review file: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-review-2026-05-16.md`; tracker: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-approval-tracker-2026-05-16.csv`. Verification passed: zero risk-scan hits and no posts scheduled/published.
 6. HHH route assets: approve, edit, or hold route asset wiring. Packet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-assets-approval-packet-2026-05-16.md`; worksheet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-review-worksheet-2026-05-16.csv`. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, rest-stop mile markers, SAG notes, and Joshua/Brandon logistics approval before Shopify wiring/publish.
 7. Pricing: confirm HHH entry fees, MMM membership tiers, FlashFlow paid plan, TCG member fee, and first digital asset price.
+
+## Brandon Decision Menu
+
+Use these exact phrases when Brandon wants one lane unblocked. Do not infer approval from vague agreement.
+
+| Priority | Say this | What it unlocks | What stays blocked |
+|---|---|---|---|
+| 1 | `APPROVE MMM ORG TO MMM HUB` | Moves `makingmilesmatter.org` / `www.makingmilesmatter.org` to MMM Hub and verifies health. | No Stripe checkout, donation links, or DNS-provider changes without another yes. |
+| 2 | `APPROVE ZEBBYS APEX TO VERCEL` | Repairs bare `zebbysworld.com` so it matches the healthy `www` app path. | No clinical copy changes, public beta announcement, or broader domain strategy change. |
+| 3 | `HHH sponsors: approve test batch 1` | Sends only the guarded internal test copies for the 5 sponsor drafts from `miles@makingmilesmatter.com`. | No live sponsor emails until test copies are reviewed and separately approved. |
+| 4 | `HHH Facebook: approved to schedule cleaned v2` | Moves the clean 30-post June 8-July 7 batch into scheduling workflow. | No public posting when assets or partner approvals are missing for a post. |
+| 5 | `TCG: merge PR1 then PR2; stop before prod migration` | Merges BuybackOS base stack, retargets/merges TCG ledger, then stops. | No production Supabase migration, live pricing, Stripe, or public registration. |
+| 6 | `HHH routes: assets approved for Shopify draft wiring` | Wires approved route assets into the local/unpublished Shopify theme draft. | No Shopify publish. |
+| 7 | `HHH routes: approved to publish on Shopify` | Publishes final approved route cards live in Shopify. | No price/product/payment changes without separate approval. |
 
 ## Safe Autonomous Work
 
@@ -43,6 +57,8 @@ Brandon can unblock a lane with one sentence:
 - `DNS: Zebby WWW canonical`
 - `DNS: MMM hub canonical`
 - `DNS: approve both from domain packet`
+- `APPROVE MMM ORG TO MMM HUB`
+- `APPROVE ZEBBYS APEX TO VERCEL`
 - `TCG: merge PR1 then PR2; stop before prod migration`
 - `TCG: merge PR1 then PR2 and prepare prod migration approval packet`
 - `HHH sponsors: approved to send`

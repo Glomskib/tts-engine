@@ -4,15 +4,15 @@
 
 ---
 
-## Last refreshed: 2026-05-16 3:33am ET
+## Last refreshed: 2026-05-16 7:59am ET
 
 ## Current deploy truth
 
 - **Mission Control:** live match. Local/origin/prod are `90686ef`. MC deploy pipe is working. `mc.flashflowai.com` was briefly mis-aliased to the wrong Vercel project (`mc-flashflowai`) on May 15; it has been restored to the `mission-control` deployment.
-- **FlashFlow:** deploy pipe is healthy. The checker at the start of this refresh saw local/origin/prod in sync at `637132e`; this public-doc update will create a newer FlashFlow health SHA, so always verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
+- **FlashFlow:** deploy pipe is healthy. Local/origin/prod are `0a97ca1`. That commit hides customer-facing infra badges, removes the ChatGPT escape hatch, and keeps YouTube long-form working. This public-doc update will create a newer FlashFlow health SHA, so always verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `46f6b5a`. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch. Do not change DNS without Brandon confirming.
 - **MMM hub:** `mmm-hub.vercel.app` is live at `e6c27e7`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports Mission Control SHA `90686ef` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
-- **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists the exact approval gates and safe autonomous work.
+- **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists the exact approval gates, safe autonomous work, and Brandon's one-line decision menu.
 
 ## Top blockers
 
@@ -58,6 +58,7 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - Guarded domain helper saved to `~/Documents/Command-Center/fix-domain-routing-after-approval.command`. It dry-runs MMM/Zebby's routing fixes and requires exact approval phrases before changing Vercel aliases or GoDaddy DNS. Do not run apply mode without Brandon.
 - Guarded TCG merge helper saved to `~/Documents/Command-Center/tcg-merge-after-approval.command` with runbook `~/Documents/MacBook Pro VAULT/10-Projects/TCG-merge-after-approval-runbook-2026-05-15.md`. It dry-runs cleanly and requires approval phrase `TCG: merge PR1 then PR2; stop before prod migration`.
 - This-week command board published at `https://flashflowai.com/claude/this-week-command-board.md` so agents can keep moving on safe work and Brandon can unblock launch gates with one-line approvals.
+- This-week launch status helper saved to `~/Documents/Command-Center/this-week-launch-status.command`. It is read-only, writes timestamped Markdown reports to `~/Documents/MacBook Pro VAULT/10-Projects/`, checks deploy health, sponsor/Facebook/route readiness, TCG PR state, digital asset ZIP safety, guarded helpers, and prints Brandon's decision menu. Latest verified report format: `this-week-launch-status-YYYY-MM-DD-HHMMSS.md`.
 
 ## Standing initiatives — pick from these when idle
 
@@ -90,6 +91,14 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - Telegram thread routing.
 - BuybackOS / TCG merge order: draft PR #1 is open and mergeable; stacked draft PR #2 is open and mergeable against PR #1. Review/merge PR #1 first, then retarget/merge PR #2.
 - Git author policy: add `miles@makingmilesmatter.com` and/or `brandon@makingmilesmatter.com` to GitHub if Brandon wants those emails to trigger Vercel deploys.
+
+## Fastest useful approvals now
+
+- `APPROVE MMM ORG TO MMM HUB` — moves `makingmilesmatter.org` and `www.makingmilesmatter.org` to MMM Hub, then verifies health. No Stripe, donation links, or DNS-provider changes without another yes.
+- `APPROVE ZEBBYS APEX TO VERCEL` — repairs bare `zebbysworld.com` to match the healthy `www` path. No clinical copy, beta announcement, or broader domain strategy change without another yes.
+- `HHH sponsors: approve test batch 1` — sends only internal test copies of 5 sponsor drafts from `miles@makingmilesmatter.com`; no live sponsor emails.
+- `HHH Facebook: approved to schedule cleaned v2` — starts scheduling workflow for the clean 30-post batch; no public posting if assets/partner approvals are missing.
+- `TCG: merge PR1 then PR2; stop before prod migration` — merges code only and stops before production Supabase migrations, pricing, Stripe, or public registration.
 
 ---
 

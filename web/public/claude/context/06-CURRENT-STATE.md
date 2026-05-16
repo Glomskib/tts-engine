@@ -6,14 +6,14 @@
 
 ## Last manual edit: 2026-05-15
 
-## Authoritative Update - 2026-05-16 3:33am ET
+## Authoritative Update - 2026-05-16 7:59am ET
 
 Read `session-brief.md` and `this-week-command-board.md` first. They are the current source of truth.
 
 Current deploy truth:
 
 - Mission Control is live-match healthy at `90686ef`.
-- FlashFlow deploy pipe is healthy; the checker at the start of this refresh saw local/origin/prod in sync at `637132e`. Public-doc refreshes create a newer FlashFlow health SHA, so verify `/api/health` against local HEAD after every push.
+- FlashFlow deploy pipe is healthy at `0a97ca1` before this docs refresh. Public-doc refreshes create a newer FlashFlow health SHA, so verify `/api/health` against local HEAD after every push.
 - Zebby's app is live on `www.zebbysworld.com` / Vercel branch alias at `46f6b5a`; bare `zebbysworld.com` is blocked by apex DNS/certificate mismatch.
 - MMM Hub is live on `mmm-hub.vercel.app` at `e6c27e7`; `makingmilesmatter.org` is still routed to Mission Control.
 - HHH sponsor outreach, Facebook content, and route assets are in guarded draft state. Sponsor test copies exist locally with 0 sends. Facebook clean v2 plus approval tracker exist locally with zero risk-scan hits. Route/logistics worksheet exists locally with 4 route rows x 19 columns. Nothing has been sent, scheduled, posted, uploaded, or published.
@@ -26,6 +26,12 @@ Guarded helper after approval:
 
 `~/Documents/Command-Center/fix-domain-routing-after-approval.command`
 
+Read-only launch status helper:
+
+`~/Documents/Command-Center/this-week-launch-status.command --write-report`
+
+It prints the deploy state, HHH sponsor/Facebook/route readiness, TCG PR state, digital asset ZIP safety, guarded helpers, next blockers, and Brandon's decision menu. It does not send, post, charge, change DNS, publish Shopify, merge PRs, run migrations, or delete data.
+
 Current HHH approval-ready files:
 
 - Sponsor test runbook: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-send-runbook-2026-05-16.md`
@@ -36,6 +42,14 @@ Current HHH approval-ready files:
 - Facebook approval tracker: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-clean-v2-approval-tracker-2026-05-16.csv`
 - Route assets approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-assets-approval-packet-2026-05-16.md`
 - Route logistics worksheet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-review-worksheet-2026-05-16.csv`
+
+Fastest useful approvals now:
+
+- `APPROVE MMM ORG TO MMM HUB`
+- `APPROVE ZEBBYS APEX TO VERCEL`
+- `HHH sponsors: approve test batch 1`
+- `HHH Facebook: approved to schedule cleaned v2`
+- `TCG: merge PR1 then PR2; stop before prod migration`
 
 ## STATUS — DEPLOY UNBLOCKED ✓
 

@@ -1028,37 +1028,17 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                     copiedKey={copiedKey}
                     copy={copy}
                   />
-                  {/*
-                    "Send to ChatGPT" — copies the transcript and opens chatgpt.com
-                    in a new tab. ChatGPT does not accept arbitrary prompt-injection
-                    via URL, so the cleanest UX is: copy + open + user pastes.
-                  */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      copy(result.transcript, 'transcript-chatgpt');
-                      window.open('https://chat.openai.com/', '_blank', 'noopener,noreferrer');
-                    }}
-                    className="inline-flex items-center gap-2 px-3 py-1.5 text-sm rounded-lg bg-teal-500 hover:bg-teal-400 text-white font-medium transition-colors shrink-0"
-                    title="Copies the transcript and opens ChatGPT in a new tab — just paste."
-                  >
-                    {copiedKey === 'transcript-chatgpt' ? (
-                      <>
-                        <Check size={14} />
-                        Copied! Now paste in ChatGPT
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles size={14} />
-                        Send to ChatGPT
-                      </>
-                    )}
-                  </button>
+                  {/* Was a "Send to ChatGPT" button that copied + opened
+                      chat.openai.com. Removed: it sends visitors AWAY from
+                      FlashFlow with no return path. Goal is to keep them on
+                      our site (the AI Breakdown + Clip upsell below are the
+                      retention surfaces). Re-introduce as an affiliate
+                      partnership only if we monetize the outbound. */}
                 </div>
               </div>
               <p className="text-zinc-300 leading-relaxed whitespace-pre-wrap">{result.transcript}</p>
               <p className="text-xs text-zinc-500 mt-3">
-                Tip: paste this anywhere &mdash; ChatGPT, Claude, Notion, Docs. The AI breakdown below is a free bonus.
+                Tip: copy this anywhere you need it. The AI breakdown below is a free bonus.
               </p>
             </div>
 

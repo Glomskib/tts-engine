@@ -54,17 +54,28 @@ export default function PublicLayout({ children }: { children: ReactNode }) {
             {!loading && authenticated ? (
               <Link
                 href={dashboardHref}
-                className="text-sm px-4 py-2 bg-white text-zinc-900 rounded-lg font-medium hover:bg-zinc-100 transition-colors"
+                className="text-sm px-4 py-2 bg-white text-zinc-900 rounded-lg font-medium hover:bg-zinc-100 transition-colors whitespace-nowrap"
               >
                 Dashboard
               </Link>
             ) : (
-              <Link
-                href="/login"
-                className="text-sm px-4 py-2 bg-white text-zinc-900 rounded-lg font-medium hover:bg-zinc-100 transition-colors"
-              >
-                Sign In
-              </Link>
+              // Unauthed visitors see BOTH log-in and sign-up — matches the
+              // homepage AuthNav pattern. Customers expect a "normal site"
+              // top-right with two distinct buttons.
+              <>
+                <Link
+                  href="/login"
+                  className="text-sm px-3 sm:px-4 py-2 rounded-lg border border-white/15 text-zinc-200 hover:text-white hover:bg-white/5 hover:border-white/30 transition-colors font-medium whitespace-nowrap"
+                >
+                  Log in
+                </Link>
+                <Link
+                  href="/signup"
+                  className="text-sm px-3 sm:px-4 py-2 rounded-lg bg-gradient-to-r from-teal-500 to-emerald-500 text-white font-semibold hover:from-teal-400 hover:to-emerald-400 transition-all shadow-lg shadow-teal-500/20 whitespace-nowrap"
+                >
+                  Sign up free
+                </Link>
+              </>
             )}
           </nav>
         </div>

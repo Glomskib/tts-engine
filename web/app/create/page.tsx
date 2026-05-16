@@ -21,6 +21,7 @@ import {
   X, ChevronRight,
 } from 'lucide-react';
 import { RenderAgentBadge } from '@/components/admin/RenderAgentBadge';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Mode = 'post' | 'clip';
 type Entry = 'record' | 'upload' | 'link' | 'drive';
@@ -168,6 +169,9 @@ const MODE_DEFAULTS: Record<Mode, {
 };
 
 export default function CreatePage() {
+  // Admin gate for internal-only badges (render fleet, etc).
+  const { isAdmin } = useAuth();
+
   // ── Mode + defaults ────────────────────────────────────────────────────
   const [mode, setMode] = useState<Mode>('post');
   const defaults = MODE_DEFAULTS[mode];
@@ -486,7 +490,10 @@ export default function CreatePage() {
             <p className="text-sm text-gray-400 mt-1">Record or upload. We do the rest.</p>
           </div>
           <div className="flex items-center gap-3">
-            <RenderAgentBadge />
+            {/* Admin-only — customers should never see "Render: No agent"
+                or any internal infra status. Gated on the isAdmin flag
+                from AuthContext. */}
+            {isAdmin && <RenderAgentBadge />}
             {credits && (
               <div className="text-right">
                 <div className="text-xs text-gray-400 uppercase tracking-wider">Credits</div>

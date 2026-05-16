@@ -69,12 +69,18 @@ export default function PricingPage() {
         <button
           type="button"
           onClick={() => setIsAnnual(!isAnnual)}
-          className={`relative w-14 h-7 rounded-full transition-colors ${isAnnual ? 'bg-emerald-600' : 'bg-gray-700'}`}
+          className={`relative inline-flex h-7 w-14 shrink-0 items-center rounded-full transition-colors ${isAnnual ? 'bg-emerald-600' : 'bg-gray-700'}`}
           aria-label="Toggle billing period"
+          role="switch"
+          aria-checked={isAnnual}
         >
-          <div
-            className={`absolute top-1 w-5 h-5 rounded-full bg-white transition-all ${
-              isAnnual ? 'left-8' : 'left-1'
+          {/* Use translate-based positioning so the thumb is guaranteed to
+              stay inside the track regardless of border-box quirks or scale.
+              Off: x=2px (3px inset visible). On: x=30px. Thumb is 24px, track
+              is 56px, so on-state right edge is 54px — 2px inside. */}
+          <span
+            className={`inline-block h-6 w-6 transform rounded-full bg-white shadow transition-transform ${
+              isAnnual ? 'translate-x-7' : 'translate-x-0.5'
             }`}
           />
         </button>

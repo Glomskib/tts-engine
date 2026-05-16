@@ -59,13 +59,12 @@ export default function ToolsPage() {
     },
     {
       name: 'Free YouTube Transcriber',
-      description: 'Paste any YouTube link — videos, Shorts, or youtu.be. Get a clean transcript instantly. Copy it and use in ChatGPT or anywhere else. Bonus AI breakdown included free.',
+      description: 'Paste any YouTube link — videos, Shorts, or youtu.be. Get a clean transcript instantly. Plus a free AI breakdown of hooks and structure.',
       features: [
         'No signup required',
         'Clean transcript, one-click copy',
         'Works with videos, Shorts, youtu.be',
-        'Send to ChatGPT in one click',
-        'Bonus: AI hook + structure breakdown',
+        'AI hook + structure breakdown included',
         'YouTube captions + AI fallback',
       ],
       cta: 'Try Free Now',

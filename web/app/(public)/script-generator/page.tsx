@@ -376,10 +376,16 @@ export default function ScriptGeneratorPage() {
                 id="product-desc"
                 value={productDescription}
                 onChange={(e) => setProductDescription(e.target.value)}
-                placeholder="Key features, benefits, target audience... helps the AI write a better script"
+                placeholder={
+                  selectedPlatform === 'youtube_long'
+                    ? 'Paste your outline, talking points, references — anything that helps. Longer briefs make better long-form scripts.'
+                    : 'Key features, benefits, target audience... helps the AI write a better script'
+                }
                 className="hidden w-full mt-2 px-4 py-3 rounded-xl bg-zinc-900 border border-white/10 text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all text-sm resize-none"
-                rows={3}
-                maxLength={500}
+                // Long-form scripts benefit from much more context (full outline,
+                // talking points). Short-form keeps the tight blurb cap.
+                rows={selectedPlatform === 'youtube_long' ? 8 : 3}
+                maxLength={selectedPlatform === 'youtube_long' ? 4000 : 500}
               />
             </div>
           </div>

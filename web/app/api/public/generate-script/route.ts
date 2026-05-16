@@ -8,7 +8,10 @@ import { cookies } from "next/headers";
 import { fetchHookIntelligence, buildIntelligenceContext } from "@/lib/hooks/hook-intelligence";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+// 60s suffices for short-form (TikTok/Reels/Shorts). YouTube long-form
+// generation can take up to ~2 minutes at peak load; bump to 120s. Vercel
+// Pro plan supports up to 300s — well within budget.
+export const maxDuration = 120;
 
 // ---------------------------------------------------------------------------
 // Rate limiting: cookie-based daily counter for anonymous, credit-based for auth
@@ -197,7 +200,14 @@ export async function POST(request: Request) {
     ? body.risk_tier
     : "BALANCED") as string;
   const persona = body.persona_id ? PERSONAS.find((p) => p.id === body.persona_id) : null;
-  const productDescription = body.product_description?.trim().slice(0, 500) || "";
+  // Input cap: short-form scripts only need a tight product blurb (500 chars),
+  // but YouTube long-form benefits from much richer context — outline, talking
+  // points, references. Bump the cap for long-form so creators can paste their
+  // full brief.
+  const _descRaw = body.product_description?.trim() || "";
+  const _descCap =
+    body.platform === "youtube_long" ? 4000 : 500;
+  const productDescription = _descRaw.slice(0, _descCap);
   // Default to TikTok when client doesn't specify, since TikTok is the
   // largest single user segment for FlashFlow today. Validates against
   // the whitelist; anything else collapses to tiktok.
@@ -393,8 +403,19 @@ Return ONLY valid JSON with this exact structure:
   }
 
   try {
+    // YouTube long-form scripts target 700-2000 dialogue words across 5-8
+    // chapter sections plus three hook variants, b_roll, and overlays. That
+    // easily exceeds the short-form 2200-token cap — the JSON gets truncated
+    // mid-response, JSON.parse fails, and the user sees "Failed to generate
+    // a valid script." Long-form needs ~6000-8000 output tokens. Other
+    // platforms stay at 2200 for cost + speed.
+    const maxTokens = platform === "youtube_long" ? 8000 : 2200;
+    // Long-form also needs a longer wall-clock timeout — token-rate at peak
+    // load is ~60 tok/s on Haiku, so 8000 tokens ≈ 2.2 minutes worst case.
+    const timeoutMs = platform === "youtube_long" ? 90_000 : 45_000;
+
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 45_000);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     const res = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
@@ -405,7 +426,7 @@ Return ONLY valid JSON with this exact structure:
       },
       body: JSON.stringify({
         model: "claude-haiku-4-5-20251001",
-        max_tokens: 2200,
+        max_tokens: maxTokens,
         messages: [{ role: "user", content: prompt }],
       }),
       signal: controller.signal,

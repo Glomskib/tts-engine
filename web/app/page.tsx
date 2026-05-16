@@ -350,17 +350,19 @@ export default function LandingPage() {
               {
                 icon: '⚡',
                 title: 'Hook Generator',
-                desc: 'Scroll-stopping hooks across 5+ AI video providers — Heygen, Sora, Pika, Runway, Luma. Text and avatar hooks for TikTok, Reels, and Shorts.',
-                // Was '/admin/hook-generator' — 307-redirects unauth ad visitors.
-                // Drop the link for now; the feature lives behind login.
+                // De-leak: was naming the 5 AI video providers we route to
+                // (Heygen, Sora, Pika, Runway, Luma). Now describes outcomes
+                // only — competitors can't reverse-engineer our stack.
+                desc: 'Scroll-stopping hooks for TikTok, Reels, and Shorts. Text + avatar formats. Auto-routed to whichever model is hottest right now.',
                 link: undefined as string | undefined,
                 linkText: undefined as string | undefined,
               },
               {
                 icon: '🎬',
                 title: 'AI Video Editor',
-                desc: 'Sonnet 4 makes the edit decisions — silence cuts, b-roll, captions, music, vertical export. Ship a finished post in minutes, not hours.',
-                // Was '/admin/editor' — 307-redirects unauth ad visitors. Same fix.
+                // De-leak: was naming Claude Sonnet 4. Now describes what the
+                // editor DOES, not what it runs on.
+                desc: 'The editor calls the shots — silence cuts, b-roll, captions, music, vertical export. Ship a finished post in minutes, not hours.',
                 link: undefined as string | undefined,
                 linkText: undefined as string | undefined,
               },

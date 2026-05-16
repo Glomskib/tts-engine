@@ -20,6 +20,7 @@ import {
   Mic, Upload, Link as LinkIcon, Video, Loader2, AlertTriangle, Sparkles,
   X, ChevronRight,
 } from 'lucide-react';
+import { RenderAgentBadge } from '@/components/admin/RenderAgentBadge';
 
 type Mode = 'post' | 'clip';
 type Entry = 'record' | 'upload' | 'link' | 'drive';
@@ -484,15 +485,18 @@ export default function CreatePage() {
             </h1>
             <p className="text-sm text-gray-400 mt-1">Record or upload. We do the rest.</p>
           </div>
-          {credits && (
-            <div className="text-right">
-              <div className="text-xs text-gray-400 uppercase tracking-wider">Credits</div>
-              <div className={`text-lg font-semibold ${!credits.isUnlimited && credits.remaining <= 2 ? 'text-amber-400' : ''}`}>
-                {credits.isUnlimited ? '∞' : credits.remaining}
+          <div className="flex items-center gap-3">
+            <RenderAgentBadge />
+            {credits && (
+              <div className="text-right">
+                <div className="text-xs text-gray-400 uppercase tracking-wider">Credits</div>
+                <div className={`text-lg font-semibold ${!credits.isUnlimited && credits.remaining <= 2 ? 'text-amber-400' : ''}`}>
+                  {credits.isUnlimited ? '∞' : credits.remaining}
+                </div>
+                <div className="text-xs text-gray-500">{credits.plan}</div>
               </div>
-              <div className="text-xs text-gray-500">{credits.plan}</div>
-            </div>
-          )}
+            )}
+          </div>
         </div>
 
         {/* Low-credit warning — best-in-class SaaS surfaces this BEFORE the
@@ -931,21 +935,30 @@ interface JobStatus {
 // Cooking page — shown while the job runs and after it completes.
 // ──────────────────────────────────────────────────────────────────────
 
-/** Pipeline stages in order, with friendly copy. Map ve_runs.status → index. */
+/**
+ * Pipeline stages in order, with friendly copy. Map ve_runs.status → index.
+ *
+ * IMPORTANT: keep this copy vibe-forward, NOT architecture-revealing. Earlier
+ * iterations of these labels read like a technical README (transcription →
+ * hook scoring → caption sync → composition) which let anyone watching their
+ * upload reverse-engineer the pipeline. Talk about the OUTCOME, not the
+ * recipe. Same principle applies to STATUS_COPY below.
+ */
 const STAGES: { key: string; label: string; sub: string }[] = [
-  { key: 'transcribing', label: 'Listening',         sub: 'Picking up every word + timestamps' },
-  { key: 'analyzing',    label: 'Finding moments',   sub: 'Scoring hooks and re-watch parts' },
-  { key: 'assembling',   label: 'Writing captions',  sub: 'Karaoke-syncing the words' },
-  { key: 'rendering',    label: 'Final render',      sub: 'Stitching video, audio, and text' },
+  { key: 'transcribing', label: 'Tuning in',        sub: 'Soaking up your video' },
+  { key: 'analyzing',    label: 'Reading the heat', sub: 'Finding what will pop' },
+  { key: 'assembling',   label: 'Polishing',        sub: 'Getting it studio-ready' },
+  { key: 'rendering',    label: 'Final cut',        sub: 'Wrapping up' },
 ];
 
-/** "What's happening?" copy by status. Shown above the stage tracker. */
+/** "What's happening?" copy by status. Shown above the stage tracker.
+ *  Same don't-leak-the-pipeline rule as STAGES above. */
 const STATUS_COPY: Record<string, { title: string; sub: string }> = {
-  created:      { title: 'Queued',                    sub: 'Right behind the projects ahead of you. Usually a few seconds.' },
-  transcribing: { title: 'Listening to your video',   sub: 'Picking up every word and the moment it was spoken.' },
-  analyzing:    { title: 'Picking the best moments',  sub: 'Finding the parts people will rewatch and re-share.' },
-  assembling:   { title: 'Writing captions and hooks',sub: 'Pulling your describe + vibe into copy that sounds like a real creator.' },
-  rendering:    { title: 'Final render',              sub: 'Stitching video, audio, and captions into the final file.' },
+  created:      { title: 'Queued up',        sub: 'Right behind the projects ahead of you. Usually a few seconds.' },
+  transcribing: { title: 'Tuning in',        sub: 'Getting a feel for your video.' },
+  analyzing:    { title: 'Reading the heat', sub: 'Hunting the moments people will rewatch and reshare.' },
+  assembling:   { title: 'Polishing',        sub: 'Adding the layer that makes it sound like a real creator.' },
+  rendering:    { title: 'Final cut',        sub: 'Almost there — bringing it home.' },
 };
 
 function JobProgress({ jobId, onNewJob }: { jobId: string; onNewJob: () => void }) {

@@ -103,8 +103,8 @@ export default function NewAvatarPage() {
       const createRes = await fetch('/api/avatars', {
         method: 'POST', headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ name: internalName, avatar_display_name: displayName.trim(), niche, personality, tone_descriptor: tone, target_audience: audience, prohibited_phrases: prohibited, knowledge_bank: { platforms, archetype: archetypeKey, voice_preset: voiceKey },
-          voice_preset_id: selectedVoice ?? null,
-          voice_provider: selectedVoice ? 'preset' : null,
+          voice_preset_id: voiceKey ?? null,
+          voice_provider: voiceKey ? 'preset' : null,
         }),
       });
       const createJson = await createRes.json() as { ok: boolean; id?: string; error?: string };
@@ -115,8 +115,8 @@ export default function NewAvatarPage() {
       if (pendingFileRef.current) {
         const file = pendingFileRef.current;
         const up = await fetch(`/api/avatars/${avatarId}/visual/upload`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ filename: file.name, mime: file.type, size: file.size,
-          voice_preset_id: selectedVoice ?? null,
-          voice_provider: selectedVoice ? 'preset' : null,
+          voice_preset_id: voiceKey ?? null,
+          voice_provider: voiceKey ? 'preset' : null,
         }) });
         const upJ = await up.json() as { signed_url?: string; public_url?: string };
         if (upJ.signed_url && upJ.public_url) {
@@ -126,8 +126,8 @@ export default function NewAvatarPage() {
       }
       if (!refUrl) refUrl = faceUrlFor(arch.face_seed);
       await fetch(`/api/avatars/${avatarId}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ avatar_visual_reference_url: refUrl, setup_status: 'face',
-          voice_preset_id: selectedVoice ?? null,
-          voice_provider: selectedVoice ? 'preset' : null,
+          voice_preset_id: voiceKey ?? null,
+          voice_provider: voiceKey ? 'preset' : null,
         }) });
       setStage('done');
       setTimeout(() => router.push(`/avatars/${avatarId}`), 700);

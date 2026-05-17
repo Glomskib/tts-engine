@@ -22,3 +22,4 @@ web/data/ri-logs/*
 browser-service/auth-state.json
 browser-service/auth-state*.json
 browser-service/cookies/
+*.bak

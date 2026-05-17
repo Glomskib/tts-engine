@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const MAX_IMAGE_BYTES = 4 * 1024 * 1024; // 4MB cap to keep memory safe
+const MAX_IMAGE_BYTES = 12 * 1024 * 1024; // 4MB cap to keep memory safe
 
 export async function POST(req: NextRequest) {
   const cid = 'pv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);

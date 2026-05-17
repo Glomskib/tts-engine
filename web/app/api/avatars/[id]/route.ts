@@ -23,7 +23,6 @@ async function ingestPhoto(imageUrl: string): Promise<string | null> {
       headers: { 'X-Api-Key': apiKey, 'content-type': 'application/json' },
       body: JSON.stringify({ image_url: imageUrl }),
     });
-  if (!res?.ok) { try { console.error("[heygen]", res.status, (await res.clone().text()).slice(0,500)); } catch(e){} }
     if (!r.ok) return null;
     const j = await r.json() as { data?: { talking_photo_id?: string } };
     return j.data?.talking_photo_id || null;

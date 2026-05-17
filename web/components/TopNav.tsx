@@ -17,7 +17,13 @@ import { usePathname } from 'next/navigation';
 import { Sparkles, Camera, Library, CreditCard, Menu, X, User } from 'lucide-react';
 import { useState } from 'react';
 
-const HIDDEN_PREFIXES = ['/studio', '/admin', '/cooking', '/auth', '/onboarding'];
+const HIDDEN_PREFIXES = [
+  '/studio', '/admin', '/cooking', '/auth', '/onboarding',
+  // Marketing / free-tool pages that have their own header — don't double-stack
+  '/transcribe', '/transcribe-anything', '/youtube-transcribe',
+  '/script-generator', '/trend-radar', '/remix',
+  '/tools', '/lp', '/free-scripts',
+];
 
 const LINKS: { href: string; label: string; Icon: typeof Sparkles }[] = [
   { href: '/create', label: 'Create', Icon: Sparkles },

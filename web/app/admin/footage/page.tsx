@@ -138,7 +138,7 @@ function FootageCard({ item, onAutoEdit }: { item: FootageItem; onAutoEdit: (id:
               className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-[11px] font-medium bg-teal-600 text-white rounded-lg hover:bg-teal-500 transition-colors disabled:opacity-50"
             >
               {queueing ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />}
-              {queueing ? '...' : 'Auto Edit'}
+              {queueing ? '...' : 'AI Video Editor'}
             </button>
           )}
           {!item.auto_edit_eligible && item.stage === 'raw_uploaded' && (

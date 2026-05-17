@@ -282,7 +282,7 @@ export default function FootageDetailPage({ params }: { params: Promise<{ id: st
                   className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-teal-600 text-white hover:bg-teal-500 transition-colors disabled:opacity-50"
                 >
                   {queueing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-                  {queueing ? 'Queuing...' : 'Auto Edit'}
+                  {queueing ? 'Queuing...' : 'AI Video Editor'}
                 </button>
               )}
 

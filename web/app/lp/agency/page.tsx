@@ -155,7 +155,7 @@ export default function AgencyLP() {
           <div className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
             <h3 className="text-lg font-semibold text-white mb-1">Agency</h3>
             <div className="mb-4">
-              <span className="text-2xl font-bold text-zinc-400"></49/mo</span>
+              <span className="text-2xl font-bold text-zinc-400">$149/mo</span>
             </div>
             <ul className="space-y-2 mb-6">
               {[

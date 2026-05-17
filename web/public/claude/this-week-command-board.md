@@ -1,13 +1,13 @@
 # This Week Command Board
 
-Updated: 2026-05-16 6:28pm ET
+Updated: 2026-05-16 11:29pm ET
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
 ## Live Health
 
 - Mission Control: live at `5d8db46`.
-- FlashFlow: deploy pipe is healthy at `1213507` before this docs refresh. Check `https://flashflowai.com/api/health` after each brief push because the docs live inside FlashFlow.
+- FlashFlow: deploy pipe is healthy at `f034cea` before this docs refresh after the avatar API error-code fix. Check `https://flashflowai.com/api/health` after each brief push because the docs live inside FlashFlow.
 - Zebby's World: app is healthy at `www.zebbysworld.com` and the Vercel branch alias. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch.
 - MMM hub: app is healthy at `mmm-hub.vercel.app` on `e6c27e7`. `makingmilesmatter.org/api/health` is still routed to Mission Control.
 

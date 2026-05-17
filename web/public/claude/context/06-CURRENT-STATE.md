@@ -6,14 +6,14 @@
 
 ## Last manual edit: 2026-05-15
 
-## Authoritative Update - 2026-05-16 6:28pm ET
+## Authoritative Update - 2026-05-16 11:29pm ET
 
 Read `session-brief.md` and `this-week-command-board.md` first. They are the current source of truth.
 
 Current deploy truth:
 
 - Mission Control is live-match healthy at `5d8db46`.
-- FlashFlow deploy pipe is healthy at `1213507` before this docs refresh. Public-doc refreshes create a newer FlashFlow health SHA, so verify `/api/health` against local HEAD after every push.
+- FlashFlow deploy pipe is healthy at `f034cea` before this docs refresh after the avatar API error-code fix. Public-doc refreshes create a newer FlashFlow health SHA, so verify `/api/health` against local HEAD after every push.
 - Zebby's app is live on `www.zebbysworld.com` / Vercel branch alias at `46f6b5a`; bare `zebbysworld.com` is blocked by apex DNS/certificate mismatch.
 - MMM Hub is live on `mmm-hub.vercel.app` at `e6c27e7`; `makingmilesmatter.org` is still routed to Mission Control.
 - HHH sponsor outreach, Facebook content, and route assets are in guarded draft state. Sponsor test copies exist locally with 0 sends. Facebook clean v2 plus approval tracker, asset shot list, asset request packet, asset preflight, and photo intake helper exist locally with zero risk-scan hits; image inbox currently has 0 of 30 files. Latest photo intake packet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-photo-intake-packet-2026-05-16-162838.md`. Route/logistics worksheet, route asset request packet, route preflight, and route intake helper exist locally; route preflight currently lists 35 missing/review blockers, and the intake packet narrows this to 8 missing GPX/cue files, 28 blank worksheet fields, and 16 pending review/approval fields. Latest route intake packet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-intake-packet-2026-05-16-165844.md`. Nothing has been sent, scheduled, posted, uploaded, or published.

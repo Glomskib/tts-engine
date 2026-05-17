@@ -113,6 +113,8 @@ function BadgePill({ kind }: { kind: NonNullable<NavItemResolved['badge']> }) {
       ? 'bg-amber-500/15 text-amber-400'
       : kind === 'New'
       ? 'bg-teal-500/15 text-teal-400'
+      : kind === 'Flagship'
+      ? 'bg-gradient-to-r from-teal-500/20 to-fuchsia-500/20 text-teal-300 ring-1 ring-teal-400/30'
       : 'bg-zinc-500/15 text-zinc-400';
   return (
     <span className={`ml-auto px-1.5 py-0.5 text-[10px] font-medium rounded shrink-0 ${cls}`}>

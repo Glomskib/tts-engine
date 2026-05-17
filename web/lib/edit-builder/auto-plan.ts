@@ -312,6 +312,15 @@ HARD CONSTRAINTS:
 - Mark the FIRST segment with emphasis="hook".
 - Mark the LAST segment with emphasis="cta".
 - Skip ranges in the SKIP list — never include them in any segment.
+
+RETAKE DETECTION (high priority — the user films the same line 10-20 times):
+When the transcript contains two adjacent attempts at the same sentence — same opening 2-3 words OR Levenshtein distance < 30% of the longer string — keep ONLY the LATER attempt (the speaker re-recording after a flub).
+Example transcript: "I love it when — I absolutely love it when this product just works."
+Example BAD plan: include both halves.
+Example GOOD plan: include only the segment starting at "I absolutely love…".
+Apply this even when the two attempts span clip boundaries (clip A ended on the flub, clip B starts with the clean retake).
+Trailing "uhh" / "let me start over" / "scratch that" / "wait" / "again" within 2 seconds of a sentence start is a strong retake signal — skip the prior attempt's range.
+
 - Output valid JSON only. No markdown fences. No commentary.
 `;
 

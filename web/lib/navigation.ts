@@ -107,8 +107,10 @@ export interface NavItem {
   minPlan?: 'free' | 'creator_lite' | 'creator_pro' | 'brand' | 'agency';
   /** data-tour attribute value for guided walkthrough targeting */
   tourId?: string;
-  /** Optional badge shown next to the item name (e.g. 'Beta', 'New') */
-  badge?: 'Beta' | 'New' | 'Internal';
+  /** Optional badge shown next to the item name (e.g. 'Beta', 'New', 'Flagship') */
+  badge?: 'Beta' | 'New' | 'Internal' | 'Flagship';
+  /** Render with extra visual weight in the sidebar — used for the flagship CTA */
+  flagship?: boolean;
 }
 
 /** Nav item with resolved lock state for rendering */
@@ -153,7 +155,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'PINNED',
     subscriptionType: 'saas',
     items: [
-      { name: 'Create', href: '/create', icon: Sparkles, subtitle: 'Record, upload, or paste a link → AI clips out → publish. Replaces the old editors.', badge: 'New', tourId: 'nav-create-pinned' },
+      { name: 'AI Video Editor', href: '/create', icon: Sparkles, subtitle: 'Record, upload, or paste a link → AI cuts the video → ready to publish.', badge: 'Flagship', flagship: true, tourId: 'nav-create-pinned' },
       { name: 'My Clips', href: '/clips', icon: Clapperboard, subtitle: 'Every clip you have made, ready to repost or remix' },
       { name: 'Today', href: '/admin/today', icon: Sparkles, subtitle: 'Your daily briefing + the next thing to ship' },
     ],
@@ -173,7 +175,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'CREATE',
     subscriptionType: 'saas',
     items: [
-      { name: 'Create', href: '/create', icon: Sparkles, subtitle: 'Record, upload, or paste a link → AI clips out → publish.', badge: 'New', tourId: 'nav-create' },
+      { name: 'AI Video Editor', href: '/create', icon: Sparkles, subtitle: 'Record, upload, or paste a link → AI cuts the video → ready to publish.', badge: 'Flagship', flagship: true, tourId: 'nav-create' },
       { name: 'Opportunities', href: '/admin/opportunities', icon: Lightbulb, subtitle: 'Personalized daily content ideas based on your niche and trends', minPlan: 'creator_lite' },
       { name: 'Hooks', href: '/admin/hook-generator', icon: Zap, subtitle: 'Generate scroll-stopping hooks for TikTok, Reels, and Shorts' },
       { name: 'Comment Miner', href: '/admin/comment-miner', icon: Pickaxe, subtitle: 'Find viral comments across creators and turn them into content ideas' },

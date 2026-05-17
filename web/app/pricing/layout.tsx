@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import { BreadcrumbSchema } from '@/components/BreadcrumbSchema';
 
 export const metadata: Metadata = {
-  title: 'Pricing — FlashFlow AI | Plans for Creators & Businesses',
+  title: { absolute: 'Pricing | Plans for Creators & Businesses | FlashFlow AI' },
   description:
     'Start free with 5 scripts/month. Upgrade to Creator Lite ($9), Creator Pro ($29), or Business ($59) for unlimited AI-powered TikTok Shop scripts. Brand & Agency plans available.',
   openGraph: {

@@ -48,9 +48,9 @@ export const PRICING_PLANS: Record<string, PricingPlan> = {
     ],
   },
   starter: {
-    name: 'Starter',
+    name: 'Lite',
     monthly: {
-      price: 19,
+      price: 9,
       display: '$19',
       stripePriceId: process.env.STRIPE_PRICE_STARTER || 'price_1TWJflKXraIWnC5DeVyEv1R5',
     },
@@ -69,7 +69,7 @@ export const PRICING_PLANS: Record<string, PricingPlan> = {
   creator: {
     name: 'Creator',
     monthly: {
-      price: 49,
+      price: 19,
       display: '$49',
       stripePriceId: process.env.STRIPE_PRICE_CREATOR || 'price_1TWJgNKXraIWnC5DmD4Hv3Yw',
     },
@@ -87,9 +87,9 @@ export const PRICING_PLANS: Record<string, PricingPlan> = {
     ],
   },
   pro: {
-    name: 'Pro',
+    name: 'Creator Pro',
     monthly: {
-      price: 99,
+      price: 29,
       display: '$99',
       stripePriceId: process.env.STRIPE_PRICE_PRO || 'price_1TWJh7KXraIWnC5DKFScwFcC',
     },
@@ -106,7 +106,7 @@ export const PRICING_PLANS: Record<string, PricingPlan> = {
     ],
   },
   content_fleet: {
-    name: 'Content Fleet',
+    name: 'Fleet',
     contactUs: true,
     contactEmail: 'miles@makingmilesmatter.com',
     features: [

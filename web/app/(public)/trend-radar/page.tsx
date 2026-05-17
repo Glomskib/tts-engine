@@ -3,6 +3,28 @@ import Link from 'next/link';
 import { TrendingUp, ExternalLink, Sparkles, RefreshCw } from 'lucide-react';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
+// Customer-readiness guard: drop scrape garbage + dedupe
+function isProductRow(it: any): boolean {
+  if (!it) return false;
+  const t = String(it?.title || it?.product_name || it?.name || '').trim();
+  if (!t) return false;
+  if (/^Item\s*\d+$/i.test(t)) return false;
+  if (/cookie|privacy policy|enable javascript|sign in|loading/i.test(t)) return false;
+  if (t.length > 120) return false;
+  return true;
+}
+function dedupeByTitle<T>(arr: T[]): T[] {
+  const seen = new Set<string>();
+  return (arr || []).filter((it: any) => {
+    if (!isProductRow(it)) return false;
+    const k = String(it?.title || it?.product_name || it?.name || '').toLowerCase().trim();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+
 export const metadata: Metadata = {
   title: { absolute: 'Trend Radar | FlashFlow AI' },
   description: 'The latest viral products and hooks, captured daily.',
@@ -88,7 +110,7 @@ export default async function TrendRadarPage() {
         ) : (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-10">
-              {items.map((item) => {
+              {dedupeByTitle(items).map((item) => {
                 const thumb = item.screenshot_urls?.[0];
                 return (
                   <div

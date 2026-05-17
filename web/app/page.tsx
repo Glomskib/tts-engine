@@ -652,7 +652,7 @@ export default function LandingPage() {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <div className="text-zinc-500 text-sm">10 creators on Creator Pro ($49/mo)</div>
+                    <div className="text-zinc-500 text-sm">10 creators on Creator Pro ($29/mo)</div>
                     <div className="text-3xl font-bold text-white">$147<span className="text-base font-normal text-zinc-500">/mo recurring</span></div>
                   </div>
                   <div className="border-t border-white/5 pt-4">

@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('brand_profiles')
-    .select('id, name, avatar_display_name, niche, personality, target_audience, avatar_visual_reference_url, heygen_custom_avatar_id, voice_clone_id, setup_status, test_render_url, active, created_at, updated_at')
+    .select('id, name, avatar_display_name, niche, personality, target_audience, avatar_visual_reference_url, heygen_custom_avatar_id, voice_provider, voice_preset_id, voice_clone_id, setup_status, test_render_url, active, created_at, updated_at')
     .eq('user_id', auth.user.id)
     .eq('is_avatar', true)
     .eq('active', true)
@@ -54,6 +54,9 @@ export async function POST(req: NextRequest) {
     prohibited_phrases: (body.prohibited_phrases as string | undefined)?.slice(0, 2000),
     preferred_phrases: (body.preferred_phrases as string | undefined)?.slice(0, 2000),
     knowledge_bank: body.knowledge_bank || {},
+    voice_provider: (body.voice_provider as string | null | undefined) ?? null,
+    voice_preset_id: (body.voice_preset_id as string | null | undefined) ?? null,
+    voice_clone_id: (body.voice_clone_id as string | null | undefined) ?? null,
     setup_status: 'identity',
     active: true,
   };

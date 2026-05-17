@@ -12,13 +12,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const auth = await getApiAuthContext(req).catch(() => null);
   if (!auth?.user?.id) return createApiErrorResponse('UNAUTHORIZED', 'Sign in', 401, correlationId);
   const apiKey = process.env.HEYGEN_API_KEY;
-  if (!apiKey) return createApiErrorResponse('CONFIG', 'Render preview unavailable.', 503, correlationId);
+  if (!apiKey) return createApiErrorResponse('CONFIG_ERROR', 'Render preview unavailable.', 503, correlationId);
   const { data: avatar } = await supabaseAdmin.from('brand_profiles')
     .select('id, avatar_display_name, name, heygen_custom_avatar_id, voice_clone_id, voice_provider')
     .eq('id', id).eq('user_id', auth.user.id).maybeSingle();
   if (!avatar) return createApiErrorResponse('NOT_FOUND', 'avatar not found', 404, correlationId);
   if (!avatar.heygen_custom_avatar_id) {
-    return createApiErrorResponse('SETUP_INCOMPLETE', 'Add a real reference photo first (the illustrated starter is just a placeholder).', 400, correlationId);
+    return createApiErrorResponse('PRECONDITION_FAILED', 'Add a real reference photo first (the illustrated starter is just a placeholder).', 400, correlationId);
   }
   let body: { line?: string } = {};
   try { body = await req.json(); } catch {}
@@ -39,10 +39,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!r.ok) {
     console.error('[render/test] upstream:', await r.text().catch(() => ''));
-    return createApiErrorResponse('UPSTREAM', 'Render preview unavailable. Try again in a moment.', 502, correlationId);
+    return createApiErrorResponse('AI_ERROR', 'Render preview unavailable. Try again in a moment.', 502, correlationId);
   }
   const j = await r.json() as { data?: { video_id?: string } };
-  if (!j.data?.video_id) return createApiErrorResponse('UPSTREAM', 'Render preview unavailable.', 502, correlationId);
+  if (!j.data?.video_id) return createApiErrorResponse('AI_ERROR', 'Render preview unavailable.', 502, correlationId);
   return NextResponse.json({ ok: true, heygen_video_id: j.data.video_id, status: 'pending', correlation_id: correlationId });
 }
 
@@ -52,12 +52,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const auth = await getApiAuthContext(req).catch(() => null);
   if (!auth?.user?.id) return createApiErrorResponse('UNAUTHORIZED', 'Sign in', 401, correlationId);
   const apiKey = process.env.HEYGEN_API_KEY;
-  if (!apiKey) return createApiErrorResponse('CONFIG', 'Render unavailable', 503, correlationId);
+  if (!apiKey) return createApiErrorResponse('CONFIG_ERROR', 'Render unavailable', 503, correlationId);
   const url = new URL(req.url);
   const videoId = url.searchParams.get('video_id');
   if (!videoId) return createApiErrorResponse('VALIDATION_ERROR', 'video_id required', 400, correlationId);
   const r = await fetch(`https://api.heygen.com/v1/video_status.get?video_id=${videoId}`, { headers: { 'X-Api-Key': apiKey } });
-  if (!r.ok) return createApiErrorResponse('UPSTREAM', 'Status unavailable', 502, correlationId);
+  if (!r.ok) return createApiErrorResponse('AI_ERROR', 'Status unavailable', 502, correlationId);
   const j = await r.json() as { data?: { status?: string; video_url?: string; thumbnail_url?: string } };
   if (j.data?.status === 'completed' && j.data.video_url) {
     await supabaseAdmin.from('brand_profiles')

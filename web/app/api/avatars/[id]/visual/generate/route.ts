@@ -30,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!auth?.user?.id) return createApiErrorResponse('UNAUTHORIZED', 'Sign in', 401, correlationId);
 
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return createApiErrorResponse('CONFIG', 'GEMINI_API_KEY not configured — add it in Vercel env to use Nano Banana visual generation', 503, correlationId);
+  if (!apiKey) return createApiErrorResponse('CONFIG_ERROR', 'GEMINI_API_KEY not configured — add it in Vercel env to use Nano Banana visual generation', 503, correlationId);
 
   const { data: avatar } = await supabaseAdmin
     .from('brand_profiles')
@@ -92,14 +92,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
     if (!r.ok) {
       const txt = await r.text().catch(() => '');
-      return createApiErrorResponse('UPSTREAM', `Gemini ${r.status}: ${txt.slice(0, 300)}`, 502, correlationId);
+      return createApiErrorResponse('AI_ERROR', `Gemini ${r.status}: ${txt.slice(0, 300)}`, 502, correlationId);
     }
-    const json = await r.json() as { candidates?: { content?: { parts?: { inlineData?: { data: string; mimeType: string } }[] }[] } };
+    const json = await r.json() as {
+      candidates?: Array<{
+        content?: {
+          parts?: Array<{ inlineData?: { data: string; mimeType: string } }>;
+        };
+      }>;
+    };
     const imageParts: { data: string; mimeType: string }[] = [];
     for (const cand of json.candidates || []) {
       for (const p of cand.content?.parts || []) if (p.inlineData) imageParts.push(p.inlineData);
     }
-    if (imageParts.length === 0) return createApiErrorResponse('UPSTREAM', 'Gemini returned no image data', 502, correlationId);
+    if (imageParts.length === 0) return createApiErrorResponse('AI_ERROR', 'Gemini returned no image data', 502, correlationId);
 
     const { data: buckets } = await supabaseAdmin.storage.listBuckets();
     if (!buckets?.some(b => b.name === 'avatar-assets')) {
@@ -137,6 +143,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     });
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : 'Gemini call failed';
-    return createApiErrorResponse('UPSTREAM', msg, 502, correlationId);
+    return createApiErrorResponse('AI_ERROR', msg, 502, correlationId);
   }
 }

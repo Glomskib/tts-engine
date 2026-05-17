@@ -4,7 +4,7 @@
 
 ---
 
-## Last refreshed: 2026-05-17 5:31am ET
+## Last refreshed: 2026-05-17 6:32am ET
 
 ## Current deploy truth
 
@@ -13,8 +13,8 @@
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `46f6b5a`. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch. Do not change DNS without Brandon confirming.
 - **MMM hub:** `mmm-hub.vercel.app` is live at `e6c27e7`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports Mission Control SHA `5d8db46` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
 - **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists the exact approval gates, safe autonomous work, and Brandon's one-line decision menu.
-- **Latest launch report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-17-053152.md`.
-- **Latest HHH asset dashboard:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-053152.md`.
+- **Latest launch report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-17-063234.md`.
+- **Latest HHH asset dashboard:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-063234.md`.
 
 ## Top blockers
 
@@ -32,6 +32,7 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 
 ## Recently finished
 
+- FlashFlow AI Video Editor polish is deployed at `202831d`. The sidebar now labels `/create` as the flagship AI Video Editor, the mobile nav is aligned to Home/Create/Library/Schedule/More, and the edit planner has explicit retake-detection guidance. Verified `pnpm run type-check`, production build, Vercel Ready, `/create` and `/admin` healthy responses, and `https://flashflowai.com/api/health` reporting `202831d`.
 - FlashFlow deploy break from the customer-ready polish pass is fixed at `f034cea`. Invalid `createApiErrorResponse(...)` codes in avatar render/visual routes were corrected, the Gemini response typing was tightened, `pnpm run type-check` passed, local production build passed, Vercel deployed Ready, and `https://flashflowai.com/api/health` matched `f034cea`.
 - MC full local route smoke QA is now easy and verified at `5d8db46`. Added `npm run dev:qa` so agents start Mission Control with safe local open auth, updated the smoke-suite hint, verified `npm run dev:qa` + `npm run smoke` at 288 pass / 0 fail / 0 warn / 0 skip, pushed, and verified `https://mc.flashflowai.com/api/health` reports `5d8db46`.
 - FlashFlow CRON_SECRET final redeploy was live at `1213507`; a later customer-ready polish deploy is now current at `f034cea` before this docs refresh.

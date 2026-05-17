@@ -148,9 +148,13 @@ export default function StudioPage() {
       });
       setMics(ins);
       setPrefs(p => {
-        if (p.micDeviceId) return p;
+        // Auto-pick a mic when nothing is saved or the saved one is gone:
+        //   1. Wireless / lavalier (DJI Mic, Rode Wireless, AirPods…) first
+        //   2. Otherwise the first audioinput (usually built-in)
+        if (p.micDeviceId && ins.some(m => m.deviceId === p.micDeviceId)) return p;
         const wireless = ins.find(m => m.isWireless);
-        if (wireless) return { ...p, micDeviceId: wireless.deviceId };
+        const pick = wireless || ins[0];
+        if (pick) return { ...p, micDeviceId: pick.deviceId };
         return p;
       });
     } catch (e) {

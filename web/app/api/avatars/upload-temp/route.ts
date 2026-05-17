@@ -32,8 +32,8 @@ export async function POST(req: NextRequest) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'file required' }, { status: 400 });
     }
-    if (file.size > 12 * 1024 * 1024) {
-      return NextResponse.json({ error: 'file too large (max 12MB)' }, { status: 413 });
+    if (file.size > 30 * 1024 * 1024) {
+      return NextResponse.json({ error: 'file too large (max 30MB)' }, { status: 413 });
     }
 
     const ext = (file.type.split('/')[1] || 'jpg').replace(/[^a-z0-9]/g, '') || 'jpg';

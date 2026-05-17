@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('brand_profiles')
-    .select('id, name, tone_descriptor, sample_posts_json, style_notes, prohibited_phrases, preferred_phrases, brand_color, brand_font, active, created_at, updated_at')
+    .select('id, name, tone_descriptor, sample_posts_json, style_notes, prohibited_phrases, preferred_phrases, brand_color, brand_font, active, created_at, updated_at').eq('is_avatar', false)
     .eq('user_id', auth.user.id)
     .order('updated_at', { ascending: false });
 
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
   // Per-user profile ceiling — stops single users from abuse
   const { count } = await supabaseAdmin
     .from('brand_profiles')
-    .select('id', { count: 'exact', head: true })
+    .select('id', { count: 'exact', head: true }).eq('is_avatar', false)
     .eq('user_id', auth.user.id);
   if ((count || 0) >= MAX_PROFILES_PER_USER) {
     return NextResponse.json({
@@ -92,7 +92,7 @@ export async function POST(req: NextRequest) {
       brand_font: cap(body.brand_font, 100),
       active: body.active === false ? false : true,
     })
-    .select('id')
+    .select('id').eq('is_avatar', false)
     .single();
 
   if (error) {

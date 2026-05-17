@@ -26,7 +26,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const MAX_REFERENCE_BYTES = 12 * 1024 * 1024;
+const MAX_REFERENCE_BYTES = 30 * 1024 * 1024;
 
 export async function POST(req: NextRequest) {
   const cid = 'pv_' + Date.now() + '_' + Math.random().toString(36).slice(2, 8);

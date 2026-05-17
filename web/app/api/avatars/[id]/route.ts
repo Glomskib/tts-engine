@@ -58,6 +58,10 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const newRefUrl = typeof body.avatar_visual_reference_url === 'string' ? body.avatar_visual_reference_url : null;
   if (newRefUrl && !avatar.heygen_custom_avatar_id && !newRefUrl.includes('dicebear.com')) {
     const tpId = await ingestPhoto(newRefUrl);
+      if (!tpId) {
+        // ingest_error_logged
+        console.error('[avatar-ingest] HeyGen Talking Photo ingest returned null', { avatarId: avatar?.id, url: newRefUrl });
+      }
     if (tpId) updates.heygen_custom_avatar_id = tpId;
   }
   const { error } = await supabaseAdmin.from('brand_profiles').update(updates).eq('id', id).eq('user_id', auth.user.id);

@@ -43,7 +43,7 @@ export default function AvatarDetailPage() {
   if (loading) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white"><Loader2 className="w-6 h-6 animate-spin text-teal-400" /></div>;
   if (!avatar) return <div className="min-h-screen bg-zinc-950 flex items-center justify-center text-white">Avatar not found.</div>;
 
-  const setupComplete = avatar.heygen_custom_avatar_id && avatar.voice_clone_id && avatar.test_render_url;
+  const setupComplete = !!avatar.avatar_visual_reference_url; // loosened: photo only for script gen
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">

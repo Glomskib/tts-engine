@@ -63,7 +63,7 @@ const PLATFORMS = [
 ];
 
 function faceUrlFor(seed: string) {
-  return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(seed)}&backgroundColor=14b8a6,a78bfa,fb7185,38bdf8&backgroundType=gradientLinear`;
+  return `data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0%25' stop-color='%23475569'/><stop offset='100%25' stop-color='%231e293b'/></linearGradient></defs><rect width='200' height='200' fill='url(%23g)' rx='100'/><circle cx='100' cy='75' r='30' fill='%23cbd5e1' opacity='0.5'/><path d='M 50 165 Q 50 115 100 115 Q 150 115 150 165 Z' fill='%23cbd5e1' opacity='0.5'/></svg>`;
 }
 
 export default function NewAvatarPage() {
@@ -102,7 +102,10 @@ export default function NewAvatarPage() {
       const internalName = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '-').slice(0, 60) || `avatar-${Date.now()}`;
       const createRes = await fetch('/api/avatars', {
         method: 'POST', headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ name: internalName, avatar_display_name: displayName.trim(), niche, personality, tone_descriptor: tone, target_audience: audience, prohibited_phrases: prohibited, knowledge_bank: { platforms, archetype: archetypeKey, voice_preset: voiceKey } }),
+        body: JSON.stringify({ name: internalName, avatar_display_name: displayName.trim(), niche, personality, tone_descriptor: tone, target_audience: audience, prohibited_phrases: prohibited, knowledge_bank: { platforms, archetype: archetypeKey, voice_preset: voiceKey },
+          voice_preset_id: selectedVoice ?? null,
+          voice_provider: selectedVoice ? 'preset' : null,
+        }),
       });
       const createJson = await createRes.json() as { ok: boolean; id?: string; error?: string };
       if (!createJson.ok || !createJson.id) throw new Error(createJson.error || 'create failed');
@@ -111,7 +114,10 @@ export default function NewAvatarPage() {
       let refUrl: string | null = null;
       if (pendingFileRef.current) {
         const file = pendingFileRef.current;
-        const up = await fetch(`/api/avatars/${avatarId}/visual/upload`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ filename: file.name, mime: file.type, size: file.size }) });
+        const up = await fetch(`/api/avatars/${avatarId}/visual/upload`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ filename: file.name, mime: file.type, size: file.size,
+          voice_preset_id: selectedVoice ?? null,
+          voice_provider: selectedVoice ? 'preset' : null,
+        }) });
         const upJ = await up.json() as { signed_url?: string; public_url?: string };
         if (upJ.signed_url && upJ.public_url) {
           await fetch(upJ.signed_url, { method: 'PUT', headers: { 'content-type': file.type }, body: file });
@@ -119,7 +125,10 @@ export default function NewAvatarPage() {
         }
       }
       if (!refUrl) refUrl = faceUrlFor(arch.face_seed);
-      await fetch(`/api/avatars/${avatarId}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ avatar_visual_reference_url: refUrl, setup_status: 'face' }) });
+      await fetch(`/api/avatars/${avatarId}`, { method: 'PATCH', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ avatar_visual_reference_url: refUrl, setup_status: 'face',
+          voice_preset_id: selectedVoice ?? null,
+          voice_provider: selectedVoice ? 'preset' : null,
+        }) });
       setStage('done');
       setTimeout(() => router.push(`/avatars/${avatarId}`), 700);
     } catch (e: unknown) { setErr(e instanceof Error ? e.message : 'Something went wrong'); setStage(null);
@@ -158,7 +167,7 @@ export default function NewAvatarPage() {
                 <Upload className="w-5 h-5 text-zinc-300" />
                 <div className="flex-1">
                   <div className="text-sm font-medium">Upload a reference photo (recommended)</div>
-                  <div className="text-[11px] text-zinc-400">Use a real face you have rights to. Required to render videos. The illustrated starter is just a placeholder.</div>
+                  <div className="text-[11px] text-zinc-400">These are just personality presets. To render videos, upload your own photo below — the silhouettes are placeholders, not the actual avatar face.</div>
                 </div>
                 {uploadedFace && <Check className="w-4 h-4 text-emerald-400" />}
               </label>

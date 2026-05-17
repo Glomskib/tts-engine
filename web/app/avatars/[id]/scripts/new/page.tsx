@@ -1,9 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, Loader2, AlertCircle, Check, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import {
+  ArrowLeft, Sparkles, Loader2, AlertCircle, Check, ChevronDown, ChevronUp,
+  Copy, Video, Play,
+} from 'lucide-react';
 
 const QUICK_LENGTHS = [
   { key: '15s', label: '15 sec', hint: 'Hook-driven, tight cuts' },
@@ -31,6 +34,23 @@ interface OutScript {
   captions?: string; hashtags?: string;
 }
 
+interface RenderJob {
+  id: string; status: string; step?: string; steps_done?: string[];
+  progress?: number; error_message?: string;
+  output?: { video_url?: string };
+}
+
+function scriptToPrompt(s: OutScript, avatarHint?: string): string {
+  const parts: string[] = [];
+  if (avatarHint) parts.push(`Speaker: ${avatarHint}`);
+  if (s.script_type) parts.push(`Length / format: ${s.script_type}`);
+  if (s.hook) parts.push(`Hook: ${s.hook}`);
+  if (s.body) parts.push(`Body: ${s.body}`);
+  if (s.cta) parts.push(`CTA: ${s.cta}`);
+  parts.push('Render this as a vertical short-form video with karaoke captions in this avatar\'s voice.');
+  return parts.join('\n\n');
+}
+
 export default function ScriptGenPage() {
   const params = useParams<{ id: string }>();
   const router = useRouter();
@@ -48,13 +68,35 @@ export default function ScriptGenPage() {
   const [err, setErr] = useState<string | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
+  // Per-script render state: scriptId -> { job, error }
+  const [renderState, setRenderState] = useState<Record<string, { job?: RenderJob; err?: string; starting?: boolean }>>({});
+
   const advTotal = Object.values(advancedCounts).reduce((a, b) => a + b, 0);
   const useAdvanced = advancedOpen && advTotal > 0;
   const planned = useAdvanced ? advTotal : count;
 
+  // Poll any running jobs
+  useEffect(() => {
+    const running = Object.entries(renderState).filter(([, st]) => st.job && !['completed','failed'].includes(st.job.status));
+    if (running.length === 0) return;
+    const interval = setInterval(async () => {
+      for (const [scriptId, st] of running) {
+        if (!st.job?.id) continue;
+        try {
+          const r = await fetch(`/api/studio/oneprompt?job_id=${st.job.id}`, { cache: 'no-store' });
+          const j = await r.json() as { ok: boolean; job?: RenderJob };
+          if (j.ok && j.job) {
+            setRenderState(s => ({ ...s, [scriptId]: { ...s[scriptId], job: j.job } }));
+          }
+        } catch {}
+      }
+    }, 3500);
+    return () => clearInterval(interval);
+  }, [renderState]);
+
   async function generate() {
     if (!product.trim()) { setErr('Tell us what the video is about first.'); return; }
-    setBusy(true); setErr(null); setScripts([]);
+    setBusy(true); setErr(null); setScripts([]); setRenderState({});
     try {
       const types = useAdvanced
         ? Object.entries(advancedCounts).filter(([, c]) => c > 0).map(([kind, count]) => ({ kind, count }))
@@ -85,6 +127,29 @@ export default function ScriptGenPage() {
     });
   }
 
+  async function renderScript(s: OutScript) {
+    setRenderState(state => ({ ...state, [s.id]: { ...(state[s.id] || {}), starting: true, err: undefined } }));
+    try {
+      const prompt = scriptToPrompt(s);
+      const r = await fetch('/api/studio/oneprompt', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ prompt, avatar_id: id }),
+      });
+      const j = await r.json() as { ok: boolean; job_id?: string; error?: string };
+      if (!j.ok || !j.job_id) throw new Error(j.error || 'failed to start');
+      setRenderState(state => ({
+        ...state,
+        [s.id]: {
+          starting: false,
+          job: { id: j.job_id, status: 'running', step: 'parse_intent_done', progress: 10, steps_done: ['parse_intent'] },
+        },
+      }));
+    } catch (e: unknown) {
+      setRenderState(state => ({ ...state, [s.id]: { ...(state[s.id] || {}), starting: false, err: e instanceof Error ? e.message : 'render failed' } }));
+    }
+  }
+
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
       <div className="max-w-3xl mx-auto px-4 py-6">
@@ -96,7 +161,7 @@ export default function ScriptGenPage() {
           <Sparkles className="w-6 h-6 text-teal-400" /> Write me a script
         </h1>
         <p className="text-sm text-zinc-400 mb-6">
-          AI writes in this avatar&apos;s locked voice, niche, and tone. Compliance phrases auto-respected.
+          AI writes in this avatar&apos;s locked voice, niche, and tone. Each script gets a one-click &quot;Make video&quot; button.
         </p>
 
         {scripts.length === 0 && (
@@ -112,7 +177,7 @@ export default function ScriptGenPage() {
               />
             </div>
 
-            {/* Brief (optional) */}
+            {/* Brief */}
             <div>
               <label className="block text-xs uppercase tracking-wider text-zinc-500 mb-1.5">Angle or key benefit <span className="text-zinc-600 normal-case">(optional)</span></label>
               <textarea
@@ -122,7 +187,7 @@ export default function ScriptGenPage() {
               />
             </div>
 
-            {/* Length picker — visual cards */}
+            {/* Length */}
             <div>
               <label className="block text-xs uppercase tracking-wider text-zinc-500 mb-2">Length</label>
               <div className="grid grid-cols-3 gap-2">
@@ -142,7 +207,7 @@ export default function ScriptGenPage() {
               </div>
             </div>
 
-            {/* Count slider */}
+            {/* Count */}
             <div>
               <label className="block text-xs uppercase tracking-wider text-zinc-500 mb-2">How many to write?</label>
               <div className="flex items-center gap-3">
@@ -156,11 +221,10 @@ export default function ScriptGenPage() {
               <div className="text-[11px] text-zinc-500 mt-1">Try 3 — pick the best, ditch the rest.</div>
             </div>
 
-            {/* Advanced (collapsed by default) */}
+            {/* Advanced */}
             <div className="border border-white/5 rounded-xl">
               <button
-                type="button"
-                onClick={() => setAdvancedOpen(o => !o)}
+                type="button" onClick={() => setAdvancedOpen(o => !o)}
                 className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-zinc-300 hover:text-white"
               >
                 <span>Mix script types (advanced)</span>
@@ -214,27 +278,74 @@ export default function ScriptGenPage() {
               <div className="flex items-center gap-2 text-emerald-300 text-sm">
                 <Check className="w-4 h-4" /> {scripts.length} scripts written, saved to your library.
               </div>
-              <button onClick={() => setScripts([])} className="text-xs text-zinc-400 hover:text-white underline">
+              <button onClick={() => { setScripts([]); setRenderState({}); }} className="text-xs text-zinc-400 hover:text-white underline">
                 Write more
               </button>
             </div>
-            {scripts.map(s => (
-              <div key={s.id} className="rounded-xl border border-white/10 bg-zinc-900 p-4">
-                <div className="flex items-start justify-between gap-2 mb-2">
-                  <div className="text-[10px] uppercase tracking-wider text-teal-300 font-semibold">{s.script_type}</div>
-                  <button
-                    onClick={() => copyScript(s)}
-                    className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1"
-                  >
-                    {copiedId === s.id ? <><Check className="w-3 h-3 text-emerald-400" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
-                  </button>
+            {scripts.map(s => {
+              const rs = renderState[s.id];
+              const job = rs?.job;
+              const videoUrl = job?.output?.video_url;
+              const isRendering = !!rs?.starting || (job && !['completed','failed'].includes(job.status));
+              const renderErr = rs?.err || job?.error_message;
+              return (
+                <div key={s.id} className="rounded-xl border border-white/10 bg-zinc-900 p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div className="text-[10px] uppercase tracking-wider text-teal-300 font-semibold">{s.script_type}</div>
+                    <button
+                      onClick={() => copyScript(s)}
+                      className="text-[11px] text-zinc-400 hover:text-white flex items-center gap-1"
+                    >
+                      {copiedId === s.id ? <><Check className="w-3 h-3 text-emerald-400" /> Copied</> : <><Copy className="w-3 h-3" /> Copy</>}
+                    </button>
+                  </div>
+                  {s.hook && <div className="text-base font-semibold mb-2">&quot;{s.hook}&quot;</div>}
+                  {s.body && <div className="text-sm text-zinc-300 whitespace-pre-wrap mb-2">{s.body}</div>}
+                  {s.cta && <div className="text-xs text-zinc-400 italic">CTA: {s.cta}</div>}
+                  {s.hashtags && <div className="text-[11px] text-zinc-500 mt-2 truncate">{s.hashtags}</div>}
+
+                  {/* Render-to-video block */}
+                  <div className="mt-4 pt-4 border-t border-white/5">
+                    {!job && !isRendering && (
+                      <button
+                        onClick={() => renderScript(s)}
+                        className="w-full py-2.5 rounded-lg bg-gradient-to-r from-purple-600 to-teal-500 hover:opacity-90 font-semibold text-sm flex items-center justify-center gap-2"
+                      >
+                        <Video className="w-4 h-4" /> Make this into a video
+                      </button>
+                    )}
+                    {rs?.starting && (
+                      <div className="flex items-center gap-2 text-sm text-zinc-400">
+                        <Loader2 className="w-4 h-4 animate-spin" /> Starting render…
+                      </div>
+                    )}
+                    {renderErr && (
+                      <div className="p-2.5 rounded-lg bg-red-900/30 border border-red-500/30 text-xs text-red-200 flex items-start gap-2">
+                        <AlertCircle className="w-3.5 h-3.5 mt-0.5" />{renderErr}
+                      </div>
+                    )}
+                    {job && !videoUrl && job.status !== 'failed' && (
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2 text-sm text-zinc-300">
+                          <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-300" />
+                          <span>{job.step?.replace(/_done$/, '').replace(/_/g, ' ') || 'rendering'}…</span>
+                          {typeof job.progress === 'number' && <span className="text-zinc-500 text-xs">{job.progress}%</span>}
+                        </div>
+                        <div className="text-[10px] text-zinc-500">Voice + render takes 1–3 min once the cron picks it up.</div>
+                      </div>
+                    )}
+                    {videoUrl && (
+                      <div className="space-y-2">
+                        <video src={videoUrl} controls className="w-full max-w-xs mx-auto rounded-lg" />
+                        <Link href="/library" className="block text-center py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-xs font-semibold">
+                          <Play className="w-3 h-3 inline mr-1" /> Open in Library
+                        </Link>
+                      </div>
+                    )}
+                  </div>
                 </div>
-                {s.hook && <div className="text-base font-semibold mb-2">&quot;{s.hook}&quot;</div>}
-                {s.body && <div className="text-sm text-zinc-300 whitespace-pre-wrap mb-2">{s.body}</div>}
-                {s.cta && <div className="text-xs text-zinc-400 italic">CTA: {s.cta}</div>}
-                {s.hashtags && <div className="text-[11px] text-zinc-500 mt-2 truncate">{s.hashtags}</div>}
-              </div>
-            ))}
+              );
+            })}
             <button onClick={() => router.push(`/avatars/${id}`)} className="w-full py-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm">
               Back to avatar
             </button>

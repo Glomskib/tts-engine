@@ -398,8 +398,8 @@ export default function StudioPage() {
       try {
         const r = await fetch('/api/create/jobs', { cache: 'no-store' });
         if (!r.ok) return;
-        const j = await r.json() as { ok: boolean; rows?: { id: string; status: string; context_json?: { progress?: number; final_url?: string; thumb_url?: string }; error_message?: string }[]; data?: typeof j.rows };
-        const rows = j.rows || j.data || [];
+        const j = await r.json() as { ok: boolean; jobs?: { id: string; status: string; context_json?: { progress?: number; final_url?: string; thumb_url?: string }; error_message?: string }[]; rows?: typeof j.jobs; data?: typeof j.jobs };
+        const rows = j.jobs || j.rows || j.data || [];
         setClips(prev => prev.map(p => {
           if (!p.run_id) return p;
           const row = rows.find(r => r.id === p.run_id);

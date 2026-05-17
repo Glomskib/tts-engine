@@ -84,6 +84,7 @@ export default function NewAvatarPage() {
   const [submitting, setSubmitting] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [stage, setStage] = useState<'creating' | 'ingesting' | 'done' | null>(null);
+  const [previewState, setPreviewState] = useState<{ status: 'idle' | 'generating' | 'ready' | 'error'; preview_url?: string; reference_url?: string; error?: string }>({ status: 'idle' });
   const archChangedRef = useRef(false);
   useEffect(() => {
     if (!archChangedRef.current) { archChangedRef.current = true; return; }
@@ -94,6 +95,25 @@ export default function NewAvatarPage() {
   const pendingFileRef = useRef<File | null>(null);
   function handleUpload(file: File) { setUploadedFace(URL.createObjectURL(file)); pendingFileRef.current = file; }
   function togglePlatform(key: string) { setPlatforms(p => p.includes(key) ? p.filter(k => k !== key) : [...p, key]); }
+
+  async function generatePreview(refUrl: string, setPreviewState: any) {
+    setPreviewState({ status: 'generating', reference_url: refUrl });
+    try {
+      const r = await fetch('/api/avatars/preview', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ reference_image_url: refUrl })
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok) {
+        setPreviewState({ status: 'error', error: j.error || 'preview failed', reference_url: refUrl });
+        return;
+      }
+      setPreviewState({ status: 'ready', preview_url: j.preview_url, reference_url: j.reference_url });
+    } catch (e: any) {
+      setPreviewState({ status: 'error', error: e?.message || 'network', reference_url: refUrl });
+    }
+  }
 
   async function bringToLife() {
     if (!displayName.trim()) { setErr('Pick a name'); return; }

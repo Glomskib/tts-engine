@@ -4,6 +4,7 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 import CookieConsent from "@/components/CookieConsent";
 import TopNav from '@/components/TopNav';
+import QueueTicker from '@/components/QueueTicker';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -161,6 +162,9 @@ export default function RootLayout({
           {children}
           {/* Cookie consent banner — first-visit only, no-op after a choice. */}
           <CookieConsent />
+          {/* Drives the worker queue from the user side while Vercel cron is
+              broken. Self-stops with 401 if user is not logged in. */}
+          <QueueTicker />
         </Providers>
       </body>
     </html>

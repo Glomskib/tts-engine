@@ -66,7 +66,7 @@ export default function AvatarDetailPage() {
             {avatar.target_audience && <div className="text-xs text-zinc-500 mt-2">{avatar.target_audience}</div>}
             {!setupComplete && (
               <div className="mt-3 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-300 text-[11px] font-semibold">
-                <AlertCircle className="w-3.5 h-3.5" /> Finish setup before generating content
+                <AlertCircle className="w-3.5 h-3.5" /> Drop a face to start filming
               </div>
             )}
             {avatar.test_render_url && (
@@ -76,17 +76,17 @@ export default function AvatarDetailPage() {
             )}
 
             <div className="flex flex-wrap gap-2 mt-4">
-              <Link href={`/avatars/${id}/scripts/new`} className="px-3 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-sm font-semibold flex items-center gap-1.5"><Sparkles className="w-4 h-4" /> Generate scripts</Link>
-              <Link href={`/avatars/${id}/scenes`} className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold flex items-center gap-1.5 border border-white/10"><span>🎬</span> Scenes</Link>
-              <Link href={`/avatars/${id}/campaigns/new`} className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold flex items-center gap-1.5 border border-white/10"><Calendar className="w-4 h-4" /> New campaign</Link>
-              <Link href={`/studio/oneprompt?avatar=${id}`} className="px-3 py-2 rounded-lg bg-purple-600/30 border border-purple-500 hover:bg-purple-600/40 text-sm font-semibold flex items-center gap-1.5 text-purple-100">⚡ One-prompt video</Link>
+              <Link href={`/avatars/${id}/scripts/new`} className="px-3 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 text-sm font-semibold flex items-center gap-1.5"><Sparkles className="w-4 h-4" /> Write scripts</Link>
+              <Link href={`/avatars/${id}/scenes`} className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold flex items-center gap-1.5 border border-white/10"><span>🎬</span> Storyboard</Link>
+              <Link href={`/avatars/${id}/campaigns/new`} className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold flex items-center gap-1.5 border border-white/10"><Calendar className="w-4 h-4" /> Plan a series</Link>
+              <Link href={`/studio/oneprompt?avatar=${id}`} className="px-3 py-2 rounded-lg bg-purple-600/30 border border-purple-500 hover:bg-purple-600/40 text-sm font-semibold flex items-center gap-1.5 text-purple-100">⚡ Quick video</Link>
             </div>
           </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">
-          <Section title="Recent scripts" icon={FileText} link={`/avatars/${id}/scripts/new`} linkText="+ Generate">
-            {scripts.length === 0 && <Empty>No scripts yet. Generate some.</Empty>}
+          <Section title="Recent scripts" icon={FileText} link={`/avatars/${id}/scripts/new`} linkText="+ Write">
+            {scripts.length === 0 && <Empty>No scripts yet — write some.</Empty>}
             {scripts.slice(0, 8).map(s => (
               <div key={s.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-white/10">
                 <div className="min-w-0">
@@ -101,8 +101,8 @@ export default function AvatarDetailPage() {
             ))}
           </Section>
 
-          <Section title="Campaigns" icon={Calendar} link={`/avatars/${id}/campaigns/new`} linkText="+ New">
-            {campaigns.length === 0 && <Empty>No campaigns yet. Build a 7/14/30-day plan.</Empty>}
+          <Section title="Campaigns" icon={Calendar} link={`/avatars/${id}/campaigns/new`} linkText="+ Plan">
+            {campaigns.length === 0 && <Empty>No series yet. Plan a 7/14/30-day run.</Empty>}
             {campaigns.slice(0, 8).map(c => (
               <div key={c.id} className="flex items-center justify-between gap-2 px-3 py-2 rounded-lg bg-zinc-900 border border-white/10">
                 <div className="min-w-0">

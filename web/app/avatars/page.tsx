@@ -40,10 +40,10 @@ export default function AvatarsPage() {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-2xl font-bold flex items-center gap-2">
-              <Sparkles className="w-6 h-6 text-teal-400" /> Avatar Studio
+              <Sparkles className="w-6 h-6 text-teal-400" /> Your AI Cast
             </h1>
             <p className="text-sm text-zinc-300 mt-1">
-              Persistent AI spokespersons. Face. Voice. Personality. Knowledge. One identity, every video.
+              Your AI talent. Same face every video. Drop in, hit record.
             </p>
           </div>
           <Link
@@ -105,7 +105,7 @@ function AvatarCard({ a }: { a: Avatar }) {
         )}
         {!setupComplete && (
           <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-amber-500/30 border border-amber-400 text-amber-100 text-[10px] font-semibold flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" /> Setup incomplete
+            <AlertCircle className="w-3 h-3" /> Photo needed
           </div>
         )}
       </div>
@@ -114,13 +114,13 @@ function AvatarCard({ a }: { a: Avatar }) {
         <div className="text-[11px] text-zinc-300 truncate mt-0.5">{a.niche || a.personality || 'No niche set'}</div>
         <div className="flex items-center gap-2 mt-2 text-[10px]">
           <span className={`flex items-center gap-1 ${a.heygen_custom_avatar_id ? 'text-teal-300' : 'text-zinc-400'}`}>
-            <CameraIcon className="w-3 h-3" /> {a.heygen_custom_avatar_id ? 'Face' : 'no face'}
+            <CameraIcon className="w-3 h-3" /> {a.heygen_custom_avatar_id ? 'Face' : 'no photo'}
           </span>
           <span className={`flex items-center gap-1 ${a.voice_clone_id ? 'text-teal-300' : 'text-zinc-400'}`}>
-            <Mic className="w-3 h-3" /> {a.voice_clone_id ? 'Voice' : 'no voice'}
+            <Mic className="w-3 h-3" /> {a.voice_clone_id ? 'Voice' : 'voice unset'}
           </span>
           <span className={`flex items-center gap-1 ${a.test_render_url ? 'text-emerald-300' : 'text-zinc-400'}`}>
-            <Check className="w-3 h-3" /> {a.test_render_url ? 'Tested' : 'untested'}
+            <Check className="w-3 h-3" /> {a.test_render_url ? 'Tested' : 'not filmed yet'}
           </span>
         </div>
       </div>

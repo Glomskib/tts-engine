@@ -214,7 +214,14 @@ export default function NewAvatarPage() {
   }
 
   // The URL to use as the avatar's face when submitting. Null if none chosen.
-  const chosenFaceUrl: string | null = face.status === 'chosen' ? face.chosenUrl : null;
+  // If the user uploaded a photo but didn't tap through to pick, auto-use the original.
+  // This way submitting 'Bring [Name] to life' never silently drops the photo.
+  const chosenFaceUrl: string | null =
+    face.status === 'chosen' ? face.chosenUrl :
+    face.status === 'preview-ready' ? face.originalUrl :
+    face.status === 'generating' ? face.originalUrl :
+    face.status === 'uploaded' ? face.originalUrl :
+    null;
   // For the sticky preview pane:
   const previewImageUrl: string | null =
     face.status === 'chosen' ? face.chosenUrl :
@@ -284,8 +291,8 @@ export default function NewAvatarPage() {
             {/* STEP 1: PHOTO */}
             <section>
               <div className="flex items-baseline gap-3 mb-1">
-                <h2 className="text-xl font-bold">1. Drop a photo</h2>
-                <span className="text-xs text-zinc-400">(required for video render — skip and decide later if you want)</span>
+                <h2 className="text-xl font-bold">1. Drop a face</h2>
+                <span className="text-xs text-zinc-400">(needed to film — you can skip and add one later)</span>
               </div>
               <p className="text-sm text-zinc-300 mb-4">
                 The face of your avatar. We'll show you an AI-styled version side-by-side so you can pick which one to use.
@@ -303,8 +310,8 @@ export default function NewAvatarPage() {
 
             {/* STEP 2: PERSONALITY */}
             <section>
-              <h2 className="text-xl font-bold mb-1">2. Pick a personality</h2>
-              <p className="text-sm text-zinc-300 mb-4">Each one pre-fills defaults you can tweak below. These are vibes, not faces.</p>
+              <h2 className="text-xl font-bold mb-1">2. Pick a vibe</h2>
+              <p className="text-sm text-zinc-300 mb-4">These are personality presets — pick the one that fits how you want them to talk. The actual face is whatever photo you dropped above.</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {ARCHETYPES.map(a => {
                   const on = archetypeKey === a.key;
@@ -336,7 +343,7 @@ export default function NewAvatarPage() {
             {/* STEP 3: CUSTOMIZE */}
             <section>
               <h2 className="text-xl font-bold mb-1">3. Make them yours</h2>
-              <p className="text-sm text-zinc-300 mb-4">Pre-filled from the personality you picked. Edit anything.</p>
+              <p className="text-sm text-zinc-300 mb-4">Pre-filled from the vibe. Tweak anything.</p>
               <div className="space-y-3">
                 <Field label="Name">
                   <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)}
@@ -360,7 +367,7 @@ export default function NewAvatarPage() {
             {/* STEP 4: VOICE */}
             <section>
               <h2 className="text-xl font-bold mb-1">4. Voice</h2>
-              <p className="text-sm text-zinc-300 mb-4">Pick what matches their vibe. Swap or clone your own later.</p>
+              <p className="text-sm text-zinc-300 mb-4">Pick a voice that fits. Clone your own later.</p>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {VOICE_PRESETS.map(v => {
                   const on = voiceKey === v.key;
@@ -380,7 +387,7 @@ export default function NewAvatarPage() {
             <section>
               <button onClick={() => setAdvancedOpen(o => !o)} className="flex items-center gap-2 text-sm font-semibold text-zinc-200">
                 {advancedOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                Advanced (target audience · platforms · things they never say)
+                Optional: who they talk to, platforms, words they don’t say
               </button>
               {advancedOpen && (
                 <div className="mt-4 space-y-4">
@@ -401,11 +408,11 @@ export default function NewAvatarPage() {
                       })}
                     </div>
                   </Field>
-                  <Field label="Things they NEVER say">
+                  <Field label="Words they don’t say">
                     <textarea value={prohibited} onChange={e => setProhibited(e.target.value)} rows={2}
                       placeholder="cures, treats, prevents, guaranteed"
                       className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-zinc-600 text-sm text-white placeholder-zinc-500 focus:border-teal-400 outline-none resize-none" />
-                    <div className="text-[11px] text-zinc-400 mt-1">Every generated script auto-respects this list.</div>
+                    <div className="text-[11px] text-zinc-400 mt-1">Every script avoids these words automatically.</div>
                   </Field>
                 </div>
               )}
@@ -451,7 +458,7 @@ export default function NewAvatarPage() {
                   className="w-full py-3 rounded-xl bg-gradient-to-r from-teal-500 to-purple-600 hover:opacity-90 disabled:opacity-50 text-white font-bold flex items-center justify-center gap-2">
                   {submitting ? (
                     <><Loader2 className="w-4 h-4 animate-spin" />
-                    {stage === 'finalizing' ? 'Bringing them to life…' : stage === 'done' ? 'Done!' : 'Creating…'}
+                    {stage === 'finalizing' ? 'Adding them to your cast…' : stage === 'done' ? 'Done!' : 'Creating…'}
                     </>
                   ) : (
                     <><Sparkles className="w-4 h-4" /> Bring {displayName || 'them'} to life</>
@@ -509,8 +516,8 @@ function FaceUploadCard(props: {
           onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])} />
         <Upload className="w-8 h-8 text-zinc-400" />
         <div className="text-center">
-          <div className="text-base font-semibold">Drop a photo here, or click to upload</div>
-          <div className="text-xs text-zinc-400 mt-1">JPG or PNG. Use a real face you have rights to. ~5MB or less works best.</div>
+          <div className="text-base font-semibold">Drop a photo here, or click to pick one</div>
+          <div className="text-xs text-zinc-400 mt-1">JPG or PNG. A face you own or have permission to use. ~5MB works best.</div>
         </div>
         {face.status === 'error' && (
           <div className="text-xs text-red-300 mt-2">{face.message}</div>
@@ -527,7 +534,7 @@ function FaceUploadCard(props: {
           <img src={face.localPreview} alt="" className="w-full h-full object-cover" />
         </div>
         <div className="flex-1">
-          <div className="flex items-center gap-2 text-sm font-semibold"><Loader2 className="w-4 h-4 animate-spin" />Uploading your photo…</div>
+          <div className="flex items-center gap-2 text-sm font-semibold"><Loader2 className="w-4 h-4 animate-spin" />Uploading…</div>
           <div className="text-xs text-zinc-400 mt-1">Then we'll generate the AI-styled version.</div>
         </div>
       </div>
@@ -544,7 +551,7 @@ function FaceUploadCard(props: {
         <div className="flex-1">
           <div className="flex items-center gap-2 text-sm font-semibold">
             <Loader2 className="w-4 h-4 animate-spin" />
-            {face.status === 'uploaded' ? 'Starting AI preview…' : 'Generating AI version (10–25s)…'}
+            {face.status === 'uploaded' ? 'Setting up the AI version…' : 'Making the AI version (10–25s)…'}
           </div>
           <div className="text-xs text-zinc-400 mt-1">You'll be able to pick original or AI version.</div>
         </div>
@@ -557,9 +564,9 @@ function FaceUploadCard(props: {
     return (
       <div className="rounded-xl border border-zinc-700 bg-zinc-900 overflow-hidden">
         <div className="p-3 border-b border-zinc-800 flex items-center justify-between">
-          <div className="text-sm font-semibold">Pick the face for your avatar</div>
+          <div className="text-sm font-semibold">Which face do you want to film with?</div>
           <button onClick={onReset} className="text-xs text-zinc-400 hover:text-white flex items-center gap-1">
-            <RefreshCw className="w-3 h-3" /> Use a different photo
+            <RefreshCw className="w-3 h-3" /> Try another photo
           </button>
         </div>
         <div className="grid grid-cols-2 gap-3 p-3">
@@ -570,8 +577,8 @@ function FaceUploadCard(props: {
               <img src={face.originalUrl} alt="Your original photo" className="w-full h-full object-cover" />
             </div>
             <div className="p-3">
-              <div className="text-sm font-semibold">Use original</div>
-              <div className="text-[11px] text-zinc-400 mt-0.5">The photo you uploaded</div>
+              <div className="text-sm font-semibold">Use my photo</div>
+              <div className="text-[11px] text-zinc-400 mt-0.5">The one you uploaded</div>
             </div>
           </button>
           <button onClick={onPickAi}
@@ -583,7 +590,7 @@ function FaceUploadCard(props: {
             </div>
             <div className="p-3">
               <div className="text-sm font-semibold">Use AI version</div>
-              <div className="text-[11px] text-zinc-400 mt-0.5">Polished, brand-spokesperson look</div>
+              <div className="text-[11px] text-zinc-400 mt-0.5">Studio-look — same person, cleaner setting</div>
             </div>
           </button>
         </div>
@@ -600,8 +607,8 @@ function FaceUploadCard(props: {
         {face.choseAi && <div className="absolute top-1 right-1 px-1.5 py-0 rounded bg-violet-500/80 text-[9px] font-semibold uppercase text-white">AI</div>}
       </div>
       <div className="flex-1">
-        <div className="flex items-center gap-2 text-sm font-semibold"><Check className="w-4 h-4 text-emerald-400" />Face locked in</div>
-        <div className="text-xs text-zinc-400 mt-1">{face.choseAi ? 'Using the AI-styled version.' : 'Using your original photo.'} You can swap on the avatar page later.</div>
+        <div className="flex items-center gap-2 text-sm font-semibold"><Check className="w-4 h-4 text-emerald-400" />Face set</div>
+        <div className="text-xs text-zinc-400 mt-1">{face.choseAi ? 'Using the AI version.' : 'Using your photo.'} Swap any time from their page.</div>
       </div>
       <button onClick={onReset} className="text-xs text-zinc-300 hover:text-white px-3 py-1.5 rounded border border-zinc-700">
         Change

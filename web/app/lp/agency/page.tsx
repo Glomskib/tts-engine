@@ -114,7 +114,7 @@ export default function AgencyLP() {
       <section className="py-12">
         <div className="text-center mb-8">
           <h2 className="text-2xl font-bold mb-2">Start with Business, Scale to Agency</h2>
-          <p className="text-zinc-400">Most agencies start on Business ($59/mo) and upgrade when they need custom features.</p>
+          <p className="text-zinc-400">Most agencies start on Business ($59/mo) and scale to Fleet ($149/mo) for 10+ brand portfolios.</p>
         </div>
         <div className="grid sm:grid-cols-2 gap-6 max-w-2xl mx-auto">
           {/* Business */}
@@ -155,7 +155,7 @@ export default function AgencyLP() {
           <div className="p-6 rounded-2xl bg-zinc-900/30 border border-white/5">
             <h3 className="text-lg font-semibold text-white mb-1">Agency</h3>
             <div className="mb-4">
-              <span className="text-2xl font-bold text-zinc-400">Custom Pricing</span>
+              <span className="text-2xl font-bold text-zinc-400"></49/mo</span>
             </div>
             <ul className="space-y-2 mb-6">
               {[

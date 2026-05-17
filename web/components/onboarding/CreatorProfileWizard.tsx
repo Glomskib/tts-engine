@@ -167,7 +167,7 @@ export function CreatorProfileWizard({ onSave, onComplete }: WizardProps) {
           ))}
         </FieldGroup>
 
-        <FieldGroup label="How long have you been doing TikTok Shop / affiliate?">
+        <FieldGroup label="How long have you been creating affiliate or sponsored content?">
           {Object.entries(TTS_TENURE_LABELS).map(([val, label]) => (
             <Chip
               key={val}
@@ -189,7 +189,7 @@ export function CreatorProfileWizard({ onSave, onComplete }: WizardProps) {
           ))}
         </FieldGroup>
 
-        <FieldGroup label="Are you in the TikTok Shop affiliate program?">
+        <FieldGroup label="Which networks are you on? (TikTok Shop, Amazon Influencer, Impact, ShareASale, none yet, etc.)">
           {Object.entries(TIKTOK_SHOP_STATUS_LABELS).map(([val, label]) => (
             <Chip
               key={val}

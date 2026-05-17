@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 export const metadata: Metadata = {
-  title: 'Upload — FlashFlow AI',
-  description: 'Drop in raw footage. We turn it into ready-to-post clips with hooks, captions, and B-roll.',
+  title: 'Create — FlashFlow AI',
+  description: 'Turn one take into a polished, ready-to-post short. Hooks, captions, vibe, all on autopilot.',
 };
 export default function Layout({ children }: { children: React.ReactNode }) {
   return <>{children}</>;

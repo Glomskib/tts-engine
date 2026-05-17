@@ -88,7 +88,7 @@ export default function ScenesPage() {
             className="w-full py-2.5 rounded-lg bg-teal-500 hover:bg-teal-600 disabled:bg-zinc-700 text-sm font-semibold flex items-center justify-center gap-2">
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Plus className="w-4 h-4" /> Generate {selected.length} scene{selected.length === 1 ? '' : 's'}</>}
           </button>
-          <div className="text-[11px] text-zinc-500 mt-2">Each scene takes ~10-30s. Generates with Nano Banana using your avatar's prior face refs for consistency.</div>
+          <div className="text-[11px] text-zinc-500 mt-2">Each scene takes ~10-30s. Same person, new lifestyle setting — anchored to your avatar's existing face refs.</div>
         </div>
 
         {loading && <div className="text-center py-8"><Loader2 className="w-5 h-5 animate-spin text-teal-400 mx-auto" /></div>}

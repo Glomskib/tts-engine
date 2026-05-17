@@ -4,7 +4,7 @@ import { TrendingUp, ExternalLink, Sparkles, RefreshCw } from 'lucide-react';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export const metadata: Metadata = {
-  title: 'Trend Radar — FlashFlow',
+  title: { absolute: 'Trend Radar | FlashFlow AI' },
   description: 'The latest viral products and hooks, captured daily.',
 };
 

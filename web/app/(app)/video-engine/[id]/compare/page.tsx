@@ -1,6 +1,6 @@
 import CompareView from '@/components/video-engine/CompareView';
 
-export const metadata = { title: 'Compare · Video Engine — FlashFlow' };
+export const metadata = { title: { absolute: 'Compare · Video Engine | FlashFlow AI' } };
 
 export default async function ComparePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

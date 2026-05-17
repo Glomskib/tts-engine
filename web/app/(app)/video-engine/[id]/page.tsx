@@ -1,6 +1,6 @@
 import RunDetail from '@/components/video-engine/RunDetail';
 
-export const metadata = { title: 'Run · Video Engine — FlashFlow' };
+export const metadata = { title: { absolute: 'Run · Video Engine | FlashFlow AI' } };
 
 export default async function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

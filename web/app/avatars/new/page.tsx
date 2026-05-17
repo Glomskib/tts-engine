@@ -63,7 +63,7 @@ const PLATFORMS = [
 ];
 
 function faceUrlFor(seed: string) {
-  return `https://api.dicebear.com/9.x/personas/svg?seed=${encodeURIComponent(seed)}&backgroundColor=14b8a6,a78bfa,fb7185,38bdf8&backgroundType=gradientLinear`;
+  return `https://api.dicebear.com/9.x/notionists/svg?seed=${encodeURIComponent(seed)}&backgroundColor=14b8a6,a78bfa,fb7185,38bdf8&backgroundType=gradientLinear`;
 }
 
 export default function NewAvatarPage() {

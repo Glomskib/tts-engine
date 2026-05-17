@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Refund Policy | FlashFlow AI',
+  title: { absolute: 'Refund Policy | FlashFlow AI' },
   description: '30-day money-back guarantee on FlashFlow AI subscriptions.',
 };
 

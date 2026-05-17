@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description:
     'Free TikTok transcriber, AI script generator with 20+ personas, Winners Bank, production pipeline, and retainer tracking. Built for TikTok Shop affiliates.',
   openGraph: {
-    title: 'Features | FlashFlow AI',
+    title: { absolute: 'Features | FlashFlow AI' },
     description: 'Free transcriber, AI scripts with 20+ personas, Winners Bank, and full TikTok content pipeline.',
     type: 'website',
     images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: 'Features | FlashFlow AI',
+    title: { absolute: 'Features | FlashFlow AI' },
     description: 'Free transcriber, AI scripts with 20+ personas, Winners Bank, and full TikTok content pipeline.',
     images: ['/opengraph-image'],
   },

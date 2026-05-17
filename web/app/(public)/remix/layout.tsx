@@ -16,7 +16,7 @@ export const metadata: Metadata = {
     'TikTok hook generator',
   ],
   openGraph: {
-    title: 'Remix Any Viral Video — FlashFlow',
+    title: { absolute: 'Remix Any Viral Video | FlashFlow AI' },
     description:
       'Break down any viral TikTok or YouTube Short and generate your own version with a remix script, hooks, and visual ideas.',
     type: 'website',

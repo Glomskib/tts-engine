@@ -5,7 +5,7 @@ import { ExamplesGrid } from './ExamplesGrid';
 import { PublicLayout } from '@/components/PublicLayout';
 
 export const metadata: Metadata = {
-  title: 'TikTok Script Examples — AI-Generated UGC Scripts | FlashFlow AI',
+  title: { absolute: 'TikTok Script Examples — AI-Generated UGC Scripts | FlashFlow AI' },
   description: 'Browse real AI-generated TikTok Shop scripts. See how FlashFlow creates unique scripts for every product and persona. Try free.',
   openGraph: {
     title: 'TikTok Script Examples — AI-Generated UGC Scripts',
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: 'TikTok Script Examples | FlashFlow AI',
+    title: { absolute: 'TikTok Script Examples | FlashFlow AI' },
     description: 'Browse real AI-generated TikTok Shop scripts across health, beauty, tech, home, and fashion.',
     images: ['/opengraph-image'],
   },

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { BreadcrumbSchema } from '@/components/BreadcrumbSchema';
 
 export const metadata: Metadata = {
-  title: 'Developer API — FlashFlow AI',
+  title: { absolute: 'Developer API | FlashFlow AI' },
   description:
     'Build on FlashFlow AI. Generate TikTok scripts programmatically with our HTTP API. cURL and JavaScript examples included.',
   alternates: { canonical: 'https://flashflowai.com/developers' },

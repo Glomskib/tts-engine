@@ -4,7 +4,7 @@ import { FreeScriptsForm } from './FreeScriptsForm';
 import { PublicLayout } from '@/components/PublicLayout';
 
 export const metadata: Metadata = {
-  title: 'Free UGC Script Vault — 50 TikTok Hooks + 10 Script Templates | FlashFlow AI',
+  title: { absolute: 'Free UGC Script Vault — 50 TikTok Hooks + 10 Script Templates | FlashFlow AI' },
   description: 'Download 50 proven TikTok hooks and 10 ready-to-film script templates. These hooks have generated millions in TikTok Shop sales. Free, no credit card required.',
   openGraph: {
     title: 'Free UGC Script Vault — 50 TikTok Hooks + 10 Script Templates',

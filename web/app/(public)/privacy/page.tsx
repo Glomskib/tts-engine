@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Privacy Policy | FlashFlow AI',
+  title: { absolute: 'Privacy Policy | FlashFlow AI' },
   description: 'How FlashFlow AI collects, uses, and protects your personal data.',
 };
 

@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description:
     'Learn how to transcribe TikTok videos, master viral hooks, and reverse-engineer winning content. Free guides for creators and TikTok Shop sellers.',
   openGraph: {
-    title: 'Blog | FlashFlow AI',
+    title: { absolute: 'Blog | FlashFlow AI' },
     description: 'TikTok content creation guides, hook formulas, and strategy insights.',
     type: 'website',
     images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
@@ -15,7 +15,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary',
-    title: 'Blog | FlashFlow AI',
+    title: { absolute: 'Blog | FlashFlow AI' },
     description: 'TikTok content creation guides, hook formulas, and strategy insights.',
     images: ['/opengraph-image'],
   },

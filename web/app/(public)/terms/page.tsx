@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Terms of Service | FlashFlow AI',
+  title: { absolute: 'Terms of Service | FlashFlow AI' },
   description: 'Terms and conditions for using FlashFlow AI services.',
 };
 

@@ -4,7 +4,7 @@ export const metadata: Metadata = {
   title: 'Log In',
   description: 'Sign in to your FlashFlow AI account to generate TikTok Shop scripts, manage concepts, and track performance.',
   openGraph: {
-    title: 'Log In | FlashFlow AI',
+    title: { absolute: 'Log In | FlashFlow AI' },
     description: 'Sign in to generate TikTok scripts, manage content, and track performance.',
     images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
   },

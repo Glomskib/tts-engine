@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     'ai tiktok content analyzer',
   ],
   openGraph: {
-    title: 'Free TikTok Video Transcriber | AI Script Analyzer | FlashFlow AI',
+    title: { absolute: 'Free TikTok Video Transcriber | AI Script Analyzer | FlashFlow AI' },
     description:
       'Transcribe any TikTok video for free. Get AI-powered hook analysis, key phrases, and content recommendations.',
     type: 'website',
@@ -23,7 +23,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Free TikTok Video Transcriber | FlashFlow AI',
+    title: { absolute: 'Free TikTok Video Transcriber | FlashFlow AI' },
     description:
       'Transcribe any TikTok video for free. Get AI-powered hook analysis and content recommendations.',
     images: ['/opengraph-image'],

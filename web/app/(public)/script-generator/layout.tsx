@@ -15,7 +15,7 @@ export const metadata: Metadata = {
     'tiktok video script',
   ],
   openGraph: {
-    title: 'Free TikTok Script Generator | FlashFlow AI',
+    title: { absolute: 'Free TikTok Script Generator | FlashFlow AI' },
     description:
       'AI-powered script generator for TikTok creators. Get scroll-stopping hooks, beat-by-beat dialogue, and CTAs in seconds.',
     type: 'website',
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Free TikTok Script Generator | FlashFlow AI',
+    title: { absolute: 'Free TikTok Script Generator | FlashFlow AI' },
     description:
       'Generate viral TikTok scripts in seconds. 20+ persona presets, TikTok Shop compliant.',
     images: ['/opengraph-image'],

@@ -13,7 +13,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
-  title: 'API Docs | FlashFlow AI',
+  title: { absolute: 'API Docs | FlashFlow AI' },
   description:
     'Public API for FlashFlow AI — generate scripts, fetch stats, and read deployment health programmatically. JSON over HTTPS.',
   openGraph: {

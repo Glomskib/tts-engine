@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 
 export const metadata: Metadata = {
-  title: 'Free YouTube Transcriber — AI-Powered, No Signup Needed | FlashFlow AI',
+  title: { absolute: 'Free YouTube Transcriber — AI-Powered, No Signup Needed | FlashFlow AI' },
   description:
     'Free AI-powered YouTube transcript generator. Paste any URL, get a clean transcript instantly. Bonus AI breakdown included.',
   keywords: [
@@ -17,7 +17,7 @@ export const metadata: Metadata = {
     'ai youtube transcript',
   ],
   openGraph: {
-    title: 'Free YouTube Transcriber — AI-Powered, No Signup Needed | FlashFlow AI',
+    title: { absolute: 'Free YouTube Transcriber — AI-Powered, No Signup Needed | FlashFlow AI' },
     description:
       'Paste any YouTube link. Get a clean transcript in seconds. Plus a bonus AI breakdown of hooks, structure, and what works — free.',
     type: 'website',
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Free YouTube Transcriber | FlashFlow AI',
+    title: { absolute: 'Free YouTube Transcriber | FlashFlow AI' },
     description:
       'Paste any YouTube link, get a clean transcript instantly. Bonus AI breakdown included. No signup.',
     images: ['/opengraph-image'],

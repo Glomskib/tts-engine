@@ -2,7 +2,7 @@ import UploadCard from '@/components/video-engine/UploadCard';
 import RunsList from '@/components/video-engine/RunsList';
 import LaneTabs from '@/components/video-engine/LaneTabs';
 
-export const metadata = { title: 'Video Engine — FlashFlow' };
+export const metadata = { title: { absolute: 'Video Engine | FlashFlow AI' } };
 
 type Lane = 'product' | 'clipper';
 

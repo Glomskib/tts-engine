@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
+import BrandPickerModal from '@/components/create/BrandPickerModal';
   Mic, Upload, Link as LinkIcon, Video, Loader2, AlertTriangle, Sparkles,
   X, ChevronRight,
 } from 'lucide-react';
@@ -751,9 +752,7 @@ export default function CreatePage() {
         {/* 4 · Brand */}
         <Section title="4 · Brand">
           {brands.length === 0 ? (
-            <div className="text-sm text-gray-400 bg-gray-900 border border-gray-700 rounded-lg p-3">
-              No brand profiles yet — using your account default. <a href="/admin/brand-profiles" className="text-teal-400 underline">Create one →</a>
-            </div>
+            <BrandPickerModal selectedId={brandId} onSelect={setBrandId} />
           ) : (
             <select
               value={brandId || ''}

@@ -4,17 +4,17 @@
 
 ---
 
-## Last refreshed: 2026-05-17 5:03am ET
+## Last refreshed: 2026-05-17 5:31am ET
 
 ## Current deploy truth
 
 - **Mission Control:** live match. Local/origin/prod are `5d8db46`. MC deploy pipe is working. `mc.flashflowai.com` was briefly mis-aliased to the wrong Vercel project (`mc-flashflowai`) on May 15; it has been restored to the `mission-control` deployment.
-- **FlashFlow:** deploy pipe is healthy. Local/origin/prod are `fb9f761` before this docs refresh. This public-doc update will create a newer FlashFlow health SHA, so always verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
+- **FlashFlow:** deploy pipe is healthy. This public brief is served by FlashFlow, so every brief edit creates the next FlashFlow SHA. Treat `https://flashflowai.com/api/health` and the latest launch report below as the exact source of truth after any public-doc push.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `46f6b5a`. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch. Do not change DNS without Brandon confirming.
 - **MMM hub:** `mmm-hub.vercel.app` is live at `e6c27e7`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports Mission Control SHA `5d8db46` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
 - **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists the exact approval gates, safe autonomous work, and Brandon's one-line decision menu.
-- **Latest launch report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-17-043149.md`.
-- **Latest HHH asset dashboard:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-043143.md`.
+- **Latest launch report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-17-053152.md`.
+- **Latest HHH asset dashboard:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-053152.md`.
 
 ## Top blockers
 

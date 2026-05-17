@@ -16,8 +16,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import {
 import BrandPickerModal from '@/components/create/BrandPickerModal';
+import {
   Mic, Upload, Link as LinkIcon, Video, Loader2, AlertTriangle, Sparkles,
   X, ChevronRight,
 } from 'lucide-react';

@@ -4,12 +4,12 @@
 
 ---
 
-## Last refreshed: 2026-05-16 11:29pm ET
+## Last refreshed: 2026-05-17 12:59am ET
 
 ## Current deploy truth
 
 - **Mission Control:** live match. Local/origin/prod are `5d8db46`. MC deploy pipe is working. `mc.flashflowai.com` was briefly mis-aliased to the wrong Vercel project (`mc-flashflowai`) on May 15; it has been restored to the `mission-control` deployment.
-- **FlashFlow:** deploy pipe is healthy again after the avatar API error-code fix. Local/origin/prod are `f034cea` before this docs refresh. This public-doc update will create a newer FlashFlow health SHA, so always verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
+- **FlashFlow:** deploy pipe is healthy again after the avatar API error-code fix and the first docs refresh. Local/origin/prod are `0a24c20` before this docs refresh. This public-doc update will create a newer FlashFlow health SHA, so always verify `https://flashflowai.com/api/health` matches `git rev-parse --short HEAD` after each push.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `46f6b5a`. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch. Do not change DNS without Brandon confirming.
 - **MMM hub:** `mmm-hub.vercel.app` is live at `e6c27e7`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports Mission Control SHA `5d8db46` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
 - **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists the exact approval gates, safe autonomous work, and Brandon's one-line decision menu.
@@ -61,7 +61,7 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - Guarded domain helper saved to `~/Documents/Command-Center/fix-domain-routing-after-approval.command`. It dry-runs MMM/Zebby's routing fixes and requires exact approval phrases before changing Vercel aliases or GoDaddy DNS. Do not run apply mode without Brandon.
 - Guarded TCG merge helper saved to `~/Documents/Command-Center/tcg-merge-after-approval.command` with runbook `~/Documents/MacBook Pro VAULT/10-Projects/TCG-merge-after-approval-runbook-2026-05-15.md`. It dry-runs cleanly and requires approval phrase `TCG: merge PR1 then PR2; stop before prod migration`.
 - This-week command board published at `https://flashflowai.com/claude/this-week-command-board.md` so agents can keep moving on safe work and Brandon can unblock launch gates with one-line approvals.
-- This-week launch status helper saved to `~/Documents/Command-Center/this-week-launch-status.command`. It is read-only, writes timestamped Markdown reports to `~/Documents/MacBook Pro VAULT/10-Projects/`, checks deploy health, domain guardrail dry-runs, sponsor/Facebook/route readiness, TCG readiness, digital asset ZIP/listing-bundle readiness, guarded helpers, and prints Brandon's decision menu. Latest verified report: `~/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-16-182825.md`.
+- This-week launch status helper saved to `~/Documents/Command-Center/this-week-launch-status.command`. It is read-only, writes timestamped Markdown reports to `~/Documents/MacBook Pro VAULT/10-Projects/`, checks deploy health, domain guardrail dry-runs, sponsor/Facebook/route readiness, TCG readiness, digital asset ZIP/listing-bundle readiness, guarded helpers, and prints Brandon's decision menu. Latest verified report: `~/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-17-000036.md`.
 
 ## Standing initiatives — pick from these when idle
 

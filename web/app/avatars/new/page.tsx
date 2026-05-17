@@ -164,13 +164,28 @@ export default function NewAvatarPage() {
       // server will route to Supabase Storage. If that endpoint doesn't exist we fall
       // back to /api/avatars/[id]/visual/upload after the avatar is created — but for
       // the upload-first flow we need a temp upload path.
-      const form = new FormData();
-      form.append('file', file);
-      const up = await fetch('/api/avatars/upload-temp', { method: 'POST', body: form });
-      if (!up.ok) throw new Error('upload failed (' + up.status + ')');
-      const upJ = await up.json() as { public_url?: string; error?: string };
-      if (!upJ.public_url) throw new Error(upJ.error || 'no public_url');
-      const originalUrl = upJ.public_url;
+      // Two-step upload: get a signed Supabase URL, then PUT the file directly.
+      // Bypasses Vercel's ~4.5MB serverless function body cap.
+      const sign = await fetch('/api/avatars/upload-temp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, mime: file.type, size: file.size }),
+      });
+      if (!sign.ok) {
+        const errJson = await sign.json().catch(() => ({} as { error?: string }));
+        throw new Error(errJson.error || ('upload sign failed: ' + sign.status));
+      }
+      const signJ = await sign.json() as { signed_url?: string; public_url?: string; error?: string };
+      if (!signJ.signed_url || !signJ.public_url) {
+        throw new Error(signJ.error || 'no signed_url returned');
+      }
+      const put = await fetch(signJ.signed_url, {
+        method: 'PUT',
+        headers: { 'content-type': file.type || 'image/jpeg' },
+        body: file,
+      });
+      if (!put.ok) throw new Error('storage upload failed: ' + put.status);
+      const originalUrl = signJ.public_url;
       setFace({ status: 'uploaded', originalUrl, localPreview });
 
       // Step B: auto-trigger AI preview generation

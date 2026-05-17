@@ -1,7 +1,15 @@
-// Temp photo upload — used by /avatars/new BEFORE an avatar record exists.
-// Saves to avatar-assets/<userId>/temp/<uuid>.<ext> and returns public_url.
-// The /avatars/new page can then call /api/avatars/preview to generate the AI
-// preview, and on final create, the public_url goes into avatar_visual_reference_url.
+// /api/avatars/upload-temp
+// Returns a signed Supabase Storage upload URL so the browser uploads the
+// file DIRECTLY to storage. Bypasses Vercel's serverless function body cap
+// (~4.5MB) which was rejecting iPhone photo uploads.
+//
+// Request:  POST { filename, mime, size }
+// Response: { ok, signed_url, public_url, path }
+//
+// Client flow:
+//   1. POST tiny JSON to get a signed_url
+//   2. PUT the file body directly to signed_url
+//   3. Use public_url as the avatar's reference image URL
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
@@ -11,7 +19,8 @@ import { randomUUID } from 'crypto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const maxDuration = 30;
+
+const MAX_BYTES = 50 * 1024 * 1024; // 50MB
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,24 +28,27 @@ export async function POST(req: NextRequest) {
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: {
-        getAll: () => cookieStore.getAll(),
-        setAll: (all) => all.forEach((c) => cookieStore.set(c.name, c.value, c.options)),
-      } },
+      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
     );
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-
-    const form = await req.formData();
-    const file = form.get('file');
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: 'file required' }, { status: 400 });
-    }
-    if (file.size > 30 * 1024 * 1024) {
-      return NextResponse.json({ error: 'file too large (max 30MB)' }, { status: 413 });
+    if (!user) {
+      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
     }
 
-    const ext = (file.type.split('/')[1] || 'jpg').replace(/[^a-z0-9]/g, '') || 'jpg';
+    const body = await req.json().catch(() => ({}));
+    const filename = String(body?.filename || 'upload').slice(0, 200);
+    const mime = String(body?.mime || 'image/jpeg');
+    const size = Number(body?.size || 0);
+
+    if (size > MAX_BYTES) {
+      return NextResponse.json(
+        { error: 'file too large (max 50MB)', size, max: MAX_BYTES },
+        { status: 413 },
+      );
+    }
+
+    const extPart = (mime.split('/')[1] || 'jpg').replace(/[^a-z0-9]/gi, '').slice(0, 8);
+    const ext = extPart || 'jpg';
     const id = randomUUID();
     const path = `${user.id}/temp/${id}.${ext}`;
 
@@ -45,16 +57,31 @@ export async function POST(req: NextRequest) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       { auth: { autoRefreshToken: false, persistSession: false } },
     );
-    const buf = Buffer.from(await file.arrayBuffer());
-    const { error: upErr } = await admin.storage
+
+    const signedRes = await admin.storage
       .from('avatar-assets')
-      .upload(path, buf, { contentType: file.type, cacheControl: '3600', upsert: false });
-    if (upErr) {
-      return NextResponse.json({ error: 'storage upload failed', detail: upErr.message }, { status: 500 });
+      .createSignedUploadUrl(path);
+
+    if (signedRes.error || !signedRes.data?.signedUrl) {
+      return NextResponse.json(
+        { error: 'could not sign upload', detail: signedRes.error?.message },
+        { status: 500 },
+      );
     }
-    const { data: pub } = admin.storage.from('avatar-assets').getPublicUrl(path);
-    return NextResponse.json({ ok: true, public_url: pub.publicUrl, path });
-  } catch (e: any) {
-    return NextResponse.json({ error: 'upload-temp failed', detail: String(e?.message || e) }, { status: 500 });
+
+    const pubRes = admin.storage.from('avatar-assets').getPublicUrl(path);
+
+    return NextResponse.json({
+      ok: true,
+      signed_url: signedRes.data.signedUrl,
+      public_url: pubRes.data.publicUrl,
+      path,
+      filename,
+      mime,
+      size,
+    });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    return NextResponse.json({ error: 'upload-temp failed', detail: msg }, { status: 500 });
   }
 }

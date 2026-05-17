@@ -21,7 +21,16 @@ import { generateUnifiedScript, type UnifiedScriptInput } from '@/lib/unified-sc
 export const runtime = 'nodejs';
 export const maxDuration = 120;
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY not configured');
+  }
+  openaiClient ??= new OpenAI({ apiKey });
+  return openaiClient;
+}
 
 // ── Types ─────────────────────────────────────────────────────────
 
@@ -125,7 +134,7 @@ ${niche ? `\nNiche: ${niche}` : ''}${tone ? `\nTone: ${tone}` : ''}${audience ? 
 
 Return ONLY a JSON array: [{"visual_hook":"...","text_on_screen":"...","verbal_hook":"...","why_this_works":"...","category":"..."}]`;
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: systemPrompt },

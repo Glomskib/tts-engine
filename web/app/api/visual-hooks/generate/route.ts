@@ -13,7 +13,16 @@ import { buildVisualHookPrompt, validateVisualHooks } from '@/lib/visual-hooks/g
 import type { VisualHookRequest, VibeContext } from '@/lib/visual-hooks/types';
 import { aiRouteGuard } from '@/lib/ai-route-guard';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY not configured');
+  }
+  openaiClient ??= new OpenAI({ apiKey });
+  return openaiClient;
+}
 
 export const runtime = 'nodejs';
 
@@ -54,7 +63,7 @@ export async function POST(request: NextRequest) {
 
     const { system, user: userPrompt } = buildVisualHookPrompt(req);
 
-    const completion = await openai.chat.completions.create({
+    const completion = await getOpenAI().chat.completions.create({
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: system },

@@ -21,7 +21,16 @@ import { logUsageEventAsync } from '@/lib/finops/log-usage';
 import { fetchPerformanceContext } from '@/lib/creator-performance/build-prompt-context';
 import { getAudienceKnowledgeContext } from '@/lib/knowledge-graph/retrieve';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY not configured');
+  }
+  openaiClient ??= new OpenAI({ apiKey });
+  return openaiClient;
+}
 
 // ── Hook generation (server-side, mirrors /api/hooks/generate logic) ──
 
@@ -73,7 +82,7 @@ ${input.context ? `Context: ${input.context}` : ''}${perfSection}
 Return ONLY a valid JSON array of 5 hooks:
 [{"visual_hook":"...","text_on_screen":"...","verbal_hook":"...","why_this_works":"...","category":"${categories[0].id}"}]`;
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: systemPrompt },
@@ -183,7 +192,7 @@ async function generateVisualHooks(input: ContentPackInput, userId?: string): Pr
     count: 4,
   });
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: system },

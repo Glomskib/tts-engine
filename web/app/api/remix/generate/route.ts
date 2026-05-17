@@ -28,7 +28,16 @@ import OpenAI from 'openai';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY not configured');
+  }
+  openaiClient ??= new OpenAI({ apiKey });
+  return openaiClient;
+}
 
 // ── Remix Script Generation ──
 
@@ -166,7 +175,7 @@ RULES:
 Return ONLY valid JSON array of 5 hooks:
 [{"visual_hook":"...","text_on_screen":"...","verbal_hook":"...","why_this_works":"...","category":"${categories[0].id}"}]`;
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: systemPrompt },
@@ -232,7 +241,7 @@ async function generateRemixVisualHooks(
     count: 4,
   });
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [
       { role: 'system', content: system },

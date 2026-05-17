@@ -18,7 +18,16 @@
 import OpenAI from 'openai';
 import { logUsageEventAsync } from '@/lib/finops/log-usage';
 
-const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+let openaiClient: OpenAI | null = null;
+
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY?.trim();
+  if (!apiKey) {
+    throw new Error('OPENAI_API_KEY not configured');
+  }
+  openaiClient ??= new OpenAI({ apiKey });
+  return openaiClient;
+}
 
 export interface CallOpenAIOptions {
   model?: string;
@@ -48,7 +57,7 @@ export async function callOpenAI(opts: CallOpenAIOptions): Promise<CallOpenAIRes
   const templateKey = opts.templateKey ?? undefined;
   const start       = Date.now();
 
-  const completion = await openai.chat.completions.create({
+  const completion = await getOpenAI().chat.completions.create({
     model,
     messages: opts.messages,
     temperature: opts.temperature,

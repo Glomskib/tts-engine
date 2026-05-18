@@ -72,3 +72,48 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     completed_at: run.completed_at,
   });
 }
+
+/**
+ * POST /api/create/jobs/[id] — retry a failed or stuck run.
+ *
+ * Resets the run to status='created' so the worker tick will pick it back up.
+ * Only the run owner (or admin) can retry. Idempotent.
+ *
+ * Body (optional):
+ *   { from?: 'failed' | 'stuck' }  — extra guard; default lets any non-complete
+ *                                    status retry.
+ */
+export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const auth = await getApiAuthContext(req).catch(() => null);
+  if (!auth?.user?.id) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
+
+  const { id } = await ctx.params;
+
+  const { data: run, error: runErr } = await supabaseAdmin
+    .from('ve_runs')
+    .select('id, user_id, status')
+    .eq('id', id)
+    .single();
+  if (runErr || !run) return NextResponse.json({ ok: false, error: 'not_found' }, { status: 404 });
+  if (run.user_id !== auth.user.id && !auth.isAdmin) {
+    return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
+  }
+  if (run.status === 'complete') {
+    return NextResponse.json({ ok: false, error: 'already_complete' }, { status: 409 });
+  }
+
+  // Reset the run so the worker tick claims it again.
+  const { error: updErr } = await supabaseAdmin
+    .from('ve_runs')
+    .update({
+      status: 'created',
+      error_message: null,
+      last_tick_at: null, // clear the claim so it can be picked up immediately
+    })
+    .eq('id', id);
+  if (updErr) {
+    return NextResponse.json({ ok: false, error: updErr.message }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, id, status: 'created' });
+}

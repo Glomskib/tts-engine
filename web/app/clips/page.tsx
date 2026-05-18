@@ -168,21 +168,27 @@ function JobCard({ job }: { job: JobRow }) {
         <StatusPill status={job.status} />
       </div>
 
-      {failed && job.error_message && (
-        <div className="mx-4 mb-4 bg-red-950/40 border border-red-800 rounded-lg px-3 py-2 text-sm text-red-200 flex items-start gap-2">
-          <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-          <div className="leading-snug">{job.error_message}</div>
+      {failed && (
+        <div className="mx-4 mb-4 bg-red-950/40 border border-red-800 rounded-lg px-3 py-2 text-sm text-red-200">
+          <div className="flex items-start gap-2 mb-2">
+            <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+            <div className="leading-snug">{job.error_message || 'Job failed.'}</div>
+          </div>
+          <RetryJobButton jobId={job.id} />
         </div>
       )}
 
       {inProgress && (
-        <div className="px-4 pb-4">
+        <div className="px-4 pb-4 flex items-center gap-4">
           <Link
             href={`/create?job=${job.id}`}
             className="inline-flex items-center gap-1 text-sm text-teal-400 hover:text-teal-300"
           >
             <Loader2 className="w-3.5 h-3.5 animate-spin" /> View progress
           </Link>
+          {/* If a job has been "in progress" for over 10 minutes, surface a
+              retry path — usually means a worker stalled. */}
+          <StuckRetryHint job={job} />
         </div>
       )}
 
@@ -199,6 +205,85 @@ function JobCard({ job }: { job: JobRow }) {
           Job completed but no clip URLs returned — this is rare. Try re-creating.
         </div>
       )}
+    </div>
+  );
+}
+
+/**
+ * Surface a "Retry" link when a job has been in flight for over 10 minutes.
+ * Inside that window we trust the worker tick to advance it; past that, it's
+ * almost certainly stuck on a transient error and a retry will unstick it.
+ */
+function StuckRetryHint({ job }: { job: JobRow }) {
+  const minutesOld = (Date.now() - new Date(job.created_at).getTime()) / 60000;
+  if (minutesOld < 10) return null;
+  return (
+    <span className="text-xs text-zinc-500">
+      Stuck for a while? <RetryJobButton jobId={job.id} variant="link" /> kicks it off again.
+    </span>
+  );
+}
+
+/**
+ * Retry button — POST /api/create/jobs/[id] resets the run so the worker tick
+ * picks it up again. Used on failed jobs, and on stuck-in-progress jobs.
+ */
+function RetryJobButton({
+  jobId,
+  variant = 'button',
+}: {
+  jobId: string;
+  variant?: 'button' | 'link';
+}) {
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function go() {
+    setBusy(true);
+    setErr(null);
+    try {
+      const r = await fetch(`/api/create/jobs/${jobId}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      const j = await r.json();
+      if (!r.ok || !j.ok) {
+        setErr(j.error || `HTTP ${r.status}`);
+        return;
+      }
+      setDone(true);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'retry failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (variant === 'link') {
+    return (
+      <button
+        type="button"
+        onClick={go}
+        disabled={busy || done}
+        className="underline text-teal-400 hover:text-teal-300 disabled:opacity-50"
+      >
+        {done ? 'Re-queued' : busy ? 'Retrying…' : 'Retrying'}
+      </button>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-3">
+      <button
+        type="button"
+        onClick={go}
+        disabled={busy || done}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-100 text-xs font-medium disabled:opacity-60"
+      >
+        {done ? 'Re-queued ✓' : busy ? 'Retrying…' : 'Try again'}
+      </button>
+      {err && <span className="text-xs text-red-300">{err}</span>}
     </div>
   );
 }

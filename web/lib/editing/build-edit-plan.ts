@@ -14,6 +14,7 @@
 
 import type { EditorNotesJSON } from '../content-items/editor-notes-schema';
 import type { EditPlan, EditPlanAction } from './types';
+import { dedupeTranscriptTakes, type TranscriptWord } from './dedupe-takes';
 
 // ── Public interface ────────────────────────────────────────────
 
@@ -25,6 +26,8 @@ export interface BuildEditPlanInput {
   caption?: string | null;
   cta_text?: string | null;
   brand_handle?: string | null;
+  /** Word-level transcript for repeat-take dedupe (last-take wins). */
+  transcript_json?: TranscriptWord[] | null;
 }
 
 export interface BuildEditPlanResult {
@@ -76,6 +79,27 @@ export function buildEditPlan(input: BuildEditPlanInput): BuildEditPlanResult {
     actions.push({ type: 'normalize_audio', target_lufs: -14, enabled: true });
   }
 
+  // ── 4b. Default: aggressive silence removal ──
+  // Brandon's locked decision: cut any silence ≥ 0.4s. Was previously only
+  // applied when the instructions explicitly said "remove pauses" or
+  // "tight edit", which left dead air in every standard render. Now it's
+  // the default for short-form (creator/clip) flows. Disable with the
+  // instruction phrases "keep pauses", "leave silence", or "no silence cut".
+  const hasRemoveSilence = actions.some(a => a.type === 'remove_silence');
+  const silenceDisabled = editing_instructions?.toLowerCase().includes('keep pauses')
+    || editing_instructions?.toLowerCase().includes('leave silence')
+    || editing_instructions?.toLowerCase().includes('no silence cut')
+    || editing_instructions?.toLowerCase().includes('keep silence');
+  if (!hasRemoveSilence && !silenceDisabled) {
+    actions.push({
+      type: 'remove_silence',
+      threshold_db: -35,
+      min_duration_ms: 400, // aggressive — 0.4s of dead air gets cut
+      padding_ms: 80,
+      enabled: true,
+    });
+  }
+
   // ── 5. Default: end card from CTA ──────────────────────
   const hasEndCard = actions.some(a => a.type === 'end_card');
   if (!hasEndCard && (input.cta_text || input.brand_handle)) {
@@ -87,6 +111,33 @@ export function buildEditPlan(input: BuildEditPlanInput): BuildEditPlanResult {
       bg_color: '#000000',
       text_color: '#FFFFFF',
     });
+  }
+
+  // ── 5b. Dedupe repeat takes from word-level transcript ──
+  // When a creator records B-roll style, they often say the same line two or
+  // three times before they're happy. Brandon's locked decision: keep the
+  // LAST take. We emit `cut` actions for each earlier occurrence of a
+  // repeated sentence stem.
+  const dedupeDisabled = editing_instructions?.toLowerCase().includes('keep retakes')
+    || editing_instructions?.toLowerCase().includes('no dedupe')
+    || editing_instructions?.toLowerCase().includes('keep repeats');
+  if (input.transcript_json && !dedupeDisabled) {
+    const dedupeCuts = dedupeTranscriptTakes(input.transcript_json);
+    for (const c of dedupeCuts) {
+      // Bound to source duration so the renderer doesn't get an out-of-range cut.
+      const end = Math.min(c.end_sec, source_duration_sec);
+      if (end > c.start_sec) {
+        actions.push({
+          type: 'cut',
+          start_sec: Math.max(0, c.start_sec),
+          end_sec: end,
+          reason: c.reason,
+        });
+      }
+    }
+    if (dedupeCuts.length > 0) {
+      warnings.push(`dedupe: removed ${dedupeCuts.length} earlier take${dedupeCuts.length === 1 ? '' : 's'}`);
+    }
   }
 
   // ── 6. Fallback: keep full duration ─────────────────────

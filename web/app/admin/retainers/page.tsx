@@ -137,6 +137,11 @@ export default function RetainersPage() {
   const [briefTitle, setBriefTitle] = useState('');
   const [analyzingBrief, setAnalyzingBrief] = useState(false);
   const [briefAnalysis, setBriefAnalysis] = useState<BriefAnalysis | null>(null);
+  // Real database ID of the just-analyzed brief — used by Apply to Brand.
+  // The bug previously passed campaign_name (a label) here, which made the
+  // /apply call hit /api/brand-briefs/<label>/apply and silent-fail.
+  const [lastBriefId, setLastBriefId] = useState<string | null>(null);
+  const [applyingBrief, setApplyingBrief] = useState(false);
   const [briefError, setBriefError] = useState<string | null>(null);
   const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
   const [pdfParsing, setPdfParsing] = useState(false);
@@ -211,6 +216,20 @@ export default function RetainersPage() {
       const json = await res.json();
       if (res.ok && json.analysis) {
         setBriefAnalysis(json.analysis);
+        // The /analyze route now also creates a brand_briefs row and returns
+        // its id as `brief_id`. We stash it so Apply to Brand can target the
+        // right database row. If it's missing for any reason, fall back to
+        // refetching the most recent ready brief for this user.
+        if (json.brief_id) {
+          setLastBriefId(json.brief_id);
+        } else {
+          try {
+            const list = await fetch('/api/brand-briefs', { credentials: 'include' });
+            const ld = await list.json();
+            const latest = (ld.briefs || ld.data || [])[0];
+            if (latest?.id) setLastBriefId(latest.id);
+          } catch { /* best effort */ }
+        }
       } else {
         setBriefError(json.error || 'Failed to analyze brief');
       }
@@ -222,22 +241,40 @@ export default function RetainersPage() {
   };
 
   const handleApplyBrief = async (briefId?: string) => {
-    if (!briefBrandId || !briefId) return;
+    const targetId = briefId || lastBriefId;
+    if (!briefBrandId) {
+      setBriefError('Pick a brand to apply this brief to first.');
+      return;
+    }
+    if (!targetId) {
+      setBriefError('No analyzed brief to apply. Run Analyze first.');
+      return;
+    }
+    setApplyingBrief(true);
+    setBriefError(null);
     try {
-      await fetch(`/api/brand-briefs/${briefId}/apply`, {
+      const applyRes = await fetch(`/api/brand-briefs/${targetId}/apply`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ brand_id: briefBrandId }),
       });
+      if (!applyRes.ok) {
+        const err = await applyRes.json().catch(() => ({}));
+        setBriefError(err.error || 'Failed to apply brief to brand');
+        return;
+      }
       // Refresh retainers data
       const res = await fetch('/api/admin/retainers', { credentials: 'include' });
       const d = await res.json();
       setData(d);
       setShowBriefUpload(false);
       setBriefAnalysis(null);
+      setLastBriefId(null);
       setBriefText('');
     } catch {
       setBriefError('Failed to apply brief to brand');
+    } finally {
+      setApplyingBrief(false);
     }
   };
 
@@ -549,10 +586,11 @@ export default function RetainersPage() {
               {/* Apply to Brand */}
               {briefBrandId && (
                 <button
-                  onClick={() => handleApplyBrief(briefAnalysis.campaign_name)}
-                  className="w-full py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-lg font-medium transition-colors"
+                  onClick={() => handleApplyBrief()}
+                  disabled={applyingBrief || !lastBriefId}
+                  className="w-full py-3 bg-teal-600 hover:bg-teal-500 disabled:bg-zinc-700 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
                 >
-                  Apply to Brand & Create Retainer
+                  {applyingBrief ? 'Saving…' : 'Apply to Brand & Create Retainer'}
                 </button>
               )}
             </div>

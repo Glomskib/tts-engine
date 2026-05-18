@@ -18,6 +18,8 @@ import { resolveUserId, resolveWorkspaceId, resolveContentItemId } from '@/lib/e
 import { buildEditPlan } from '@/lib/editing/build-edit-plan';
 import { validateEditPlan } from '@/lib/editing/validate-edit-plan';
 import { logContentItemEvent } from '@/lib/content-items/sync';
+import { resolveBrollAssets } from '@/lib/editing/resolve-broll-assets';
+import type { TranscriptWord } from '@/lib/editing/dedupe-takes';
 
 export const runtime = 'nodejs';
 
@@ -36,7 +38,7 @@ export const POST = withErrorCapture(async (
   // Load content item with all fields needed for plan generation
   const { data: item, error: fetchErr } = await supabaseAdmin
     .from('content_items')
-    .select('id, workspace_id, editing_instructions, editor_notes_json, primary_hook, caption, edit_status, raw_video_url, raw_video_storage_path, raw_video_duration_sec')
+    .select('id, workspace_id, editing_instructions, editor_notes_json, primary_hook, caption, edit_status, raw_video_url, raw_video_storage_path, raw_video_duration_sec, transcript_json')
     .eq('id', id)
     .eq('workspace_id', user.id)
     .single();
@@ -92,6 +94,8 @@ export const POST = withErrorCapture(async (
     || item.raw_video_duration_sec
     || 60; // Last-resort fallback; real probe happens at render time
 
+  const transcriptWords = (item.transcript_json as TranscriptWord[] | null) ?? null;
+
   const { plan, warnings } = buildEditPlan({
     source_duration_sec: sourceDuration,
     editing_instructions: item.editing_instructions,
@@ -100,7 +104,25 @@ export const POST = withErrorCapture(async (
     caption: item.caption,
     cta_text: overrides.cta_text,
     brand_handle: overrides.brand_handle,
+    transcript_json: transcriptWords,
   });
+
+  // Resolve b-roll prompts → real stock URLs via Pexels (matching the words
+  // being spoken in each window). Best-effort: if Pexels isn't configured or
+  // a query has no result, the broll action keeps asset_url=null and the
+  // renderer falls back to the raw clip for that span.
+  let brollResolved = 0;
+  let brollPlanted = 0;
+  try {
+    const result = await resolveBrollAssets(plan, transcriptWords);
+    brollResolved = result.resolved;
+    brollPlanted = result.planted;
+    if (brollResolved > 0) {
+      warnings.push(`broll: resolved ${brollResolved} stock clip${brollResolved === 1 ? '' : 's'}${brollPlanted ? ` (${brollPlanted} planted)` : ''}`);
+    }
+  } catch (e) {
+    console.warn('[edit-plan] broll resolution failed:', e);
+  }
 
   // Validate the generated plan
   const validation = validateEditPlan(plan);

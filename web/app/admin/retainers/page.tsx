@@ -218,7 +218,7 @@ export default function RetainersPage() {
       const json = await res.json();
       if (res.ok && json.analysis) {
         setBriefAnalysis(json.analysis);
-        if (json.brief?.id) setSavedBriefId(json.brief.id as string);
+        if (json.brief_id) setSavedBriefId(json.brief_id as string);
         // The /analyze route now also creates a brand_briefs row and returns
         // its id as `brief_id`. We stash it so Apply to Brand can target the
         // right database row. If it's missing for any reason, fall back to

@@ -142,7 +142,7 @@ export default function ScriptGenPage() {
         ...state,
         [s.id]: {
           starting: false,
-          job: { id: j.job_id, status: 'running', step: 'parse_intent_done', progress: 10, steps_done: ['parse_intent'] },
+          job: { id: j.job_id!, status: 'running', step: 'parse_intent_done', progress: 10, steps_done: ['parse_intent'] },
         },
       }));
     } catch (e: unknown) {

@@ -4,18 +4,18 @@ import { BreadcrumbSchema } from '@/components/BreadcrumbSchema';
 export const metadata: Metadata = {
   title: { absolute: 'Pricing | Plans for Creators & Businesses | FlashFlow AI' },
   description:
-    'Start free with 5 scripts/month. Upgrade to Creator Lite ($9), Creator Pro ($29), or Business ($59) for unlimited AI-powered TikTok Shop scripts. Brand & Agency plans available.',
+    'Start free. Upgrade to Lite ($9), Creator ($19), Creator Pro ($29), or Fleet ($149) for the full AI script + clip + publishing engine. Built for TikTok Shop, Reels, and YouTube Shorts creators.',
   openGraph: {
     title: 'FlashFlow AI Pricing — Plans That Grow With You',
     description:
-      'AI-powered TikTok Shop scripts from $0/mo. 4 tiers: Free, Creator Lite, Creator Pro, and Business. Enterprise plans available.',
+      'AI-powered creator content engine from $0/mo. Free, Lite ($9), Creator ($19), Creator Pro ($29), Fleet ($149).',
     url: 'https://flashflowai.com/pricing',
     images: [{ url: '/opengraph-image', width: 1200, height: 630, alt: 'FlashFlow AI' }],
   },
   twitter: {
     card: 'summary',
     title: 'FlashFlow AI Pricing — Plans That Grow With You',
-    description: 'AI-powered TikTok Shop scripts from $0/mo. Free, Lite, Creator Pro, and Business tiers.',
+    description: 'From $0/mo. Free, Lite ($9), Creator ($19), Creator Pro ($29), Fleet ($149).',
     images: ['/opengraph-image'],
   },
   alternates: {
@@ -26,19 +26,21 @@ export const metadata: Metadata = {
 // Schema.org Product with per-tier Offer entries. Google rich-snippets pricing
 // directly from this when paired with the page's PriceSpecification on each
 // card. AggregateOffer surfaces "from $0" in SERP.
+// Keep these tiers in sync with web/lib/plans.ts PRICING_PLANS — drift here
+// means Google indexes prices that don't match the page.
 const PRICING_SCHEMA = {
   '@context': 'https://schema.org',
   '@type': 'Product',
   name: 'FlashFlow AI',
   description:
-    'AI-powered TikTok Shop content engine — scripts, hooks, clips, publishing, commissions.',
+    'AI-powered creator content engine — scripts, hooks, clips, publishing, commissions.',
   brand: { '@type': 'Brand', name: 'FlashFlow AI' },
   offers: {
     '@type': 'AggregateOffer',
     priceCurrency: 'USD',
     lowPrice: '0',
-    highPrice: '99',
-    offerCount: 4,
+    highPrice: '149',
+    offerCount: 5,
     offers: [
       {
         '@type': 'Offer',
@@ -50,8 +52,8 @@ const PRICING_SCHEMA = {
       },
       {
         '@type': 'Offer',
-        name: 'Starter',
-        price: '19',
+        name: 'Lite',
+        price: '9',
         priceCurrency: 'USD',
         url: 'https://flashflowai.com/pricing',
         availability: 'https://schema.org/InStock',
@@ -60,7 +62,7 @@ const PRICING_SCHEMA = {
       {
         '@type': 'Offer',
         name: 'Creator',
-        price: '49',
+        price: '19',
         priceCurrency: 'USD',
         url: 'https://flashflowai.com/pricing',
         availability: 'https://schema.org/InStock',
@@ -68,8 +70,17 @@ const PRICING_SCHEMA = {
       },
       {
         '@type': 'Offer',
-        name: 'Pro',
-        price: '99',
+        name: 'Creator Pro',
+        price: '29',
+        priceCurrency: 'USD',
+        url: 'https://flashflowai.com/pricing',
+        availability: 'https://schema.org/InStock',
+        eligibleQuantity: { '@type': 'QuantitativeValue', unitCode: 'MON' },
+      },
+      {
+        '@type': 'Offer',
+        name: 'Fleet',
+        price: '149',
         priceCurrency: 'USD',
         url: 'https://flashflowai.com/pricing',
         availability: 'https://schema.org/InStock',

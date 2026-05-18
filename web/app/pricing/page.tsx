@@ -329,13 +329,13 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold mb-2">What happens when I run out of clips?</h3>
             <p className="text-gray-300">
-              Your existing clips stay accessible through their storage window. To create more, upgrade to Starter, Creator, or Pro and your monthly clip credits start immediately.
+              Your existing clips stay accessible through their storage window. To create more, upgrade to Lite, Creator, or Creator Pro and your monthly clip credits start immediately.
             </p>
           </div>
           <div>
             <h3 className="text-lg font-bold mb-2">What&apos;s the difference between the tiers?</h3>
             <p className="text-gray-300">
-              Free is for testing. Starter gives you 50 clips per month, Creator gives you 200 clips plus custom caption styles and voice-clone TTS, and Pro gives you 500 clips, 4K output, scheduling, and more brand profiles. Content Fleet is for agencies running 5+ client brands.
+              Free is for testing. Lite gives you a monthly clip allowance to keep posting weekly. Creator is the heavy-output tier — daily-posting volume plus custom caption styles and voice-clone TTS. Creator Pro adds 4K output, scheduling, and multiple brand profiles. Fleet is for agencies running 5+ client brands.
             </p>
           </div>
           <div>

@@ -12,6 +12,7 @@
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { sendEmail } from '@/lib/email/resend';
+import { sendTelegramLog } from '@/lib/telegram';
 
 export type NotifyOutcome =
   | { ok: true; channels: { inApp: boolean; email: boolean } }
@@ -153,7 +154,17 @@ export async function notifyTerminalRun(runId: string): Promise<NotifyOutcome> {
     target_clip_count: run.target_clip_count,
   });
 
-  // 2. Email — best-effort.
+  // 2. Telegram — best-effort, fire-and-forget. Uses the env-configured
+  //    TELEGRAM_LOG_CHAT_ID. Only fires when TELEGRAM_BOT_TOKEN is set, so
+  //    local dev / customers without TG don't get errors.
+  const tgMsg = isComplete
+    ? `🎬 Clips ready: ${run.target_clip_count} from ${run.mode} run\nuser=${run.user_id.slice(0, 8)}\n${APP_URL}/video-engine/${run.id}`
+    : `❌ Run failed: ${run.mode}\nuser=${run.user_id.slice(0, 8)}\nerror=${(run.error_message || 'unknown').slice(0, 120)}\n${APP_URL}/video-engine/${run.id}`;
+  sendTelegramLog(tgMsg).catch((e) => {
+    console.warn('[ve-notify] telegram send failed:', e);
+  });
+
+  // 3. Email — best-effort.
   let emailOk = false;
   const email = await getUserEmail(run.user_id);
   if (email) {
@@ -176,6 +187,9 @@ export async function notifyTerminalRun(runId: string): Promise<NotifyOutcome> {
   await markNotified(runId, inAppOk || emailOk);
   return { ok: true, channels: { inApp: inAppOk, email: emailOk } };
 }
+
+// Re-export emitted explicitly so the caller doesn't need a deep import.
+export { sendTelegramLog };
 
 /**
  * Sweep up to N runs that finished but never delivered. Used by the cron

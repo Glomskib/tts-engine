@@ -193,11 +193,21 @@ function JobCard({ job }: { job: JobRow }) {
       )}
 
       {done && ready.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pb-4">
-          {ready.map((c) => (
-            <ClipCard key={c.id} clip={c} job={job} />
-          ))}
-        </div>
+        <>
+          {ready.length > 1 && (
+            <div className="px-4 pb-2 flex items-center justify-between">
+              <span className="text-xs text-gray-400">
+                {ready.length} clip{ready.length === 1 ? '' : 's'} ready
+              </span>
+              <SaveAllButton clips={ready} />
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 px-4 pb-4">
+            {ready.map((c) => (
+              <ClipCard key={c.id} clip={c} job={job} />
+            ))}
+          </div>
+        </>
       )}
 
       {done && ready.length === 0 && (
@@ -387,14 +397,60 @@ function ClipCard({ clip, job }: { clip: Clip; job: JobRow }) {
           </a>
           <a
             href={clip.output_url || '#'}
-            download
-            className="px-2 py-1 bg-teal-600 hover:bg-teal-500 rounded text-white inline-flex items-center gap-1"
+            // Suggesting a filename helps the browser save the mp4 with a
+            // useful name instead of a long Supabase storage hash. Falls back
+            // to clip.id when no title.
+            download={`${(clip.suggested_title || clip.id).replace(/[^a-z0-9_-]+/gi, '_').slice(0, 48)}.mp4`}
+            className="px-2.5 py-1 bg-teal-600 hover:bg-teal-500 rounded text-white inline-flex items-center gap-1 font-medium"
+            title="Download as MP4 (right-click to choose a folder)"
           >
-            <Download className="w-3.5 h-3.5" /> Save
+            <Download className="w-3.5 h-3.5" /> Save MP4
           </a>
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * Trigger a download for each ready clip in this job. Browsers throttle
+ * simultaneous downloads, so we stagger them ~150ms apart and rely on the
+ * <a download> filename suggestion to keep the names readable.
+ */
+function SaveAllButton({ clips }: { clips: Clip[] }) {
+  const [busy, setBusy] = useState(false);
+
+  function go() {
+    if (!clips.length) return;
+    setBusy(true);
+    clips.forEach((c, idx) => {
+      if (!c.output_url) return;
+      const name = `${(c.suggested_title || c.id).replace(/[^a-z0-9_-]+/gi, '_').slice(0, 48)}.mp4`;
+      setTimeout(() => {
+        const a = document.createElement('a');
+        a.href = c.output_url!;
+        a.download = name;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        if (idx === clips.length - 1) {
+          // Reset the button state ~1s after the last download fires.
+          setTimeout(() => setBusy(false), 1000);
+        }
+      }, idx * 150);
+    });
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={go}
+      disabled={busy}
+      className="px-3 py-1 rounded-md bg-teal-600 hover:bg-teal-500 disabled:opacity-60 text-white text-xs font-medium inline-flex items-center gap-1.5"
+    >
+      <Download className="w-3.5 h-3.5" /> {busy ? 'Starting downloads…' : `Save all (${clips.length})`}
+    </button>
   );
 }
 

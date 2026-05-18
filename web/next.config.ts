@@ -28,7 +28,7 @@ const securityHeaders = [
   },
 ];
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   reactCompiler: true,
   serverExternalPackages: ['@ffmpeg-installer/ffmpeg', 'ffmpeg-static', 'canvas', 'jsdom', '@tobyg74/tiktok-api-dl'],
   compress: true,

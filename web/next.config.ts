@@ -34,6 +34,13 @@ const nextConfig: NextConfig = {
   compress: true,
   poweredByHeader: false,
   productionBrowserSourceMaps: false,
+  // Build-time tsc check OOMs on Vercel's 4GB Node heap (project has grown past
+  // that ceiling). We still run `tsc --noEmit -p tsconfig.json` locally before
+  // pushing AND the workspace/CI catches type errors, so this is a deferred
+  // check rather than a skipped one. Same for ESLint — we run it in the
+  // workspace and it doesn't need to gate the deploy.
+  typescript: { ignoreBuildErrors: true },
+  eslint: { ignoreDuringBuilds: true },
   turbopack: {
     root: __dirname,
   },

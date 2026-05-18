@@ -189,16 +189,29 @@ export function CreatorProfileWizard({ onSave, onComplete }: WizardProps) {
           ))}
         </FieldGroup>
 
-        <FieldGroup label="Which networks are you on? (TikTok Shop, Amazon Influencer, Impact, ShareASale, none yet, etc.)">
-          {Object.entries(TIKTOK_SHOP_STATUS_LABELS).map(([val, label]) => (
-            <Chip
-              key={val}
-              label={label}
-              selected={draft.tiktok_shop_status === val}
-              onClick={() => toggle('tiktok_shop_status', val as CreatorProfile['tiktok_shop_status'])}
-            />
-          ))}
-        </FieldGroup>
+        {/*
+         * TikTok Shop network question is ONLY relevant to affiliate creators
+         * (or "both"). A pure seller/brand doesn't need to answer this —
+         * showing it forced everyone to pick an irrelevant option and made the
+         * onboarding feel narrow. If the user picked "unsure" we still show
+         * it with the original label, since that's still informative for us
+         * when figuring out where to point them next.
+         */}
+        {(draft.role_type === 'affiliate_creator' ||
+          draft.role_type === 'both' ||
+          draft.role_type === 'unsure' ||
+          !draft.role_type) && (
+          <FieldGroup label="Which networks are you on? (TikTok Shop, Amazon Influencer, Impact, ShareASale, none yet, etc.)">
+            {Object.entries(TIKTOK_SHOP_STATUS_LABELS).map(([val, label]) => (
+              <Chip
+                key={val}
+                label={label}
+                selected={draft.tiktok_shop_status === val}
+                onClick={() => toggle('tiktok_shop_status', val as CreatorProfile['tiktok_shop_status'])}
+              />
+            ))}
+          </FieldGroup>
+        )}
       </div>
     );
   }

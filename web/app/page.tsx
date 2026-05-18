@@ -343,9 +343,13 @@ export default function LandingPage() {
               {
                 icon: '🛍️',
                 title: 'TikTok Shop Product Discovery',
-                desc: 'The Affiliate Hub — search the TikTok Shop affiliate marketplace. Filter by commission, category, sample availability. Find winners worth promoting before everyone else.',
-                link: undefined as string | undefined,
-                linkText: undefined as string | undefined,
+                // Don't overpromise. The Affiliate Hub product search is gated
+                // behind TikTok Shop Affiliate API approval, which is in
+                // progress. Until then, the Trend Radar handles discovery —
+                // describe what's actually shipping today.
+                desc: 'Trend Radar surfaces TikTok products before they peak — sorted by sales velocity, commission rate, and creator pickup. (TikTok Shop affiliate marketplace integration lights up automatically once we’re approved by TikTok.)',
+                link: '/trend-radar' as string | undefined,
+                linkText: 'Open Trend Radar' as string | undefined,
               },
               {
                 icon: '⚡',
@@ -477,7 +481,7 @@ export default function LandingPage() {
               {
                 tag: 'AFFILIATES',
                 title: 'TikTok Shop Affiliates',
-                desc: 'Find converting products in the affiliate marketplace, request samples, generate the hook + script, edit, post, and watch the commissions land — without spreadsheets.',
+                desc: 'Spot winning products in Trend Radar, generate the hook + script, edit and caption, post, and track commissions — without spreadsheets. Sample-request and in-app collab tools roll on once TikTok approves us for the Affiliate API.',
                 cta: 'Start as Affiliate',
                 href: '/login?mode=signup&segment=affiliate',
               },
@@ -557,47 +561,47 @@ export default function LandingPage() {
       </section>
 
       {/* ================================================================ */}
-      {/* SECTION 9 — SOCIAL PROOF */}
+      {/* SECTION 9 — USE CASES                                              */}
+      {/* Replaced the "What real users are saying" testimonial section.    */}
+      {/* Those quotes were sample copy with placeholder @handles — they    */}
+      {/* read as fake testimonials even with the small "sample voices"     */}
+      {/* footnote. Re-cast as "Who FlashFlow is built for" with the same   */}
+      {/* benefits surfaced as use-cases instead of pretend reviews.        */}
       {/* ================================================================ */}
       <section className="relative py-20 px-6 border-t border-white/5">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-12">
-            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">From Creators</p>
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">What real users are saying</h2>
+            <p className="text-sm font-medium text-zinc-500 uppercase tracking-widest mb-4">Use Cases</p>
+            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">Who FlashFlow is built for</h2>
           </div>
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
               {
-                quote:
-                  'I went from posting 2x a week to 5x without burning out. The AI Editor cut my edit time in half.',
-                handle: '@matchawithlena',
-                role: 'TikTok Shop Affiliate · Beauty',
+                title: 'Going from 2 to 5 posts a week',
+                body:
+                  'The AI Editor cuts pause + dead-air, dedupes repeat takes, and matches b-roll to what you said — so a single record session yields multiple finished clips without rebuilding the edit each time.',
+                tag: 'Beauty · Lifestyle',
               },
               {
-                quote:
-                  'Affiliate Hub finally lets me find products with real commission rates instead of doom-scrolling Shop Plaza.',
-                handle: '@dadcreates',
-                role: 'TikTok Shop Affiliate · Home & Lifestyle',
+                title: 'Finding products worth promoting',
+                body:
+                  'Trend Radar surfaces TikTok Shop products by sales velocity, commission rate, and creator pickup — so you stop doom-scrolling Shop Plaza for winners.',
+                tag: 'Home · Wellness · Tech',
               },
               {
-                quote:
-                  "Hook Generator + Comment Miner is the duo I didn't know I needed. Three of my last five posts hit 100k.",
-                handle: '@gymrat.kev',
-                role: 'Creator · Fitness',
+                title: 'Hooks that earn the first 3 seconds',
+                body:
+                  'Hook Generator + Comment Miner reads what people actually said about a product in the wild and turns the most-engaged comments into hook openers worth testing.',
+                tag: 'Fitness · Food · Style',
               },
             ].map((t) => (
-              <figure key={t.handle} className="p-6 rounded-2xl bg-zinc-900/40 border border-white/5">
-                <blockquote className="text-zinc-200 leading-relaxed">&ldquo;{t.quote}&rdquo;</blockquote>
-                <figcaption className="mt-4 text-sm">
-                  <div className="text-zinc-100 font-medium">{t.handle}</div>
-                  <div className="text-zinc-500 text-xs">{t.role}</div>
-                </figcaption>
+              <figure key={t.title} className="p-6 rounded-2xl bg-zinc-900/40 border border-white/5">
+                <h3 className="text-zinc-100 font-semibold mb-2">{t.title}</h3>
+                <p className="text-zinc-300 leading-relaxed text-sm">{t.body}</p>
+                <figcaption className="mt-4 text-xs text-zinc-500">{t.tag}</figcaption>
               </figure>
             ))}
           </div>
-          <p className="text-center mt-8 text-xs text-zinc-600">
-            Sample voices representative of beta users. Names + handles obscured during pre-launch.
-          </p>
         </div>
       </section>
 

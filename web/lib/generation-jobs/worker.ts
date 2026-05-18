@@ -256,16 +256,82 @@ async function generateScriptInline(job: GenJob): Promise<string> {
   return text.trim();
 }
 
-// HeyGen stub — only called when HEYGEN_API_KEY is set
-async function kickHeygen(_job: GenJob, _scriptText: string): Promise<string> {
+// HeyGen v2 — kick a video.generate using the avatar's heygen_custom_avatar_id
+// and the script text. Returns the heygen video_id which we then poll for.
+//
+// API docs: https://docs.heygen.com/reference/create-an-avatar-video-v2
+async function kickHeygen(job: GenJob, scriptText: string): Promise<string> {
   const key = process.env.HEYGEN_API_KEY;
   if (!key) throw new Error('HEYGEN_API_KEY missing');
-  // TODO: wire real HeyGen v2 video.generate call
-  throw new Error('HeyGen integration not yet wired — set HEYGEN_API_KEY and implement kickHeygen()');
+
+  // Load the avatar's heygen_custom_avatar_id and voice_clone_id (or fallback voice)
+  let heygenAvatarId: string | null = null;
+  let voiceId: string | null = null;
+  if (job.brand_profile_id) {
+    const { data: avatar } = await supabaseAdmin
+      .from('brand_profiles')
+      .select('heygen_custom_avatar_id, voice_clone_id, voice_preset_id')
+      .eq('id', job.brand_profile_id)
+      .single();
+    if (avatar) {
+      heygenAvatarId = (avatar.heygen_custom_avatar_id as string | null) || null;
+      voiceId = (avatar.voice_clone_id as string | null) || (avatar.voice_preset_id as string | null) || null;
+    }
+  }
+
+  if (!heygenAvatarId) {
+    throw new Error('Avatar has no heygen_custom_avatar_id — finish avatar setup before rendering');
+  }
+  // Fallback to a generic HeyGen voice if no per-avatar voice is set.
+  const useVoice = voiceId || '1bd001e7e50f421d891986aad5158bc8';
+
+  const body = {
+    video_inputs: [
+      {
+        character: { type: 'avatar', avatar_id: heygenAvatarId, avatar_style: 'normal' },
+        voice: { type: 'text', input_text: scriptText.slice(0, 1500), voice_id: useVoice },
+        background: { type: 'color', value: '#ffffff' },
+      },
+    ],
+    dimension: { width: 720, height: 1280 },  // vertical
+    aspect_ratio: '9:16',
+    test: false,
+  };
+
+  const resp = await fetch('https://api.heygen.com/v2/video/generate', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Api-Key': key,
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    throw new Error(`HeyGen generate ${resp.status}: ${errText.slice(0, 200)}`);
+  }
+  const data = await resp.json();
+  const videoId: string | undefined = data?.data?.video_id;
+  if (!videoId) throw new Error('HeyGen did not return video_id: ' + JSON.stringify(data).slice(0, 200));
+  return videoId;
 }
 
-async function pollHeygen(_videoId: string): Promise<{ done: boolean; url?: string; failed?: boolean; error?: string }> {
+async function pollHeygen(videoId: string): Promise<{ done: boolean; url?: string; failed?: boolean; error?: string }> {
   const key = process.env.HEYGEN_API_KEY;
   if (!key) throw new Error('HEYGEN_API_KEY missing');
-  throw new Error('HeyGen polling not yet wired');
+
+  const resp = await fetch(`https://api.heygen.com/v1/video_status.get?video_id=${encodeURIComponent(videoId)}`, {
+    headers: { 'X-Api-Key': key },
+  });
+  if (!resp.ok) {
+    const errText = await resp.text().catch(() => '');
+    return { done: false, failed: true, error: `HeyGen status ${resp.status}: ${errText.slice(0, 200)}` };
+  }
+  const data = await resp.json();
+  const status: string = data?.data?.status || 'unknown';
+  const url: string | undefined = data?.data?.video_url;
+  if (status === 'completed' && url) return { done: true, url };
+  if (status === 'failed') return { done: false, failed: true, error: data?.data?.error?.message || 'HeyGen render failed' };
+  return { done: false }; // still processing
 }

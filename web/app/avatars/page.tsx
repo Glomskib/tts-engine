@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, User, Loader2, Sparkles, Mic, Camera as CameraIcon, Check, AlertCircle } from 'lucide-react';
+import { Plus, User, Loader2, Sparkles, Mic, Camera as CameraIcon, Check, AlertCircle, Trash2 } from 'lucide-react';
 
 interface Avatar {
   id: string;
@@ -21,6 +21,21 @@ interface Avatar {
 
 export default function AvatarsPage() {
   const [avatars, setAvatars] = useState<Avatar[]>([]);
+
+  async function deleteAvatar(id: string, name: string) {
+    if (!confirm(`Delete avatar "${name}"? This cannot be undone.`)) return;
+    try {
+      const r = await fetch(`/api/avatars/${id}`, { method: 'DELETE' });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error((j as { error?: string }).error || `HTTP ${r.status}`);
+      }
+      // Refresh list
+      window.location.reload();
+    } catch (e) {
+      alert('Delete failed: ' + (e instanceof Error ? e.message : String(e)));
+    }
+  }
   const [loading, setLoading] = useState(true);
   const [authErr, setAuthErr] = useState(false);
 

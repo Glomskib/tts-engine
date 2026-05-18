@@ -15,6 +15,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { isAdmin } from '@/lib/isAdmin';
+import type { User } from '@supabase/supabase-js';
 import { tickGenerationJobs } from '@/lib/generation-jobs/worker';
 
 export const runtime = 'nodejs';
@@ -24,7 +25,7 @@ export const maxDuration = 60;
 export async function POST(req: NextRequest) {
   const auth = await getApiAuthContext(req).catch(() => null);
   if (!auth?.user) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
-  if (!isAdmin(auth.user)) return NextResponse.json({ error: 'admin only' }, { status: 403 });
+  if (!isAdmin(auth.user as unknown as User)) return NextResponse.json({ error: 'admin only' }, { status: 403 });
 
   const summary: Record<string, unknown> = {
     user_id: auth.user.id,

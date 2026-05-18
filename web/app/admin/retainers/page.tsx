@@ -518,7 +518,39 @@ export default function RetainersPage() {
           )}
 
           {/* Analysis Results */}
-          {briefAnalysis && (
+          {savedBriefId && briefAnalysis && (
+        <div className="mb-4 p-4 rounded-xl border-2 border-emerald-500/40 bg-emerald-500/10">
+          <div className="flex items-start gap-3">
+            <div className="text-2xl">✅</div>
+            <div className="flex-1">
+              <div className="text-emerald-300 font-semibold text-sm">Brief saved — link it to a brand to start tracking</div>
+              <div className="text-emerald-200/70 text-xs mt-1">
+                The AI analysis is stored. Pick a brand below and click "Apply to brand" to make this a live retainer.
+              </div>
+              <div className="flex items-center gap-2 mt-3">
+                <select
+                  value={briefBrandId}
+                  onChange={(e) => setBriefBrandId(e.target.value)}
+                  className="flex-1 px-3 py-2 rounded-lg bg-zinc-900 border border-white/10 text-zinc-100 text-sm"
+                >
+                  <option value="">— Pick a brand —</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                <button
+                  onClick={() => savedBriefId && briefBrandId && handleApplyBrief(savedBriefId)}
+                  disabled={!savedBriefId || !briefBrandId}
+                  className="px-5 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-950 font-bold text-sm whitespace-nowrap"
+                >
+                  ✓ Apply to brand
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {briefAnalysis && (
             <div className="space-y-4 border-t border-zinc-800 pt-4">
               <h4 className="text-sm font-semibold text-emerald-400 uppercase tracking-wider">AI Analysis Results</h4>
 

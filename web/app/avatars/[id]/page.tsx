@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, FileText, Calendar, Play, Loader2, User, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Sparkles, FileText, Calendar, Play, Loader2, User, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
 
 interface Avatar {
   id: string; name: string; avatar_display_name?: string; niche?: string;
@@ -27,6 +27,50 @@ export default function AvatarDetailPage() {
   const [scripts, setScripts] = useState<Script[]>([]);
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
+  const [regenerating, setRegenerating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  async function regenerateVisual() {
+    if (!id) return;
+    setRegenerating(true);
+    try {
+      const r = await fetch(`/api/avatars/${id}/visual/generate`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const j = await r.json() as { ok: boolean; visual_url?: string; error?: string };
+      if (!j.ok) throw new Error(j.error || 'regenerate failed');
+      // Refresh avatar
+      const r2 = await fetch(`/api/avatars/${id}`);
+      const j2 = await r2.json() as { ok: boolean; avatar?: Avatar };
+      if (j2.ok) setAvatar(j2.avatar || null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert('Regenerate failed: ' + msg);
+    } finally {
+      setRegenerating(false);
+    }
+  }
+
+  async function deleteAvatar() {
+    if (!id) return;
+    if (!confirm(`Delete avatar "${avatar?.avatar_display_name || avatar?.name}"? This cannot be undone.`)) return;
+    setDeleting(true);
+    try {
+      const r = await fetch(`/api/avatars/${id}`, { method: 'DELETE' });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        throw new Error((j as { error?: string }).error || `HTTP ${r.status}`);
+      }
+      router.push('/avatars');
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      alert('Delete failed: ' + msg);
+      setDeleting(false);
+    }
+  }
 
   useEffect(() => {
     if (!id) return;
@@ -80,6 +124,24 @@ export default function AvatarDetailPage() {
               <Link href={`/avatars/${id}/scenes`} className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold flex items-center gap-1.5 border border-white/10"><span>🎬</span> Storyboard</Link>
               <Link href={`/avatars/${id}/campaigns/new`} className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-sm font-semibold flex items-center gap-1.5 border border-white/10"><Calendar className="w-4 h-4" /> Plan a series</Link>
               <Link href={`/studio/oneprompt?avatar=${id}`} className="px-3 py-2 rounded-lg bg-purple-600/30 border border-purple-500 hover:bg-purple-600/40 text-sm font-semibold flex items-center gap-1.5 text-purple-100">⚡ Quick video</Link>
+              <button
+                onClick={regenerateVisual}
+                disabled={regenerating}
+                className="px-3 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-sm font-semibold flex items-center gap-1.5 border border-white/10"
+                title="Generate a new AI visual using this avatar's reference photo"
+              >
+                {regenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                Regenerate visual
+              </button>
+              <button
+                onClick={deleteAvatar}
+                disabled={deleting}
+                className="px-3 py-2 rounded-lg bg-red-900/30 hover:bg-red-900/50 disabled:opacity-50 text-sm font-semibold flex items-center gap-1.5 border border-red-500/30 text-red-300 ml-auto"
+                title="Delete this avatar permanently"
+              >
+                {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                Delete
+              </button>
             </div>
           </div>
         </div>

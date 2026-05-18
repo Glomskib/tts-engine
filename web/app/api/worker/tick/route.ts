@@ -19,6 +19,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { tickActiveRuns } from '@/lib/video-engine/pipeline';
 import { notifyPendingRuns } from '@/lib/video-engine/notify';
 import { runRenderChecks } from '@/lib/video-engine/run-render-checks';
+import { tickGenerationJobs } from '@/lib/generation-jobs/worker';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -71,15 +72,18 @@ async function tick(request: NextRequest) {
     const url = new URL(request.url);
     const max = Math.min(10, Math.max(1, Number(url.searchParams.get('max') ?? 5)));
 
-    const [tickResult, notifyResult, renderResult] = await Promise.allSettled([
+    const [tickResult, notifyResult, renderResult, genJobsResult] = await Promise.allSettled([
       tickActiveRuns(max),
       notifyPendingRuns(3),
       runRenderChecks(10),
+      tickGenerationJobs(2),
     ]);
 
     const ticked = tickResult.status === 'fulfilled' ? tickResult.value.length : 0;
     const notified = notifyResult.status === 'fulfilled' ? notifyResult.value.length : 0;
     const rendersChecked = renderResult.status === 'fulfilled' ? renderResult.value.checked : 0;
+    const genJobsTicked = genJobsResult.status === 'fulfilled' ? genJobsResult.value.length : 0;
+    const genJobsErr = genJobsResult.status === 'rejected' ? String(genJobsResult.reason) : null;
     const tickErr = tickResult.status === 'rejected' ? String(tickResult.reason) : null;
     const notifyErr = notifyResult.status === 'rejected' ? String(notifyResult.reason) : null;
     const renderErr = renderResult.status === 'rejected' ? String(renderResult.reason) : null;
@@ -89,9 +93,11 @@ async function tick(request: NextRequest) {
       ticked,
       notified,
       rendersChecked,
+      genJobsTicked,
       ...(tickErr ? { tickError: tickErr } : {}),
       ...(notifyErr ? { notifyError: notifyErr } : {}),
       ...(renderErr ? { renderError: renderErr } : {}),
+      ...(genJobsErr ? { genJobsError: genJobsErr } : {}),
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -1,15 +1,18 @@
 // /api/avatars/upload-temp
-// Returns a signed Supabase Storage upload URL so the browser uploads the
-// file DIRECTLY to storage. Bypasses Vercel's serverless function body cap
-// (~4.5MB) which was rejecting iPhone photo uploads.
 //
-// Request:  POST { filename, mime, size }
-// Response: { ok, signed_url, public_url, path }
+// Three modes:
+//   POST { action: 'sign', filename, contentType }
+//     → { signedUrl, token, path } – client PUTs file directly to Supabase Storage
+//     → bypasses Vercel's 4.5MB body cap entirely (the 413 root cause)
 //
-// Client flow:
-//   1. POST tiny JSON to get a signed_url
-//   2. PUT the file body directly to signed_url
-//   3. Use public_url as the avatar's reference image URL
+//   POST { action: 'commit', path }
+//     → { public_url } – confirms upload landed, returns the public URL
+//
+//   POST (multipart, with file)
+//     → legacy path; small files (≤ ~4MB on Vercel) still work via direct multipart
+//
+// Used by /avatars/new BEFORE an avatar record exists. The public_url goes
+// into avatar_visual_reference_url on create.
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
@@ -19,68 +22,103 @@ import { randomUUID } from 'crypto';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+export const maxDuration = 30;
 
-const MAX_BYTES = 50 * 1024 * 1024; // 50MB
+const BUCKET = 'avatar-assets';
+
+async function getUserId(): Promise<string | null> {
+  const cookieStore = await cookies();
+  const supabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {
+        getAll: () => cookieStore.getAll(),
+        setAll: (all) => all.forEach((c) => cookieStore.set(c.name, c.value, c.options)),
+      },
+    },
+  );
+  const { data: { user } } = await supabase.auth.getUser();
+  return user?.id ?? null;
+}
+
+function adminClient() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    { auth: { autoRefreshToken: false, persistSession: false } },
+  );
+}
+
+function safeExt(fromName: string, fromType: string): string {
+  const m = fromName.match(/\.([a-z0-9]{1,5})$/i);
+  if (m) return m[1].toLowerCase();
+  const t = (fromType || '').split('/')[1] || 'jpg';
+  return t.replace(/[^a-z0-9]/gi, '').toLowerCase().slice(0, 5) || 'jpg';
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const cookieStore = await cookies();
-    const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { cookies: { getAll: () => cookieStore.getAll(), setAll: () => {} } },
-    );
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+    const userId = await getUserId();
+    if (!userId) return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
+
+    const ct = req.headers.get('content-type') || '';
+
+    // ── JSON mode: sign or commit ────────────────────────────────────
+    if (ct.includes('application/json')) {
+      const body = await req.json().catch(() => ({} as Record<string, unknown>));
+      const action = String(body?.action || '');
+      const admin = adminClient();
+
+      if (action === 'sign') {
+        const filename = String(body?.filename || 'photo.jpg');
+        const ctype = String(body?.contentType || 'image/jpeg');
+        const ext = safeExt(filename, ctype);
+        const path = `${userId}/temp/${randomUUID()}.${ext}`;
+        const { data, error } = await admin.storage.from(BUCKET).createSignedUploadUrl(path);
+        if (error || !data) {
+          return NextResponse.json({ error: 'sign failed', detail: error?.message }, { status: 500 });
+        }
+        return NextResponse.json({ ok: true, signedUrl: data.signedUrl, token: data.token, path });
+      }
+
+      if (action === 'commit') {
+        const path = String(body?.path || '');
+        if (!path || !path.startsWith(userId + '/')) {
+          return NextResponse.json({ error: 'bad path' }, { status: 400 });
+        }
+        const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(path);
+        return NextResponse.json({ ok: true, public_url: pub.publicUrl, path });
+      }
+
+      return NextResponse.json({ error: 'unknown action' }, { status: 400 });
     }
 
-    const body = await req.json().catch(() => ({}));
-    const filename = String(body?.filename || 'upload').slice(0, 200);
-    const mime = String(body?.mime || 'image/jpeg');
-    const size = Number(body?.size || 0);
-
-    if (size > MAX_BYTES) {
+    // ── Legacy multipart path (small files only) ─────────────────────
+    const form = await req.formData();
+    const file = form.get('file');
+    if (!(file instanceof File)) {
+      return NextResponse.json({ error: 'file required' }, { status: 400 });
+    }
+    if (file.size > 12 * 1024 * 1024) {
       return NextResponse.json(
-        { error: 'file too large (max 50MB)', size, max: MAX_BYTES },
+        { error: 'file too large (max 12MB) — use signed URL for larger files' },
         { status: 413 },
       );
     }
-
-    const extPart = (mime.split('/')[1] || 'jpg').replace(/[^a-z0-9]/gi, '').slice(0, 8);
-    const ext = extPart || 'jpg';
-    const id = randomUUID();
-    const path = `${user.id}/temp/${id}.${ext}`;
-
-    const admin = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } },
-    );
-
-    const signedRes = await admin.storage
-      .from('avatar-assets')
-      .createSignedUploadUrl(path);
-
-    if (signedRes.error || !signedRes.data?.signedUrl) {
-      return NextResponse.json(
-        { error: 'could not sign upload', detail: signedRes.error?.message },
-        { status: 500 },
-      );
+    const ext = safeExt((file as File).name || '', file.type);
+    const path = `${userId}/temp/${randomUUID()}.${ext}`;
+    const admin = adminClient();
+    const buf = Buffer.from(await file.arrayBuffer());
+    const { error: upErr } = await admin.storage
+      .from(BUCKET)
+      .upload(path, buf, { contentType: file.type, cacheControl: '3600', upsert: false });
+    if (upErr) {
+      return NextResponse.json({ error: 'storage upload failed', detail: upErr.message }, { status: 500 });
     }
-
-    const pubRes = admin.storage.from('avatar-assets').getPublicUrl(path);
-
-    return NextResponse.json({
-      ok: true,
-      signed_url: signedRes.data.signedUrl,
-      public_url: pubRes.data.publicUrl,
-      path,
-      filename,
-      mime,
-      size,
-    });
-  } catch (e) {
+    const { data: pub } = admin.storage.from(BUCKET).getPublicUrl(path);
+    return NextResponse.json({ ok: true, public_url: pub.publicUrl, path });
+  } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     return NextResponse.json({ error: 'upload-temp failed', detail: msg }, { status: 500 });
   }

@@ -158,41 +158,61 @@ export default function NewAvatarPage() {
     const localPreview = URL.createObjectURL(file);
     setFace({ status: 'uploading', localPreview });
     try {
-      // Step A: ask server for a signed URL (use the existing /api/avatars/preview-upload
-      // helper if it exists; otherwise we upload via FormData directly to Supabase).
-      // For now, we POST the file as multipart to /api/avatars/upload-temp which the
-      // server will route to Supabase Storage. If that endpoint doesn't exist we fall
-      // back to /api/avatars/[id]/visual/upload after the avatar is created — but for
-      // the upload-first flow we need a temp upload path.
-      // Two-step upload: get a signed Supabase URL, then PUT the file directly.
-      // Bypasses Vercel's ~4.5MB serverless function body cap.
-      const sign = await fetch('/api/avatars/upload-temp', {
+      // Step A: ask server for a signed upload URL — bypasses Vercel's 4.5MB
+      // body cap by uploading the file directly to Supabase Storage.
+      const signRes = await fetch('/api/avatars/upload-temp', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, mime: file.type, size: file.size }),
+        body: JSON.stringify({
+          action: 'sign',
+          filename: file.name || 'photo.jpg',
+          contentType: file.type || 'image/jpeg',
+        }),
       });
-      if (!sign.ok) {
-        const errJson = await sign.json().catch(() => ({} as { error?: string }));
-        throw new Error(errJson.error || ('upload sign failed: ' + sign.status));
+
+      if (!signRes.ok) {
+        // Fallback: legacy multipart path (only works for files under ~4MB)
+        const form = new FormData();
+        form.append('file', file);
+        const up = await fetch('/api/avatars/upload-temp', { method: 'POST', body: form });
+        if (!up.ok) throw new Error('upload failed (' + up.status + ')');
+        const upJ = await up.json() as { public_url?: string; error?: string };
+        if (!upJ.public_url) throw new Error(upJ.error || 'no public_url');
+        const originalUrl = upJ.public_url;
+        setFace({ status: 'uploaded', originalUrl, localPreview });
+        generateAiPreview(originalUrl, localPreview);
+        return;
       }
-      const signJ = await sign.json() as { signed_url?: string; public_url?: string; error?: string };
-      if (!signJ.signed_url || !signJ.public_url) {
-        throw new Error(signJ.error || 'no signed_url returned');
-      }
-      const put = await fetch(signJ.signed_url, {
+
+      const signJ = await signRes.json() as { signedUrl?: string; token?: string; path?: string; error?: string };
+      if (!signJ.signedUrl || !signJ.path) throw new Error(signJ.error || 'sign failed');
+
+      // Step B: PUT the file directly to Supabase Storage via the signed URL.
+      // No Vercel proxying happens — the body never hits the 4.5MB cap.
+      const putRes = await fetch(signJ.signedUrl, {
         method: 'PUT',
-        headers: { 'content-type': file.type || 'image/jpeg' },
+        headers: { 'content-type': file.type || 'application/octet-stream' },
         body: file,
       });
-      if (!put.ok) throw new Error('storage upload failed: ' + put.status);
-      const originalUrl = signJ.public_url;
+      if (!putRes.ok) throw new Error('storage PUT failed (' + putRes.status + ')');
+
+      // Step C: tell the server to confirm and return the public URL.
+      const commitRes = await fetch('/api/avatars/upload-temp', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ action: 'commit', path: signJ.path }),
+      });
+      const commitJ = await commitRes.json() as { public_url?: string; error?: string };
+      if (!commitJ.public_url) throw new Error(commitJ.error || 'commit failed');
+      const originalUrl = commitJ.public_url;
       setFace({ status: 'uploaded', originalUrl, localPreview });
 
-      // Step B: auto-trigger AI preview generation
+      // Step D: kick off AI preview generation against the just-uploaded photo.
       generateAiPreview(originalUrl, localPreview);
     } catch (e: any) {
       setFace({ status: 'error', message: e?.message || 'Upload failed', localPreview });
     }
+  
   }
 
   async function generateAiPreview(originalUrl: string, localPreview: string) {

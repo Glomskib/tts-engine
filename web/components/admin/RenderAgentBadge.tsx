@@ -19,6 +19,7 @@
  */
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useAuth } from '@/contexts/AuthContext';
 import { Activity, AlertTriangle, Loader2 } from 'lucide-react';
 
 interface RenderNode {
@@ -46,6 +47,7 @@ function relativeAge(iso: string | null | undefined): string {
 }
 
 export function RenderAgentBadge() {
+  const { isAdmin } = useAuth();
   const [state, setState] = useState<'loading' | 'online' | 'offline' | 'error'>('loading');
   const [nodes, setNodes] = useState<RenderNode[]>([]);
   const [hover, setHover] = useState(false);
@@ -83,6 +85,8 @@ export function RenderAgentBadge() {
     };
   }, []);
 
+  if (!isAdmin) return null;
+
   const onlineCount = nodes.filter((n) => n.online).length;
 
   let label: string;
@@ -96,7 +100,7 @@ export function RenderAgentBadge() {
     label = `Render: online${nodes.length > 1 ? ` · ${onlineCount}/${nodes.length}` : ''}`;
     cls = 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/30';
   } else if (state === 'offline') {
-    label = nodes.length === 0 ? 'Render: no agent' : 'Render: offline';
+    label = nodes.length === 0 ? 'Render worker: offline' : 'Render worker: offline';
     cls = 'bg-rose-500/15 text-rose-300 ring-rose-400/30';
     Icon = AlertTriangle;
   } else {
@@ -110,7 +114,7 @@ export function RenderAgentBadge() {
       <Link
         href="/admin/render-jobs"
         className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md text-[11px] font-medium ring-1 ${cls} hover:brightness-110 transition`}
-        aria-label="Render agent status"
+        aria-label="Render worker status"
       >
         <Icon className={`w-3 h-3 ${state === 'loading' ? 'animate-spin' : ''}`} />
         {label}
@@ -123,22 +127,22 @@ export function RenderAgentBadge() {
         >
           {state === 'offline' && nodes.length === 0 && (
             <>
-              <div className="font-semibold text-rose-300 mb-1">No render agent registered.</div>
+              <div className="font-semibold text-rose-300 mb-1">No render worker registered.</div>
               <div className="text-zinc-400">
-                Make sure your Mac mini render agent is running. Edit jobs will queue and start as soon as one comes online.
+                Make sure your render worker is running. Edit jobs will queue and start as soon as one comes online.
               </div>
             </>
           )}
           {state === 'offline' && nodes.length > 0 && (
             <>
-              <div className="font-semibold text-rose-300 mb-1">Render agent offline.</div>
+              <div className="font-semibold text-rose-300 mb-1">Render worker offline.</div>
               <div className="text-zinc-400 mb-2">
                 Last seen {relativeAge(nodes[0]?.last_seen)}. Jobs you start now will queue and run when it reconnects.
               </div>
             </>
           )}
           {state === 'online' && (
-            <div className="font-semibold text-emerald-300 mb-1">Render agent online.</div>
+            <div className="font-semibold text-emerald-300 mb-1">Render worker online.</div>
           )}
           {nodes.length > 0 && (
             <ul className="space-y-1.5 mt-2 max-h-44 overflow-auto">

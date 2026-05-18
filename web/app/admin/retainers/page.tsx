@@ -137,6 +137,7 @@ export default function RetainersPage() {
   const [briefTitle, setBriefTitle] = useState('');
   const [analyzingBrief, setAnalyzingBrief] = useState(false);
   const [briefAnalysis, setBriefAnalysis] = useState<BriefAnalysis | null>(null);
+  const [savedBriefId, setSavedBriefId] = useState<string | null>(null);
   // Real database ID of the just-analyzed brief — used by Apply to Brand.
   // The bug previously passed campaign_name (a label) here, which made the
   // /apply call hit /api/brand-briefs/<label>/apply and silent-fail.
@@ -154,6 +155,7 @@ export default function RetainersPage() {
       const d = await res.json();
       if (d.brief?.ai_analysis) {
         setBriefAnalysis(d.brief.ai_analysis);
+          setSavedBriefId(id);
         setBriefTitle(d.brief.title || '');
         if (d.brief.brand_id) setBriefBrandId(d.brief.brand_id);
         setSelectedBriefId(id);
@@ -216,6 +218,7 @@ export default function RetainersPage() {
       const json = await res.json();
       if (res.ok && json.analysis) {
         setBriefAnalysis(json.analysis);
+        if (json.brief?.id) setSavedBriefId(json.brief.id as string);
         // The /analyze route now also creates a brand_briefs row and returns
         // its id as `brief_id`. We stash it so Apply to Brand can target the
         // right database row. If it's missing for any reason, fall back to

@@ -89,37 +89,14 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(loginUrl)
       }
 
-      // Block non-admin customers from sensitive admin routes.
+      // Block non-admin customers from ALL admin routes.
       //
-      // Customer-friendly admin pages (the legacy editors which now redirect
-      // to /create, and the user dashboard pages) are intentionally NOT in
-      // this list — those are accessible to all paying users.
-      //
-      // ADMIN_ONLY_PATHS are operator surfaces only. A logged-in customer
-      // who navigates here gets redirected to /create instead of seeing
-      // other users' data.
-      const ADMIN_ONLY_PATHS = [
-        '/admin/feedback',
-        '/admin/api-docs',
-        '/admin/launch-check',
-        '/admin/render-jobs',
-        '/admin/settings/integrations',
-        '/admin/settings/system-status',
-        '/admin/settings/users',
-        '/admin/command-center',
-        '/admin/system',
-        '/admin/billing-recon',
-        '/admin/users',
-        '/admin/whop',
-        '/admin/affiliate-payouts',
-        '/admin/agents',
-        '/admin/queue',
-      ]
-      const isAdminOnly = ADMIN_ONLY_PATHS.some((p) => path === p || path.startsWith(p + '/'))
-      if (isAdminOnly && !isAdmin(user)) {
-        // Non-admin tried to hit an admin-only surface. Bounce to the canonical
-        // customer surface. Log so we can detect probe attempts.
-        console.warn('[AUTH-MW] non-admin blocked from admin-only path', { path, userId: user.id, email: user.email })
+      // Previously: explicit ADMIN_ONLY_PATHS allow-list (deny only listed
+      // pages). That left ~30 admin pages visible to customers — including
+      // /admin/retainers, /admin/brands, /admin/affiliate. Flipped to
+      // deny-by-default: every /admin/* page is admin-only.
+      if (!isAdmin(user)) {
+        console.warn('[AUTH-MW] non-admin blocked from admin', { path, userId: user.id, email: user.email })
         return NextResponse.redirect(new URL('/create?from=admin_denied', request.url))
       }
 
@@ -161,11 +138,12 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // 2026-05-15: previously redirected logged-in users from / → /create. Killed
-  // because it broke "click the logo to go home" UX and made it impossible to
-  // re-share the homepage URL once logged in. Logged-in users hitting / now
-  // see the marketing homepage like everyone else; nav already exposes /create
-  // prominently for one-click access to the tool.
+  // Logged-in users hitting / go to /create — feels like a tool, not a
+  // website. Marketing homepage is reachable at /home (not implemented;
+  // logged-out users see / as marketing).
+  if (!isApiRoute && path === '/' && user) {
+    return NextResponse.redirect(new URL('/create', request.url))
+  }
 
   return response
 }

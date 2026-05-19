@@ -1,5 +1,6 @@
 'use client';
 
+import { QueueStatusBanner } from '@/components/queue/QueueStatusBanner';
 /**
  * /clips — "My Clips" library.
  *

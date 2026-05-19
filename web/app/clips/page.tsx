@@ -89,6 +89,7 @@ export default function ClipsPage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      <QueueStatusBanner />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold">My Clips</h1>

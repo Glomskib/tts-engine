@@ -15,8 +15,8 @@
 "use client";
 import { useEffect, useRef } from "react";
 
-const POLL_INTERVAL_MS = 6000;   // every 6s when tab is visible
-const IDLE_INTERVAL_MS = 60000;  // every 60s when tab is hidden
+const POLL_INTERVAL_MS = 3000;   // every 6s when tab is visible
+const IDLE_INTERVAL_MS = 30000;  // every 60s when tab is hidden
 
 export default function QueueTicker() {
   const lastTick = useRef(0);

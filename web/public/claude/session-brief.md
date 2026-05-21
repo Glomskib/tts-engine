@@ -2,9 +2,21 @@
 
 *Auto-updated by `~/Documents/Command-Center/update-session-brief.command`. Read this AFTER `CLAUDE-BOOTSTRAP.md` to know what to do FIRST in a new chat.*
 
+<!-- AUTO-SNAPSHOT:START -->
+## Live Auto Snapshot
+
+- Refreshed: `2026-05-21 05:51 EDT`
+- Mission Control: prod `8f3d7d9`, local/origin `8f3d7d9` (in sync)
+- FlashFlow pre-publish: prod `3402973`, local/origin `3402973` (in sync)
+- Note: this brief is hosted by FlashFlow, so publishing it creates the next FlashFlow SHA. The updater verifies final post-publish `/api/health` in its log before exiting.
+- MMM/Zebby's primary domains remain approval-only blockers; do not change aliases or DNS without Brandon.
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-052337.md`
+- Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-104205.md`
+<!-- AUTO-SNAPSHOT:END -->
+
 ---
 
-## Last refreshed: 2026-05-17 6:32am ET
+## Last refreshed: 2026-05-21 05:51 EDT
 
 ## Current deploy truth
 
@@ -157,5 +169,18 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - FlashFlow pre-publish origin/master HEAD: `d764d18`
 - FlashFlow pre-publish deploy status: ✓ in sync
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-045023.md`
+- Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-104205.md`
+- Last heartbeat log touch: May  9 05:17:56 2026
+
+---
+### Auto-update 2026-05-21 05:51 EDT
+- Snapshot note: pre-publication state. Because this brief is hosted by FlashFlow, publishing it creates the next FlashFlow SHA; trust the script log and `/api/health` for the final post-publish SHA.
+- MC deployed version: `8f3d7d9`
+- MC origin/main HEAD: `8f3d7d9`
+- MC deploy status: ✓ in sync
+- FlashFlow pre-publish deployed version: `3402973`
+- FlashFlow pre-publish origin/master HEAD: `3402973`
+- FlashFlow pre-publish deploy status: ✓ in sync
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-052337.md`
 - Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-104205.md`
 - Last heartbeat log touch: May  9 05:17:56 2026

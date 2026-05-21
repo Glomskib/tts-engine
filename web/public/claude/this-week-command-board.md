@@ -1,75 +1,77 @@
 # This Week Command Board
 
-Updated: 2026-05-17 12:59am ET
+Updated: 2026-05-21 10:54 EDT
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
-## Live Health
+Safety: this board is context only. Do not send email, post publicly, charge money, change DNS, publish Shopify, merge PRs, apply production migrations, create payment links, upload product files, or delete data without Brandon's exact approval.
 
-- Mission Control: live at `5d8db46`.
-- FlashFlow: deploy pipe is healthy at `0a24c20` before this docs refresh after the avatar API error-code fix and docs refresh. Check `https://flashflowai.com/api/health` after each brief push because the docs live inside FlashFlow.
-- Zebby's World: app is healthy at `www.zebbysworld.com` and the Vercel branch alias. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch.
-- MMM hub: app is healthy at `mmm-hub.vercel.app` on `e6c27e7`. `makingmilesmatter.org/api/health` is still routed to Mission Control.
+## Fast Read
+
+- Mission Control: live at `8f3d7d9`.
+- FlashFlow: live at `3f39f17` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
+- Zebby's World: app is healthy on `www.zebbysworld.com` at `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
+- MMM hub: app is healthy on `mmm-hub.vercel.app` at `e6c27e7`. `makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain is routed to the wrong app until Brandon approves the fix.
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-102828.md`
+- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-21-102828/approval-cockpit.html`
+- Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-21-085415.md`
+- Latest route gap board: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-gap-closeout-2026-05-21-085320.md`
+- Latest digital asset storefront preview: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-storefront-preview-2026-05-21-095503/storefront-preview.html`
 
 ## Brandon Approval Gates
 
-These are the decisions blocking public launch or money movement. Do not do them without Brandon.
-
-1. Zebby's domain path: approve removing Shopify apex A record `23.227.38.32` and keeping Vercel A record `76.76.21.21`, or keep bare domain on Shopify.
-2. MMM domain path: approve moving `makingmilesmatter.org` and `www.makingmilesmatter.org` aliases from Mission Control to MMM Hub, or keep current Mission Control routing.
-3. TCG merge path: PR #1 and PR #2 are mergeable, but Vercel has an author-email policy warning. Packet: `~/Documents/MacBook Pro VAULT/10-Projects/TCG-author-email-policy-unblock-2026-05-16.md`. Merge BuybackOS PR #1, retarget/merge PR #2, then stop before production Supabase migrations.
-4. HHH sponsor outreach: approve, edit, or hold the prepared sponsor send queue. Approval sheet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-approval-sheet-2026-05-15.md`. Guarded test-batch helper: `~/Documents/Command-Center/hhh-sponsor-test-batch-after-approval.command`; it has prepared 5 review `.eml` files and has sent 0 emails.
-5. HHH Facebook batch: approve, edit, or hold the June 8-July 7 clean v2 posts. Asset shot list, request packet, preflight, and photo intake helper exist locally. Latest photo intake packet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-photo-intake-packet-2026-05-16-162838.md`. Current state: 30 expected images, 0 present, 30 missing, zero risk-scan hits, no posts scheduled/published.
-6. HHH route assets: approve, edit, or hold route asset wiring. Route approval packet, request packet, preflight, and route intake helper exist locally. Latest route intake packet: `~/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-intake-packet-2026-05-16-165844.md`. Current state: 8 missing GPX/cue files, 28 blank worksheet fields, 16 pending review/approval fields, 35 preflight blockers. Need final RideWithGPS/Strava URLs, GPX files, cue sheets, rest-stop mile markers, SAG notes, and Joshua/Brandon logistics approval before Shopify wiring/publish.
-7. Pricing: confirm HHH entry fees, MMM membership tiers, FlashFlow paid plan, TCG member fee, and first digital asset price.
-8. Digital asset listing: v3 buyer ZIP and local draft listing bundle are ready. Approval phrase below creates a draft listing only; no publish, payment link announcement, email, or social post.
-
-## Brandon Decision Menu
-
-Use these exact phrases when Brandon wants one lane unblocked. Do not infer approval from vague agreement.
+Use exact phrases. Do not infer approval from vague agreement.
 
 | Priority | Say this | What it unlocks | What stays blocked |
 |---|---|---|---|
-| 1 | `APPROVE MMM ORG TO MMM HUB` | Moves `makingmilesmatter.org` / `www.makingmilesmatter.org` to MMM Hub and verifies health. | No Stripe checkout, donation links, or DNS-provider changes without another yes. |
-| 2 | `APPROVE ZEBBYS APEX TO VERCEL` | Repairs bare `zebbysworld.com` so it matches the healthy `www` app path. | No clinical copy changes, public beta announcement, or broader domain strategy change. |
-| 3 | `HHH sponsors: approve test batch 1` | Sends only the guarded internal test copies for the 5 sponsor drafts from `miles@makingmilesmatter.com`. | No live sponsor emails until test copies are reviewed and separately approved. |
-| 4 | `HHH Facebook: approved to schedule cleaned v2` | Moves the clean 30-post June 8-July 7 batch into scheduling workflow. | No public posting when assets or partner approvals are missing for a post. |
-| 5 | `TCG: merge PR1 then PR2; stop before prod migration` | Merges BuybackOS base stack, retargets/merges TCG ledger, then stops. | No production Supabase migration, live pricing, Stripe, or public registration. |
-| 6 | `HHH routes: assets approved for Shopify draft wiring` | Wires approved route assets into the local/unpublished Shopify theme draft. | No Shopify publish. |
-| 7 | `HHH routes: approved to publish on Shopify` | Publishes final approved route cards live in Shopify. | No price/product/payment changes without separate approval. |
-| 8 | `Digital asset: approve v3 ZIP, price is $49, channel is Gumroad, refund window is 14 days, create draft listing only.` | Creates a draft-only listing from the vetted v3 ZIP and local bundle. | No live publish, payment link announcement, email, or social post. |
+| 1 | `APPROVE MMM ORG TO MMM HUB` | Moves `makingmilesmatter.org` / `www.makingmilesmatter.org` to MMM Hub and verifies health. | No Stripe checkout, donation links, email, social, or DNS-provider changes unless helper proves aliases are not enough. |
+| 2 | `APPROVE ZEBBYS APEX TO VERCEL` | Repairs bare `zebbysworld.com` so it matches the healthy `www` path. | No clinical copy changes, beta announcement, Shopify/domain strategy change, email, or social. |
+| 3 | `Digital asset: approve v3 ZIP, price is $49, channel is Gumroad, refund window is 14 days, create draft listing only.` | Creates a draft-only listing from the clean v3 ZIP and local storefront preview. | No live publish, payment link announcement, email, social post, or charge. |
+| 4 | `HHH sponsors: approve test batch 1` | Sends only guarded internal test copies for the five sponsor drafts from `miles@makingmilesmatter.com`. | No live sponsor emails until test copies are reviewed and separately approved. |
+| 5 | `HHH Facebook: approved to schedule cleaned v2` | Moves the clean 30-post June 8-July 7 batch into guarded scheduling workflow. | No public posting when assets or partner approvals are missing for a post. |
+| 6 | `TCG: merge PR1 then PR2; stop before prod migration` | Merges BuybackOS base stack, retargets/merges TCG ledger, then stops. | No production Supabase migration, live pricing, Stripe, or public registration. |
+| 7 | `HHH routes: assets approved for Shopify draft wiring` | Wires approved route assets into the local/unpublished Shopify theme draft. | No Shopify publish. Route files/logistics still need completion first. |
+| 8 | `HHH routes: approved to publish on Shopify` | Publishes final approved route cards live in Shopify. | No price/product/payment changes without separate approval. |
+
+## Current Work State
+
+- **HHH sponsor outreach:** ready for internal test approval only. Five `.eml` drafts exist; test sent `0`, live sent `0`. Sender must stay `miles@makingmilesmatter.com`.
+- **HHH Facebook:** 30 local candidate images exist for 30 posts, but they are still review candidates. Nothing is scheduled or posted.
+- **HHH routes:** still blocked for route wiring: 8 missing GPX/cue files, 28 blank worksheet fields, 16 pending review/approval fields.
+- **TCG:** PR #1 and PR #2 are open as drafts and mergeable; Vercel author-email policy is an admin-awareness blocker, not a code conflict.
+- **Digital asset:** v3 buyer ZIP is structurally ready with 8 buyer files and 0 private/internal leak hits; storefront preview is local-only. Needs Brandon approval before any draft listing.
+- **MMM/Zebby's domains:** app deploys are healthy on alternate/canonical paths, but primary domains need exact approval before alias/DNS work.
 
 ## Safe Autonomous Work
 
 AI agents can keep doing this without Brandon clicks:
 
-- Refresh deploy/context docs and rerun health checks, but after every FlashFlow push verify `/api/health` matches `git rev-parse --short HEAD`.
-- Production-session QA for Mission Control `/admin/brief`, `/admin/board`, and `/admin/tasks`.
-- Draft-only HHH sponsor/email/social refinements using `miles@makingmilesmatter.com` as the sender identity, but do not send.
-- HHH Facebook image inventory, local photo intake packets, and route/logistics review notes for the clean v2 batch, but do not schedule or post.
-- HHH route asset intake packets, preflight reports, and worksheet updates, but do not upload files, wire Shopify, or publish route pages.
-- MMM photo/copy inventory and Stripe test plan, but do not create live payment links.
+- Refresh deploy/context docs and rerun health checks; after every FlashFlow docs push verify `/api/health` matches `git rev-parse --short HEAD`.
+- Improve local approval/review packets, checklists, and proof bundles.
+- Draft-only HHH sponsor/email/social refinements using `miles@makingmilesmatter.com`, but do not send.
+- HHH Facebook candidate review aids, dry-runs, image inventory, and approval packets, but do not schedule or post.
+- HHH route asset intake packets, route gap reports, worksheet validation, and Shopify draft-prep notes, but do not upload files, wire Shopify, or publish route pages.
+- MMM copy/photo inventory and Stripe test plans, but do not create live payment links.
 - TCG PR review, test reruns, author-email policy notes, docs, and local-only migration rehearsal.
-- Digital asset listing drafts, cover variants, support macros, draft listing bundle prep, and preflight checks. Use the v3 buyer ZIP only; do not publish or charge.
+- Digital asset listing drafts, cover variants, support macros, storefront previews, draft listing bundle prep, and preflight checks. Use the v3 buyer ZIP only; do not publish or charge.
+
+## Hands-Off Until Brandon Says So
+
+- Sending any email.
+- Posting or scheduling social content.
+- Charging money, creating live payment links, or enabling checkout.
+- DNS, Vercel alias moves, Shopify publish, PR merge, production migration, or deletes.
+- Zebby's clinical/medical content without Brandon and Katlyn.
 
 ## One-Reply Commands
 
-Brandon can unblock a lane with one sentence:
-
-- `DNS: Zebby WWW canonical`
-- `DNS: MMM hub canonical`
-- `DNS: approve both from domain packet`
 - `APPROVE MMM ORG TO MMM HUB`
 - `APPROVE ZEBBYS APEX TO VERCEL`
-- `TCG: merge PR1 then PR2; stop before prod migration`
-- `TCG: merge PR1 then PR2 and prepare prod migration approval packet`
-- `HHH sponsors: approved to send`
 - `HHH sponsors: approve test batch 1`
-- `HHH Facebook: clean v2 approved for review; do not schedule`
 - `HHH Facebook: approved to schedule cleaned v2`
 - `HHH routes: assets approved for Shopify draft wiring`
 - `HHH routes: approved to publish on Shopify`
-- `Digital asset: price is $X on Gumroad/Stripe/Shopify`
+- `TCG: merge PR1 then PR2; stop before prod migration`
 - `Digital asset: approve v3 ZIP, price is $49, channel is Gumroad, refund window is 14 days, create draft listing only.`
 
-Until one of those appears, keep shipping draft/code/QA work only.
+Until one of those appears, keep shipping draft/code/QA/proof work only.

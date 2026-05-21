@@ -5,29 +5,28 @@
 <!-- AUTO-SNAPSHOT:START -->
 ## Live Auto Snapshot
 
-- Refreshed: `2026-05-21 05:51 EDT`
+- Refreshed: `2026-05-21 06:21 EDT`
 - Mission Control: prod `8f3d7d9`, local/origin `8f3d7d9` (in sync)
-- FlashFlow pre-publish: prod `3402973`, local/origin `3402973` (in sync)
+- FlashFlow pre-publish: prod `c777b1e`, local/origin `c777b1e` (in sync)
 - Note: this brief is hosted by FlashFlow, so publishing it creates the next FlashFlow SHA. The updater verifies final post-publish `/api/health` in its log before exiting.
 - MMM/Zebby's primary domains remain approval-only blockers; do not change aliases or DNS without Brandon.
-- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-052337.md`
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-055333.md`
 - Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-104205.md`
 <!-- AUTO-SNAPSHOT:END -->
 
 ---
 
-## Last refreshed: 2026-05-21 05:51 EDT
+## Last refreshed: 2026-05-21 06:21 EDT
 
 ## Current deploy truth
 
-- **Mission Control:** live match. Local/origin/prod are `5d8db46`. MC deploy pipe is working. `mc.flashflowai.com` was briefly mis-aliased to the wrong Vercel project (`mc-flashflowai`) on May 15; it has been restored to the `mission-control` deployment.
-- **FlashFlow:** deploy pipe is healthy. This public brief is served by FlashFlow, so every brief edit creates the next FlashFlow SHA. Treat `https://flashflowai.com/api/health` and the latest launch report below as the exact source of truth after any public-doc push.
-- **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias at `46f6b5a`. Bare `zebbysworld.com` is still blocked by apex DNS/certificate mismatch. Do not change DNS without Brandon confirming.
-- **MMM hub:** `mmm-hub.vercel.app` is live at `e6c27e7`. `https://makingmilesmatter.org/api/health` now answers JSON, but reports Mission Control SHA `5d8db46` instead of the MMM hub SHA, so the primary domain/path is still routed to the wrong app. Do not change DNS without Brandon confirming.
-- **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists the exact approval gates, safe autonomous work, and Brandon's one-line decision menu.
-- **Latest launch report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-17-063234.md`.
-- **Latest HHH asset dashboard:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-063234.md`.
-
+- **Mission Control:** live match. Local/origin/prod are `8f3d7d9`; production health reports `8f3d7d9`.
+- **FlashFlow:** deploy pipe is healthy. Pre-publish local/origin/prod are `c777b1e`; production health reports `c777b1e`. Because this brief is hosted by FlashFlow, every public context refresh creates the next SHA; the updater verifies final post-publish `/api/health` before exiting.
+- **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias. Local head is `46f6b5a` and `www` health reports `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
+- **MMM hub:** app deploy is healthy on `mmm-hub.vercel.app`. Local head is `e6c27e7` and the alternate health URL reports `e6c27e7`. `https://makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain/path is still routed to the wrong app until Brandon approves a routing fix.
+- **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists approval gates, safe autonomous work, and Brandon's one-line decision menu.
+- **Latest launch report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-055333.md`.
+- **Latest HHH asset dashboard:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-104205.md`.
 ## Top blockers
 
 - **Zebby's apex DNS is still split/broken.** `www.zebbysworld.com` is the good Vercel path. Bare `zebbysworld.com` currently fails health because the certificate/domain path does not match.
@@ -182,5 +181,18 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - FlashFlow pre-publish origin/master HEAD: `3402973`
 - FlashFlow pre-publish deploy status: ✓ in sync
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-052337.md`
+- Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-104205.md`
+- Last heartbeat log touch: May  9 05:17:56 2026
+
+---
+### Auto-update 2026-05-21 06:21 EDT
+- Snapshot note: pre-publication state. Because this brief is hosted by FlashFlow, publishing it creates the next FlashFlow SHA; trust the script log and `/api/health` for the final post-publish SHA.
+- MC deployed version: `8f3d7d9`
+- MC origin/main HEAD: `8f3d7d9`
+- MC deploy status: ✓ in sync
+- FlashFlow pre-publish deployed version: `c777b1e`
+- FlashFlow pre-publish origin/master HEAD: `c777b1e`
+- FlashFlow pre-publish deploy status: ✓ in sync
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-055333.md`
 - Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-104205.md`
 - Last heartbeat log touch: May  9 05:17:56 2026

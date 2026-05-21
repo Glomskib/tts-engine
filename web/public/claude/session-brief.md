@@ -5,9 +5,9 @@
 <!-- AUTO-SNAPSHOT:START -->
 ## Live Auto Snapshot
 
-- Refreshed: `2026-05-21 06:21 EDT`
+- Refreshed: `2026-05-21 06:24 EDT`
 - Mission Control: prod `8f3d7d9`, local/origin `8f3d7d9` (in sync)
-- FlashFlow pre-publish: prod `c777b1e`, local/origin `c777b1e` (in sync)
+- FlashFlow pre-publish: prod `f87f00e`, local/origin `f87f00e` (in sync)
 - Note: this brief is hosted by FlashFlow, so publishing it creates the next FlashFlow SHA. The updater verifies final post-publish `/api/health` in its log before exiting.
 - MMM/Zebby's primary domains remain approval-only blockers; do not change aliases or DNS without Brandon.
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-055333.md`
@@ -16,23 +16,24 @@
 
 ---
 
-## Last refreshed: 2026-05-21 06:21 EDT
+## Last refreshed: 2026-05-21 06:24 EDT
 
 ## Current deploy truth
 
 - **Mission Control:** live match. Local/origin/prod are `8f3d7d9`; production health reports `8f3d7d9`.
-- **FlashFlow:** deploy pipe is healthy. Pre-publish local/origin/prod are `c777b1e`; production health reports `c777b1e`. Because this brief is hosted by FlashFlow, every public context refresh creates the next SHA; the updater verifies final post-publish `/api/health` before exiting.
+- **FlashFlow:** deploy pipe is healthy. Pre-publish local/origin/prod are `f87f00e`; production health reports `f87f00e`. Because this brief is hosted by FlashFlow, every public context refresh creates the next SHA; the updater verifies final post-publish `/api/health` before exiting.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias. Local head is `46f6b5a` and `www` health reports `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - **MMM hub:** app deploy is healthy on `mmm-hub.vercel.app`. Local head is `e6c27e7` and the alternate health URL reports `e6c27e7`. `https://makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain/path is still routed to the wrong app until Brandon approves a routing fix.
 - **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists approval gates, safe autonomous work, and Brandon's one-line decision menu.
 - **Latest launch report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-055333.md`.
 - **Latest HHH asset dashboard:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-104205.md`.
+
 ## Top blockers
 
-- **Zebby's apex DNS is still split/broken.** `www.zebbysworld.com` is the good Vercel path. Bare `zebbysworld.com` currently fails health because the certificate/domain path does not match.
-- **MMM primary domain is still not routed to the hub.** `https://mmm-hub.vercel.app/api/health` reports `e6c27e7`, but `https://makingmilesmatter.org/api/health` reports Mission Control SHA `5d8db46`.
-- **HHH public comms are draft-ready but approval-locked.** Sponsor test emails and the Facebook clean v2 batch exist locally, but nothing has been sent, scheduled, or posted. The Facebook photo intake helper now turns the 30 missing images into a collector packet by cluster and approval owner.
-- **HHH route assets are workflow-ready but asset-locked.** The route/logistics worksheet exists locally, but final RideWithGPS/Strava URLs, GPX files, cue sheets, rest-stop mile markers, SAG notes, and Joshua/Brandon approval are still needed before Shopify route wiring or route-gated posts. The route intake helper now narrows the gap to 8 missing GPX/cue files, 28 blank worksheet fields, and 16 pending review/approval fields.
+- **Zebby's apex DNS is still split/broken.** `www.zebbysworld.com` is the good Vercel path and reports `46f6b5a`. Bare `zebbysworld.com` still fails health because the certificate/domain path does not match. Do not change DNS without Brandon confirming.
+- **MMM primary domain is still not routed to the hub.** `https://mmm-hub.vercel.app/api/health` reports `e6c27e7`, but `https://makingmilesmatter.org/api/health` reports `8f3d7d9`. Do not change aliases or DNS without Brandon confirming.
+- **HHH public comms are draft-ready but approval-locked.** Sponsor test emails and the Facebook clean v2 batch exist locally, but nothing has been sent, scheduled, or posted. The Facebook photo intake helper turns missing images into a collector packet by cluster and approval owner.
+- **HHH route assets are workflow-ready but asset-locked.** The route/logistics worksheet exists locally, but final RideWithGPS/Strava URLs, GPX files, cue sheets, rest-stop mile markers, SAG notes, and Joshua/Brandon approval are still needed before Shopify route wiring or route-gated posts.
 
 Fix path when Brandon confirms DNS work:
 1. Decide the canonical domain for each app before changing DNS.
@@ -192,6 +193,19 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - MC deploy status: ✓ in sync
 - FlashFlow pre-publish deployed version: `c777b1e`
 - FlashFlow pre-publish origin/master HEAD: `c777b1e`
+- FlashFlow pre-publish deploy status: ✓ in sync
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-055333.md`
+- Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-104205.md`
+- Last heartbeat log touch: May  9 05:17:56 2026
+
+---
+### Auto-update 2026-05-21 06:24 EDT
+- Snapshot note: pre-publication state. Because this brief is hosted by FlashFlow, publishing it creates the next FlashFlow SHA; trust the script log and `/api/health` for the final post-publish SHA.
+- MC deployed version: `8f3d7d9`
+- MC origin/main HEAD: `8f3d7d9`
+- MC deploy status: ✓ in sync
+- FlashFlow pre-publish deployed version: `f87f00e`
+- FlashFlow pre-publish origin/master HEAD: `f87f00e`
 - FlashFlow pre-publish deploy status: ✓ in sync
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-055333.md`
 - Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-17-104205.md`

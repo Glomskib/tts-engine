@@ -5,30 +5,37 @@
 <!-- AUTO-SNAPSHOT:START -->
 ## Live Auto Snapshot
 
-- Refreshed: `2026-05-21 13:27 EDT`
+- Refreshed: `2026-05-21 16:30 EDT`
 - Mission Control: prod `8f3d7d9`, local/origin `8f3d7d9` (in sync)
-- FlashFlow pre-publish: prod `ae437bb`, local/origin `ae437bb` (in sync)
+- FlashFlow pre-publish: prod `8e9ae39`, local/origin `8e9ae39` (in sync)
 - Note: this brief is hosted by FlashFlow, so publishing it creates the next FlashFlow SHA. The updater verifies final post-publish `/api/health` in its log before exiting.
 - MMM/Zebby's primary domains remain approval-only blockers; do not change aliases or DNS without Brandon.
-- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-132431.md`
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-155609.md`
 - Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-21-085415.md`
 - Latest Mission Control Phase 1 QA report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/mission-control-phase1-qa-2026-05-21-122700/report.md`
+- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-21-155551/approval-cockpit.html`
+- Latest MC Telegram routing approval packet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-21-145815.md`
+- Latest MC Telegram routing dry-run report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-21-152645.md`
 <!-- AUTO-SNAPSHOT:END -->
 
 ---
 
-## Last refreshed: 2026-05-21 13:27 EDT
+## Last refreshed: 2026-05-21 16:30 EDT
 
 ## Current deploy truth at snapshot time
 
 - **Mission Control:** live match. At snapshot time, local/origin/prod were `8f3d7d9` and production health reported `8f3d7d9`.
-- **FlashFlow:** deploy pipe is healthy. At snapshot time before this public brief was republished, local/origin/prod were `ae437bb` and production health reported `ae437bb`. Because this brief is hosted by FlashFlow, every public context refresh creates the next SHA; the updater verifies final post-publish `/api/health` before exiting.
+- **FlashFlow:** deploy pipe is healthy. At snapshot time before this public brief was republished, local/origin/prod were `8e9ae39` and production health reported `8e9ae39`. Because this brief is hosted by FlashFlow, every public context refresh creates the next SHA; the updater verifies final post-publish `/api/health` before exiting.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias. Local head is `46f6b5a` and `www` health reports `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - **MMM hub:** app deploy is healthy on `mmm-hub.vercel.app`. Local head is `e6c27e7` and the alternate health URL reports `e6c27e7`. `https://makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain/path is still routed to the wrong app until Brandon approves a routing fix.
 - **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists approval gates, safe autonomous work, and Brandon's one-line decision menu.
-- **Latest launch report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-132431.md`.
+- **Latest launch report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-155609.md`.
 - **Latest HHH asset dashboard:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-21-085415.md`.
 - **Latest Mission Control Phase 1 QA:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/mission-control-phase1-qa-2026-05-21-122700/report.md`.
+- **Latest approval cockpit:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-21-155551/approval-cockpit.html`.
+- **Latest MC Telegram routing approval packet:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-21-145815.md`.
+- **Latest MC Telegram routing dry-run report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-21-152645.md`.
+- **MC Telegram routing state:** dry-run-first routing defaults are prepared, but live Telegram sends remain approval-locked.
 
 ## Top blockers
 
@@ -78,14 +85,16 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - Guarded domain helper saved to `~/Documents/Command-Center/fix-domain-routing-after-approval.command`. It dry-runs MMM/Zebby's routing fixes and requires exact approval phrases before changing Vercel aliases or GoDaddy DNS. Do not run apply mode without Brandon.
 - Guarded TCG merge helper saved to `~/Documents/Command-Center/tcg-merge-after-approval.command` with runbook `~/Documents/MacBook Pro VAULT/10-Projects/TCG-merge-after-approval-runbook-2026-05-15.md`. It dry-runs cleanly and requires approval phrase `TCG: merge PR1 then PR2; stop before prod migration`.
 - This-week command board published at `https://flashflowai.com/claude/this-week-command-board.md` so agents can keep moving on safe work and Brandon can unblock launch gates with one-line approvals.
-- This-week launch status helper saved to `~/Documents/Command-Center/this-week-launch-status.command`. It is read-only, writes timestamped Markdown reports to `~/Documents/MacBook Pro VAULT/10-Projects/`, checks deploy health, domain guardrail dry-runs, sponsor/Facebook/route readiness, TCG readiness, digital asset ZIP/listing-bundle readiness, guarded helpers, and prints Brandon's decision menu. Latest verified report: `~/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-17-000036.md`.
+- This-week launch status helper saved to `~/Documents/Command-Center/this-week-launch-status.command`. It is read-only, writes timestamped Markdown reports to `~/Documents/MacBook Pro VAULT/10-Projects/`, checks deploy health, domain guardrail dry-runs, sponsor/Facebook/route readiness, TCG readiness, digital asset ZIP/listing-bundle readiness, guarded helpers, MC Telegram routing readiness, and prints Brandon's decision menu. Latest verified report: `~/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-155609.md`.
+- This-week approval cockpit saved at `~/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-21-155551/approval-cockpit.html`; it shows 8 gates, keeps irreversible actions approval-locked, and now includes the MC Telegram routing gate.
+- MC Telegram routing approval packet and dry-run route report are ready at `~/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-21-145815.md` and `~/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-21-152645.md`. Dry-run sample counts: Revenue Lab 6, Making Miles Matter Inc 5, private fallback 4, approval-locked 3, live sends 0. Approval phrase: `MC Telegram: approve fleet alert routing defaults`.
 
 ## Standing initiatives — pick from these when idle
 
 - **HHH sponsor outreach:** research, send queue, tier-correct approval sheet, and guarded test-batch helper are ready. Need Brandon approval before any email sends; use `miles@makingmilesmatter.com` only.
 - **HHH Facebook content:** June 8-July 7 clean v2 review batch, scheduling packet, approval tracker, and photo intake packet are ready with zero risk-scan hits. Need 30 local image files and Brandon approval before scheduling/posting.
 - **HHH route maps:** theme supports 15/30/62/100 cards locally, and the route/logistics approval worksheet plus route intake packet are ready. Need final RideWithGPS/Strava URLs, 8 GPX/cue files, rest-stop mile markers, SAG notes, police/EMS notes, and Joshua/logistics review before draft wiring or publishing.
-- **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, upload, and brief-composer pieces are live, smoke-covered, and locally browser-QAable without Brandon clicks. Next useful work: production-session browser QA for `/admin/brief`, `/admin/board`, and `/admin/tasks`, then wire Telegram/fleet alert routing after Brandon confirms thread defaults.
+- **Mission Control Phase 2 / QA:** Phase 1 board, workspace, assignment, upload, and brief-composer pieces are live, smoke-covered, and locally browser-QAable without Brandon clicks. MC Telegram routing defaults have an approval packet and dry-run report ready; do not enable live sends until Brandon confirms `MC Telegram: approve fleet alert routing defaults`.
 - **MMM hub copy + photo pass:** source cleanup, membership copy safety, and donation/checkout-placeholder safety copy are live at `e6c27e7`. Next: fix `makingmilesmatter.org` routing after Brandon confirms DNS/domain path, add real MMM/HHH photos when assets exist, and wire real one-time donations/Stripe checkout after pricing/payment decisions.
 - **HHH Shopify theme:** payment-ready audit, theme check cleanup, and draft product setup packet are done. Next: Brandon approves prices/legal, then create draft Shopify products and run unpublished test orders before any publish.
 - **MMM membership tiers:** finalize pricing + Stripe wiring + signup flow (#109).
@@ -108,7 +117,7 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - HHH Facebook batch approval: approve, edit, or hold the June 8-July 7 clean v2 batch. Use `HHH Facebook: approved to schedule cleaned v2` only when the final cleaned batch is approved for scheduling.
 - HHH route assets: final RideWithGPS/GPX/cue-sheet ownership and logistics review. Use `HHH routes: assets approved for Shopify draft wiring` only when route assets are approved for local draft wiring; use `HHH routes: approved to publish on Shopify` only when live Shopify publish is approved.
 - Auto-deploy permissions matrix confirmation.
-- Telegram thread routing.
+- Telegram thread routing: approval packet and dry-run route report are ready. Use `MC Telegram: approve fleet alert routing defaults` to approve dry-run-first fleet alert routing defaults; live Telegram sends remain off until the route report is confirmed.
 - BuybackOS / TCG merge order: draft PR #1 is open and mergeable; stacked draft PR #2 is open and mergeable against PR #1. Review/merge PR #1 first, then retarget/merge PR #2.
 - Git author policy: add `miles@makingmilesmatter.com` and/or `brandon@makingmilesmatter.com` to GitHub if Brandon wants those emails to trigger Vercel deploys.
 
@@ -116,6 +125,7 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 
 - `APPROVE MMM ORG TO MMM HUB` — moves `makingmilesmatter.org` and `www.makingmilesmatter.org` to MMM Hub, then verifies health. No Stripe, donation links, or DNS-provider changes without another yes.
 - `APPROVE ZEBBYS APEX TO VERCEL` — repairs bare `zebbysworld.com` to match the healthy `www` path. No clinical copy, beta announcement, or broader domain strategy change without another yes.
+- `MC Telegram: approve fleet alert routing defaults` — approves dry-run-first internal MC Telegram routing defaults for Revenue Lab, Making Miles Matter Inc, and private fallback. No live Telegram sends until the dry-run route report is confirmed.
 - `HHH sponsors: approve test batch 1` — sends only internal test copies of 5 sponsor drafts from `miles@makingmilesmatter.com`; no live sponsor emails.
 - `HHH Facebook: approved to schedule cleaned v2` — starts scheduling workflow for the clean 30-post batch; no public posting if assets/partner approvals are missing.
 - `TCG: merge PR1 then PR2; stop before prod migration` — merges code only and stops before production Supabase migrations, pricing, Stripe, or public registration. Brandon/admin must be aware of the Vercel author-email policy warning.
@@ -369,4 +379,21 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-132431.md`
 - Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-21-085415.md`
 - Latest Mission Control Phase 1 QA report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/mission-control-phase1-qa-2026-05-21-122700/report.md`
+- Last heartbeat log touch: May  9 05:17:56 2026
+
+---
+### Auto-update 2026-05-21 16:30 EDT
+- Snapshot note: pre-publication state. Because this brief is hosted by FlashFlow, publishing it creates the next FlashFlow SHA; trust the script log and `/api/health` for the final post-publish SHA.
+- MC deployed version: `8f3d7d9`
+- MC origin/main HEAD: `8f3d7d9`
+- MC deploy status: ✓ in sync
+- FlashFlow pre-publish deployed version: `8e9ae39`
+- FlashFlow pre-publish origin/master HEAD: `8e9ae39`
+- FlashFlow pre-publish deploy status: ✓ in sync
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-155609.md`
+- Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-21-085415.md`
+- Latest Mission Control Phase 1 QA report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/mission-control-phase1-qa-2026-05-21-122700/report.md`
+- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-21-155551/approval-cockpit.html`
+- Latest MC Telegram routing approval packet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-21-145815.md`
+- Latest MC Telegram routing dry-run report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-21-152645.md`
 - Last heartbeat log touch: May  9 05:17:56 2026

@@ -1,6 +1,6 @@
 # This Week Command Board
 
-Updated: 2026-05-21 20:59 EDT
+Updated: 2026-05-21 21:34 EDT
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
@@ -9,11 +9,11 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 ## Fast Read
 
 - Mission Control: live at `8f3d7d9`.
-- FlashFlow: live at `9f6680a` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
+- FlashFlow: live at `442ed63` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
 - Zebby's World: app is healthy on `www.zebbysworld.com` at `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - MMM hub: app is healthy on `mmm-hub.vercel.app` at `e6c27e7`. `makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain is routed to the wrong app until Brandon approves the fix.
-- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-21-205916.md`
-- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-21-205916/approval-cockpit.html`
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-21-213332.md`
+- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-21-213330/approval-cockpit.html`
 - Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/asset-collector-dashboard/HHH-2026-asset-collector-dashboard-2026-05-21-204206.md`
 - Latest route gap board: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-gap-closeout-2026-05-21-085320.md`
 - Latest digital asset storefront preview: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-storefront-preview-2026-05-21-095503/storefront-preview.html`
@@ -32,15 +32,16 @@ Use exact phrases. Do not infer approval from vague agreement.
 | 3 | `MC Telegram: approve fleet alert routing defaults` | Lets me wire dry-run-first internal Telegram/fleet routing defaults for Revenue Lab, Making Miles Matter Inc, and private fallback. | No live Telegram sends until Brandon confirms the dry-run route report; no emails, public posts, payments, DNS, merges, migrations, Shopify publish, or deletes. |
 | 4 | `Digital asset: approve v3 ZIP, price is $49, channel is Gumroad, refund window is 14 days, create draft listing only.` | Creates a draft-only listing from the clean v3 ZIP and local storefront preview. | No live publish, payment link announcement, email, social post, or charge. |
 | 5 | `HHH sponsors: approve test batch 1` | Sends only guarded internal test copies for the five sponsor drafts from `miles@makingmilesmatter.com`. | No live sponsor emails until test copies are reviewed and separately approved. |
-| 6 | `HHH Facebook: approved to schedule cleaned v2` | Moves the clean 30-post June 8-July 7 batch into guarded scheduling workflow. | No public posting when assets or partner approvals are missing for a post. |
-| 7 | `TCG: merge PR1 then PR2; stop before prod migration` | Merges BuybackOS base stack, retargets/merges TCG ledger, then stops. | No production Supabase migration, live pricing, Stripe, or public registration. |
-| 8 | `HHH routes: assets approved for Shopify draft wiring` | Wires approved route assets into the local/unpublished Shopify theme draft. | No Shopify publish. Route files/logistics still need completion first. |
-| 9 | `HHH routes: approved to publish on Shopify` | Publishes final approved route cards live in Shopify. | No price/product/payment changes without separate approval. |
+| 6 | `HHH Facebook: promote approved photo candidates` | Copies only Brandon/owner-approved local candidate files into the official local asset inbox. | No Meta scheduling, public post, upload outside the local vault, or partner/image approval bypass. |
+| 7 | `HHH Facebook: approved to schedule cleaned v2` | Moves the clean 30-post June 8-July 7 batch into guarded scheduling workflow after approved assets exist. | No public posting when assets or partner approvals are missing for a post. |
+| 8 | `TCG: merge PR1 then PR2; stop before prod migration` | Merges BuybackOS base stack, retargets/merges TCG ledger, then stops. | No production Supabase migration, live pricing, Stripe, or public registration. |
+| 9 | `HHH routes: assets approved for Shopify draft wiring` | Wires approved route assets into the local/unpublished Shopify theme draft. | No Shopify publish. Route files/logistics still need completion first. |
+| 10 | `HHH routes: approved to publish on Shopify` | Publishes final approved route cards live in Shopify. | No price/product/payment changes without separate approval. |
 
 ## Current Work State
 
 - **HHH sponsor outreach:** ready for internal test approval only. Five `.eml` drafts exist; test sent `0`, live sent `0`. Sender must stay `miles@makingmilesmatter.com`.
-- **HHH Facebook:** 30 local candidate images exist for 30 posts, but they are still review candidates. Nothing is scheduled or posted.
+- **HHH Facebook:** 30 local candidate images exist for 30 posts, but they are still review candidates. The safe next yes promotes approved local files into the official local inbox; nothing is scheduled or posted.
 - **HHH routes:** still blocked for route wiring: 8 missing GPX/cue files, 28 blank worksheet fields, 16 pending review/approval fields.
 - **TCG:** PR #1 and PR #2 are open as drafts and mergeable; Vercel author-email policy is an admin-awareness blocker, not a code conflict.
 - **Digital asset:** v3 buyer ZIP is structurally ready with 8 buyer files and 0 private/internal leak hits; storefront preview is local-only. Needs Brandon approval before any draft listing.
@@ -77,6 +78,7 @@ AI agents can keep doing this without Brandon clicks:
 - `APPROVE ZEBBYS APEX TO VERCEL`
 - `MC Telegram: approve fleet alert routing defaults`
 - `HHH sponsors: approve test batch 1`
+- `HHH Facebook: promote approved photo candidates`
 - `HHH Facebook: approved to schedule cleaned v2`
 - `HHH routes: assets approved for Shopify draft wiring`
 - `HHH routes: approved to publish on Shopify`

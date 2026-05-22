@@ -1,6 +1,6 @@
 # This Week Command Board
 
-Updated: 2026-05-21 17:58 EDT
+Updated: 2026-05-21 20:04 EDT
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
@@ -8,12 +8,12 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 
 ## Fast Read
 
-- Mission Control: live at `8f3d7d9`.
-- FlashFlow: live at `304494f` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
+- Mission Control: live at `unknown`.
+- FlashFlow: live at `unknown` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
 - Zebby's World: app is healthy on `www.zebbysworld.com` at `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - MMM hub: app is healthy on `mmm-hub.vercel.app` at `e6c27e7`. `makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain is routed to the wrong app until Brandon approves the fix.
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-launch-status-2026-05-21-175759.md`
-- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-21-175758/approval-cockpit.html`
+- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-21-200217/approval-cockpit.html`
 - Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-asset-collector-dashboard-2026-05-21-085415.md`
 - Latest route gap board: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-gap-closeout-2026-05-21-085320.md`
 - Latest digital asset storefront preview: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-storefront-preview-2026-05-21-095503/storefront-preview.html`

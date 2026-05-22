@@ -1,6 +1,6 @@
 # This Week Command Board
 
-Updated: 2026-05-22 18:47 EDT
+Updated: 2026-05-22 18:59 EDT
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
@@ -9,12 +9,15 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 ## Fast Read
 
 - Mission Control: live at `8f3d7d9`.
-- FlashFlow: live at `7a86105` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
+- FlashFlow: live at `41988ec` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
 - Zebby's World: app is healthy on `www.zebbysworld.com` at `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - MMM hub: app is healthy on `mmm-hub.vercel.app` at `e6c27e7`. `makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain is routed to the wrong app until Brandon approves the fix.
-- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-22-184633.md`
-- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-22-184633/approval-cockpit.html`
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-22-185841.md`
+- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-22-185836/approval-cockpit.html`
 - Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/asset-collector-dashboard/HHH-2026-asset-collector-dashboard-2026-05-21-204206.md`
+- Latest HHH sponsor test manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/manifest.json`
+- Latest HHH sponsor review board: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/HHH-2026-sponsor-test-batch-review-board.html`
+- Latest HHH sponsor approval sheet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/HHH-2026-sponsor-test-batch-approval-sheet.md`
 - Latest HHH Facebook candidate review board: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-local-candidate-review-set-2026-05-17-091305/HHH-2026-facebook-candidate-review-board.html`
 - Latest HHH Facebook approval sheet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-local-candidate-review-set-2026-05-17-091305/HHH-2026-facebook-candidate-approval-sheet.md`
 - Latest HHH Facebook approved-list template: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-local-candidate-review-set-2026-05-17-091305/approved-candidates.template.txt`
@@ -46,7 +49,7 @@ Use exact phrases. Do not infer approval from vague agreement.
 
 ## Current Work State
 
-- **HHH sponsor outreach:** ready for internal test approval only. Five `.eml` drafts exist; test sent `0`, live sent `0`. Sender must stay `miles@makingmilesmatter.com`.
+- **HHH sponsor outreach:** ready for internal test approval only. Five `.eml` drafts exist; test sent `0`, live sent `0`. Review the browser board at `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/HHH-2026-sponsor-test-batch-review-board.html` or the approval sheet at `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/HHH-2026-sponsor-test-batch-approval-sheet.md`. Sender must stay `miles@makingmilesmatter.com`.
 - **HHH Facebook:** 30 local candidate images exist for 30 posts, but they are still review candidates. Review them in `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-local-candidate-review-set-2026-05-17-091305/HHH-2026-facebook-candidate-review-board.html` or the approval sheet `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-local-candidate-review-set-2026-05-17-091305/HHH-2026-facebook-candidate-approval-sheet.md`; the approved-list template is `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-local-candidate-review-set-2026-05-17-091305/approved-candidates.template.txt`. The latest candidate-promotion dry-run is `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-promote-approved-candidates-report-2026-05-21-220358.md`; nothing is copied, scheduled, or posted without approval.
 - **HHH routes:** still blocked for route wiring: 8 missing GPX/cue files, 28 blank worksheet fields, 16 pending review/approval fields. Use the closeout board `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-gap-closeout-2026-05-22-180224.html` and checklist CSV `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-gap-closeout-2026-05-22-180224-checklist.csv` to collect the exact missing route data/files.
 - **TCG:** PR #1 and PR #2 are open as drafts and mergeable; Vercel author-email policy is an admin-awareness blocker, not a code conflict.
@@ -63,7 +66,7 @@ AI agents can keep doing this without Brandon clicks:
 - Run `~/Documents/Command-Center/mission-control-phase1-qa.command` after MC changes or before fleet-routing work; keep its dated report in the vault.
 - Refresh MC Telegram routing approval/dry-run reports, but do not enable live Telegram sends without Brandon's exact approval.
 - Improve local approval/review packets, checklists, and proof bundles.
-- Draft-only HHH sponsor/email/social refinements using `miles@makingmilesmatter.com`, but do not send.
+- Draft-only HHH sponsor/email/social refinements, review boards, approval sheets, and proof packets using `miles@makingmilesmatter.com`, but do not send.
 - HHH Facebook candidate review aids, dry-runs, image inventory, approved-list templates, and approval packets, but do not copy into the official inbox, schedule, or post without Brandon's exact approval.
 - HHH route asset intake packets, route gap reports, worksheet validation, and Shopify draft-prep notes, but do not upload files, wire Shopify, or publish route pages.
 - MMM copy/photo inventory and Stripe test plans, but do not create live payment links.

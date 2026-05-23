@@ -1,6 +1,6 @@
 # This Week Command Board
 
-Updated: 2026-05-23 17:32 EDT
+Updated: 2026-05-23 18:03 EDT
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
@@ -9,11 +9,11 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 ## Fast Read
 
 - Mission Control: live at `8f3d7d9`.
-- FlashFlow: live at `375b49b` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
+- FlashFlow: live at `a69b9c4` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
 - Zebby's World: app is healthy on `www.zebbysworld.com` at `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - MMM hub: app is healthy on `mmm-hub.vercel.app` at `e6c27e7`. `makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain is routed to the wrong app until Brandon approves the fix.
-- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-23-170754.md`
-- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-23-163526/approval-cockpit.html`
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-23-180257.md`
+- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-23-180232/approval-cockpit.html`
 - Latest HHH approval room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-22-195750/approval-room.html`
 - Latest HHH approval room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-22-195750/approval-room.md`
 - Latest HHH approval room manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-22-195750/manifest.json`

@@ -1,19 +1,20 @@
 # This Week Command Board
 
-Updated: 2026-05-23 18:03 EDT
+Updated: 2026-05-23 18:32 EDT
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
-Safety: this board is context only. Do not send email, post publicly, charge money, change DNS, publish Shopify, merge PRs, apply production migrations, create payment links, upload product files, or delete data without Brandon's exact approval.
+Safety: this board is context only. Do not send email, post publicly, charge money, change DNS, publish Shopify, merge PRs, apply production migrations, create payment links, create external-platform draft listings/products, upload product files, or delete data without Brandon's exact approval.
 
 ## Fast Read
 
 - Mission Control: live at `8f3d7d9`.
-- FlashFlow: live at `a69b9c4` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
+- FlashFlow: live at `d27a6d8` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
 - Zebby's World: app is healthy on `www.zebbysworld.com` at `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - MMM hub: app is healthy on `mmm-hub.vercel.app` at `e6c27e7`. `makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain is routed to the wrong app until Brandon approves the fix.
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-23-180257.md`
 - Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-23-180232/approval-cockpit.html`
+- Latest decision-packet index: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/README.md`
 - Latest HHH approval room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-22-195750/approval-room.html`
 - Latest HHH approval room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-22-195750/approval-room.md`
 - Latest HHH approval room manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-22-195750/manifest.json`
@@ -39,6 +40,14 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 - Latest MC Telegram routing approval packet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-21-145815.md`
 - Latest MC Telegram routing dry-run report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-21-152645.md`
 - Latest Mission Control Phase 1 QA report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/mission-control-phase1-qa-2026-05-21-122700/report.md`
+
+## Decision Packets
+
+These are Brandon's one-page approval packets. Use them when a gate needs an exact yes/no/edit; do not infer approval from the command board alone.
+
+- MMM .org → MMM Hub routing fix: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-mmm-org-to-mmm-hub.md`
+- HHH sponsor test batch — internal test send to brandon@ only: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-hhh-sponsor-test-batch.md`
+- Digital asset Gumroad draft — Endurance Event Director's Toolkit v3: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-digital-asset-gumroad-draft.md`
 
 ## Brandon Approval Gates
 
@@ -82,13 +91,13 @@ AI agents can keep doing this without Brandon clicks:
 - HHH route asset intake packets, route gap reports, route logistics request review drafts, worksheet validation, and Shopify draft-prep notes, but do not send email, upload files, wire Shopify, or publish route pages.
 - MMM copy/photo inventory and Stripe test plans, but do not create live payment links.
 - TCG PR review, test reruns, author-email policy notes, docs, and local-only migration rehearsal.
-- Digital asset listing drafts, cover variants, support macros, storefront previews, draft listing bundle prep, and preflight checks. Use the v3 buyer ZIP only; do not publish or charge.
+- Digital asset local-only listing drafts, cover variants, support macros, storefront previews, draft listing bundle prep, and preflight checks. Use the v3 buyer ZIP only; do not create a Gumroad/Shopify/Stripe draft, publish, or charge without Brandon's exact approval.
 
 ## Hands-Off Until Brandon Says So
 
-- Sending any email.
+- Sending any email/SMS/Telegram/webhook outside the allowlist (`brandon@makingmilesmatter.com` and `spiderbuttons@gmail.com`), and any live third-party outreach.
 - Posting or scheduling social content.
-- Charging money, creating live payment links, or enabling checkout.
+- Charging money, creating live payment links, enabling checkout, or creating draft listings/products on external platforms.
 - DNS, Vercel alias moves, Shopify publish, PR merge, production migration, or deletes.
 - Zebby's clinical/medical content without Brandon and Katlyn.
 

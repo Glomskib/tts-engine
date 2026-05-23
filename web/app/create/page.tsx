@@ -536,6 +536,32 @@ export default function CreatePage() {
 
   return (
     <div className="min-h-screen bg-gray-950 text-white">
+      {/* v11-hero-polish */}
+      <div className="mb-6 px-4 sm:px-0">
+        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-teal-500/10 border border-teal-500/30 text-teal-300 text-xs mb-3">
+          <span className="w-1.5 h-1.5 rounded-full bg-teal-400" /> AI Video Editor
+        </div>
+        <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight mb-2">
+          Drop footage. Get a finished short.
+        </h1>
+        <p className="text-zinc-400 text-sm sm:text-base max-w-2xl">
+          We trim silences, beat-sync the cuts, write captions, detect retakes, and polish your hook — automatically.
+        </p>
+        <div className="mt-4 flex flex-wrap gap-2 text-xs">
+          {[
+            'Silence trim',
+            'Beat-sync cuts',
+            'Auto captions',
+            'Retake detection',
+            'Hook polish',
+            'Multi-platform export',
+          ].map((chip) => (
+            <span key={chip} className="px-2.5 py-1 rounded-full bg-zinc-900/60 border border-white/10 text-zinc-300">
+              {chip}
+            </span>
+          ))}
+        </div>
+      </div>
       {/* First-visit onboarding tour. Self-gates on localStorage so existing
           users never see it. Dismissable any time. */}
       <CreateOnboarding />

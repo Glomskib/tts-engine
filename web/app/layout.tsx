@@ -5,6 +5,7 @@ import { Providers } from "@/components/Providers";
 import CookieConsent from "@/components/CookieConsent";
 import TopNav from '@/components/TopNav';
 import QueueTicker from '@/components/QueueTicker';
+import { SiteFooter } from '@/components/SiteFooter';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -166,6 +167,7 @@ export default function RootLayout({
               broken. Self-stops with 401 if user is not logged in. */}
           <QueueTicker />
         </Providers>
+              <SiteFooter />
       </body>
     </html>
   );

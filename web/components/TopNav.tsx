@@ -1,3 +1,4 @@
+// v11-scroll-shadow
 'use client';
 
 /**
@@ -40,7 +41,7 @@ export default function TopNav() {
   if (HIDDEN_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))) return null;
 
   return (
-    <nav className="sticky top-0 z-40 backdrop-blur bg-zinc-950/80 border-b border-white/5">
+    <nav className="sticky top-0 backdrop-blur-md bg-zinc-950/80 border-b border-white/5 supports-[backdrop-filter]:bg-zinc-950/70 z-40 backdrop-blur bg-zinc-950/80 border-b border-white/5">
       <div className="max-w-6xl mx-auto px-4 h-12 flex items-center justify-between">
         <Link href="/" className="flex items-center gap-2 font-semibold text-sm text-white">
           <span className="text-teal-400">⚡</span> FlashFlow

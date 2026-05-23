@@ -1,6 +1,6 @@
 # This Week Command Board
 
-Updated: 2026-05-23 16:35 EDT
+Updated: 2026-05-23 17:32 EDT
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
@@ -9,10 +9,10 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 ## Fast Read
 
 - Mission Control: live at `8f3d7d9`.
-- FlashFlow: live at `e682baf` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
+- FlashFlow: live at `375b49b` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
 - Zebby's World: app is healthy on `www.zebbysworld.com` at `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - MMM hub: app is healthy on `mmm-hub.vercel.app` at `e6c27e7`. `makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain is routed to the wrong app until Brandon approves the fix.
-- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-23-163237.md`
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-23-170754.md`
 - Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-23-163526/approval-cockpit.html`
 - Latest HHH approval room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-22-195750/approval-room.html`
 - Latest HHH approval room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-22-195750/approval-room.md`
@@ -33,6 +33,9 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 - Latest route logistics request approval sheet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-approval-sheet.md`
 - Latest route logistics request draft email: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-draft.eml`
 - Latest digital asset storefront preview: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-storefront-preview-2026-05-21-095503/storefront-preview.html`
+- Latest digital asset launch room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-23-170641/launch-room.html`
+- Latest digital asset launch room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-23-170641/launch-room.md`
+- Latest digital asset launch room manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-23-170641/manifest.json`
 - Latest MC Telegram routing approval packet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-21-145815.md`
 - Latest MC Telegram routing dry-run report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-21-152645.md`
 - Latest Mission Control Phase 1 QA report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/mission-control-phase1-qa-2026-05-21-122700/report.md`
@@ -61,7 +64,7 @@ Use exact phrases. Do not infer approval from vague agreement.
 - **HHH Facebook:** 30 local candidate images exist for 30 posts, but they are still review candidates. Review them in the HHH approval room, the board at `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-local-candidate-review-set-2026-05-17-091305/HHH-2026-facebook-candidate-review-board.html`, or the approval sheet `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-local-candidate-review-set-2026-05-17-091305/HHH-2026-facebook-candidate-approval-sheet.md`; the approved-list template is `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-local-candidate-review-set-2026-05-17-091305/approved-candidates.template.txt`. The latest candidate-promotion dry-run is `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-facebook-promote-approved-candidates-report-2026-05-21-220358.md`; nothing is copied, scheduled, or posted without approval.
 - **HHH routes:** still blocked for route wiring: 8 missing GPX/cue files, 28 blank worksheet fields, 16 pending review/approval fields. Use the HHH approval room, closeout board `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-gap-closeout-2026-05-22-180224.html`, and checklist CSV `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-gap-closeout-2026-05-22-180224-checklist.csv` to collect the exact missing route data/files. The latest local-only Joshua/logistics request review board is `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-review-board.html` with approval sheet `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-approval-sheet.md` and draft email `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-draft.eml`.
 - **TCG:** PR #1 and PR #2 are open as drafts and mergeable; Vercel author-email policy is an admin-awareness blocker, not a code conflict.
-- **Digital asset:** v3 buyer ZIP is structurally ready with 8 buyer files and 0 private/internal leak hits; storefront preview is local-only. Needs Brandon approval before any draft listing.
+- **Digital asset:** v3 buyer ZIP is structurally ready with 8 buyer files and 0 private/internal leak hits; storefront preview is local-only. The launch approval room is `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-23-170641/launch-room.html` with brief `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-23-170641/launch-room.md` and manifest `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-23-170641/manifest.json` showing zero irreversible actions. Needs Brandon approval before any draft listing.
 - **Mission Control:** Phase 1 QA proof exists at `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/mission-control-phase1-qa-2026-05-21-122700/report.md`. Local admin surfaces passed, production admin routes stayed auth-gated, and the smoke suite passed 288/288 on the latest run.
 - **MC Telegram routing:** approval packet exists at `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-21-145815.md` and dry-run report exists at `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-21-152645.md`. Latest dry-run has 0 live sends and routes approval-locked actions to Brandon fallback.
 - **MMM/Zebby's domains:** app deploys are healthy on alternate/canonical paths, but primary domains need exact approval before alias/DNS work.

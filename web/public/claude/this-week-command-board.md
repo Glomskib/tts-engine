@@ -1,6 +1,6 @@
 # This Week Command Board
 
-Updated: 2026-05-23 23:34 EDT
+Updated: 2026-05-24 00:33 EDT
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
@@ -9,7 +9,7 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 ## Fast Read
 
 - Mission Control: live at `8f3d7d9`.
-- FlashFlow: live at `95ddc80` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
+- FlashFlow: live at `9b7d49e` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
 - Zebby's World: app is healthy on `www.zebbysworld.com` at `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - MMM hub: app is healthy on `mmm-hub.vercel.app` at `e6c27e7`. `makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain is routed to the wrong app until Brandon approves the fix.
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-23-180257.md`

@@ -1,6 +1,6 @@
 # This Week Command Board
 
-Updated: 2026-05-23 18:32 EDT
+Updated: 2026-05-23 21:32 EDT
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
@@ -9,10 +9,11 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 ## Fast Read
 
 - Mission Control: live at `8f3d7d9`.
-- FlashFlow: live at `d27a6d8` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
+- FlashFlow: live at `dcf2aa5` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
 - Zebby's World: app is healthy on `www.zebbysworld.com` at `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - MMM hub: app is healthy on `mmm-hub.vercel.app` at `e6c27e7`. `makingmilesmatter.org/api/health` still reports `8f3d7d9`, so the primary domain is routed to the wrong app until Brandon approves the fix.
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-23-180257.md`
+- Latest handoff: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/handoffs/2026-05-23T23-30-00Z-claude-cowork-mbp-longterm.md`
 - Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-23-180232/approval-cockpit.html`
 - Latest decision-packet index: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/README.md`
 - Latest HHH approval room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-22-195750/approval-room.html`
@@ -45,9 +46,10 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 
 These are Brandon's one-page approval packets. Use them when a gate needs an exact yes/no/edit; do not infer approval from the command board alone.
 
+- Identify which Tailnet Windows device is HP 360 vs ThinkPad: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-windows-machine-identification.md`
+- Digital asset Gumroad draft — Endurance Event Director's Toolkit v3: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-digital-asset-gumroad-draft.md`
 - MMM .org → MMM Hub routing fix: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-mmm-org-to-mmm-hub.md`
 - HHH sponsor test batch — internal test send to brandon@ only: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-hhh-sponsor-test-batch.md`
-- Digital asset Gumroad draft — Endurance Event Director's Toolkit v3: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-digital-asset-gumroad-draft.md`
 
 ## Brandon Approval Gates
 

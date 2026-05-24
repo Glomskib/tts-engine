@@ -22,11 +22,15 @@ Goals + halt conditions live in `vault/00-System/goals.yaml`.
 
 ## Hardware + fleet
 
-- **MBP** (Brandons-MacBook-Pro) — command center, this Mac. Active session terminal.
-- **mini** (brandons-mac-mini) — execution worker. 24/7. Polls MC `/api/bolt/queue` every 60s. Tailnet `100.109.132.69`.
-- **mbp-2** (brandons-mpb-2) — second worker, being onboarded.
-- **HP** — Playwright/Windows worker, polling install in progress.
+**As of 2026-05-23 — see `00-System/fleet-tailnet-reality-2026-05-23.md` for ground truth, this section is the short version.**
+
+- **MBP1** (`brandons-macbook-pro`, user `makingmilesmatter`) — command center, this Mac. Active on Tailnet.
+- **mini** (`brandons-mac-mini`, user `brandonglomski`, hostname `Mac.lan`) — execution worker. 24/7. ✅ Active on Tailnet at `100.109.132.69`.
+- **mbp-2** (`brandons-macbook-pro-2`) — second worker. ⚠️ Currently OFFLINE on Tailnet (18 days). SSH alias configured but won't connect until reconnected.
+- **HP 360 + ThinkPad** — Windows workers. ⚠️ Real Tailnet names are unknown; 3 candidates (`bg-ccw`, `desktop-vamr20a`, `homepcwet`) all offline. Identification pending — see decision packet `10-Projects/_decision-packets/2026-05-23-windows-machine-identification.md`.
 - All on Tailscale tailnet `tail5646cc.ts.net`.
+
+**Polling architecture (as of 2026-05-23):** `com.openclaw.mc-poller` (Python handler at `~/openclaw-workspace/bolt/mc_handler.py`) is the SOLE canonical poller for the `bolt-mini` agent identity. `bolt-poll.sh` was retired today (corrupted by botched 2026-05-01 patch, replaced by mc-poller weeks ago). See `30-Decisions/2026-05-23-bolt-poll-retirement.md`.
 
 ## Repos
 

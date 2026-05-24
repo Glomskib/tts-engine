@@ -1543,7 +1543,7 @@ function UpgradeNudges({
   return (
     <div className="space-y-2">
       {showWatermark && (
-        <UpgradeNudge text="Remove the “Made with FlashFlow” watermark." cta="Upgrade to Creator ($49/mo)" />
+        <UpgradeNudge text="Remove the “Made with FlashFlow” watermark." cta="Upgrade to Creator ($19/mo)" />
       )}
       {isFreeOrStarter && (
         <UpgradeNudge text={clipCountText} cta="Get Creator →" />

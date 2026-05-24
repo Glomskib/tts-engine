@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
       ok: false,
       error: {
         code: 'PAYG_CHECKOUT_REQUIRED',
-        message: 'Pay-as-you-go uploads require checkout. Subscribe to Starter ($19/mo) for 10 uploads/month or pay $5 per upload.',
+        message: 'Pay-as-you-go uploads require checkout. Subscribe to Lite ($9/mo) for 10 uploads/month or pay $5 per upload.',
         plan: plan.planId,
         upgrade_url: '/upgrade',
       },

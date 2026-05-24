@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { PRICING_PLANS } from '@/lib/plans';
+import { PricingCanonicalPill } from '@/components/PricingCanonicalPill';
 
 // Opt this page out of static prerendering. Round 2 of the homepage fix
 // (PostHogProvider Suspense move) made every 'use client' page eligible for
@@ -50,7 +51,8 @@ export default function PricingPage() {
     <div className="min-h-screen bg-[#09090b] text-white">
       {/* Hero */}
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <h1 className="text-5xl font-bold mb-4">Simple, Transparent Pricing</h1>
+        <PricingCanonicalPill />
+      <h1 className="text-5xl font-bold mb-4">Simple, Transparent Pricing</h1>
         <p className="text-xl text-gray-300 mb-6">
           Built for TikTok &amp; Instagram creators. Works for YouTube, Facebook, and brand owners too. Start free.
         </p>

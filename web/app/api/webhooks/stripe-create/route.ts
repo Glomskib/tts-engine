@@ -2,7 +2,7 @@
  * POST /api/webhooks/stripe-create
  *
  * Handles Stripe subscription events for the 4 new /create tiers
- * (Starter $19, Creator $49, Pro $99, Content Fleet contact).
+ * (Starter $19, Creator $49, Pro $99, Fleet contact).
  *
  * Setup in Stripe Dashboard → Webhooks:
  *   URL: https://flashflowai.com/api/webhooks/stripe-create

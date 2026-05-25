@@ -5,9 +5,9 @@
 <!-- AUTO-SNAPSHOT:START -->
 ## Live Auto Snapshot
 
-- Refreshed: `2026-05-25 08:42 EDT`
+- Refreshed: `2026-05-25 12:13 EDT`
 - Mission Control: prod `3074b8e`, local/origin `3074b8e` (in sync)
-- FlashFlow pre-publish: prod `909c628`, local/origin `909c628` (in sync)
+- FlashFlow pre-publish: prod `45fd27e`, local/origin `45fd27e` (in sync)
 - Note: this brief is hosted by FlashFlow, so publishing it creates the next FlashFlow SHA. The updater verifies final post-publish `/api/health` in its log before exiting.
 - MMM/Zebby's primary domains remain approval-only blockers; do not change aliases or DNS without Brandon.
 - Send-recipient allowlist: only `brandon@makingmilesmatter.com` and `spiderbuttons@gmail.com` are allowed without a separate decision packet; external-platform draft listings/products also require Brandon approval.
@@ -40,19 +40,19 @@
 - Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-24-230848/approval-cockpit.html`
 - Latest MC Telegram routing approval packet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-21-145815.md`
 - Latest MC Telegram routing dry-run report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-21-152645.md`
-- Latest digital asset launch room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-074055/launch-room.html`
-- Latest digital asset launch room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-074055/launch-room.md`
-- Latest digital asset launch room manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-074055/manifest.json`
+- Latest digital asset launch room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/launch-room.html`
+- Latest digital asset launch room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/launch-room.md`
+- Latest digital asset launch room manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/manifest.json`
 <!-- AUTO-SNAPSHOT:END -->
 
 ---
 
-## Last refreshed: 2026-05-25 08:42 EDT
+## Last refreshed: 2026-05-25 12:13 EDT
 
 ## Current deploy truth at snapshot time
 
 - **Mission Control:** live match. At snapshot time, local/origin/prod were `3074b8e` and production health reported `3074b8e`.
-- **FlashFlow:** deploy pipe is healthy. At snapshot time before this public brief was republished, local/origin/prod were `909c628` and production health reported `909c628`. Because this brief is hosted by FlashFlow, every public context refresh creates the next SHA; the updater verifies final post-publish `/api/health` before exiting.
+- **FlashFlow:** deploy pipe is healthy. At snapshot time before this public brief was republished, local/origin/prod were `45fd27e` and production health reported `45fd27e`. Because this brief is hosted by FlashFlow, every public context refresh creates the next SHA; the updater verifies final post-publish `/api/health` before exiting.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias. Local head is `46f6b5a` and `www` health reports `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - **MMM hub:** app deploy is healthy on `mmm-hub.vercel.app`. Local head is `e6c27e7` and the alternate health URL reports `e6c27e7`. `https://makingmilesmatter.org/api/health` still reports `3074b8e`, so the primary domain/path is still routed to the wrong app until Brandon approves a routing fix.
 - **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists approval gates, safe autonomous work, and Brandon's one-line decision menu.
@@ -85,9 +85,9 @@
 - **Latest approval cockpit:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-24-230848/approval-cockpit.html`.
 - **Latest MC Telegram routing approval packet:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-21-145815.md`.
 - **Latest MC Telegram routing dry-run report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-21-152645.md`.
-- **Latest digital asset launch room:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-074055/launch-room.html`.
-- **Latest digital asset launch room brief:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-074055/launch-room.md`.
-- **Latest digital asset launch room manifest:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-074055/manifest.json`.
+- **Latest digital asset launch room:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/launch-room.html`.
+- **Latest digital asset launch room brief:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/launch-room.md`.
+- **Latest digital asset launch room manifest:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/manifest.json`.
 - **MC Telegram routing state:** dry-run-first routing defaults are prepared, but live Telegram sends remain approval-locked.
 
 ## Top blockers
@@ -1363,4 +1363,34 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - Latest digital asset launch room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-074055/launch-room.html`
 - Latest digital asset launch room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-074055/launch-room.md`
 - Latest digital asset launch room manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-074055/manifest.json`
+- Last heartbeat log touch: May  9 05:17:56 2026
+
+---
+### Auto-update 2026-05-25 12:13 EDT
+- Snapshot note: pre-publication state. Because this brief is hosted by FlashFlow, publishing it creates the next FlashFlow SHA; trust the script log and `/api/health` for the final post-publish SHA.
+- MC deployed version: `3074b8e`
+- MC origin/main HEAD: `3074b8e`
+- MC deploy status: ✓ in sync
+- FlashFlow pre-publish deployed version: `45fd27e`
+- FlashFlow pre-publish origin/master HEAD: `45fd27e`
+- FlashFlow pre-publish deploy status: ✓ in sync
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-25-070942.md`
+- Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/asset-collector-dashboard/HHH-2026-asset-collector-dashboard-2026-05-21-204206.md`
+- Latest HHH approval room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-25-084037/approval-room.html`
+- Latest HHH approval room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-25-084037/approval-room.md`
+- Latest HHH approval room manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-25-084037/manifest.json`
+- Latest HHH approval room status: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-status-2026-05-25-084037.md`
+- Latest HHH route logistics request review board: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-review-board.html`
+- Latest HHH route logistics request approval sheet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-approval-sheet.md`
+- Latest HHH route logistics request draft email: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-draft.eml`
+- Latest HHH sponsor manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/manifest.json`
+- Latest HHH sponsor review board: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/HHH-2026-sponsor-test-batch-review-board.html`
+- Latest HHH sponsor approval sheet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/HHH-2026-sponsor-test-batch-approval-sheet.md`
+- Latest Mission Control Phase 1 QA report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/mission-control-phase1-qa-2026-05-25-070915/report.md`
+- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-24-230848/approval-cockpit.html`
+- Latest MC Telegram routing approval packet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-21-145815.md`
+- Latest MC Telegram routing dry-run report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-21-152645.md`
+- Latest digital asset launch room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/launch-room.html`
+- Latest digital asset launch room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/launch-room.md`
+- Latest digital asset launch room manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/manifest.json`
 - Last heartbeat log touch: May  9 05:17:56 2026

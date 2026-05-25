@@ -1,6 +1,6 @@
 # This Week Command Board
 
-Updated: 2026-05-25 03:08 EDT
+Updated: 2026-05-25 03:40 EDT
 
 Purpose: keep the AI fleet pointed at work that can finish this week, and keep irreversible actions waiting for Brandon.
 
@@ -9,7 +9,7 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 ## Fast Read
 
 - Mission Control: live at `3074b8e`.
-- FlashFlow: live at `afcd46d` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
+- FlashFlow: live at `fc9893e` before this board refresh. This file lives inside FlashFlow, so every board/session-brief publish creates the next SHA; always verify `https://flashflowai.com/api/health` after pushing docs.
 - Zebby's World: app is healthy on `www.zebbysworld.com` at `46f6b5a`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
 - MMM hub: app is healthy on `mmm-hub.vercel.app` at `e6c27e7`. `makingmilesmatter.org/api/health` still reports `3074b8e`, so the primary domain is routed to the wrong app until Brandon approves the fix.
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-25-030820.md`
@@ -46,6 +46,7 @@ Safety: this board is context only. Do not send email, post publicly, charge mon
 
 These are Brandon's one-page approval packets. Use them when a gate needs an exact yes/no/edit; do not infer approval from the command board alone.
 
+- MMM and Zebby's domain routing final proof: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-25-domain-routing-final-proof.md`
 - Identify which Tailnet Windows device is HP 360 vs ThinkPad: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-windows-machine-identification.md`
 - Digital asset Gumroad draft — Endurance Event Director's Toolkit v3: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-digital-asset-gumroad-draft.md`
 - MMM .org → MMM Hub routing fix: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_decision-packets/2026-05-23-mmm-org-to-mmm-hub.md`

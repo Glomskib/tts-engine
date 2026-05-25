@@ -19,8 +19,9 @@ regenerate_via: scripts/memory/compile-decisions-index.sh (TBD — for now, appe
 
 | Date | Venture | Decision | Status | File |
 |------|---------|----------|--------|------|
+| 2026-05-25 | brain/ops, MC platform | **"Cockpit" = Brandon's personal MC tenant** at `cockpit.flashflowai.com`. MC codebase is multi-tenant white-label. MMM is a client tenant. Other clients get their own tenants — NEVER let tenant data bleed. "Fleet" = agents/bots, not tenants. | active | `DECISIONS/2026-05-24-cockpit-as-brandons-personal-mc-tenant.md` |
 | 2026-05-24 | brain/ops | Revert Protocol added as AI_WORKING_RULES #18 — chats must check prior context before undoing state | active | `DECISIONS/2026-05-24-revert-protocol.md` |
-| 2026-05-24 | brain/ops | Canonical naming: FF-MC = `mc.flashflowai.com/admin`, MMM-MC = `makingmilesmatter.org/team` — never say just "MC" | active | `DECISIONS/2026-05-24-two-mcs-canonical-naming.md` |
+| 2026-05-24 | brain/ops | Canonical naming: FF-MC = `mc.flashflowai.com/admin`, MMM-MC = `makingmilesmatter.org/team` — never say just "MC" | **superseded** | `DECISIONS/2026-05-24-two-mcs-canonical-naming.md` (superseded by Cockpit decision above) |
 | 2026-05-24 | brain/ops | Canonical brain = MacBook Pro VAULT (mini mirrors it, not vice versa) | active | `DECISIONS/2026-05-24-canonical-brain-is-macbook-pro-vault.md` |
 | 2026-05-24 | brain/ops | OpenMemory MCP lives on mini, not MBP1 | active | `DECISIONS/2026-05-24-openmemory-mcp-on-mini-not-mb1.md` |
 | 2026-05-24 | brain/ops | Auto-handoff trigger fires at ~30% remaining context | active | `DECISIONS/2026-05-24-auto-handoff-at-30pct-context.md` |

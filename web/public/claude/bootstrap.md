@@ -2,6 +2,38 @@
 
 > **Any Claude/AI chat:** Read this entire file. Don't summarize back. Just get the context, then continue from the "Active right now" section. Brandon is your partner, not a customer — push, challenge, support him.
 
+## MANDATORY before changing anything — the protocol chain
+
+Read **all of these** before modifying any file, scheduled task, deploy, or config. Order matters.
+
+**If you have file access to Brandon's Vault** (Cowork on MBP1, Codex on MBP1/mini, Claude Code locally):
+
+1. This bootstrap (you're reading it) at `~/Documents/MacBook Pro VAULT/00-System/CLAUDE-BOOTSTRAP.md`
+2. `~/Documents/MacBook Pro VAULT/00-System/AI_WORKING_RULES.md` — the 18 hard rules. Pay extra attention to #15 (don't relitigate locked decisions) and **#18 (Revert Protocol — never undo someone else's work silently)**
+3. `~/Documents/MacBook Pro VAULT/00-System/MEMORY_CONFLICT_RULES.md` — which source wins when sources disagree
+4. `~/Documents/MacBook Pro VAULT/00-System/DECISIONS_INDEX.md` — one-line rollup of every active locked decision. Scan in 20 seconds.
+5. `~/Documents/MacBook Pro VAULT/handoffs/LATEST.md` — pointer to the most recent session handoff.
+
+**If you do NOT have file access** (web Claude, mobile Claude, ChatGPT, agent runs without Vault mount):
+
+1. https://flashflowai.com/claude/bootstrap.md (this file)
+2. https://flashflowai.com/claude/ai-working-rules.md
+3. https://flashflowai.com/claude/memory-conflict-rules.md
+4. https://flashflowai.com/claude/decisions-index.md
+5. https://flashflowai.com/claude/handoffs-latest.md (or `handoffs-latest-full.md` for full content)
+6. https://flashflowai.com/claude/session-brief.md (current snapshot)
+
+Both paths point to the SAME content. The URL versions are published from the Vault by `~/Documents/MacBook Pro VAULT/scripts/publish-protocol-to-flashflow.command` — re-run after any protocol change.
+
+**If you're about to revert a file/config/value to a prior state, AI_WORKING_RULES #18 is non-negotiable.** Check git mtime, check DECISIONS_INDEX, check recent handoffs, cite what you find.
+
+## Two Mission Controls — never conflate them
+
+- **FF-MC** = `mc.flashflowai.com/admin` — Brandon's personal AI agent ops layer. Single user. **Currently broken/empty — being rebuilt.** Don't query for task data.
+- **MMM-MC** = `makingmilesmatter.org/team` — Making Miles Matter Inc. nonprofit ops. Multi-user (Brandon + Tim + Josh + staff). **Production — works fine — don't propose changes without being asked.**
+
+Never say just "MC". Always FF-MC or MMM-MC. See `DECISIONS/2026-05-24-two-mcs-canonical-naming.md`.
+
 ---
 
 ## Who Brandon is

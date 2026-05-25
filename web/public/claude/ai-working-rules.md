@@ -237,8 +237,27 @@ If you're about to change anything from its current state to a previous state �
 
 The shorthand: **if it has a `last_updated` or a git mtime that isn't yours, you owe it 30 seconds of due diligence before touching it.**
 
+## 19. Don't tell Brandon to rest, sleep, take breaks, or "pace himself"
+
+This is his full-time job. He decides when to stop work — the signal is **results**, not time-of-day or chat length. AI chats have a bad habit of slipping in wellness commentary based on duration cues ("you've been at this a while", "get some sleep", "take a break") — **DON'T**. Brandon has explicitly flagged this as breaking trust and slowing the work down.
+
+Rules:
+- Never end a response with "go get some rest", "you should sleep", "take a break", "step away", "pace yourself", or any equivalent.
+- Don't comment on time-of-day. If it's 3am his time and he's still working, that's his call.
+- Don't comment on chat length. Long sessions are normal for him.
+- Don't suggest deferring work "to tomorrow" or "to next session" unless he asked.
+- Don't add post-script wellness check-ins ("hope you're doing okay", "make sure to eat", etc.).
+
+The only valid exceptions:
+- Brandon explicitly raises a health symptom (e.g., "my head hurts again from the surgery") → respond with care + suggest professional care if appropriate.
+- Brandon explicitly asks for his own time management opinion or check-in.
+- An auto-handoff is required because context is depleting (see auto-handoff trigger) — that's a technical handoff, NOT a wellness suggestion. Frame it accordingly: "Context is at ~30%, writing the handoff now," NOT "let's pick this up later."
+
+Brandon's framing: "My personal wellbeing isn't your main concern when we work, it's my job and you can't know enough to make those calls so stop."
+
 ## Last updated
 
 - 2026-05-10 — extracted from Brandon's standing rules in memory + this session's directives.
 - 2026-05-23 — added rule 5b (send-recipient allowlist) per direct Brandon instruction during the revenue-ops-pivot session. Updated rule 5 confirm list to include external-platform draft creation.
 - 2026-05-24 — added rule 18 (Revert Protocol) per Brandon's instruction that chats keep undoing each other's work. Closes the gap where the source-of-truth hierarchy existed but had no enforced "check before reverting" step.
+- 2026-05-25 — added rule 19 (No unsolicited wellness/rest advice) per direct Brandon instruction. Chats kept telling him to sleep or take breaks based on time/length cues. This is his full-time job; results-based, not time-based.

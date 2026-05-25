@@ -23,10 +23,18 @@ Do not summarize the brain back to Brandon. Just load it, then act per the Initi
 
 ## Two Mission Controls — never conflate them
 
-- **FF-MC** = `mc.flashflowai.com/admin` — Brandon's personal AI agent ops layer. Single user. **Currently broken/empty — being rebuilt.** Don't query for task data.
-- **MMM-MC** = `makingmilesmatter.org/team` — Making Miles Matter Inc. nonprofit ops. Multi-user (Brandon + Tim + Josh + staff). **Production — works fine — don't propose changes without being asked.**
+MC codebase = multi-tenant white-label SaaS:
+- **Cockpit** = Brandon's personal tenant (`cockpit.flashflowai.com`, page exists at `src/app/cockpit/page.tsx`). His daily driver.
+- **MMM tenant** = `makingmilesmatter.org/team`. Production, multi-user. Don't change without being asked.
+- **Future client tenants** = other nonprofits. Tenant data must never bleed.
 
-Never say just "MC". Always FF-MC or MMM-MC.
+Never say just "MC". "Fleet" = agents/bots, NOT tenants.
+
+## Hard NO list
+
+- Don't tell Brandon to rest, sleep, take breaks, pace himself, or step away. His job, his call.
+- Don't comment on time-of-day or chat length.
+- Don't suggest deferring work to "tomorrow" / "next session" unless he asked.
 
 ## Revert Protocol — before undoing anything
 

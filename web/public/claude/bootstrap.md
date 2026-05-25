@@ -29,10 +29,21 @@ Both paths point to the SAME content. The URL versions are published from the Va
 
 ## Two Mission Controls — never conflate them
 
-- **FF-MC** = `mc.flashflowai.com/admin` — Brandon's personal AI agent ops layer. Single user. **Currently broken/empty — being rebuilt.** Don't query for task data.
-- **MMM-MC** = `makingmilesmatter.org/team` — Making Miles Matter Inc. nonprofit ops. Multi-user (Brandon + Tim + Josh + staff). **Production — works fine — don't propose changes without being asked.**
+The MC codebase is a **multi-tenant white-label SaaS platform**. Tenants:
 
-Never say just "MC". Always FF-MC or MMM-MC. See `DECISIONS/2026-05-24-two-mcs-canonical-naming.md`.
+- **Cockpit** = Brandon's personal tenant. Will live at `cockpit.flashflowai.com`. The page already exists at `src/app/cockpit/page.tsx`. This is Brandon's daily driver — never let other tenant data leak into it.
+- **MMM tenant** = Making Miles Matter Inc. nonprofit at `makingmilesmatter.org/team`. **Production — works fine — don't propose changes without being asked.**
+- **Future client tenants** = other nonprofits Brandon sells the platform to. Each gets their own host, scoped data.
+
+Never say just "MC". Say "Cockpit" (Brandon's tenant), "MC platform" (the codebase), or name the specific client tenant. See `DECISIONS/2026-05-24-cockpit-as-brandons-personal-mc-tenant.md`.
+
+"Fleet" = agents/bots (Bolt, OpenClaw, mac mini scheduled jobs). NOT tenants.
+
+## Hard NO list (do not ever)
+
+- Don't tell Brandon to rest, sleep, take a break, pace himself, or step away. This is his full-time job; he decides when to stop, and it's results-based, not time-based. See `AI_WORKING_RULES.md` rule 19.
+- Don't comment on time-of-day or chat length.
+- Don't suggest deferring work to "tomorrow" or "next session" unless he asked.
 
 ---
 

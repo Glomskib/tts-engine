@@ -19,6 +19,7 @@ regenerate_via: scripts/memory/compile-decisions-index.sh (TBD — for now, appe
 
 | Date | Venture | Decision | Status | File |
 |------|---------|----------|--------|------|
+| 2026-05-25 | brain/ops | **AI_WORKING_RULES #19 added: No unsolicited wellness/rest advice.** Brandon's full-time job — results-based, not time-based. No "get some sleep", "take a break", "pace yourself", time-of-day or chat-length commentary. | active | `AI_WORKING_RULES.md` rule 19 |
 | 2026-05-25 | brain/ops, MC platform | **"Cockpit" = Brandon's personal MC tenant** at `cockpit.flashflowai.com`. MC codebase is multi-tenant white-label. MMM is a client tenant. Other clients get their own tenants — NEVER let tenant data bleed. "Fleet" = agents/bots, not tenants. | active | `DECISIONS/2026-05-24-cockpit-as-brandons-personal-mc-tenant.md` |
 | 2026-05-24 | brain/ops | Revert Protocol added as AI_WORKING_RULES #18 — chats must check prior context before undoing state | active | `DECISIONS/2026-05-24-revert-protocol.md` |
 | 2026-05-24 | brain/ops | Canonical naming: FF-MC = `mc.flashflowai.com/admin`, MMM-MC = `makingmilesmatter.org/team` — never say just "MC" | **superseded** | `DECISIONS/2026-05-24-two-mcs-canonical-naming.md` (superseded by Cockpit decision above) |

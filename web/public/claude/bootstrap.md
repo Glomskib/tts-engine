@@ -12,7 +12,9 @@ Read **all of these** before modifying any file, scheduled task, deploy, or conf
 2. `~/Documents/MacBook Pro VAULT/00-System/AI_WORKING_RULES.md` — the 18 hard rules. Pay extra attention to #15 (don't relitigate locked decisions) and **#18 (Revert Protocol — never undo someone else's work silently)**
 3. `~/Documents/MacBook Pro VAULT/00-System/MEMORY_CONFLICT_RULES.md` — which source wins when sources disagree
 4. `~/Documents/MacBook Pro VAULT/00-System/DECISIONS_INDEX.md` — one-line rollup of every active locked decision. Scan in 20 seconds.
-5. `~/Documents/MacBook Pro VAULT/handoffs/LATEST.md` — pointer to the most recent session handoff.
+5. `~/Documents/MacBook Pro VAULT/00-System/REPO-CANON.md` — **before ANY project/code work:** the one canonical clone + prod branch per repo, and the push/deploy rules. Working in the wrong clone is why "done" never goes live.
+6. `~/Documents/MacBook Pro VAULT/00-System/AUTONOMY-PROTOCOL.md` — **how to operate when acting autonomously:** work the queue, GREEN auto / RED waits for Brandon, report only on milestone/blocker/yes-no, never collide, never guess on irreversible actions.
+7. `~/Documents/MacBook Pro VAULT/handoffs/LATEST.md` — pointer to the most recent session handoff.
 
 **If you do NOT have file access** (web Claude, mobile Claude, ChatGPT, agent runs without Vault mount):
 
@@ -51,17 +53,36 @@ Never say just "MC". Say "Cockpit" (Brandon's tenant), "MC platform" (the codeba
 
 Brandon Glomski. Builder/operator using AI to run nonprofit + multiple SaaS + content + revenue systems. Had brain surgery — uses plain language, no jargon. Treats AI as life + business partner. Real revenue target: $100k/yr take-home (not $25M moonshot). Personal driver: support Katlyn (chronic illness, EDS) + son Miles. Builds with conviction, ships fast, hates being asked "what should I do next?" — expects AI to drive.
 
-## The 7 ventures (in priority order)
+## Entity structure + ventures (CANONICAL — Brandon's entity diagram, 2026-05-29)
 
-1. **HHH 2026** — Hancock Horizontal Hundred cycling event Sept 12, 2026 in Findlay OH. 400 riders + $50k sponsor target. Confirmed partners: BVHS, Hancock Hotel, False Chord, Arlyns, Tiger Lilly (breakfast), PT Link Findlay (PTs).
-2. **Making Miles Matter (MMM)** — nonprofit ops platform. White-label-able. Email canonical: `miles@makingmilesmatter.com` (NEVER spiderbuttons@gmail.com).
-3. **FlashFlow AI** — TikTok Shop creator content engine. flashflowai.com. 100 paying users + $5k MRR by 2026-08-01.
-4. **Zebby's World** — chronic-illness/EDS app + media. Spoonie-native. Closed beta 50 EDS users by 2026-07-01. ALL clinical content gates on Brandon + Katlyn.
-5. **TCG Buying Group** — CCW TCG brand. Phase 1 ledger + 5 paying members by 2026-07-01.
-6. **Mission Control (MC)** — agent ops layer at mc.flashflowai.com. THE foundation that runs everything else.
-7. **Digital assets** — productized AI agents / niche templates. 1 income asset shipped by 2026-06-01.
+This supersedes the old "7 ventures" list. Three legal entities:
 
-Goals + halt conditions live in `vault/00-System/goals.yaml`.
+**Zebbys World LLC — for-profit.** Holds:
+- **Zebby's World** — chronic-illness/EDS companion app + media. Spoonie-native. Closed beta 50 EDS users by 2026-07-01. ALL clinical content gates on Brandon + Katlyn. (`projects/zebbys-world`)
+- **FlashFlow AI** — TikTok Shop creator content engine. flashflowai.com. 100 paying users + $5k MRR by 2026-08-01. (`tts-engine`)
+- **Liquidation SaaS** — the Liquidation Decision Engine (manifest grader + bid/channel-routing engine). (`projects/liquidation-decision-engine`)
+- **TCG Life Box — Scan Box & App** — CCW TCG buying group, productized. Phase 1 ledger + 5 paying members by 2026-07-01.
+- **PorchLight** — Expo + Vercel; code-complete, was blocked on a Vercel deploy token.
+- **BuyBackOS** — buyback ops platform; was in Phase 3 E2E validation.
+
+**Making Miles Matter Inc — nonprofit 501(c)(3).** Holds:
+- **HHH** — Hancock Horizontal Hundred cycling event, Sept 12, 2026, Findlay OH. 400 riders + $50k sponsor target. Confirmed partners: BVHS, Hancock Hotel, False Chord, Arlyns, Tiger Lilly (breakfast), PT Link Findlay (PTs).
+- **FFF** — Findlay Further Fondo event.
+- **MMM OS** — multi-tenant nonprofit ops platform (SaaS/service). The MC platform codebase + the makingmilesmatter.org tenant. Email canonical: `miles@makingmilesmatter.com` (NEVER spiderbuttons@gmail.com).
+
+**Elite Refuge Mind & Body LLC** — its own entity, separate from the two trees above. Per Brandon: "under that name LLC and that covers most." NEEDS DETAIL — what it covers and which ventures (if any) sit under it is not yet recorded. Confirm with Brandon before acting on it.
+
+**Mission Control (MC)** is the connective layer — not a venture to sell, the system that keeps all of the above clean and tied together. mc.flashflowai.com. THE foundation everything else runs on.
+
+### Launch-priority order (Brandon, 2026-05-29) — all near launch, do NOT draw these out any longer
+1. Zebby's World
+2. FlashFlow AI
+3. BuyBackOS
+4. MMM OS
+5. Liquidation SaaS (Liquidation Decision Engine)
+6. Mission Control (MC) — the clean, tied-together connective layer for all of the above
+
+Goals + halt conditions per venture live in `00-System/goals.yaml`.
 
 ## Hardware + fleet
 

@@ -1,24 +1,21 @@
-# Session handoff — 2026-05-25 03:39 UTC
+# Session handoff — 2026-05-26 23:52 UTC
 
 **Source:** codex on `Brandons-MBP`
-**Git HEAD before:** 12c88de
+**Git HEAD before:** 3074b8e
 
 ## Summary
-
-Domain routing approval evidence refreshed
+Reviewed Mission Control Monday-style board UX; no MC source files edited.
 
 ## Next action for the next AI/chat
-
-Next: if Brandon gives APPROVE MMM ORG TO MMM HUB or APPROVE ZEBBYS APEX TO VERCEL, run only the matching guarded helper mode and stop after verification. Otherwise keep improving local proof/review surfaces; do not send, post, charge, change DNS, copy candidate assets, upload route files, wire/publish Shopify, create platform listings/payment links, merge PRs, migrate prod, or delete data.
+If Brandon approves, implement a Phase 2 board polish pass starting with venture key/lane alignment and grouped-view default-open behavior.
 
 ## Details
+- Inspected ~/mission-control board routes/components: /admin/board, /admin/tasks, BoardView, BoardToolbar, GroupSection, task detail, /mc bookshelf, counts APIs, app shell/nav.
+- Ran local MC in dev QA mode on http://127.0.0.1:3100 and inspected /admin/tasks, /admin/board, venture board deep-links, /admin, and /mc.
+- Verified production /api/health reports version 3074b8e matching local HEAD 3074b8e.
+- Found review-only issues: venture deep-links/count keys do not line up with lane/venture data, grouped board mounts collapsed when data arrives after initial render, /admin home local fleet widget hit /api/fleet 500 due missing bolt_queue.updated_at in local schema, and /mc emitted Server-to-Client plain-object warnings for fleet rows.
+- No code/source changes were made.
 
-Loaded hosted bootstrap/session brief, read local brain guardrails/latest handoff, and ran deploy health. Fresh health remains: Mission Control ca424ab live-match, FlashFlow 725a51a live-match, Zebby's app live on www/branch at 46f6b5a while bare zebbysworld.com returns 402 from the split apex path, and MMM Hub live on mmm-hub.vercel.app at e6c27e7 while makingmilesmatter.org still routes to Mission Control ca424ab.
-
-Worked the highest-leverage safe unblocker: refreshed the domain routing approval packet with May 24 11:38pm ET evidence. Updated /Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/domain-routing-approval-packet-2026-05-15.md with fresh read-only DNS, health, Vercel ownership, and guarded dry-run findings. Evidence added: zebbysworld.com still has apex A records 76.76.21.21 and 23.227.38.32; www.zebbysworld.com health returns Zebby's 46f6b5a; Vercel still lists the domain on zebbys-world but warns config is wrong; makingmilesmatter.org and www.makingmilesmatter.org are still on mission-control; mmm-hub.vercel.app health returns e6c27e7; makingmilesmatter.org health returns ca424ab; guarded dry-run target for MMM remains https://mmm-hjusfk1qr-brandons-projects-94dcab35.vercel.app; Zebby's dry-run would replace apex A with only 76.76.21.21.
-
-Committed and pushed vault commit 12c88de docs: refresh domain routing approval evidence. No irreversible actions were performed: no email/SMS/Telegram/webhook send, no public post, no payment/link/listing/charge, no DNS/alias change, no route upload, no candidate copy, no Shopify wiring/publish, no PR merge, no production migration, and no delete.
-
----
-
-*Read this file at the start of the next session before touching anything.*
+## Safety
+- Irreversible actions taken: none.
+- Dev server was stopped before handoff.

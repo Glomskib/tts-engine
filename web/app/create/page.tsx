@@ -777,20 +777,15 @@ export default function CreatePage() {
 
         {/* 4 · Brand */}
         <Section title="4 · Brand">
-          {brands.length === 0 ? (
-            <BrandPickerModal selectedId={brandId} onSelect={setBrandId} />
-          ) : (
-            <select
-              value={brandId || ''}
-              onChange={(e) => setBrandId(e.target.value || null)}
-              className="w-full px-4 py-2 bg-gray-900 border border-gray-700 rounded-lg outline-none focus:border-teal-500"
-            >
-              <option value="">Default (account voice)</option>
-              {brands.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
-            </select>
-          )}
+          {/*
+            Always use BrandPickerModal — it renders the dropdown of brands
+            when present AND keeps the "New brand voice" create button
+            visible. The previous branch swapped in a plain <select> when
+            brands.length > 0, which dropped the create button (and meant
+            users with brands couldn't add new ones from /create).
+            Incident 2026-05-27.
+          */}
+          <BrandPickerModal selectedId={brandId} onSelect={setBrandId} />
         </Section>
 
         {/* 5 · Output settings */}

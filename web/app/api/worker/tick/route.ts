@@ -20,6 +20,7 @@ import { tickActiveRuns } from '@/lib/video-engine/pipeline';
 import { notifyPendingRuns } from '@/lib/video-engine/notify';
 import { runRenderChecks } from '@/lib/video-engine/run-render-checks';
 import { tickGenerationJobs } from '@/lib/generation-jobs/worker';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -72,11 +73,20 @@ async function tick(request: NextRequest) {
     const url = new URL(request.url);
     const max = Math.min(10, Math.max(1, Number(url.searchParams.get('max') ?? 5)));
 
-    const [tickResult, notifyResult, renderResult, genJobsResult] = await Promise.allSettled([
+    const [tickResult, notifyResult, renderResult, genJobsResult, pendingResult] = await Promise.allSettled([
       tickActiveRuns(max),
       notifyPendingRuns(3),
       runRenderChecks(10),
       tickGenerationJobs(2),
+      // Queue depth: ve_runs not in a terminal state. Surfaced to the banner
+      // so users see "X queued" when nothing advanced this cycle, instead of
+      // the misleading "Queue is idle" (incident 2026-05-27).
+      supabaseAdmin
+        .from('ve_runs')
+        .select('id, created_at', { count: 'exact', head: false })
+        .not('status', 'in', '(complete,failed)')
+        .order('created_at', { ascending: true })
+        .limit(1),
     ]);
 
     const ticked = tickResult.status === 'fulfilled' ? tickResult.value.length : 0;
@@ -88,12 +98,26 @@ async function tick(request: NextRequest) {
     const notifyErr = notifyResult.status === 'rejected' ? String(notifyResult.reason) : null;
     const renderErr = renderResult.status === 'rejected' ? String(renderResult.reason) : null;
 
+    // pending = total non-terminal ve_runs in DB. oldestPendingAgeSec lets
+    // the UI flag a "stuck" queue separately from a busy one.
+    let pending = 0;
+    let oldestPendingAgeSec: number | null = null;
+    if (pendingResult.status === 'fulfilled') {
+      pending = pendingResult.value.count ?? 0;
+      const oldestRow = pendingResult.value.data?.[0];
+      if (oldestRow?.created_at) {
+        oldestPendingAgeSec = Math.max(0, Math.floor((Date.now() - Date.parse(oldestRow.created_at)) / 1000));
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       ticked,
       notified,
       rendersChecked,
       genJobsTicked,
+      pending,
+      oldestPendingAgeSec,
       ...(tickErr ? { tickError: tickErr } : {}),
       ...(notifyErr ? { notifyError: notifyErr } : {}),
       ...(renderErr ? { renderError: renderErr } : {}),

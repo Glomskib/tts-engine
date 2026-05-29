@@ -130,8 +130,21 @@ export async function checkCredits(
     const planId = subscription?.plan_id || "free";
     const remaining = credits.credits_remaining ?? 5;
 
-    // Check if plan has unlimited credits (pro/team/admin plans)
-    const isUnlimited = ["admin", "pro", "team"].includes(planId) && remaining >= 999;
+    // Plans with unlimited credits.
+    // Must stay in sync with the deduct_credit SQL RPC
+    // (web/supabase/migrations/20260221000002_fix_unlimited_credits.sql).
+    // Legacy IDs: creator_pro, business, brand, agency (recognized by SQL RPC).
+    // New canonical (PRICING_PLANS): content_fleet ("Fleet" tier, Unlimited clips).
+    // 'admin' is defensive (admin role usually short-circuits via isAdmin above).
+    const UNLIMITED_PLAN_IDS = [
+      "admin",
+      "creator_pro",
+      "business",
+      "brand",
+      "agency",
+      "content_fleet",
+    ];
+    const isUnlimited = UNLIMITED_PLAN_IDS.includes(planId);
 
     return {
       hasCredits: remaining > 0 || isUnlimited,

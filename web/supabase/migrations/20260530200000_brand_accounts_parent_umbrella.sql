@@ -3,6 +3,11 @@
 -- Created 2026-05-30 — after 40 farm pages were created on FB and we hit the
 --   unique(brand, platform) constraint trying to register them.
 --
+-- STATUS: OPTIONAL — system runs without this migration as of 2026-05-30 22:30 UTC.
+--   The sync code stores parent_brand in meta.parent_brand (JSONB) and the
+--   resolver reads both. Unique-per-brand-name already holds (each FB page
+--   name is distinct). Apply this only for cleaner schema long-term.
+--
 -- Schema changes:
 --   1. Drop unique(brand, platform) — replace with unique(brand, platform, page_id)
 --      so we can have many rows for ("Zebby's World", facebook) — one per page.

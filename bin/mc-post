@@ -197,14 +197,65 @@ cmd_reject() {
   http_post "/api/marketing/posts/${id}/reject" "$body" | print_single
 }
 
+cmd_sync_pages() {
+  # mc-post sync-pages [--dry-run] [--map path/to/parent_brand_map.json]
+  local dry_run=false
+  local map_file=""
+  while (( $# )); do
+    case "$1" in
+      --dry-run) dry_run=true; shift ;;
+      --map)     map_file="$2"; shift 2 ;;
+      *) die "unknown arg: $1" ;;
+    esac
+  done
+
+  local map_json="{}"
+  if [[ -n "$map_file" ]]; then
+    [[ -f "$map_file" ]] || die "map file not found: $map_file"
+    map_json=$(cat "$map_file")
+  fi
+
+  local body
+  body=$(python3 -c '
+import json, sys
+m = json.loads(sys.argv[1])
+dr = sys.argv[2] == "true"
+print(json.dumps({"parent_brand_map": m, "dry_run": dr}))
+' "$map_json" "$dry_run")
+
+  http_post "/api/marketing/sync-zernio-pages" "$body" | python3 -m json.tool
+}
+
+cmd_pages() {
+  # mc-post pages — list every brand_account row in DB (uses /api/marketing/enqueue GET
+  # is not quite right; use a dedicated query through pending endpoint to discover).
+  # For now, just print a friendly hint to the admin URL.
+  cat <<HINT
+mc-post pages — to list every connected farm page + umbrella:
+  curl -sS -H "Authorization: Bearer \$MISSION_CONTROL_TOKEN" \\
+    "${BASE_URL}/api/admin/marketing/brand-accounts" | python3 -m json.tool
+
+(Or open ${BASE_URL}/admin/marketing/queue in the browser.)
+
+Quick run: mc-post sync-pages --dry-run     # see what would happen
+           mc-post sync-pages --map ./farm-map.json   # actually sync
+HINT
+}
+
 usage() {
   cat <<USAGE
 mc-post — FlashFlow marketing CLI
 
+Approval flow:
   mc-post list     [--status STATUS] [--limit N]
   mc-post pending  [--brand BRAND] [--platform PLATFORM]
   mc-post approve  <id> [--note "context"]
   mc-post reject   <id> [--reason "why"]
+
+Farm management (multi-page-per-umbrella):
+  mc-post pages                            show how to list connected pages
+  mc-post sync-pages [--dry-run]           pull every Zernio FB page → brand_accounts
+                     [--map FILE]          --map FILE: JSON of {pageName: umbrellaBrand}
 
 Env:
   MISSION_CONTROL_TOKEN   required (Vercel env value)
@@ -214,10 +265,12 @@ USAGE
 
 sub="${1:-}"; shift || true
 case "$sub" in
-  list)    cmd_list "$@" ;;
-  pending) cmd_pending "$@" ;;
-  approve) cmd_approve "$@" ;;
-  reject)  cmd_reject "$@" ;;
+  list)       cmd_list "$@" ;;
+  pending)    cmd_pending "$@" ;;
+  approve)    cmd_approve "$@" ;;
+  reject)     cmd_reject "$@" ;;
+  sync-pages) cmd_sync_pages "$@" ;;
+  pages)      cmd_pages "$@" ;;
   ""|-h|--help|help) usage ;;
   *) die "unknown subcommand: $sub (try 'mc-post help')" ;;
 esac

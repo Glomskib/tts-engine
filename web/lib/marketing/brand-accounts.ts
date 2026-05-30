@@ -22,6 +22,12 @@ export interface BrandAccount {
   account_id: string;
   page_id?: string;
   enabled: boolean;
+  /**
+   * Umbrella brand this row rolls up to. NULL means this row IS the umbrella.
+   * Added 2026-05-30 for the farm pattern (e.g. brand="POTS Patrol",
+   * parent_brand="Zebby's World"). See migration 20260530200000.
+   */
+  parent_brand?: string | null;
 }
 
 const DEFAULT_BRAND_ACCOUNTS: BrandAccount[] = [
@@ -155,6 +161,73 @@ export async function resolveTargets(
   }
 
   return targets;
+}
+
+/**
+ * Resolve umbrella brand → PlatformTarget[] for every farm page underneath it.
+ *
+ * Added 2026-05-30 for the farm pattern. e.g. resolveTargetsByUmbrella("Zebby's World")
+ * returns targets for Zebby's World itself PLUS POTS Patrol, EDS Daily, Stomach
+ * Stories, Mast be Monday, Bendy Body Daily — all 6 Facebook pages plus any
+ * Zebby's own non-FB platforms (twitter/linkedin/tiktok/youtube).
+ *
+ * Includes:
+ *   - the umbrella row itself (parent_brand IS NULL AND brand = umbrella)
+ *   - every farm row (parent_brand = umbrella)
+ *
+ * If platforms filter is provided, only returns targets for those platforms.
+ */
+export async function resolveTargetsByUmbrella(
+  umbrella: string,
+  platforms?: LatePlatform[],
+): Promise<PlatformTarget[]> {
+  const accounts = await getBrandAccounts();
+
+  const matchingAccounts = accounts.filter(
+    (a) =>
+      a.enabled &&
+      (
+        // The umbrella itself
+        (a.brand === umbrella && (a.parent_brand === null || a.parent_brand === undefined)) ||
+        // Any farm row whose parent_brand IS this umbrella
+        a.parent_brand === umbrella
+      ),
+  );
+
+  if (matchingAccounts.length === 0) {
+    console.warn(`${LOG_PREFIX} No accounts found under umbrella="${umbrella}"`);
+    return [];
+  }
+
+  const filterPlatforms = platforms ? new Set(platforms) : null;
+  const targets: PlatformTarget[] = [];
+
+  for (const acct of matchingAccounts) {
+    if (filterPlatforms && !filterPlatforms.has(acct.platform)) continue;
+
+    const target: PlatformTarget = {
+      platform: acct.platform,
+      accountId: acct.account_id,
+    };
+    if (acct.page_id && acct.platform === 'facebook') {
+      target.platformSpecificData = { pageId: acct.page_id };
+    }
+    targets.push(target);
+  }
+
+  console.log(
+    `${LOG_PREFIX} resolveTargetsByUmbrella("${umbrella}") → ${targets.length} target(s) across ${new Set(targets.map((t) => t.platform)).size} platform(s)`,
+  );
+  return targets;
+}
+
+/**
+ * List every child (farm) brand under a given umbrella. Convenience helper
+ * for admin UIs and mc-post.
+ */
+export async function listChildBrands(umbrella: string): Promise<BrandAccount[]> {
+  const accounts = await getBrandAccounts();
+  return accounts.filter((a) => a.parent_brand === umbrella);
 }
 
 /**

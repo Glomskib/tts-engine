@@ -95,11 +95,27 @@ function QueueTab() {
 
   const postAction = async (id: string, action: 'retry' | 'cancel' | 'approve') => {
     setActing(id);
-    await fetch('/api/marketing/queue', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id, action }),
-    });
+    if (action === 'approve') {
+      // New approval gate endpoint — sets meta.approved=true
+      await fetch(`/api/marketing/posts/${id}/approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approver: 'brandon' }),
+      });
+    } else if (action === 'cancel') {
+      await fetch(`/api/marketing/posts/${id}/reject`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ approver: 'brandon', reason: 'rejected from admin queue' }),
+      });
+    } else {
+      // retry — old endpoint
+      await fetch('/api/marketing/queue', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, action }),
+      });
+    }
     setActing(null);
     fetchPosts();
   };
@@ -164,6 +180,14 @@ function QueueTab() {
                       {Boolean(post.meta?.needs_review) && (
                         <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-orange-500/20 text-orange-300">review</span>
                       )}
+                      {post.meta?.approved === true && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300">approved</span>
+                      )}
+                      {post.meta?.parent_brand && (
+                        <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300">
+                          farm: {String(post.meta.parent_brand)}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 max-w-xs truncate text-zinc-200" title={post.content}>
                       {post.content.slice(0, 80)}
@@ -198,7 +222,7 @@ function QueueTab() {
                             Retry
                           </button>
                         )}
-                        {post.status === 'pending' && Boolean(post.meta?.needs_review) && (
+                        {post.status === 'pending' && post.meta?.approved !== true && (
                           <button
                             onClick={() => postAction(post.id, 'approve')}
                             disabled={acting === post.id}
@@ -213,7 +237,7 @@ function QueueTab() {
                             disabled={acting === post.id}
                             className="px-2 py-1 rounded text-xs bg-red-500/20 text-red-300 hover:bg-red-500/30 disabled:opacity-50"
                           >
-                            Cancel
+                            {post.meta?.approved === true ? 'Unapprove (cancel)' : 'Cancel'}
                           </button>
                         )}
                       </div>

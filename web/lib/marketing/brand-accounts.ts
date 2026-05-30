@@ -37,6 +37,16 @@ const DEFAULT_BRAND_ACCOUNTS: BrandAccount[] = [
   { brand: "Zebby's World", platform: 'facebook',  account_id: LATE_ACCOUNTS.facebook, page_id: FACEBOOK_PAGES.zebbysWorld, enabled: true },
   { brand: "Zebby's World", platform: 'twitter',   account_id: LATE_ACCOUNTS.twitter,  enabled: true },
   { brand: "Zebby's World", platform: 'linkedin',  account_id: LATE_ACCOUNTS.linkedin, enabled: true },
+  // Added 2026-05-24 for the Zebby content engine. Routes through the shared
+  // Late account_ids — replace with Zebby-dedicated account_ids if/when they're
+  // provisioned in Late.dev → Settings → Accounts (then update LATE_ACCOUNTS
+  // in types.ts or override per-brand here).
+  //
+  // Instagram is intentionally absent — Late.dev publishes IG via the FB Page
+  // graph today; the FB row above carries IG cross-posts when the page is
+  // linked to an IG Business profile.
+  { brand: "Zebby's World", platform: 'tiktok',   account_id: LATE_ACCOUNTS.tiktok,  enabled: true },
+  { brand: "Zebby's World", platform: 'youtube',  account_id: LATE_ACCOUNTS.youtube, enabled: true },
 
   // FlashFlow — meta brand (internal/ops)
   { brand: 'FlashFlow', platform: 'twitter',  account_id: LATE_ACCOUNTS.twitter,  enabled: true },

@@ -1,14 +1,24 @@
 /**
  * Cron: Marketing Scheduler (production-safe)
  *
- * Processes pending marketing posts through the Late.dev pipeline:
- *   1. Fetch posts with status='pending' + not flagged needs_review (up to 20 per run)
+ * APPROVAL GATE (added 2026-05-30):
+ *   This cron now refuses to publish anything that has not been explicitly
+ *   approved by Brandon. Two guards stack:
+ *     (a) MARKETING_AUTOPUBLISH env must equal 'on'. Default = OFF → cron no-ops.
+ *     (b) Even when MARKETING_AUTOPUBLISH=on, only posts marked
+ *         meta.approved=true (or status='approved' once the migration lands)
+ *         are picked up. Unapproved 'pending' posts are skipped.
+ *   This was added after Facebook posts went live without Brandon's approval.
+ *
+ * Processes APPROVED marketing posts through the Late.dev pipeline:
+ *   1. Fetch posts with status='pending' AND meta.approved=true,
+ *      not flagged needs_review (up to 20 per run)
  *   2. Idempotency: skip if late_post_id already set (already scheduled)
  *   3. Run claim risk classifier
  *   4. Safe (score < 30) → schedule via Late API with retry + backoff → 'scheduled'
  *   5. Needs review (30-69) → flag, keep 'pending'
  *   6. Blocked (>= 70) → 'cancelled'
- *   7. Retry failed posts only if meta.retry_requested=true
+ *   7. Retry failed posts only if meta.retry_requested=true AND meta.approved=true
  *
  * Production features:
  *   - Idempotency: late_post_id guard + status guard
@@ -111,6 +121,19 @@ export const GET = withErrorCapture(async (request: Request) => {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  // ── KILL-SWITCH (2026-05-30) ────────────────────────────────
+  // Fail-closed: bulk auto-publish is OFF by default. Cron no-ops until
+  // MARKETING_AUTOPUBLISH=on is set explicitly in Vercel env. Even when on,
+  // only meta.approved=true posts get picked up below.
+  if (process.env.MARKETING_AUTOPUBLISH !== 'on') {
+    console.log(`${LOG} Auto-publish disabled (MARKETING_AUTOPUBLISH != 'on'). Skipping run.`);
+    return NextResponse.json({
+      ok: true,
+      skipped: 'auto-publish disabled - approval gate active',
+      reason: 'Set MARKETING_AUTOPUBLISH=on AND mark posts meta.approved=true to enable publishing',
+    });
+  }
+
   if (!isConfigured()) {
     return NextResponse.json({ ok: true, skipped: 'LATE_API_KEY not configured' });
   }
@@ -138,24 +161,27 @@ export const GET = withErrorCapture(async (request: Request) => {
   const heartbeatId = cronRun?.id;
 
   try {
-    // Fetch eligible posts:
-    // - status='pending' AND (meta->needs_review is null OR meta->needs_review = false)
-    // - OR status='failed' AND meta->retry_requested = true
+    // Fetch eligible posts — APPROVAL GATE (2026-05-30):
+    // - status='pending' AND meta->>approved='true' AND not needs_review
+    // - OR status='failed' AND meta->>retry_requested='true' AND meta->>approved='true'
+    // Nothing publishes unless Brandon has explicitly approved it.
     const { data: pendingPosts, error: fetchErr } = await supabaseAdmin
       .from('marketing_posts')
       .select('*')
       .eq('status', 'pending')
+      .filter('meta->>approved', 'eq', 'true')
       .order('created_at', { ascending: true })
       .limit(BATCH_SIZE);
 
     if (fetchErr) throw new Error(`Fetch pending error: ${fetchErr.message}`);
 
-    // Also fetch retry-requested failed posts
+    // Also fetch retry-requested failed posts (must also be approved)
     const { data: retryPosts } = await supabaseAdmin
       .from('marketing_posts')
       .select('*')
       .eq('status', 'failed')
-      .filter('meta->retry_requested', 'eq', 'true')
+      .filter('meta->>retry_requested', 'eq', 'true')
+      .filter('meta->>approved', 'eq', 'true')
       .order('created_at', { ascending: true })
       .limit(5);
 

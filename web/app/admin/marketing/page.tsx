@@ -159,14 +159,35 @@ function QueueTab() {
     fetchPosts();
   };
 
+  // MMM posts are managed in Mission Control by Josh — exclude by default
+  const [showMmm, setShowMmm] = useState(false);
+  const filteredPosts = posts.filter((p) => {
+    if (showMmm) return true;
+    const brand = (p.meta?.brand as string) || '';
+    const parent = (p.meta?.parent_brand as string) || '';
+    return !brand.toLowerCase().includes('making miles matter') &&
+           !parent.toLowerCase().includes('making miles matter');
+  });
+
   return (
     <>
+      {/* MMM-separated banner */}
+      <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs sm:text-sm">
+        <strong>MMM / HHH / NWO posts are handled separately</strong> in Mission Control
+        (<a href="https://mc.flashflowai.com/admin/marketing" className="underline">mc.flashflowai.com/admin/marketing</a>) — Josh approves those.
+        This queue shows everything else (Zebby&apos;s, FlashFlow, TCG, niche farms).
+        <label className="ml-2 inline-flex items-center gap-1 cursor-pointer">
+          <input type="checkbox" checked={showMmm} onChange={(e) => setShowMmm(e.target.checked)} className="rounded" />
+          <span>show MMM here too</span>
+        </label>
+      </div>
+
       {/* Filters */}
-      <div className="flex gap-3 mb-4 flex-wrap">
+      <div className="flex gap-2 mb-4 flex-wrap items-center">
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="bg-zinc-800 border border-white/10 text-zinc-200 rounded-lg px-3 py-2 text-sm"
+          className="bg-zinc-800 border border-white/10 text-zinc-200 rounded-lg px-3 py-2 text-sm min-h-[44px] sm:min-h-0"
         >
           <option value="">All statuses</option>
           {STATUS_OPTIONS.map((s) => (
@@ -176,27 +197,162 @@ function QueueTab() {
         <select
           value={brandFilter}
           onChange={(e) => setBrandFilter(e.target.value)}
-          className="bg-zinc-800 border border-white/10 text-zinc-200 rounded-lg px-3 py-2 text-sm"
+          className="bg-zinc-800 border border-white/10 text-zinc-200 rounded-lg px-3 py-2 text-sm min-h-[44px] sm:min-h-0"
         >
           <option value="">All brands</option>
-          <option value="Making Miles Matter">Making Miles Matter</option>
           <option value="Zebby's World">Zebby&apos;s World</option>
           <option value="FlashFlow">FlashFlow</option>
+          <option value="TCG Buying Group">TCG Buying Group</option>
+          {showMmm && <option value="Making Miles Matter">Making Miles Matter</option>}
         </select>
         <AdminButton variant="secondary" size="sm" onClick={fetchPosts}>
           Refresh
         </AdminButton>
-        <span className="text-zinc-500 text-sm self-center">{total} total</span>
+        <span className="text-zinc-500 text-sm self-center">
+          {filteredPosts.length} shown / {total} total
+        </span>
       </div>
 
-      {/* Posts table */}
+      {/* Posts — mobile-first cards (table on lg+) */}
       <AdminCard noPadding>
         {loading ? (
           <div className="p-8 text-center text-zinc-400">Loading posts...</div>
-        ) : posts.length === 0 ? (
-          <div className="p-8 text-center text-zinc-500">No posts found</div>
+        ) : filteredPosts.length === 0 ? (
+          <div className="p-8 text-center text-zinc-500">No posts to review</div>
         ) : (
-          <div className="overflow-x-auto">
+          <>
+            {/* MOBILE / TABLET: stacked cards */}
+            <div className="flex flex-col divide-y divide-white/5 lg:hidden">
+              {filteredPosts.map((post) => {
+                const pageName =
+                  (post.meta?.target_page_name as string | undefined) ||
+                  (post.meta?.brand as string | undefined) ||
+                  '—';
+                const umbrella = post.meta?.parent_brand as string | undefined;
+                const pageId =
+                  (post.meta?.target_page_id as string | undefined) ||
+                  (post.platforms?.[0] as { platformSpecificData?: { pageId?: string } } | undefined)
+                    ?.platformSpecificData?.pageId;
+                return (
+                  <div key={post.id} className="p-4 space-y-3">
+                    {/* Target page banner */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex flex-col flex-1 min-w-0">
+                        <div className="text-base font-semibold text-zinc-100">→ {pageName}</div>
+                        {umbrella && umbrella !== pageName && (
+                          <div className="text-xs text-zinc-500">under {umbrella}</div>
+                        )}
+                      </div>
+                      <div className="flex flex-col gap-1 items-end shrink-0">
+                        <span className={`px-2 py-1 rounded text-[11px] font-medium ${STATUS_COLORS[post.status]}`}>
+                          {post.status}
+                        </span>
+                        {post.meta?.approved === true && (
+                          <span className="px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300">approved ✓</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Content body */}
+                    <div className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed">
+                      {post.content.length > 280
+                        ? `${post.content.slice(0, 280)}…`
+                        : post.content}
+                    </div>
+
+                    {/* Meta row */}
+                    <div className="flex flex-wrap items-center gap-2 text-[11px] text-zinc-500">
+                      <span className={`px-1.5 py-0.5 rounded font-medium ${
+                        post.claim_risk_score >= 70 ? 'bg-red-500/20 text-red-300' :
+                        post.claim_risk_score >= 30 ? 'bg-yellow-500/20 text-yellow-300' :
+                        'bg-green-500/20 text-green-300'
+                      }`}>
+                        risk {post.claim_risk_score >= 70 ? 'HIGH' : post.claim_risk_score >= 30 ? 'MED' : 'LOW'}
+                      </span>
+                      <span>{post.source}</span>
+                      <span>•</span>
+                      <span>{new Date(post.created_at).toLocaleDateString()}</span>
+                      {pageId && <span className="font-mono">id:{String(pageId).slice(0, 8)}…</span>}
+                    </div>
+
+                    {/* Action buttons — large touch targets */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                      {post.status === 'pending' && post.meta?.approved !== true && (
+                        <button
+                          onClick={() => postAction(post.id, 'approve')}
+                          disabled={acting === post.id}
+                          className="min-h-[44px] rounded-lg text-sm font-medium bg-emerald-500/20 text-emerald-200 hover:bg-emerald-500/30 active:bg-emerald-500/40 disabled:opacity-50"
+                        >
+                          ✓ Approve
+                        </button>
+                      )}
+                      {(post.status === 'pending' || post.status === 'failed') && (
+                        <button
+                          onClick={() => postAction(post.id, 'cancel')}
+                          disabled={acting === post.id}
+                          className="min-h-[44px] rounded-lg text-sm font-medium bg-red-500/20 text-red-200 hover:bg-red-500/30 active:bg-red-500/40 disabled:opacity-50"
+                        >
+                          ✕ {post.meta?.approved === true ? 'Unapprove' : 'Reject'}
+                        </button>
+                      )}
+                      {post.status === 'pending' && (
+                        <button
+                          onClick={() => setMovingPostId(movingPostId === post.id ? null : post.id)}
+                          disabled={acting === post.id}
+                          className="min-h-[44px] rounded-lg text-sm font-medium bg-purple-500/20 text-purple-200 hover:bg-purple-500/30 active:bg-purple-500/40 disabled:opacity-50"
+                        >
+                          ↔ Move
+                        </button>
+                      )}
+                      {post.status === 'failed' && (
+                        <button
+                          onClick={() => postAction(post.id, 'retry')}
+                          disabled={acting === post.id}
+                          className="min-h-[44px] rounded-lg text-sm font-medium bg-blue-500/20 text-blue-200 hover:bg-blue-500/30 disabled:opacity-50"
+                        >
+                          ↻ Retry
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Move-to dropdown */}
+                    {movingPostId === post.id && (
+                      <div className="p-3 rounded-lg bg-zinc-900 border border-purple-500/30 space-y-2">
+                        <div className="text-[11px] text-zinc-400 uppercase tracking-wide">
+                          Pivot this post to:
+                        </div>
+                        <select
+                          disabled={acting === post.id}
+                          onChange={(e) => { if (e.target.value) moveTo(post.id, e.target.value); }}
+                          className="w-full bg-zinc-800 border border-white/10 text-zinc-200 rounded px-3 py-2 text-sm min-h-[44px]"
+                          defaultValue=""
+                        >
+                          <option value="">— pick a page —</option>
+                          {Object.entries(groupedOptions).sort().map(([umb, opts]) => (
+                            <optgroup key={umb} label={umb}>
+                              {opts.filter((o) => o.platform === 'facebook').map((o) => (
+                                <option key={o.key} value={o.brand}>
+                                  {o.brand}{o.parent_brand ? ` — (${o.parent_brand})` : ''}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                        <button
+                          onClick={() => setMovingPostId(null)}
+                          className="text-[11px] text-zinc-500 hover:text-zinc-300"
+                        >
+                          cancel move
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* DESKTOP (lg+): table */}
+            <div className="overflow-x-auto hidden lg:block">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-white/10 text-zinc-400 text-left">
@@ -210,7 +366,7 @@ function QueueTab() {
                 </tr>
               </thead>
               <tbody>
-                {posts.map((post) => (
+                {filteredPosts.map((post) => (
                   <tr key={post.id} className="border-b border-white/5 hover:bg-white/[0.02]">
                     <td className="px-4 py-3">
                       <span className={`px-2 py-1 rounded text-xs font-medium ${STATUS_COLORS[post.status]}`}>
@@ -352,7 +508,8 @@ function QueueTab() {
                 ))}
               </tbody>
             </table>
-          </div>
+            </div>
+          </>
         )}
       </AdminCard>
     </>

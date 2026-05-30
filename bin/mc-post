@@ -1,0 +1,223 @@
+#!/usr/bin/env bash
+# mc-post — Brandon's CLI front door for the FlashFlow marketing pipeline.
+#
+# Subcommands:
+#   list [--status pending|scheduled|published|failed|cancelled] [--limit N]
+#       Recent marketing_posts rows. Default: latest 10 across all statuses.
+#
+#   pending [--brand BRAND] [--platform PLATFORM]
+#       Posts waiting on Brandon's approval. Shows ID, when, brand,
+#       platform, claim-risk score, and the first ~140 chars of body.
+#
+#   approve <id> [--note "context"]
+#       Marks the post meta.approved=true. The marketing-scheduler cron
+#       (every 15 min) will then ship it to Late.dev — but ONLY if the
+#       MARKETING_AUTOPUBLISH env var is also set to 'on' in Vercel.
+#
+#   reject <id> [--reason "why"]
+#       Marks the post status='cancelled'. Will not publish.
+#
+# Auth:
+#   Requires MISSION_CONTROL_TOKEN in env. Add it to ~/.zshrc:
+#     export MISSION_CONTROL_TOKEN="..."     # from Vercel envs
+#     export FLASHFLOW_BASE_URL="https://flashflowai.com"   # optional override
+#
+# Install:
+#   ln -s "$(pwd)/bin/mc-post" ~/.local/bin/mc-post
+#   (assumes ~/.local/bin is in PATH)
+#
+# Created 2026-05-30 as part of the approval-gate fix for unapproved FB posts.
+
+set -euo pipefail
+
+BASE_URL="${FLASHFLOW_BASE_URL:-https://flashflowai.com}"
+TOKEN="${MISSION_CONTROL_TOKEN:-}"
+
+die() { printf "mc-post: %s\n" "$*" >&2; exit 1; }
+
+[[ -n "$TOKEN" ]] || die "MISSION_CONTROL_TOKEN env var is required. Add it to ~/.zshrc."
+
+# Requires curl + python3 (both stock on macOS).
+command -v curl >/dev/null   || die "curl not found"
+command -v python3 >/dev/null || die "python3 not found"
+
+http_get() {
+  local path="$1"
+  curl -sS -X GET "${BASE_URL}${path}" \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H "Accept: application/json"
+}
+
+http_post() {
+  local path="$1"; shift
+  local body="${1:-{\}}"
+  curl -sS -X POST "${BASE_URL}${path}" \
+    -H "Authorization: Bearer ${TOKEN}" \
+    -H "Content-Type: application/json" \
+    -H "Accept: application/json" \
+    -d "$body"
+}
+
+# ── pretty-print helpers using python (avoids jq dependency) ───────────
+print_list() {
+  python3 - <<'PY'
+import json, sys, textwrap
+data = json.load(sys.stdin)
+if not data.get("ok"):
+    print("ERROR:", data.get("error") or data, file=sys.stderr); sys.exit(1)
+posts = data.get("posts") or []
+if not posts:
+    print("(no posts)")
+    sys.exit(0)
+for p in posts:
+    pid = p.get("id", "")
+    status = p.get("status") or "?"
+    src = p.get("source") or "?"
+    risk = p.get("claim_risk_score")
+    plats = p.get("platforms") or []
+    if isinstance(plats, list):
+        plats_s = ",".join(
+            (x.get("platform") if isinstance(x, dict) else str(x)) for x in plats
+        ) or "-"
+    else:
+        plats_s = "-"
+    body = (p.get("content") or "").strip().replace("\n", " ")
+    preview = textwrap.shorten(body, width=110, placeholder="…")
+    created = (p.get("created_at") or "")[:19].replace("T", " ")
+    print(f"{pid[:8]}  {status:9s}  {plats_s:25s}  risk={str(risk):>3s}  {src:18s}  {created}")
+    print(f"          {preview}")
+PY
+}
+
+print_pending() {
+  python3 - <<'PY'
+import json, sys, textwrap
+data = json.load(sys.stdin)
+if not data.get("ok"):
+    print("ERROR:", data.get("error") or data, file=sys.stderr); sys.exit(1)
+posts = data.get("posts") or []
+env_on = data.get("autopublish_env") == "on"
+banner = "[autopublish=ON]" if env_on else "[autopublish=OFF — approve will record, but cron is paused]"
+print(banner)
+if not posts:
+    print("(no posts awaiting approval)")
+    sys.exit(0)
+print(f"{len(posts)} post(s) awaiting approval:\n")
+for p in posts:
+    pid = p.get("id", "")
+    plats = p.get("platforms") or []
+    if isinstance(plats, list):
+        plats_s = ",".join(
+            (x.get("platform") if isinstance(x, dict) else str(x)) for x in plats
+        ) or "-"
+    else:
+        plats_s = "-"
+    risk = p.get("claim_risk_score")
+    src = p.get("source") or "?"
+    sched = (p.get("scheduled_for") or "")[:19].replace("T", " ")
+    body = (p.get("content") or "").strip()
+    preview = textwrap.shorten(body.replace("\n", " "), width=110, placeholder="…")
+    print(f"id: {pid}")
+    print(f"   platforms: {plats_s}   risk: {risk}   source: {src}   sched: {sched or '-'}")
+    print(f"   {preview}")
+    print(f"   approve:  mc-post approve {pid}")
+    print(f"   reject :  mc-post reject  {pid}")
+    print()
+PY
+}
+
+print_single() {
+  python3 - <<'PY'
+import json, sys
+data = json.load(sys.stdin)
+if not data.get("ok"):
+    print("ERROR:", data.get("error") or data, file=sys.stderr); sys.exit(1)
+print(json.dumps(data, indent=2))
+PY
+}
+
+cmd_list() {
+  local status="" limit="10"
+  while (( $# )); do
+    case "$1" in
+      --status) status="$2"; shift 2 ;;
+      --limit)  limit="$2"; shift 2 ;;
+      *) die "unknown arg: $1" ;;
+    esac
+  done
+  local qs="?limit=${limit}"
+  [[ -n "$status" ]] && qs="${qs}&status=${status}"
+  http_get "/api/marketing/enqueue${qs}" | print_list
+}
+
+cmd_pending() {
+  local brand="" platform=""
+  while (( $# )); do
+    case "$1" in
+      --brand)    brand="$2"; shift 2 ;;
+      --platform) platform="$2"; shift 2 ;;
+      *) die "unknown arg: $1" ;;
+    esac
+  done
+  local qs="?limit=50"
+  [[ -n "$brand"    ]] && qs="${qs}&brand=$(python3 -c 'import urllib.parse,sys; print(urllib.parse.quote(sys.argv[1]))' "$brand")"
+  [[ -n "$platform" ]] && qs="${qs}&platform=${platform}"
+  http_get "/api/marketing/pending${qs}" | print_pending
+}
+
+cmd_approve() {
+  local id="${1:-}"; shift || true
+  [[ -n "$id" ]] || die "usage: mc-post approve <id> [--note 'context']"
+  local note=""
+  while (( $# )); do
+    case "$1" in
+      --note) note="$2"; shift 2 ;;
+      *) die "unknown arg: $1" ;;
+    esac
+  done
+  local body='{"approver":"brandon"}'
+  if [[ -n "$note" ]]; then
+    body=$(python3 -c 'import json,sys; print(json.dumps({"approver":"brandon","note":sys.argv[1]}))' "$note")
+  fi
+  http_post "/api/marketing/posts/${id}/approve" "$body" | print_single
+}
+
+cmd_reject() {
+  local id="${1:-}"; shift || true
+  [[ -n "$id" ]] || die "usage: mc-post reject <id> [--reason 'why']"
+  local reason="rejected by brandon"
+  while (( $# )); do
+    case "$1" in
+      --reason) reason="$2"; shift 2 ;;
+      *) die "unknown arg: $1" ;;
+    esac
+  done
+  local body
+  body=$(python3 -c 'import json,sys; print(json.dumps({"approver":"brandon","reason":sys.argv[1]}))' "$reason")
+  http_post "/api/marketing/posts/${id}/reject" "$body" | print_single
+}
+
+usage() {
+  cat <<USAGE
+mc-post — FlashFlow marketing CLI
+
+  mc-post list     [--status STATUS] [--limit N]
+  mc-post pending  [--brand BRAND] [--platform PLATFORM]
+  mc-post approve  <id> [--note "context"]
+  mc-post reject   <id> [--reason "why"]
+
+Env:
+  MISSION_CONTROL_TOKEN   required (Vercel env value)
+  FLASHFLOW_BASE_URL      default https://flashflowai.com
+USAGE
+}
+
+sub="${1:-}"; shift || true
+case "$sub" in
+  list)    cmd_list "$@" ;;
+  pending) cmd_pending "$@" ;;
+  approve) cmd_approve "$@" ;;
+  reject)  cmd_reject "$@" ;;
+  ""|-h|--help|help) usage ;;
+  *) die "unknown subcommand: $sub (try 'mc-post help')" ;;
+esac

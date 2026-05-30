@@ -69,6 +69,16 @@ export default function MarketingPage() {
 }
 
 // ── Queue Tab ────────────────────────────────────────────────────
+interface BrandOption {
+  key: string;
+  brand: string;
+  platform: string;
+  account_id: string;
+  page_id: string | null;
+  parent_brand: string | null;
+  label: string;
+}
+
 function QueueTab() {
   const [posts, setPosts] = useState<MarketingPost[]>([]);
   const [total, setTotal] = useState(0);
@@ -76,6 +86,35 @@ function QueueTab() {
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [brandFilter, setBrandFilter] = useState<string>('');
   const [acting, setActing] = useState<string | null>(null);
+  const [brandOptions, setBrandOptions] = useState<BrandOption[]>([]);
+  const [movingPostId, setMovingPostId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch('/api/marketing/brand-options')
+      .then((r) => r.json())
+      .then((d) => setBrandOptions(d.options || []))
+      .catch(() => setBrandOptions([]));
+  }, []);
+
+  const moveTo = async (postId: string, targetBrand: string) => {
+    setActing(postId);
+    await fetch(`/api/marketing/posts/${postId}/retarget`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target_brand: targetBrand, target_platforms: ['facebook'] }),
+    });
+    setActing(null);
+    setMovingPostId(null);
+    fetchPosts();
+  };
+
+  // Group options by umbrella for nicer dropdown rendering
+  const groupedOptions: Record<string, BrandOption[]> = {};
+  for (const o of brandOptions) {
+    const k = o.parent_brand || o.brand;
+    groupedOptions[k] = groupedOptions[k] || [];
+    groupedOptions[k].push(o);
+  }
 
   const fetchPosts = useCallback(async () => {
     setLoading(true);
@@ -163,7 +202,7 @@ function QueueTab() {
                 <tr className="border-b border-white/10 text-zinc-400 text-left">
                   <th className="px-4 py-3 font-medium">Status</th>
                   <th className="px-4 py-3 font-medium">Content</th>
-                  <th className="px-4 py-3 font-medium">Brand</th>
+                  <th className="px-4 py-3 font-medium">Target Page</th>
                   <th className="px-4 py-3 font-medium">Source</th>
                   <th className="px-4 py-3 font-medium">Risk</th>
                   <th className="px-4 py-3 font-medium">Created</th>
@@ -192,7 +231,30 @@ function QueueTab() {
                     <td className="px-4 py-3 max-w-xs truncate text-zinc-200" title={post.content}>
                       {post.content.slice(0, 80)}
                     </td>
-                    <td className="px-4 py-3 text-zinc-400">{(post.meta?.brand as string) || '—'}</td>
+                    <td className="px-4 py-3 text-zinc-200">
+                      {(() => {
+                        const pageName =
+                          (post.meta?.target_page_name as string | undefined) ||
+                          (post.meta?.brand as string | undefined) ||
+                          '—';
+                        const umbrella = post.meta?.parent_brand as string | undefined;
+                        const pageId =
+                          (post.meta?.target_page_id as string | undefined) ||
+                          (post.platforms?.[0] as { platformSpecificData?: { pageId?: string } } | undefined)
+                            ?.platformSpecificData?.pageId;
+                        return (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-medium">→ {pageName}</span>
+                            {umbrella && umbrella !== pageName && (
+                              <span className="text-[10px] text-zinc-500">under {umbrella}</span>
+                            )}
+                            {pageId && (
+                              <span className="text-[10px] text-zinc-600 font-mono">page_id: {pageId}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-zinc-400">{post.source}</td>
                     <td className="px-4 py-3">
                       <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
@@ -240,7 +302,51 @@ function QueueTab() {
                             {post.meta?.approved === true ? 'Unapprove (cancel)' : 'Cancel'}
                           </button>
                         )}
+                        {post.status === 'pending' && (
+                          <button
+                            onClick={() => setMovingPostId(movingPostId === post.id ? null : post.id)}
+                            disabled={acting === post.id}
+                            className="px-2 py-1 rounded text-xs bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 disabled:opacity-50"
+                          >
+                            Move to ▾
+                          </button>
+                        )}
                       </div>
+                      {movingPostId === post.id && (
+                        <div className="mt-2 p-2 rounded bg-zinc-900 border border-purple-500/30 max-w-[260px]">
+                          <div className="text-[10px] text-zinc-500 uppercase tracking-wide mb-1">
+                            Pivot this post to:
+                          </div>
+                          <select
+                            disabled={acting === post.id}
+                            onChange={(e) => {
+                              if (e.target.value) moveTo(post.id, e.target.value);
+                            }}
+                            className="w-full bg-zinc-800 border border-white/10 text-zinc-200 rounded px-2 py-1 text-xs"
+                            defaultValue=""
+                          >
+                            <option value="">— pick a page —</option>
+                            {Object.entries(groupedOptions).sort().map(([umbrella, opts]) => (
+                              <optgroup key={umbrella} label={umbrella}>
+                                {opts
+                                  .filter((o) => o.platform === 'facebook')
+                                  .map((o) => (
+                                    <option key={o.key} value={o.brand}>
+                                      {o.brand}
+                                      {o.parent_brand ? ` — (${o.parent_brand})` : ' — (umbrella)'}
+                                    </option>
+                                  ))}
+                              </optgroup>
+                            ))}
+                          </select>
+                          <button
+                            onClick={() => setMovingPostId(null)}
+                            className="mt-1 text-[10px] text-zinc-500 hover:text-zinc-300"
+                          >
+                            cancel
+                          </button>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

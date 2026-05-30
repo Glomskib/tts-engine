@@ -198,13 +198,15 @@ cmd_reject() {
 }
 
 cmd_sync_pages() {
-  # mc-post sync-pages [--dry-run] [--map path/to/parent_brand_map.json]
+  # mc-post sync-pages [--dry-run] [--map FILE] [--zernio-key KEY]
   local dry_run=false
   local map_file=""
+  local zkey="${ZERNIO_API_KEY:-${LATE_API_KEY:-}}"
   while (( $# )); do
     case "$1" in
-      --dry-run) dry_run=true; shift ;;
-      --map)     map_file="$2"; shift 2 ;;
+      --dry-run)     dry_run=true; shift ;;
+      --map)         map_file="$2"; shift 2 ;;
+      --zernio-key)  zkey="$2"; shift 2 ;;
       *) die "unknown arg: $1" ;;
     esac
   done
@@ -220,10 +222,46 @@ cmd_sync_pages() {
 import json, sys
 m = json.loads(sys.argv[1])
 dr = sys.argv[2] == "true"
-print(json.dumps({"parent_brand_map": m, "dry_run": dr}))
-' "$map_json" "$dry_run")
+k = sys.argv[3]
+payload = {"parent_brand_map": m, "dry_run": dr}
+if k: payload["zernio_api_key"] = k
+print(json.dumps(payload))
+' "$map_json" "$dry_run" "$zkey")
 
   http_post "/api/marketing/sync-zernio-pages" "$body" | python3 -m json.tool
+}
+
+cmd_summary() {
+  http_get "/api/marketing/pending-summary" | python3 -m json.tool
+}
+
+cmd_bulk_cancel() {
+  # mc-post bulk-cancel [--older-than N] [--source X] [--contains X] [--dry-run] [--reason "..."]
+  local older="" src="" contains="" dry=false reason="bulk-cancel by brandon"
+  while (( $# )); do
+    case "$1" in
+      --older-than) older="$2"; shift 2 ;;
+      --source)     src="$2"; shift 2 ;;
+      --contains)   contains="$2"; shift 2 ;;
+      --dry-run)    dry=true; shift ;;
+      --reason)     reason="$2"; shift 2 ;;
+      *) die "unknown arg: $1" ;;
+    esac
+  done
+  if [[ -z "$older" && -z "$src" && -z "$contains" ]]; then
+    die "must specify at least one of: --older-than N | --source X | --contains X"
+  fi
+  local body
+  body=$(python3 -c '
+import json,sys
+o=sys.argv[1]; s=sys.argv[2]; c=sys.argv[3]; d=sys.argv[4]; r=sys.argv[5]
+p={"reason":r,"dry_run":d=="true"}
+if o: p["older_than_days"]=int(o)
+if s: p["source"]=s
+if c: p["source_contains"]=c
+print(json.dumps(p))
+' "$older" "$src" "$contains" "$dry" "$reason")
+  http_post "/api/marketing/bulk-cancel" "$body" | python3 -m json.tool
 }
 
 cmd_pages() {
@@ -252,10 +290,19 @@ Approval flow:
   mc-post approve  <id> [--note "context"]
   mc-post reject   <id> [--reason "why"]
 
+Triage:
+  mc-post summary                          counts pending: by source, by age, recommended action
+  mc-post bulk-cancel --older-than N       cancel all unapproved pending posts older than N days
+                      --source X           cancel all pending from source X
+                      --contains X         cancel all pending where source contains X
+                      --dry-run            preview first (always recommended)
+                      --reason "..."       free-text reason recorded on each cancellation
+
 Farm management (multi-page-per-umbrella):
   mc-post pages                            show how to list connected pages
   mc-post sync-pages [--dry-run]           pull every Zernio FB page → brand_accounts
                      [--map FILE]          --map FILE: JSON of {pageName: umbrellaBrand}
+                     [--zernio-key KEY]    override LATE_API_KEY env (or set ZERNIO_API_KEY in shell)
 
 Env:
   MISSION_CONTROL_TOKEN   required (Vercel env value)
@@ -265,12 +312,14 @@ USAGE
 
 sub="${1:-}"; shift || true
 case "$sub" in
-  list)       cmd_list "$@" ;;
-  pending)    cmd_pending "$@" ;;
-  approve)    cmd_approve "$@" ;;
-  reject)     cmd_reject "$@" ;;
-  sync-pages) cmd_sync_pages "$@" ;;
-  pages)      cmd_pages "$@" ;;
+  list)        cmd_list "$@" ;;
+  pending)     cmd_pending "$@" ;;
+  approve)     cmd_approve "$@" ;;
+  reject)      cmd_reject "$@" ;;
+  summary)     cmd_summary "$@" ;;
+  bulk-cancel) cmd_bulk_cancel "$@" ;;
+  sync-pages)  cmd_sync_pages "$@" ;;
+  pages)       cmd_pages "$@" ;;
   ""|-h|--help|help) usage ;;
   *) die "unknown subcommand: $sub (try 'mc-post help')" ;;
 esac

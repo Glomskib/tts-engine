@@ -85,6 +85,12 @@ interface ZernioPage {
 interface SyncRequestBody {
   parent_brand_map?: Record<string, string>;
   dry_run?: boolean;
+  /**
+   * Override for LATE_API_KEY env var. If LATE_API_KEY isn't set in Vercel,
+   * pass the key here to make the sync work without an env change. Safe
+   * because the endpoint is already auth-gated by MISSION_CONTROL_TOKEN.
+   */
+  zernio_api_key?: string;
 }
 
 async function zernioGet(path: string, apiKey: string): Promise<unknown> {
@@ -119,14 +125,6 @@ export async function POST(request: NextRequest) {
   const denied = await requireAuth(request);
   if (denied) return denied;
 
-  const apiKey = (process.env.LATE_API_KEY || process.env.ZERNIO_API_KEY || '').trim();
-  if (!apiKey) {
-    return NextResponse.json(
-      { error: 'LATE_API_KEY / ZERNIO_API_KEY not configured in env' },
-      { status: 503 },
-    );
-  }
-
   let body: SyncRequestBody = {};
   try {
     if (request.headers.get('content-type')?.includes('application/json')) {
@@ -134,6 +132,22 @@ export async function POST(request: NextRequest) {
     }
   } catch {
     // empty body is fine
+  }
+
+  const apiKey = (
+    body.zernio_api_key ||
+    process.env.LATE_API_KEY ||
+    process.env.ZERNIO_API_KEY ||
+    ''
+  ).trim();
+  if (!apiKey) {
+    return NextResponse.json(
+      {
+        error: 'No Zernio API key. Set LATE_API_KEY in Vercel env OR pass {"zernio_api_key":"..."} in this request body.',
+        how_to_get_key: 'zernio.com → Dashboard → API Keys → Create new key',
+      },
+      { status: 503 },
+    );
   }
 
   const dryRun = body.dry_run === true;
@@ -253,6 +267,19 @@ export async function POST(request: NextRequest) {
       rowsUpserted++;
       continue;
     }
+    // Bypass-migration mode: store parent_brand in meta JSONB so we don't
+    // need the parent_brand column or the new unique index. Brand names are
+    // already unique (each FB page name is distinct), so the existing
+    // unique(brand, platform) constraint isn't violated by farm rows.
+    // Migration 20260530200000 can still be applied later — readers tolerate
+    // both shapes via resolveTargetsByUmbrella.
+    const metaPayload: Record<string, unknown> = {
+      synced_from_zernio_at: new Date().toISOString(),
+      source_page_name: page.pageName,
+      category: page.category || null,
+    };
+    if (parentBrand) metaPayload.parent_brand = parentBrand;
+
     const { error } = await supabaseAdmin
       .from('marketing_brand_accounts')
       .upsert(
@@ -261,12 +288,11 @@ export async function POST(request: NextRequest) {
           platform: 'facebook',
           account_id: page.accountId,
           page_id: page.pageId,
-          parent_brand: parentBrand,
           enabled: true,
-          meta: { synced_from_zernio_at: new Date().toISOString(), source_page_name: page.pageName, category: page.category || null },
+          meta: metaPayload,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: 'brand,platform,page_id' },
+        { onConflict: 'brand,platform' },
       );
     if (error) {
       warnings.push(`Upsert brand_account row failed for "${page.pageName}": ${error.message}`);

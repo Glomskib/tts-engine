@@ -183,15 +183,25 @@ export async function resolveTargetsByUmbrella(
 ): Promise<PlatformTarget[]> {
   const accounts = await getBrandAccounts();
 
+  // parent_brand can live in either the dedicated column (post-migration) or
+  // the meta JSONB (bypass-migration mode). Tolerate both.
+  const parentOf = (a: BrandAccount): string | null | undefined => {
+    if (a.parent_brand !== undefined && a.parent_brand !== null) return a.parent_brand;
+    const meta = (a as unknown as { meta?: Record<string, unknown> }).meta;
+    if (meta && typeof meta.parent_brand === 'string') return meta.parent_brand;
+    return null;
+  };
+
   const matchingAccounts = accounts.filter(
-    (a) =>
-      a.enabled &&
-      (
-        // The umbrella itself
-        (a.brand === umbrella && (a.parent_brand === null || a.parent_brand === undefined)) ||
-        // Any farm row whose parent_brand IS this umbrella
-        a.parent_brand === umbrella
-      ),
+    (a) => {
+      if (!a.enabled) return false;
+      const p = parentOf(a);
+      // The umbrella itself (no parent OR brand matches umbrella with no parent set)
+      if (a.brand === umbrella && (p === null || p === undefined)) return true;
+      // Any farm row whose parent IS this umbrella
+      if (p === umbrella) return true;
+      return false;
+    },
   );
 
   if (matchingAccounts.length === 0) {

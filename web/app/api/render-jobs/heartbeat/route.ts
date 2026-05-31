@@ -10,16 +10,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
+import { isValidNodeSecret } from '@/lib/render-node-auth';
 
 export const runtime = 'nodejs';
-
-const RENDER_NODE_SECRET = process.env.RENDER_NODE_SECRET;
 
 export async function POST(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   const secret = request.headers.get('x-render-node-secret');
-  if (!RENDER_NODE_SECRET || secret !== RENDER_NODE_SECRET) {
+  if (!isValidNodeSecret(secret)) {
     return createApiErrorResponse('UNAUTHORIZED', 'Invalid render node secret', 401, correlationId);
   }
 
@@ -56,7 +55,7 @@ export async function GET(request: NextRequest) {
   const correlationId = generateCorrelationId();
 
   const secret = request.headers.get('x-render-node-secret');
-  const isNodeRequest = RENDER_NODE_SECRET && secret === RENDER_NODE_SECRET;
+  const isNodeRequest = isValidNodeSecret(secret);
 
   if (!isNodeRequest) {
     // Fall back to admin session auth

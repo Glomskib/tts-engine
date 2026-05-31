@@ -173,8 +173,8 @@ function QueueTab() {
     <>
       {/* MMM-separated banner */}
       <div className="mb-4 p-3 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-200 text-xs sm:text-sm">
-        <strong>MMM / HHH / NWO posts are handled separately</strong> in Mission Control
-        (<a href="https://mc.flashflowai.com/admin/marketing" className="underline">mc.flashflowai.com/admin/marketing</a>) — Josh approves those.
+        <strong>MMM / HHH / NWO posts live in MMM OS</strong> —
+        Josh approves those at <a href="https://makingmilesmatter.org/team/marketing" target="_blank" rel="noopener" className="underline">makingmilesmatter.org/team/marketing</a>.
         This queue shows everything else (Zebby&apos;s, FlashFlow, TCG, niche farms).
         <label className="ml-2 inline-flex items-center gap-1 cursor-pointer">
           <input type="checkbox" checked={showMmm} onChange={(e) => setShowMmm(e.target.checked)} className="rounded" />

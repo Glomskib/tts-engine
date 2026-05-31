@@ -158,6 +158,27 @@ export function trackPageView(path?: string, title?: string) {
 // ============================================
 
 export const events = {
+  // Activation funnel — these are the "must-fire" events for the PostHog
+  // signup → first-clip → first-export → first-paid funnel. Wire them at
+  // each call site; PostHog dashboards key off these names exactly.
+  signupCompleted: (params: { source?: string; referralCode?: string }) =>
+    track('signup_completed', params),
+
+  onboardingStarted: () =>
+    track('onboarding_started'),
+
+  onboardingCompleted: (params?: { stepCount?: number }) =>
+    track('onboarding_completed', params),
+
+  firstClipCreated: (params: { runId: string; source: 'upload' | 'youtube' | 'tiktok' }) =>
+    track('first_clip_created', params),
+
+  firstExportCompleted: (params: { runId: string; format?: string }) =>
+    track('first_export_completed', params),
+
+  firstPaidConverted: (params: { planId: string; amountUsd: number }) =>
+    track('first_paid_converted', params),
+
   // Content generation
   scriptGenerated: (params: { style?: string; duration?: string; success: boolean }) =>
     track('script_generated', params),

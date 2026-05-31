@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Plus, User, Loader2, Sparkles, Mic, Camera as CameraIcon, Check, AlertCircle, Trash2 } from 'lucide-react';
+import { Plus, User, Loader2, Sparkles, Mic, Camera as CameraIcon, Check, AlertCircle, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface Avatar {
   id: string;
@@ -21,6 +21,13 @@ interface Avatar {
 
 export default function AvatarsPage() {
   const [avatars, setAvatars] = useState<Avatar[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [authErr, setAuthErr] = useState(false);
+  // Surface API failures so this page stops silently showing an empty state
+  // when something's broken (incident 2026-05-27 — "Avatar — Nothing in this
+  // ever seems to work right or load").
+  const [fetchError, setFetchError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   async function deleteAvatar(id: string, name: string) {
     if (!confirm(`Delete avatar "${name}"? This cannot be undone.`)) return;
@@ -36,17 +43,38 @@ export default function AvatarsPage() {
       alert('Delete failed: ' + (e instanceof Error ? e.message : String(e)));
     }
   }
-  const [loading, setLoading] = useState(true);
-  const [authErr, setAuthErr] = useState(false);
+
+  async function loadAvatars() {
+    setFetchError(null);
+    setRefreshing(true);
+    try {
+      const r = await fetch('/api/avatars', { cache: 'no-store' });
+      if (r.status === 401) {
+        setAuthErr(true);
+        return;
+      }
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        const msg = (j as { error?: string }).error || `Server returned ${r.status}`;
+        setFetchError(msg);
+        return;
+      }
+      const j = await r.json() as { avatars?: Avatar[]; ok?: boolean; error?: string };
+      if (j.error) {
+        setFetchError(j.error);
+        return;
+      }
+      setAvatars(j.avatars || []);
+    } catch (e) {
+      setFetchError(e instanceof Error ? e.message : 'Network error — check your connection');
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
-    fetch('/api/avatars', { cache: 'no-store' })
-      .then(async r => {
-        if (r.status === 401) { setAuthErr(true); return; }
-        const j = await r.json() as { avatars?: Avatar[] };
-        setAvatars(j.avatars || []);
-      })
-      .finally(() => setLoading(false));
+    loadAvatars();
   }, []);
 
   return (
@@ -80,7 +108,36 @@ export default function AvatarsPage() {
           <div className="text-center py-12"><Loader2 className="w-6 h-6 mx-auto animate-spin text-teal-400" /></div>
         )}
 
-        {!authErr && !loading && avatars.length === 0 && (
+        {!authErr && !loading && fetchError && (
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/10 p-5 mb-4">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-amber-300 mt-0.5 shrink-0" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-amber-100 mb-1">
+                  Couldn&apos;t load your avatars
+                </div>
+                <div className="text-xs text-amber-200/80 mb-3 break-words font-mono">
+                  {fetchError}
+                </div>
+                <div className="text-[11px] text-amber-200/70 mb-3">
+                  Common causes: render worker offline, brand_profiles table missing,
+                  or your session expired. If this keeps happening, copy the message
+                  above and ping support.
+                </div>
+                <button
+                  onClick={loadAvatars}
+                  disabled={refreshing}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-zinc-900 text-xs font-semibold"
+                >
+                  {refreshing ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                  Retry
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!authErr && !loading && !fetchError && avatars.length === 0 && (
           <div className="rounded-xl border-2 border-dashed border-zinc-600 bg-zinc-900/40 p-10 text-center">
             <User className="w-12 h-12 text-zinc-400 mx-auto mb-3" />
             <div className="text-base font-semibold text-white mb-1">No avatars yet</div>
@@ -104,7 +161,27 @@ export default function AvatarsPage() {
 }
 
 function AvatarCard({ a }: { a: Avatar }) {
-  const setupComplete = a.heygen_custom_avatar_id && a.voice_clone_id && a.test_render_url;
+  // 2026-05-31: the badge used to say "Photo needed" any time setup wasn't
+  // 100% finished — including avatars that already had a photo but were
+  // waiting on HeyGen/voice processing. That lied to the user. Now we name
+  // the actual missing piece (photo OR processing OR voice OR test render).
+  const hasPhoto = !!a.avatar_visual_reference_url;
+  const photoProcessed = !!a.heygen_custom_avatar_id;
+  const voiceReady = !!a.voice_clone_id;
+  const tested = !!a.test_render_url;
+  const setupComplete = photoProcessed && voiceReady && tested;
+
+  let badge: { label: string; tone: 'amber' | 'sky' } | null = null;
+  if (!setupComplete) {
+    if (!hasPhoto)            badge = { label: 'Photo needed',     tone: 'amber' };
+    else if (!photoProcessed) badge = { label: 'Processing photo', tone: 'sky'   };
+    else if (!voiceReady)     badge = { label: 'Voice not set',    tone: 'amber' };
+    else                      badge = { label: 'Test render pending', tone: 'sky' };
+  }
+  const badgeClass = badge?.tone === 'sky'
+    ? 'bg-sky-500/30 border-sky-400 text-sky-100'
+    : 'bg-amber-500/30 border-amber-400 text-amber-100';
+
   return (
     <Link
       href={`/avatars/${a.id}`}
@@ -118,9 +195,9 @@ function AvatarCard({ a }: { a: Avatar }) {
             <User className="w-16 h-16" />
           </div>
         )}
-        {!setupComplete && (
-          <div className="absolute top-2 right-2 px-2 py-0.5 rounded-full bg-amber-500/30 border border-amber-400 text-amber-100 text-[10px] font-semibold flex items-center gap-1">
-            <AlertCircle className="w-3 h-3" /> Photo needed
+        {badge && (
+          <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full border text-[10px] font-semibold flex items-center gap-1 ${badgeClass}`}>
+            <AlertCircle className="w-3 h-3" /> {badge.label}
           </div>
         )}
       </div>

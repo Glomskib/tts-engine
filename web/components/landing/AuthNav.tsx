@@ -13,9 +13,12 @@ export default function AuthNav() {
   const { authenticated, loading: authLoading } = useAuth();
 
   if (!authLoading && authenticated) {
+    // Logged-in users land on the creator dashboard, NOT /create. The /create
+    // page is the kitchen-sink clip tool; the dashboard is the actual home
+    // surface (incident 2026-05-27 — Brandon's "Home = Create" complaint).
     return (
       <Link
-        href="/create"
+        href="/home"
         className="text-sm px-4 py-2 rounded-lg bg-white text-zinc-900 font-medium hover:bg-zinc-200 transition-colors whitespace-nowrap"
       >
         <span className="sm:hidden">Open</span>

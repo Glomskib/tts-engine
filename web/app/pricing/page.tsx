@@ -52,14 +52,14 @@ export default function PricingPage() {
       {/* Hero */}
       <div className="max-w-4xl mx-auto px-4 py-16 text-center">
         <PricingCanonicalPill />
-      <h1 className="text-5xl font-bold mb-4">Simple, Transparent Pricing</h1>
+      <h1 className="text-5xl font-bold mb-4">Pick your output.</h1>
         <p className="text-xl text-gray-300 mb-6">
-          Built for TikTok &amp; Instagram creators. Works for YouTube, Facebook, and brand owners too. Start free.
+          One credit, one polished clip. Free to try — no card.
         </p>
         <div className="flex items-center justify-center gap-4 text-sm text-gray-400">
-          <span className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> No credit card required</span>
+          <span className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> No card to start</span>
           <span className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Cancel anytime</span>
-          <span className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Free tools included</span>
+          <span className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> Free tools forever</span>
         </div>
       </div>
 
@@ -110,7 +110,7 @@ export default function PricingPage() {
           {/* Free Plan */}
           <div className="rounded-xl p-6 border border-gray-700 bg-gray-800/30 hover:border-gray-600 transition-all flex flex-col">
             <h3 className="text-xl font-bold mb-1">{PRICING_PLANS.free.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">Try the tools, no strings attached</p>
+            <p className="text-gray-400 text-sm mb-4">Three clips, no card. See if it clicks.</p>
 
             <div className="mb-1">
               <span className="text-4xl font-bold">$0</span>
@@ -138,7 +138,7 @@ export default function PricingPage() {
           {/* Starter Plan */}
           <div className="rounded-xl p-6 border border-gray-700 bg-gray-800/30 hover:border-gray-600 transition-all flex flex-col">
             <h3 className="text-xl font-bold mb-1">{PRICING_PLANS.starter.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">For creators building a repeatable short-form engine</p>
+            <p className="text-gray-400 text-sm mb-4">Your daily-poster engine.</p>
 
             <div className="mb-1">
               <span className="text-4xl font-bold">
@@ -182,7 +182,7 @@ export default function PricingPage() {
               {PRICING_PLANS.creator.badge}
             </div>
             <h3 className="text-xl font-bold mb-1 mt-2">{PRICING_PLANS.creator.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">For serious TikTok, Reels, and YouTube creators</p>
+            <p className="text-gray-400 text-sm mb-4">Where most creators land.</p>
 
             <div className="mb-1">
               <span className="text-4xl font-bold">
@@ -223,7 +223,7 @@ export default function PricingPage() {
           {/* Pro Plan */}
           <div className="rounded-xl p-6 border border-gray-700 bg-gray-800/30 hover:border-gray-600 transition-all flex flex-col">
             <h3 className="text-xl font-bold mb-1">{PRICING_PLANS.pro.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">For multi-brand creators, agencies, and small business owners</p>
+            <p className="text-gray-400 text-sm mb-4">4K · every voice · every brand.</p>
 
             <div className="mb-1">
               <span className="text-4xl font-bold">

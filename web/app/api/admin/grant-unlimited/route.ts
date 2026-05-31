@@ -3,12 +3,28 @@
  *
  * Admin-gated. Body: { email?: string, user_id?: string, name_query?: string }
  *
- * Finds the user and:
- *   1. Sets their plan to highest tier ('fleet') in user_plans if that table exists
- *   2. Grants 999,999 credits via grant_credits RPC if available
- *   3. Returns a summary of what was applied
+ * Finds the user and applies the SAME unlimited grant the manual SQL flow
+ * uses — so the admin button and Brandon's incident-response runbook stay
+ * in lockstep:
  *
- * Defensive: each step is wrapped in try/catch so partial success still helps.
+ *   1. Upsert `user_subscriptions` with plan_id='creator_pro', status='active'.
+ *      This is the canonical unlimited tier recognized by both the SQL
+ *      `deduct_credit` RPC and `lib/credits.ts:checkCredits()` (after the
+ *      2026-05-27 incident fix). 'content_fleet' is ALSO recognized as
+ *      unlimited and used by the public Fleet pricing tier — we prefer
+ *      creator_pro for admin grants so we don't co-opt the paid Fleet
+ *      naming for internal comps.
+ *
+ *   2. Upsert `user_credits.credits_remaining` to 999_999 so the
+ *      `requireCredits` gate also passes (belt-and-suspenders — the
+ *      RPC won't deduct on unlimited plans anyway).
+ *
+ *   3. Return a clean summary of what was applied.
+ *
+ * Rewritten during the 2026-05-27 audit. Previous version called a
+ * non-existent `grant_credits` RPC, set plan_id='fleet' (not recognized),
+ * and probed nonexistent `tier`/`unlimited` columns + a `profiles` table
+ * that doesn't exist in this schema. None of it ever did anything.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { getApiAuthContext } from '@/lib/supabase/api-auth';
@@ -19,6 +35,9 @@ import type { User } from '@supabase/supabase-js';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 30;
+
+const UNLIMITED_PLAN_ID = 'creator_pro';
+const UNLIMITED_CREDITS = 999_999;
 
 export async function POST(req: NextRequest) {
   const auth = await getApiAuthContext(req).catch(() => null);
@@ -47,7 +66,9 @@ export async function POST(req: NextRequest) {
 
   if (!targetUserId) {
     try {
-      // Supabase admin: list users and match by email or name. Limited to first 1000.
+      // Supabase admin: list users and match by email or name. Capped at 1000
+      // per page — beyond that we'd need pagination, which can wait until
+      // FlashFlow has > 1k users.
       const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page: 1, perPage: 1000 });
       if (error) throw error;
       const users = data?.users || [];
@@ -59,7 +80,7 @@ export async function POST(req: NextRequest) {
         match = users.find((u) => {
           const name = (u.user_metadata?.name || u.user_metadata?.full_name || '') as string;
           return name.toLowerCase().includes(q) ||
-                 u.email?.toLowerCase().includes(q);
+                 (u.email || '').toLowerCase().includes(q);
         });
       }
       if (match) {
@@ -84,59 +105,77 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  // ── Try to set plan to highest tier (table name may vary) ──────
-  const planTables = ['user_plans', 'user_subscriptions', 'subscriptions', 'plans'];
-  for (const table of planTables) {
-    try {
-      const { error } = await supabaseAdmin
-        .from(table)
-        .upsert({
+  // ── Upsert subscription to the unlimited plan ──────────────────
+  try {
+    const { error } = await supabaseAdmin
+      .from('user_subscriptions')
+      .upsert(
+        {
           user_id: targetUserId,
-          plan_id: 'fleet',
-          tier: 'fleet',
+          plan_id: UNLIMITED_PLAN_ID,
           status: 'active',
-          unlimited: true,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'user_id' });
-      if (!error) {
-        summary[`${table}_set`] = 'fleet/unlimited';
-        break; // success, no need to try other tables
-      }
-    } catch { /* try next */ }
+        },
+        { onConflict: 'user_id' },
+      );
+    if (error) {
+      summary.subscription_error = error.message;
+    } else {
+      summary.subscription_set = { plan_id: UNLIMITED_PLAN_ID, status: 'active' };
+    }
+  } catch (e) {
+    summary.subscription_error = e instanceof Error ? e.message : String(e);
   }
 
-  // ── Try to grant 999,999 credits via the existing RPC ──────────
+  // ── Upsert credits row so the requireCredits gate also passes ──
+  // The deduct_credit RPC won't decrement on unlimited plans (post-fix),
+  // so this number stays at 999_999. Even if some legacy path decrements
+  // it, 999_999 lasts essentially forever.
   try {
-    const { error } = await supabaseAdmin.rpc('grant_credits', {
-      p_user_id: targetUserId,
-      p_amount: 999999,
-      p_description: 'Unlimited grant via /api/admin/grant-unlimited',
-    });
-    summary.credits_granted = error ? 0 : 999999;
-    if (error) summary.credits_error = error.message;
+    const { error } = await supabaseAdmin
+      .from('user_credits')
+      .upsert(
+        {
+          user_id: targetUserId,
+          credits_remaining: UNLIMITED_CREDITS,
+          free_credits_total: 5,
+          free_credits_used: 0,
+          credits_used_this_period: 0,
+          lifetime_credits_used: 0,
+        },
+        { onConflict: 'user_id' },
+      );
+    if (error) {
+      summary.credits_error = error.message;
+    } else {
+      summary.credits_set = UNLIMITED_CREDITS;
+    }
   } catch (e) {
     summary.credits_error = e instanceof Error ? e.message : String(e);
   }
 
-  // ── Update profiles table with unlimited flag if column exists ─
+  // ── Log a transaction row for auditability (best-effort) ───────
   try {
-    const { error } = await supabaseAdmin
-      .from('profiles')
-      .upsert({
-        id: targetUserId,
-        unlimited_credits: true,
-        plan_tier: 'fleet',
-        updated_at: new Date().toISOString(),
-      }, { onConflict: 'id' });
-    if (!error) summary.profiles_unlimited = true;
-    else summary.profiles_error = error.message;
-  } catch (e) {
-    summary.profiles_error = e instanceof Error ? e.message : String(e);
+    await supabaseAdmin.from('credit_transactions').insert({
+      user_id: targetUserId,
+      type: 'bonus',
+      amount: UNLIMITED_CREDITS,
+      balance_after: UNLIMITED_CREDITS,
+      description: `Admin grant — unlimited (creator_pro) via /api/admin/grant-unlimited by ${auth.user.email ?? auth.user.id}`,
+    });
+  } catch {
+    // Non-fatal — transaction log is nice-to-have for audit, not required.
   }
 
   summary.target_user_id = targetUserId;
   summary.target_email = targetEmail;
   summary.completed_at = new Date().toISOString();
+
+  // If both writes failed, the grant didn't actually land — caller should know.
+  const subscriptionOk = !summary.subscription_error;
+  const creditsOk = !summary.credits_error;
+  if (!subscriptionOk && !creditsOk) {
+    return NextResponse.json({ ok: false, summary }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, summary });
 }
 

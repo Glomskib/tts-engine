@@ -1,17 +1,29 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Upload, Loader2, AlertCircle, ChevronDown } from 'lucide-react';
 import WorkspaceSelector, {
   GoalSelector,
-  ClipperPresetSelector,
-  clipperPresetToTemplateKey,
   workspaceToMode,
   type Workspace,
   type Goal,
-  type ClipperPreset,
 } from './WorkspaceSelector';
+import { events } from '@/lib/tracking';
+
+/**
+ * Fire the funnel event only once per browser. Cheap localStorage flag —
+ * good enough for activation analytics; if user clears storage we'll
+ * double-count, but the cost of that is zero.
+ */
+function maybeFireFirstClip(runId: string, source: 'upload' | 'youtube' | 'tiktok') {
+  if (typeof window === 'undefined') return;
+  try {
+    if (localStorage.getItem('ff_first_clip_fired') === '1') return;
+    localStorage.setItem('ff_first_clip_fired', '1');
+    events.firstClipCreated({ runId, source });
+  } catch { /* localStorage may be unavailable in private mode — best effort */ }
+}
 
 export type Lane = 'product' | 'clipper';
 
@@ -116,7 +128,6 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
   const isClipper = lane === 'clipper';
   const [workspace, setWorkspace] = useState<Workspace>(isClipper ? 'clipper' : 'creator');
   const [goal, setGoal] = useState<Goal | null>(null);
-  const [clipperPreset, setClipperPreset] = useState<ClipperPreset | null>(null);
   const [contextText, setContextText] = useState<string>('');
   const [showMore, setShowMore] = useState(false);
   const [captionsEnabled, setCaptionsEnabled] = useState<boolean>(true);
@@ -228,8 +239,11 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
 
       setState('creating');
       const mode = workspaceToMode(workspace);
-      const context = parseContext(contextText, workspace, goal, clipperPreset);
-      const presetKeys = isClipper && clipperPreset ? [clipperPresetToTemplateKey(clipperPreset)] : undefined;
+      const context = parseContext(contextText, workspace, goal);
+      // Preset chips removed 2026-05-30 for the upload path (already removed from
+      // YT URL form). Style picker added decision friction; the moment detector
+      // ranks clips regardless. Server still accepts preset_keys for back-compat.
+      const presetKeys = undefined;
       const runBody = {
         storage_path: upload.path,
         storage_url: upload.storage_url,
@@ -244,7 +258,7 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
         captions_enabled: captionsEnabled,
         music_mood: musicEnabled ? 'auto' : null,
       };
-      console.log('[UploadCard] CREATE_RUN_REQUEST', { lane, clipperPreset, body: runBody });
+      console.log('[UploadCard] CREATE_RUN_REQUEST', { lane, body: runBody });
       const runRes = await fetch('/api/video-engine/runs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -290,6 +304,7 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
         console.error('[UploadCard] CREATE_RUN_NO_RUN_ID', { body: runJson });
         throw new Error('Run created but the server did not return a run_id.');
       }
+      maybeFireFirstClip(runJson.data.run_id, 'upload');
       const target = `/video-engine/${runJson.data.run_id}`;
       console.log('[UploadCard] ROUTER_PUSH', { target });
       router.push(target);
@@ -309,14 +324,7 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
 
   return (
     <div className="space-y-6">
-      {isClipper ? (
-        <div>
-          <label className="block text-sm font-medium text-zinc-100 mb-2">
-            What kind of clips? <span className="text-zinc-500 font-normal text-xs">(optional — pick one or let the engine decide)</span>
-          </label>
-          <ClipperPresetSelector value={clipperPreset} onChange={setClipperPreset} disabled={busy} />
-        </div>
-      ) : (
+      {!isClipper && (
         <>
           <div>
             <label className="block text-sm font-medium text-zinc-100 mb-2">Who is this for?</label>
@@ -461,7 +469,6 @@ function parseContext(
   text: string,
   workspace: Workspace,
   goal: Goal | null,
-  clipperPreset: ClipperPreset | null,
 ): Record<string, string> {
   const out: Record<string, string> = {};
   const trimmed = text.trim();
@@ -471,7 +478,6 @@ function parseContext(
     else { out.event_name = trimmed; out.brand_name = trimmed; }
   }
   if (goal) out.goal = goal;
-  if (clipperPreset) out.clipper_preset = clipperPreset;
   return out;
 }
 
@@ -489,8 +495,30 @@ function DropZone({
 }) {
   const [dragOver, setDragOver] = useState(false);
 
+  // 2026-05-31: block the browser's default "navigate to file" behavior when
+  // the user releases a file ANYWHERE on the page (not just on this dropzone).
+  // Without this, a near-miss drag (releasing one pixel outside the dashed
+  // border) opens the video as a top-level navigation, which the user reads
+  // as "drag-and-drop doesn't work." Attach only while this card is mounted.
+  useEffect(() => {
+    const swallow = (e: DragEvent) => {
+      // Allow drops inside the dropzone (its handlers stopPropagation already
+      // via preventDefault on dragover/drop). For everything else, eat it.
+      const target = e.target as HTMLElement | null;
+      if (target?.closest('[data-upload-dropzone="true"]')) return;
+      e.preventDefault();
+    };
+    window.addEventListener('dragover', swallow);
+    window.addEventListener('drop', swallow);
+    return () => {
+      window.removeEventListener('dragover', swallow);
+      window.removeEventListener('drop', swallow);
+    };
+  }, []);
+
   return (
     <div
+      data-upload-dropzone="true"
       role="button"
       tabIndex={0}
       aria-label="Upload a video"

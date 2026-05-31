@@ -21,10 +21,16 @@ export async function GET(req: NextRequest) {
   const auth = await getApiAuthContext(req).catch(() => null);
   if (!auth?.user?.id) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
+  // active=true: soft-deleted brand profiles must NOT show in the picker.
+  // Previously they leaked back into the dropdown after a delete (incident
+  // 2026-05-27). is_avatar=false: avatars share this table; the brand picker
+  // only wants brand voices.
   const { data, error } = await supabaseAdmin
     .from('brand_profiles')
-    .select('id, name, tone_descriptor, sample_posts_json, style_notes, prohibited_phrases, preferred_phrases, brand_color, brand_font, active, created_at, updated_at').eq('is_avatar', false)
+    .select('id, name, tone_descriptor, sample_posts_json, style_notes, prohibited_phrases, preferred_phrases, brand_color, brand_font, active, created_at, updated_at')
+    .eq('is_avatar', false)
     .eq('user_id', auth.user.id)
+    .eq('active', true)
     .order('updated_at', { ascending: false });
 
   if (error) {

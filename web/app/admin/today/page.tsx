@@ -186,6 +186,7 @@ export default function TodayPage() {
       title="Today"
       subtitle="Your daily briefing — what to make, what's ready, what's working"
       stage="create"
+      maxWidth="2xl"
       headerActions={
         <button
           onClick={() => { setLoading(true); fetchData(); }}
@@ -232,7 +233,10 @@ export default function TodayPage() {
       )}
 
       {hasAnything && data && (
-        <div className="space-y-6">
+        // Breathing room — was `space-y-6` and felt crammed (incident 2026-05-27).
+        // Sections get more vertical air so the page doesn't read like one
+        // pile of cards.
+        <div className="space-y-10">
 
           {/* ── Section 1: What To Make ── */}
           {data.opportunities.length > 0 && (
@@ -244,7 +248,7 @@ export default function TodayPage() {
                 linkHref="/admin/opportunities"
                 linkLabel="All opportunities"
               />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {data.opportunities.map(opp => (
                   <div
                     key={opp.id}
@@ -334,7 +338,7 @@ export default function TodayPage() {
                 title="Ready To Go"
                 subtitle="Pick up where you left off"
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {/* Pipeline items */}
                 {data.pipeline.counts.ready_to_post > 0 && (
                   <Link
@@ -433,7 +437,7 @@ export default function TodayPage() {
                 linkHref="/admin/performance-loop"
                 linkLabel="Full profile"
               />
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Top video */}
                 {data.top_video && (
                   <div className="p-4 bg-zinc-900/60 border border-white/10 rounded-xl">
@@ -520,7 +524,7 @@ export default function TodayPage() {
               title="Create Something"
               subtitle="Jump into your next piece of content"
             />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <QuickAction href="/admin/content-studio" icon={Sparkles} label="Write a Script" color="text-teal-400" bg="bg-teal-500/10" />
               <QuickAction href="/admin/hook-generator" icon={Zap} label="Generate Hooks" color="text-amber-400" bg="bg-amber-500/10" />
               <QuickAction href="/admin/content-pack" icon={Package} label="Build a Pack" color="text-blue-400" bg="bg-blue-500/10" />
@@ -544,12 +548,14 @@ function SectionHeader({ icon: Icon, title, subtitle, linkHref, linkLabel }: {
   linkLabel?: string;
 }) {
   return (
-    <div className="flex items-center justify-between mb-3">
-      <div className="flex items-center gap-2">
-        <Icon size={14} className="text-teal-400" />
+    // mb-4 + larger title sizes — section headers used to nearly touch the
+    // first card and the type was too small to anchor (incident 2026-05-27).
+    <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center gap-2.5">
+        <Icon size={16} className="text-teal-400" />
         <div>
-          <h2 className="text-sm font-medium text-white">{title}</h2>
-          <p className="text-[10px] text-zinc-500">{subtitle}</p>
+          <h2 className="text-base font-semibold text-white">{title}</h2>
+          <p className="text-xs text-zinc-500">{subtitle}</p>
         </div>
       </div>
       {linkHref && linkLabel && (

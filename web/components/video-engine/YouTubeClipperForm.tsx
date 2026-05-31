@@ -19,6 +19,7 @@ import { useRouter } from 'next/navigation';
 import {
   Youtube, Loader2, ArrowRight, AlertTriangle,
 } from 'lucide-react';
+import { events } from '@/lib/tracking';
 
 const YT_REGEX = /^(https?:\/\/)?(www\.|m\.)?(youtube\.com\/(watch\?v=|shorts\/|embed\/|v\/|live\/)|youtu\.be\/)[A-Za-z0-9_-]{6,}/;
 
@@ -68,6 +69,13 @@ export default function YouTubeClipperForm() {
       }
       const runId = json?.data?.run_id;
       if (!runId) throw new Error('The server didn’t return a run id.');
+      // First-clip funnel event — guarded by localStorage to fire once per browser.
+      try {
+        if (typeof window !== 'undefined' && localStorage.getItem('ff_first_clip_fired') !== '1') {
+          localStorage.setItem('ff_first_clip_fired', '1');
+          events.firstClipCreated({ runId, source: 'youtube' });
+        }
+      } catch { /* localStorage may be unavailable in private mode */ }
       router.push(`/video-engine/${runId}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Something went wrong.');

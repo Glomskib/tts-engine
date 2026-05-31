@@ -138,11 +138,13 @@ export async function middleware(request: NextRequest) {
     return response
   }
 
-  // Logged-in users hitting / go to /create — feels like a tool, not a
-  // website. Marketing homepage is reachable at /home (not implemented;
-  // logged-out users see / as marketing).
+  // 2026-05-31: logged-in users hitting / now land on the creator dashboard
+  // at /home (real toolkit grid + queue health + recent clips). Previously
+  // we dumped them straight into /create which (a) hid the rest of the
+  // product and (b) made flashflowai.com look like it had no landing page
+  // for anyone signed in. Logged-out visitors still see the marketing page.
   if (!isApiRoute && path === '/' && user) {
-    return NextResponse.redirect(new URL('/create', request.url))
+    return NextResponse.redirect(new URL('/home', request.url))
   }
 
   return response

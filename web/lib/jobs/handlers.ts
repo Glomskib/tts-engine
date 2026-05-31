@@ -151,9 +151,12 @@ const handlers: Record<JobType, JobHandler> = {
           // Fall through to Stage B
         }
 
-        // Probe error/unsupported — fall through to full fetch
+        // Probe error/unsupported — fall through to full fetch.
+        // Future optimization (low-priority): mark source so we skip probes
+        // on subsequent runs. Today the cost is one extra HEAD per scan,
+        // which is bounded and acceptable. Tracked in the 2026-05-27 audit.
         if (!probe.ok && probe.error === 'unsupported') {
-          // Mark source so we skip probes in the future (TODO: adaptive)
+          // no-op — full fetch handles the unsupported case
         }
       } catch (probeErr) {
         console.warn('[scan_creator] probe failed, falling back to full fetch:', probeErr instanceof Error ? probeErr.message : probeErr);

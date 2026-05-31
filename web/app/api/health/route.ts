@@ -104,21 +104,50 @@ export async function GET() {
       : 'STRIPE_WEBHOOK_SECRET_CREATE missing — webhook accepts unsigned events (forgery risk)',
   });
 
-  // ve_runs queue depth — early warning for pipeline backlog
+  // ve_runs queue depth + oldest-pending age — early warning for pipeline
+  // backlog AND for "queue not draining" (covered by SCALE-READINESS-AUDIT
+  // §3.F, finished in the 2026-05-27 audit).
   const queueStart = Date.now();
+  let queueDepth = 0;
+  let queueOldestAgeSec: number | null = null;
   try {
-    const { count: pendingCount } = await supabaseAdmin
-      .from('ve_runs')
-      .select('id', { count: 'exact', head: true })
-      .in('status', ['created', 'transcribing', 'analyzing', 'assembling', 'rendering']);
+    const [countResult, oldestResult] = await Promise.all([
+      supabaseAdmin
+        .from('ve_runs')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['created', 'transcribing', 'analyzing', 'assembling', 'rendering']),
+      supabaseAdmin
+        .from('ve_runs')
+        .select('created_at')
+        .in('status', ['created', 'transcribing', 'analyzing', 'assembling', 'rendering'])
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-    const depth = pendingCount ?? 0;
-    // Yellow at 50 in queue, red at 200 (we process up to 25/min = backlog
-    // means we're losing the race against incoming jobs).
+    queueDepth = countResult.count ?? 0;
+    if (oldestResult.data?.created_at) {
+      queueOldestAgeSec = Math.max(0, Math.floor((Date.now() - Date.parse(oldestResult.data.created_at)) / 1000));
+    }
+
+    // Two-axis health:
+    //   depth >200       → red (pipeline backlog, losing the race)
+    //   depth >50        → yellow (busy but OK)
+    //   oldest > 30 min  → red (queue is stuck — worker likely offline)
+    //   oldest > 5 min   → yellow (advancement is slow)
     let qStatus: 'pass' | 'fail' = 'pass';
     let qMsg: string | undefined;
-    if (depth > 200) { qStatus = 'fail'; qMsg = `Queue depth ${depth} — pipeline backlog`; }
-    else if (depth > 50) { qMsg = `Queue depth ${depth} — busy but OK`; }
+    if (queueDepth > 200) {
+      qStatus = 'fail';
+      qMsg = `Queue depth ${queueDepth} — pipeline backlog`;
+    } else if (queueOldestAgeSec !== null && queueOldestAgeSec > 1800) {
+      qStatus = 'fail';
+      qMsg = `Oldest pending ${Math.floor(queueOldestAgeSec / 60)}m — worker likely offline`;
+    } else if (queueDepth > 50) {
+      qMsg = `Queue depth ${queueDepth} — busy but OK`;
+    } else if (queueOldestAgeSec !== null && queueOldestAgeSec > 300) {
+      qMsg = `Oldest pending ${Math.floor(queueOldestAgeSec / 60)}m — advancement slow`;
+    }
     checks.push({
       name: 'pipeline_queue',
       status: qStatus,
@@ -151,6 +180,12 @@ export async function GET() {
     version: process.env.VERCEL_GIT_COMMIT_SHA?.slice(0, 7) || 'local',
     timestamp: new Date().toISOString(),
     responseTime: Date.now() - startTime,
+    // Top-level metrics for external monitoring scrapers — easier to alarm on
+    // than digging into the checks array.
+    metrics: {
+      queue_depth: queueDepth,
+      queue_oldest_pending_age_sec: queueOldestAgeSec,
+    },
     checks,
     // Backward compatible fields
     env: {

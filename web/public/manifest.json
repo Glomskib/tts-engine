@@ -2,7 +2,7 @@
   "name": "FlashFlow AI — Studio",
   "short_name": "FlashFlow",
   "description": "Record, polish, and post short-form clips for TikTok, Reels, and Shorts.",
-  "start_url": "/studio",
+  "start_url": "/home",
   "display": "standalone",
   "background_color": "#09090b",
   "theme_color": "#14b8a6",
@@ -28,6 +28,12 @@
   ],
   "screenshots": [],
   "shortcuts": [
+    {
+      "name": "Home",
+      "short_name": "Home",
+      "url": "/home",
+      "description": "Creator dashboard"
+    },
     {
       "name": "Open Studio",
       "short_name": "Studio",

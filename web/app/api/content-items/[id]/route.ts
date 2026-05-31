@@ -22,10 +22,12 @@ export const GET = withErrorCapture(async (
     return createApiErrorResponse('UNAUTHORIZED', 'Authentication required', 401, correlationId);
   }
 
-  // Fetch content item
+  // Fetch content item (joined with product + brand so the post-detail page
+  // has context out of the box — previously only `*` was returned, so the
+  // UI rendered "video ready" with no clue what product or video it was for).
   const { data: item, error } = await supabaseAdmin
     .from('content_items')
-    .select('*')
+    .select('*, products(id, name, product_image_url, primary_link, tiktok_showcase_url), brands(id, name)')
     .eq('id', id)
     .eq('workspace_id', user.id)
     .single();

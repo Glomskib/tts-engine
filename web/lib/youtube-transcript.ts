@@ -460,6 +460,45 @@ async function fetchPlayerResponse(videoId: string): Promise<PlayerResponse | nu
     errors.push(`ANDROID: ${err instanceof Error ? err.message : String(err)}`);
   }
 
+  // Strategy 2b: IOS client — sometimes the only path that returns OK when
+  // WEB and ANDROID both say UNPLAYABLE (age-gated / region-gated / certain
+  // music videos). Added 2026-05-30 after the "Failed to download" reports.
+  try {
+    const res = await fetch(`https://www.youtube.com/youtubei/v1/player?prettyPrint=false`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'com.google.ios.youtube/19.32.8 (iPhone16,2; U; CPU iOS 17_5 like Mac OS X;)',
+      },
+      body: JSON.stringify({
+        videoId,
+        context: {
+          client: {
+            clientName: 'IOS',
+            clientVersion: '19.32.8',
+            deviceMake: 'Apple',
+            deviceModel: 'iPhone16,2',
+            osName: 'iPhone',
+            osVersion: '17.5.1.21F90',
+            hl: 'en',
+          },
+        },
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    if (res.ok) {
+      const data = await res.json();
+      const status = data.playabilityStatus?.status;
+      if (data.videoDetails && status === 'OK') return data as PlayerResponse;
+      errors.push(`IOS: status=${status} reason=${data.playabilityStatus?.reason || 'none'}`);
+    } else {
+      errors.push(`IOS: HTTP ${res.status}`);
+    }
+  } catch (err) {
+    errors.push(`IOS: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
   // Strategy 3: Scrape watch page — brace-balanced ytInitialPlayerResponse extraction
   try {
     const pageRes = await fetch(`https://www.youtube.com/watch?v=${videoId}&hl=en`, {
@@ -892,9 +931,12 @@ export async function downloadYouTubeAudio(url: string): Promise<{ audioPath: st
   }
 
   // ── Tier 2 fallback: @distube/ytdl-core ────────────────────────────────
+  // Same IOS → ANDROID → WEB rotation as downloadYouTubeVideo. Some music
+  // videos only serve audio-only m4a to the IOS client.
   try {
     const ytdl = (await import('@distube/ytdl-core')).default;
     const info = await ytdl.getInfo(url, {
+      playerClients: ['IOS', 'ANDROID', 'WEB'],
       requestOptions: {
         headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' },
       },
@@ -1051,9 +1093,15 @@ export async function downloadYouTubeVideo(
   // Direct Innertube extraction with signature decoding. No third-party tunnel.
   // Covers the case where COBALT_API_URL is unset OR the self-hosted instance
   // is down (cloudflared quick-tunnel restart, etc).
+  //
+  // Client rotation: try IOS → ANDROID → WEB. Many videos that return
+  // UNPLAYABLE on WEB still serve progressive streams to the IOS/ANDROID
+  // clients (age-gated music videos, region-gated content). Mirrors the
+  // rotation in fetchPlayerResponse above. Added 2026-05-30.
   try {
     const ytdl = (await import('@distube/ytdl-core')).default;
     const info = await ytdl.getInfo(url, {
+      playerClients: ['IOS', 'ANDROID', 'WEB'],
       requestOptions: {
         headers: { 'User-Agent': UA, 'Accept-Language': 'en-US,en;q=0.9' },
       },

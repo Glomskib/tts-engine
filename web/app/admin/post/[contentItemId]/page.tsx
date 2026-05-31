@@ -22,7 +22,8 @@ function CopyBtn({ text, label }: { text: string; label?: string }) {
 }
 
 interface ContentItemRow extends ContentItem {
-  products?: { name: string } | null;
+  products?: { id?: string; name: string; product_image_url?: string | null; primary_link?: string | null; tiktok_showcase_url?: string | null } | null;
+  brands?: { id?: string; name?: string } | null;
 }
 
 export default function PostPage({ params }: { params: Promise<{ contentItemId: string }> }) {
@@ -190,20 +191,70 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
           </div>
         )}
 
-        {/* Video Preview */}
-        {item.final_video_url && (
-          <section>
-            <h2 className="text-lg font-semibold text-[var(--text)] mb-2">Video</h2>
-            <a
-              href={item.final_video_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full min-h-[48px] rounded-xl text-base font-medium bg-zinc-800 text-zinc-200 active:bg-zinc-700"
-            >
-              <ExternalLink size={18} /> Open Video
-            </a>
-          </section>
-        )}
+        {/* What is this? — at-a-glance card so the user knows what they're
+            about to post without scrolling. Was missing entirely 2026-05-31:
+            Brandon hit this page and had "no clue what the video or product
+            was." Pulls the joined product image, title, ai_description, and
+            the rendered preview (or raw footage as a fallback). */}
+        {(() => {
+          const product = item.products;
+          const previewSrc = item.final_video_url || item.raw_footage_url || null;
+          const previewKind = item.final_video_url ? 'Final cut' : item.raw_footage_url ? 'Raw footage' : 'Not rendered yet';
+          return (
+            <section className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] overflow-hidden">
+              {previewSrc ? (
+                <video
+                  src={previewSrc}
+                  poster={product?.product_image_url || undefined}
+                  controls
+                  playsInline
+                  preload="metadata"
+                  className="w-full bg-black aspect-[9/16] object-contain"
+                />
+              ) : (
+                <div className="w-full aspect-[9/16] bg-black flex items-center justify-center text-zinc-500 text-sm">
+                  Render not finished yet
+                </div>
+              )}
+              <div className="p-4 space-y-3">
+                <div className="flex items-center gap-3">
+                  {product?.product_image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={product.product_image_url} alt="" className="w-12 h-12 rounded-lg object-cover bg-zinc-800" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-500">
+                      <Package size={20} />
+                    </div>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <div className="text-sm font-semibold text-[var(--text)] truncate">{product?.name || item.title || 'Untitled clip'}</div>
+                    <div className="text-[11px] text-[var(--text-muted)] truncate">
+                      {previewKind}
+                      {item.brands?.name ? ` · ${item.brands.name}` : ''}
+                      {' · '}{item.short_id}
+                    </div>
+                  </div>
+                </div>
+                {item.ai_description && (
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed line-clamp-3">{item.ai_description}</p>
+                )}
+                {!item.ai_description && item.transcript_text && (
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed line-clamp-3 italic">&ldquo;{item.transcript_text.slice(0, 200)}{item.transcript_text.length > 200 ? '…' : ''}&rdquo;</p>
+                )}
+                {item.final_video_url && (
+                  <a
+                    href={item.final_video_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 w-full min-h-[44px] rounded-xl text-sm font-medium bg-zinc-800 text-zinc-200 active:bg-zinc-700"
+                  >
+                    <ExternalLink size={16} /> Open full video in new tab
+                  </a>
+                )}
+              </div>
+            </section>
+          );
+        })()}
 
         {/* TikTok Draft Export */}
         <TikTokDraftExport

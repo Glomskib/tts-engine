@@ -10,16 +10,18 @@
  *   - Needs onboarding      → render wizard inline
  */
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCreatorProfile } from '@/hooks/useCreatorProfile';
 import { CreatorProfileWizard } from '@/components/onboarding/CreatorProfileWizard';
+import { events } from '@/lib/tracking';
 
 export default function OnboardingPage() {
   const router = useRouter();
   const { loading: authLoading, authenticated } = useAuth();
   const { loading: profileLoading, needsOnboarding, save, complete } = useCreatorProfile();
+  const firedStart = useRef(false);
 
   useEffect(() => {
     if (authLoading || profileLoading) return;
@@ -29,6 +31,13 @@ export default function OnboardingPage() {
     }
     if (!needsOnboarding) {
       router.replace('/create');
+      return;
+    }
+    // Fire the funnel events exactly once per page mount.
+    if (!firedStart.current) {
+      firedStart.current = true;
+      events.signupCompleted({ source: 'onboarding_landing' });
+      events.onboardingStarted();
     }
   }, [authLoading, profileLoading, authenticated, needsOnboarding, router]);
 
@@ -48,6 +57,7 @@ export default function OnboardingPage() {
 
   async function handleComplete(fields?: Parameters<typeof complete>[0]) {
     await complete(fields);
+    events.onboardingCompleted();
     router.replace('/create');
   }
 

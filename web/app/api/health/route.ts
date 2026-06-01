@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getEnvSummary } from "@/lib/env-validation";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { nodeAuthEnvPresence } from "@/lib/render-node-auth";
 
 interface HealthCheck {
   name: string;
@@ -162,6 +163,24 @@ export async function GET() {
       responseTime: Date.now() - queueStart,
     });
   }
+
+  // 2026-05-31: render-node auth env presence check. Vercel silently dropped
+  // both RENDER_NODE_SECRET and RENDER_NODE_SECRET_PUBLIC out of our runtime,
+  // which broke worker auth invisibly for days. This check fires loud if all
+  // three accepted env vars are missing, so the next time it happens we see
+  // "render_node_auth: fail" in /api/health within seconds.
+  const nodeAuth = nodeAuthEnvPresence();
+  checks.push({
+    name: 'render_node_auth',
+    status: nodeAuth.anyPresent ? 'pass' : 'fail',
+    message: nodeAuth.anyPresent
+      ? `Accepting: ${[
+          nodeAuth.RENDER_NODE_SECRET && 'RENDER_NODE_SECRET',
+          nodeAuth.RENDER_NODE_SECRET_PUBLIC && 'RENDER_NODE_SECRET_PUBLIC',
+          nodeAuth.CRON_SECRET && 'CRON_SECRET',
+        ].filter(Boolean).join(', ')}`
+      : 'No render-node auth env vars present — worker cannot authenticate',
+  });
 
   // Determine overall status
   const failedChecks = checks.filter((c) => c.status === 'fail');

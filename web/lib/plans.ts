@@ -210,6 +210,124 @@ export function isOpsPlanConfigured(): boolean {
   );
 }
 
+// ── Avatar Engine Plans (HeyGen-backed AI spokesperson product) ───────────────
+// Separate product line from PRICING_PLANS — do NOT merge with /create tiers.
+// Existing PRICING_PLANS customers continue on their current plans untouched.
+//
+// Avatar Engine is sold as its own subscription: render quota + avatar profile
+// count + workflow features (batch script gen, A/B hooks, white-label, etc.).
+//
+// Stripe price IDs are read from env vars so they're swappable per environment:
+//   STRIPE_AVATAR_CREATOR_MONTHLY / _ANNUAL
+//   STRIPE_AVATAR_PRO_MONTHLY     / _ANNUAL
+//   STRIPE_AVATAR_AGENCY_MONTHLY  / _ANNUAL
+// Until Stripe products are created, these fall back to null and the checkout
+// CTA should disable / route to "contact" — same pattern as OPS_PLANS.
+export const AVATAR_PLANS: Record<string, PricingPlan> = {
+  avatar_creator: {
+    name: 'Avatar Creator',
+    monthly: {
+      price: 29,
+      display: '$29',
+      stripePriceId: process.env.STRIPE_AVATAR_CREATOR_MONTHLY || process.env.STRIPE_AVATAR_CREATOR || null,
+    },
+    annual: {
+      // 17% off: $29 × 12 = $348 → $290 ($24.16/mo)
+      price: 290,
+      display: '$290',
+      monthlyEquiv: '$24',
+      stripePriceId: process.env.STRIPE_AVATAR_CREATOR_ANNUAL || null,
+      savings: '$58',
+    },
+    credits: 30,
+    features: [
+      '30 HeyGen avatar renders / month',
+      '1 avatar profile',
+      'Basic script + scene editor',
+      'Direct publish to TikTok, Reels, Shorts',
+      'All niche presets (10+ archetypes)',
+      'Performance dashboard',
+    ],
+  },
+  avatar_pro: {
+    name: 'Avatar Pro',
+    monthly: {
+      price: 149,
+      display: '$149',
+      stripePriceId: process.env.STRIPE_AVATAR_PRO_MONTHLY || process.env.STRIPE_AVATAR_PRO || null,
+    },
+    annual: {
+      // 17% off: $149 × 12 = $1,788 → $1,490 ($124/mo)
+      price: 1490,
+      display: '$1,490',
+      monthlyEquiv: '$124',
+      stripePriceId: process.env.STRIPE_AVATAR_PRO_ANNUAL || null,
+      savings: '$298',
+    },
+    credits: 200,
+    badge: 'Most Popular',
+    features: [
+      '200 renders / month',
+      '3 avatar profiles',
+      'Batch script generation (30 scripts at once)',
+      'Product overlay + hook A/B testing',
+      'Multi-platform daily auto-post scheduler',
+      'Custom voice training (clone your own)',
+      'Everything in Creator',
+    ],
+  },
+  avatar_agency: {
+    name: 'Avatar Agency',
+    monthly: {
+      price: 499,
+      display: '$499',
+      stripePriceId: process.env.STRIPE_AVATAR_AGENCY_MONTHLY || process.env.STRIPE_AVATAR_AGENCY || null,
+    },
+    annual: {
+      // 20% off (bigger spenders get bigger discount): $499 × 12 = $5,988 → $4,790 ($399/mo)
+      price: 4790,
+      display: '$4,790',
+      monthlyEquiv: '$399',
+      stripePriceId: process.env.STRIPE_AVATAR_AGENCY_ANNUAL || null,
+      savings: '$1,198',
+    },
+    credits: 1000,
+    features: [
+      '1,000 renders / month',
+      '10 avatar profiles',
+      'White-label (your branding on client deliverables)',
+      'Team seats (3 included)',
+      'Brand-monetization CRM (track affiliate deals + payouts)',
+      'Priority render queue',
+      'Dedicated success contact',
+    ],
+  },
+};
+
+export function isAvatarPlanConfigured(): boolean {
+  return Boolean(
+    AVATAR_PLANS.avatar_creator.monthly?.stripePriceId &&
+    AVATAR_PLANS.avatar_pro.monthly?.stripePriceId &&
+    AVATAR_PLANS.avatar_agency.monthly?.stripePriceId
+  );
+}
+
+/** True if a plan ID belongs to the Avatar Engine product line. */
+export function isAvatarPlan(planId: string): boolean {
+  return planId === 'avatar_creator' || planId === 'avatar_pro' || planId === 'avatar_agency';
+}
+
+/** Render quota for an Avatar Engine plan. Returns 0 for unknown plans. */
+export const AVATAR_RENDER_LIMITS: Record<string, number> = {
+  avatar_creator: 30,
+  avatar_pro: 200,
+  avatar_agency: 1000,
+};
+
+export function getAvatarRenderLimit(planId: string): number {
+  return AVATAR_RENDER_LIMITS[planId] ?? 0;
+}
+
 // Legacy plan structure for backwards compatibility
 export const PLANS = {
   FREE: {

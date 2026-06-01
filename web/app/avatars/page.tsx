@@ -64,7 +64,26 @@ export default function AvatarsPage() {
         setFetchError(j.error);
         return;
       }
-      setAvatars(j.avatars || []);
+      const list = j.avatars || [];
+      setAvatars(list);
+
+      // 2026-05-31: heal existing avatars that have a photo URL but never
+      // got registered with HeyGen (created before the auto-register fix in
+      // /avatars/new). For each one, fire the register-photo endpoint in
+      // the background. Idempotent — endpoint short-circuits when
+      // heygen_custom_avatar_id is already set. Errors are swallowed; the
+      // user can also trigger this manually from the avatar detail page.
+      const stragglers = list.filter(a => a.avatar_visual_reference_url && !a.heygen_custom_avatar_id);
+      if (stragglers.length > 0) {
+        console.log(`[avatars] healing ${stragglers.length} avatar(s) missing HeyGen registration`);
+        for (const a of stragglers) {
+          fetch(`/api/avatars/${a.id}/heygen/register-photo`, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({}),
+          }).catch(() => { /* best-effort */ });
+        }
+      }
     } catch (e) {
       setFetchError(e instanceof Error ? e.message : 'Network error — check your connection');
     } finally {

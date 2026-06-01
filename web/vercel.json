@@ -153,7 +153,7 @@
       "schedule": "* * * * *"
     },
     {
-"path": "/api/cron/auto-generate",
+      "path": "/api/cron/auto-generate",
       "schedule": "0 7 * * *"
     },
     {
@@ -198,6 +198,14 @@
     },
     {
       "path": "/api/cron/editor-cleanup",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/avatar-daily-tick",
+      "schedule": "0 13 * * *"
+    },
+    {
+      "path": "/api/cron/avatar-content-tick",
       "schedule": "*/15 * * * *"
     }
   ]

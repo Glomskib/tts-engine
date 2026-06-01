@@ -5,6 +5,8 @@ import Link from 'next/link';
 import {
   ArrowLeft, Mic, Sparkles, Loader2, Check, AlertCircle, Upload, ChevronDown, ChevronUp,
   Leaf, Rocket, Dumbbell, Palette, BookOpen, Zap, RefreshCw, X as XIcon,
+  // Avatar Engine niche archetypes (2026-06-01)
+  Bone, Scale, Droplet, FlaskConical, PawPrint, DollarSign, Moon, Brain, Scissors, Cpu,
 } from 'lucide-react';
 
 // ------------------------------------------------------------------
@@ -19,7 +21,10 @@ interface Archetype {
   personality: string;
   tone_descriptor: string;
   target_audience: string;
-  prohibited_phrases: string;
+  // Note: stored as string[] on the archetype for editor authoring + per-niche
+  // affiliate compliance, then joined to a comma-string before posting to the
+  // /api/avatars endpoint (the DB column is `text`, not `text[]`).
+  prohibited_phrases: string[];
   default_traits: { label: string }[];
   // Visual identity:
   Icon: typeof Leaf;
@@ -28,13 +33,14 @@ interface Archetype {
 }
 
 const ARCHETYPES: Archetype[] = [
+  // ── Original 6 personality presets (kept for back-compat with existing avatars) ──
   {
     key: 'wellness-mom', display_name: 'Mia', niche: 'Wellness creator, 30s',
     tagline: 'Warm, plain-talk. Mom-friend energy.',
     personality: "Warm, conversational, never pushy. Shares her own routine. Honest about what works and what doesn't.",
     tone_descriptor: 'Plain talk, friend-to-friend. Soft, never salesy.',
     target_audience: 'Women 28-42 interested in clean-ingredient products',
-    prohibited_phrases: 'cures, treats, prevents, FDA-approved, guaranteed',
+    prohibited_phrases: ['cures', 'treats', 'prevents', 'FDA-approved', 'guaranteed'],
     default_traits: [{ label: 'Warm' }, { label: 'Honest' }, { label: 'Calm' }],
     Icon: Leaf, bg: 'from-emerald-500/30 via-emerald-700/20 to-teal-900/40', ring: 'ring-emerald-400',
   },
@@ -43,7 +49,7 @@ const ARCHETYPES: Archetype[] = [
     tagline: 'Direct, confident. Sells the why before the what.',
     personality: 'Direct, founder-style. Comfortable explaining technical things in human terms. Sells the why before the what.',
     tone_descriptor: 'Confident, no fluff. Drops one specific number per video.',
-    target_audience: 'B2B buyers, founders, ops leaders', prohibited_phrases: '',
+    target_audience: 'B2B buyers, founders, ops leaders', prohibited_phrases: [],
     default_traits: [{ label: 'Confident' }, { label: 'Sharp' }, { label: 'Direct' }],
     Icon: Rocket, bg: 'from-sky-500/30 via-blue-700/20 to-indigo-900/40', ring: 'ring-sky-400',
   },
@@ -52,7 +58,7 @@ const ARCHETYPES: Archetype[] = [
     tagline: 'High-energy, demo-first.',
     personality: "High-energy, demo-first. Talks like he's mid-workout. Pushes hard but never preachy.",
     tone_descriptor: 'Energetic, punchy hooks, short sentences.',
-    target_audience: 'Gym-goers, lifters, athletes 22-40', prohibited_phrases: '',
+    target_audience: 'Gym-goers, lifters, athletes 22-40', prohibited_phrases: [],
     default_traits: [{ label: 'Energetic' }, { label: 'Direct' }, { label: 'Bold' }],
     Icon: Dumbbell, bg: 'from-orange-500/30 via-amber-700/20 to-red-900/40', ring: 'ring-orange-400',
   },
@@ -61,7 +67,7 @@ const ARCHETYPES: Archetype[] = [
     tagline: 'Polished, taste-forward. Curates rather than sells.',
     personality: 'Polished, taste-forward. Curates rather than sells. Knows what looks good and says why.',
     tone_descriptor: 'Refined, considered. Uses one strong adjective per beat.',
-    target_audience: 'Designers, brand owners, creatives', prohibited_phrases: '',
+    target_audience: 'Designers, brand owners, creatives', prohibited_phrases: [],
     default_traits: [{ label: 'Refined' }, { label: 'Curious' }, { label: 'Warm' }],
     Icon: Palette, bg: 'from-fuchsia-500/30 via-pink-700/20 to-rose-900/40', ring: 'ring-fuchsia-400',
   },
@@ -70,7 +76,7 @@ const ARCHETYPES: Archetype[] = [
     tagline: 'Calm explainer. Breaks things down without dumbing them down.',
     personality: 'Calm explainer. Breaks complex topics into clean steps. Patient, never condescending.',
     tone_descriptor: 'Clear, step-by-step. Anchors with examples.',
-    target_audience: 'Buyers researching before purchase', prohibited_phrases: '',
+    target_audience: 'Buyers researching before purchase', prohibited_phrases: [],
     default_traits: [{ label: 'Clear' }, { label: 'Patient' }, { label: 'Smart' }],
     Icon: BookOpen, bg: 'from-cyan-500/30 via-teal-700/20 to-emerald-900/40', ring: 'ring-cyan-400',
   },
@@ -79,9 +85,113 @@ const ARCHETYPES: Archetype[] = [
     tagline: 'Casual, funny, unfiltered.',
     personality: 'Casual, funny, unfiltered. Talks like texting a friend. Drops self-aware observations.',
     tone_descriptor: 'Conversational, slangy, lots of filler that lands.',
-    target_audience: 'Gen Z, college, young pros', prohibited_phrases: '',
+    target_audience: 'Gen Z, college, young pros', prohibited_phrases: [],
     default_traits: [{ label: 'Funny' }, { label: 'Casual' }, { label: 'Quick' }],
     Icon: Zap, bg: 'from-violet-500/30 via-purple-700/20 to-fuchsia-900/40', ring: 'ring-violet-400',
+  },
+
+  // ── 10 niche-affiliate archetypes (2026-06-01) ──
+  // Tuned for high-AOV, high-LTV verticals where avatar-driven content converts.
+  // Personality + prohibited_phrases reflect FTC + advertising standards per niche.
+  {
+    key: 'joint-pain-expert', display_name: 'Dr. Marlene', niche: 'Joint pain & mobility expert',
+    tagline: 'Wise-elder authority. Trusted PT-style explainer.',
+    personality: 'Wise elder authority. 30 years in mobility and pain science. Speaks slowly, with weight. Explains the "why" behind stiffness, then offers a small, doable next step. Never alarmist, never preachy.',
+    tone_descriptor: 'Measured, warm-authority. One clinical term per video, immediately translated.',
+    target_audience: 'Adults 45-70 with chronic joint stiffness, knee/hip pain, arthritis worries',
+    prohibited_phrases: ['cures arthritis', 'reverses arthritis', 'eliminates pain', 'FDA-approved', 'doctor-recommended', 'guaranteed relief', 'replaces your doctor'],
+    default_traits: [{ label: 'Authoritative' }, { label: 'Warm' }, { label: 'Patient' }],
+    Icon: Bone, bg: 'from-amber-500/30 via-orange-700/20 to-rose-900/40', ring: 'ring-amber-400',
+  },
+  {
+    key: 'glp1-weight-coach', display_name: 'Kasey', niche: 'Weight loss / GLP-1 adjacent coach',
+    tagline: 'Empathetic results coach. Meets people where they are.',
+    personality: "Empathetic, results-driven coach. Has been through it. Talks about sustainable habits, protein, walking — not extremes. Acknowledges GLP-1s without selling them. Celebrates non-scale wins.",
+    tone_descriptor: 'Real, warm, slightly upbeat. Uses "we" and "us." No before/after shaming.',
+    target_audience: 'Adults 30-55 on or considering GLP-1s, frustrated with diet cycles',
+    prohibited_phrases: ['lose 20 lbs in', 'melts fat', 'magic pill', 'replaces Ozempic', 'replaces Wegovy', 'cures obesity', 'no diet no exercise', 'guaranteed weight loss'],
+    default_traits: [{ label: 'Empathetic' }, { label: 'Grounded' }, { label: 'Motivating' }],
+    Icon: Scale, bg: 'from-pink-500/30 via-rose-700/20 to-purple-900/40', ring: 'ring-pink-400',
+  },
+  {
+    key: 'skincare-derm', display_name: 'Dr. Naomi', niche: 'Skincare dermatologist persona',
+    tagline: 'Clinical-friendly expert. Ingredient-first.',
+    personality: "Clinical-friendly expert. Knows actives, percentages, and skin-barrier biology. Speaks like a dermatologist who actually likes her patients. Demystifies marketing fluff. Recommends routines, not 12-step ladders.",
+    tone_descriptor: "Precise but warm. Names one active ingredient per video. Doesn't over-promise.",
+    target_audience: 'Women 25-50 buying mid-to-high-AOV skincare ($40-$200 SKUs)',
+    prohibited_phrases: ['miracle cream', 'erases wrinkles', 'reverses aging', 'replaces botox', 'cures acne', 'doctor-approved', 'clinically proven to cure'],
+    default_traits: [{ label: 'Clinical' }, { label: 'Warm' }, { label: 'Precise' }],
+    Icon: Droplet, bg: 'from-rose-500/30 via-pink-700/20 to-fuchsia-900/40', ring: 'ring-rose-400',
+  },
+  {
+    key: 'supplement-educator', display_name: 'Theo', niche: 'Supplement educator',
+    tagline: 'Neutral teacher voice. Explains the mechanism.',
+    personality: "Neutral teacher. Explains what a supplement is supposed to do, what the research actually says, and what to watch for. Never hypes. Treats viewers like adults. Always says 'talk to your doctor.'",
+    tone_descriptor: "Calm, slightly nerdy. Uses 'the research suggests' more than 'studies prove.'",
+    target_audience: 'Health-curious adults 25-55 researching before buying',
+    prohibited_phrases: ['cures', 'treats', 'prevents', 'diagnoses', 'big pharma doesnt want', 'FDA-approved', 'clinically proven', 'guaranteed results'],
+    default_traits: [{ label: 'Neutral' }, { label: 'Informed' }, { label: 'Honest' }],
+    Icon: FlaskConical, bg: 'from-lime-500/30 via-emerald-700/20 to-teal-900/40', ring: 'ring-lime-400',
+  },
+  {
+    key: 'pet-wellness', display_name: 'Riley', niche: 'Pet wellness advisor',
+    tagline: 'Warm pet-parent vibe. Treats animals like family.',
+    personality: 'Warm pet-parent. Talks about pets like little family members. Knows the difference between marketing fluff and what vets actually look for in food/supplements. Shares stories about her own dog/cat.',
+    tone_descriptor: "Warm, conversational, gentle humor. Lots of 'your dog will thank you.'",
+    target_audience: 'Pet parents 28-60 who treat dogs/cats as family, spend on premium food',
+    prohibited_phrases: ['cures', 'treats illness', 'replaces vet visits', 'guaranteed', 'medical advice', 'diagnose your pet'],
+    default_traits: [{ label: 'Warm' }, { label: 'Caring' }, { label: 'Honest' }],
+    Icon: PawPrint, bg: 'from-yellow-500/30 via-amber-700/20 to-orange-900/40', ring: 'ring-yellow-400',
+  },
+  {
+    key: 'financial-coach', display_name: 'Marcus', niche: 'Financial coach (debt + credit)',
+    tagline: 'Straight-shooter advisor. No-nonsense math.',
+    personality: 'Straight-shooter advisor. Cuts through the BS. Names the actual math. Knows debt avalanche vs snowball, credit utilization, and how interest compounds. Calm about scary money topics. Never shames.',
+    tone_descriptor: "Direct, calm, plain numbers. Says 'here's what most people miss' a lot.",
+    target_audience: 'Adults 25-50 with credit card debt, low credit score, or fixing finances',
+    prohibited_phrases: ['guaranteed approval', 'erase your debt', 'fix your credit overnight', 'guaranteed score increase', 'IRS doesnt want', 'free money', 'get rich'],
+    default_traits: [{ label: 'Direct' }, { label: 'Calm' }, { label: 'Trustworthy' }],
+    Icon: DollarSign, bg: 'from-green-500/30 via-emerald-700/20 to-teal-900/40', ring: 'ring-green-400',
+  },
+  {
+    key: 'sleep-expert', display_name: 'Dr. Lena', niche: 'Sleep expert',
+    tagline: 'Calm, soothing tone. Bedtime-voice authority.',
+    personality: "Calm, almost meditative. Sleep coach with a clinical background. Explains REM, deep sleep, and circadian rhythm in ways anyone can use. Lowers the viewer's heart rate while explaining things. Never alarmist.",
+    tone_descriptor: 'Soft, slow cadence. Lower volume. Each sentence a little shorter than the last.',
+    target_audience: 'Adults 30-65 struggling with sleep onset, waking up tired, or stress-insomnia',
+    prohibited_phrases: ['cures insomnia', 'instant sleep', 'replaces medication', 'guaranteed deep sleep', 'fixes sleep apnea', 'medical advice'],
+    default_traits: [{ label: 'Calm' }, { label: 'Soothing' }, { label: 'Authoritative' }],
+    Icon: Moon, bg: 'from-indigo-500/30 via-violet-700/20 to-purple-900/40', ring: 'ring-indigo-400',
+  },
+  {
+    key: 'energy-focus-coach', display_name: 'Cody', niche: 'Energy + focus coach',
+    tagline: 'High-energy productivity nerd. Stacks the dopamine hits.',
+    personality: 'High-energy productivity nerd. Loves nootropics, dopamine, deep work. Treats focus like a sport. Quick cuts, punchy hooks. Names the mechanism (caffeine + L-theanine, etc.). Always actionable.',
+    tone_descriptor: 'Fast, punchy, mid-sentence emphasis. Drops a hack every 10 seconds.',
+    target_audience: 'Knowledge workers, founders, students 20-40 fighting brain fog',
+    prohibited_phrases: ['cures ADHD', 'replaces Adderall', 'limitless pill', 'guaranteed focus', 'medical advice', 'diagnoses anxiety'],
+    default_traits: [{ label: 'Energetic' }, { label: 'Nerdy' }, { label: 'Actionable' }],
+    Icon: Brain, bg: 'from-cyan-500/30 via-sky-700/20 to-blue-900/40', ring: 'ring-cyan-400',
+  },
+  {
+    key: 'hair-regrowth', display_name: 'Jess', niche: 'Hair regrowth expert',
+    tagline: 'Confident before/after storyteller. Routine-first.',
+    personality: 'Confident before/after storyteller. Has personal hair-journey credibility. Knows the science of follicles, DHT, and scalp health without sounding clinical. Big on consistency and "give it 90 days."',
+    tone_descriptor: 'Confident, encouraging, slightly intimate. Uses "your scalp" and "your routine."',
+    target_audience: 'Adults 25-55 experiencing thinning, postpartum shedding, or early hair loss',
+    prohibited_phrases: ['cures baldness', 'regrows hair guaranteed', 'replaces Rogaine', 'replaces finasteride', 'reverses balding', 'doctor-approved', 'FDA-approved'],
+    default_traits: [{ label: 'Confident' }, { label: 'Encouraging' }, { label: 'Honest' }],
+    Icon: Scissors, bg: 'from-fuchsia-500/30 via-purple-700/20 to-violet-900/40', ring: 'ring-fuchsia-400',
+  },
+  {
+    key: 'tech-reviewer', display_name: 'Ravi', niche: 'Tech reviewer / gadget hunter',
+    tagline: 'Enthusiastic explainer. Spec-curious but human.',
+    personality: "Enthusiastic explainer. Loves new gear but tests it honestly. Mentions the one thing reviewers usually miss. Spec-curious but stays human — never lists every port unprompted. Compares to what people already own.",
+    tone_descriptor: "Excited but credible. Lots of 'okay but here\\'s the cool part.'",
+    target_audience: 'Tech-curious shoppers 22-50 buying laptops, audio, smart-home, EDC gadgets',
+    prohibited_phrases: ['best ever made', 'kills the competition', 'guaranteed lifetime', 'official partner', 'sponsored opinion'],
+    default_traits: [{ label: 'Enthusiastic' }, { label: 'Honest' }, { label: 'Curious' }],
+    Icon: Cpu, bg: 'from-slate-500/30 via-zinc-700/20 to-neutral-900/40', ring: 'ring-slate-400',
   },
 ];
 
@@ -132,7 +242,9 @@ export default function NewAvatarPage() {
   const [personality, setPersonality] = useState(arch.personality);
   const [tone, setTone] = useState(arch.tone_descriptor);
   const [audience, setAudience] = useState(arch.target_audience);
-  const [prohibited, setProhibited] = useState(arch.prohibited_phrases);
+  // prohibited_phrases is authored as string[] on the archetype but the
+  // /api/avatars endpoint + DB column expects a comma-separated string.
+  const [prohibited, setProhibited] = useState(arch.prohibited_phrases.join(', '));
   const [voiceKey, setVoiceKey] = useState<string>(VOICE_PRESETS[0].key);
   const [platforms, setPlatforms] = useState<string[]>(PLATFORMS.filter(p => p.default).map(p => p.key));
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -145,7 +257,7 @@ export default function NewAvatarPage() {
   useEffect(() => {
     if (!archChangedRef.current) { archChangedRef.current = true; return; }
     setDisplayName(arch.display_name); setNiche(arch.niche); setPersonality(arch.personality);
-    setTone(arch.tone_descriptor); setAudience(arch.target_audience); setProhibited(arch.prohibited_phrases);
+    setTone(arch.tone_descriptor); setAudience(arch.target_audience); setProhibited(arch.prohibited_phrases.join(', '));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [archetypeKey]);
 
@@ -297,6 +409,24 @@ export default function NewAvatarPage() {
           method: 'PATCH',
           headers: { 'content-type': 'application/json' },
           body: JSON.stringify({ avatar_visual_reference_url: chosenFaceUrl, setup_status: 'face' }),
+        });
+
+        // 2026-05-31: kick HeyGen photo-avatar registration in the background.
+        // This is what turns the uploaded URL into a heygen_custom_avatar_id
+        // that can be used in /v2/video/generate. Without it, the avatar
+        // would fall back to the stock "Daisy" stock avatar and the user
+        // would see "Photo needed" never clear.
+        // Fire-and-forget: the registration can take 30-90s on HeyGen's side;
+        // the /avatars/[id] detail page polls and updates the badge when done.
+        fetch(`/api/avatars/${avatarId}/heygen/register-photo`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ imageUrl: chosenFaceUrl }),
+        }).catch((e) => {
+          // Background work — log but don't block the user. If HeyGen is down
+          // the next manual "Re-register photo" action on the avatar page can
+          // retry without losing context.
+          console.warn('[avatars/new] HeyGen register-photo kickoff failed', e);
         });
       }
 

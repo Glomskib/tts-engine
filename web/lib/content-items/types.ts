@@ -31,7 +31,8 @@ export type ContentItemSourceType =
   | 'script_generator'
   | 'winner_import'
   | 'product_research'
-  | 'calendar';
+  | 'calendar'
+  | 'avatar_script';
 
 export type CowTier = 'safe' | 'edgy' | 'unhinged';
 

@@ -1434,9 +1434,9 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                     </div>
                   </button>
 
-                  {/* Save to Library */}
+                  {/* Save to Winners Bank — the swipe library lives here */}
                   <a
-                    href={isLoggedIn ? '/admin/library' : '/login?mode=signup&from=library-cta'}
+                    href={isLoggedIn ? '/admin/winners-bank' : '/login?mode=signup&from=library-cta'}
                     className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-pink-500 hover:bg-pink-500/5 transition-all"
                   >
                     <div className="flex items-center gap-2 mb-2">
@@ -1445,18 +1445,18 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       </div>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-400 font-semibold">FREE</span>
                     </div>
-                    <div className="text-white font-semibold mb-1">Save To Swipe Library</div>
+                    <div className="text-white font-semibold mb-1">Open Winners Bank</div>
                     <p className="text-xs text-zinc-400 leading-relaxed">
-                      Keep every winning hook, script, and angle. Your personal library of proven viral content.
+                      Your saved hooks, scripts, and angles in one place. Build a swipe file of proven viral content.
                     </p>
                     <div className="mt-3 text-xs text-pink-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
-                      {isLoggedIn ? 'Open library' : 'Sign up to save'} <ArrowRight size={12} />
+                      {isLoggedIn ? 'Open bank' : 'Sign up to save'} <ArrowRight size={12} />
                     </div>
                   </a>
 
-                  {/* Generate Original Video */}
+                  {/* Generate Original Video — /create is the canonical AI clip tool */}
                   <a
-                    href={isLoggedIn ? '/admin/ai-video-editor' : '/login?mode=signup&from=video-cta'}
+                    href={isLoggedIn ? '/create?from=transcribe' : '/login?mode=signup&from=video-cta'}
                     className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-yellow-500 hover:bg-yellow-500/5 transition-all"
                   >
                     <div className="flex items-center gap-2 mb-2">
@@ -1465,12 +1465,12 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       </div>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-500/10 text-yellow-400 font-semibold">FREE</span>
                     </div>
-                    <div className="text-white font-semibold mb-1">AI Video Editor</div>
+                    <div className="text-white font-semibold mb-1">AI Clip Tool</div>
                     <p className="text-xs text-zinc-400 leading-relaxed">
-                      Upload your own raw footage — AI cuts the boring parts, fixes pacing, exports clean.
+                      Upload your own raw footage — AI picks the best moments, fixes pacing, adds karaoke captions.
                     </p>
                     <div className="mt-3 text-xs text-yellow-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
-                      {isLoggedIn ? 'Open editor' : 'Sign up to edit'} <ArrowRight size={12} />
+                      {isLoggedIn ? 'Open clip tool' : 'Sign up to edit'} <ArrowRight size={12} />
                     </div>
                   </a>
                 </div>
@@ -1486,15 +1486,20 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             {/* ================================================================ */}
             {/* Video Vibe Analysis */}
             {/* ================================================================ */}
+            {/* The "Generate In This Style" event only has a listener inside
+                TranscriberWorkspace (admin/transcribe). On the public
+                /transcribe page nothing handles it, so the action row would
+                be a dead button. Only wire onGenerateInStyle when we're in
+                the portal wrapper. */}
             {result && result.segments && result.segments.length > 0 && (
               <VibeAnalysisCard
                 transcript={result.transcript}
                 segments={result.segments}
                 duration={result.duration}
                 analysis={result.analysis as Record<string, unknown> | null}
-                onGenerateInStyle={(vibe) => {
+                onGenerateInStyle={isPortal ? (vibe) => {
                   window.dispatchEvent(new CustomEvent('transcriber:generate-in-style', { detail: vibe }));
-                }}
+                } : undefined}
               />
             )}
 
@@ -1536,6 +1541,17 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                             <span className="text-amber-400 font-medium">Use code TRANSCRIBE20</span>
                           </p>
                         </div>
+                      ) : !isLoggedIn ? (
+                        // The recommendations endpoint requires auth (aiRouteGuard).
+                        // Avoid showing a button that 401s — funnel anon users to signup.
+                        <Link
+                          href="/login?mode=signup&from=recs-cta"
+                          className="inline-flex items-center gap-2 px-6 py-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-400 font-semibold rounded-xl transition-all"
+                        >
+                          <Lightbulb size={18} />
+                          Sign up free for AI recommendations
+                          <ArrowRight size={14} />
+                        </Link>
                       ) : (
                         <button
                           onClick={handleGetRecommendations}
@@ -1677,12 +1693,14 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                         onClick={async () => {
                                           setSavingHookIndex(i);
                                           try {
-                                            const res = await fetch('/api/admin/winners-bank', {
+                                            // /api/admin/winners-bank only exposes GET. POST goes to /api/winners.
+                                            // 'source_type' must be 'generated' or 'external' (zod-enforced).
+                                            const res = await fetch('/api/winners', {
                                               method: 'POST',
                                               headers: { 'Content-Type': 'application/json' },
                                               credentials: 'include',
                                               body: JSON.stringify({
-                                                source_type: 'manual',
+                                                source_type: 'generated',
                                                 winner_type: 'hook',
                                                 hook: h.hook,
                                                 hook_type: h.style,
@@ -1691,6 +1709,8 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                                             });
                                             if (res.ok) {
                                               setSavedHookIndexes(prev => new Set([...prev, i]));
+                                            } else {
+                                              console.error('Failed to save hook:', await res.text());
                                             }
                                           } catch (e) {
                                             console.error('Failed to save hook:', e);
@@ -1791,6 +1811,18 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                         Upgrade for unlimited translations.{' '}
                         <span className="text-sky-400 font-medium">Use code TRANSCRIBE20</span>
                       </p>
+                    </div>
+                  ) : !isLoggedIn ? (
+                    // Translation endpoint requires auth (aiRouteGuard). Surface signup, not a 401.
+                    <div className="text-center py-4">
+                      <Link
+                        href="/login?mode=signup&from=translate-cta"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-sky-500/10 hover:bg-sky-500/20 border border-sky-500/30 text-sky-400 font-semibold rounded-xl transition-all"
+                      >
+                        <Languages size={18} />
+                        Sign up free to translate
+                        <ArrowRight size={14} />
+                      </Link>
                     </div>
                   ) : (
                     <>
@@ -1953,6 +1985,18 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                         Upgrade for unlimited AI rewrites.{' '}
                         <span className="text-violet-400 font-medium">Use code TRANSCRIBE20</span>
                       </p>
+                    </div>
+                  ) : !isLoggedIn ? (
+                    // Rewrite endpoint requires auth (aiRouteGuard). Surface signup, not a 401.
+                    <div className="text-center py-4">
+                      <Link
+                        href="/login?mode=signup&from=rewrite-cta"
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/30 text-violet-400 font-semibold rounded-xl transition-all"
+                      >
+                        <Pen size={18} />
+                        Sign up free to rewrite
+                        <ArrowRight size={14} />
+                      </Link>
                     </div>
                   ) : (
                     <>

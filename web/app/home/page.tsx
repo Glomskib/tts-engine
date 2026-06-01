@@ -253,6 +253,44 @@ export default function HomeDashboard() {
         {/* ── Live queue health banner (reuses existing component) ── */}
         <QueueStatusBanner />
 
+        {/* 2026-05-31: Low-credit warning. Shows BEFORE the user hits zero so
+            they upgrade in advance instead of bouncing off a wall mid-flow.
+            Threshold 5 picked to give 1-2 clips of runway. */}
+        {!isUnlimited && !creditsLoading && remaining > 0 && remaining <= 5 && (
+          <div className="mb-4 rounded-xl border border-amber-500/40 bg-gradient-to-r from-amber-500/10 to-orange-500/5 px-4 py-3 flex items-center gap-3">
+            <Zap className="w-5 h-5 text-amber-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-amber-100">
+                Only <span className="text-white">{remaining}</span> credit{remaining === 1 ? '' : 's'} left this period
+              </div>
+              <div className="text-[11px] text-amber-200/70">Upgrade before you hit zero — clips render right where you left off.</div>
+            </div>
+            <Link
+              href="/pricing"
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-900 text-xs font-semibold"
+            >
+              Upgrade
+            </Link>
+          </div>
+        )}
+
+        {/* Out-of-credits hard stop (different from the warning above). */}
+        {!isUnlimited && !creditsLoading && remaining === 0 && (
+          <div className="mb-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 flex items-center gap-3">
+            <Zap className="w-5 h-5 text-red-400 shrink-0" />
+            <div className="flex-1 min-w-0">
+              <div className="text-sm font-semibold text-red-100">You're out of credits this period</div>
+              <div className="text-[11px] text-red-200/70">Upgrade to keep shipping clips today.</div>
+            </div>
+            <Link
+              href="/pricing"
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-400 text-white text-xs font-semibold"
+            >
+              Upgrade
+            </Link>
+          </div>
+        )}
+
         {/* ── Quota strip (only meaningful for non-unlimited) ── */}
         {!isUnlimited && !creditsLoading && creditsForMonth > 0 && (
           <div className="mb-6 rounded-lg border border-zinc-800 bg-zinc-900/40 px-4 py-3">

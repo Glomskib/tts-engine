@@ -105,30 +105,56 @@ export async function GET() {
       : 'STRIPE_WEBHOOK_SECRET_CREATE missing — webhook accepts unsigned events (forgery risk)',
   });
 
-  // ve_runs queue depth + oldest-pending age — early warning for pipeline
-  // backlog AND for "queue not draining" (covered by SCALE-READINESS-AUDIT
-  // §3.F, finished in the 2026-05-27 audit).
+  // Queue depth + oldest-pending age. 2026-05-31: now checks BOTH queue
+  // systems (ve_runs + render_jobs). Before, this only checked ve_runs and
+  // reported "worker offline" while the mini was actively processing
+  // render_jobs — confusing users on /create who saw conflicting banners.
+  // We treat each queue separately so we can tell which subsystem is slow.
+  // Stale jobs (>7d old) are excluded as "abandoned" so historical mess
+  // doesn't pollute the live health signal.
   const queueStart = Date.now();
+  const STALE_CUTOFF = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
   let queueDepth = 0;
   let queueOldestAgeSec: number | null = null;
+  let renderQueueDepth = 0;
+  let renderQueueOldestAgeSec: number | null = null;
   try {
-    const [countResult, oldestResult] = await Promise.all([
+    const [veCount, veOldest, rjCount, rjOldest] = await Promise.all([
       supabaseAdmin
         .from('ve_runs')
         .select('id', { count: 'exact', head: true })
-        .in('status', ['created', 'transcribing', 'analyzing', 'assembling', 'rendering']),
+        .in('status', ['created', 'transcribing', 'analyzing', 'assembling', 'rendering'])
+        .gte('created_at', STALE_CUTOFF),
       supabaseAdmin
         .from('ve_runs')
         .select('created_at')
         .in('status', ['created', 'transcribing', 'analyzing', 'assembling', 'rendering'])
+        .gte('created_at', STALE_CUTOFF)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('render_jobs')
+        .select('id', { count: 'exact', head: true })
+        .in('status', ['queued', 'claimed', 'processing'])
+        .gte('created_at', STALE_CUTOFF),
+      supabaseAdmin
+        .from('render_jobs')
+        .select('created_at')
+        .in('status', ['queued', 'claimed', 'processing'])
+        .gte('created_at', STALE_CUTOFF)
         .order('created_at', { ascending: true })
         .limit(1)
         .maybeSingle(),
     ]);
 
-    queueDepth = countResult.count ?? 0;
-    if (oldestResult.data?.created_at) {
-      queueOldestAgeSec = Math.max(0, Math.floor((Date.now() - Date.parse(oldestResult.data.created_at)) / 1000));
+    queueDepth = veCount.count ?? 0;
+    if (veOldest.data?.created_at) {
+      queueOldestAgeSec = Math.max(0, Math.floor((Date.now() - Date.parse(veOldest.data.created_at)) / 1000));
+    }
+    renderQueueDepth = rjCount.count ?? 0;
+    if (rjOldest.data?.created_at) {
+      renderQueueOldestAgeSec = Math.max(0, Math.floor((Date.now() - Date.parse(rjOldest.data.created_at)) / 1000));
     }
 
     // Two-axis health:
@@ -154,6 +180,24 @@ export async function GET() {
       status: qStatus,
       message: qMsg,
       responseTime: Date.now() - queueStart,
+    });
+
+    // Second check: render_jobs queue (mac mini worker)
+    let rjStatus: 'pass' | 'fail' = 'pass';
+    let rjMsg: string | undefined;
+    if (renderQueueDepth > 100) {
+      rjStatus = 'fail';
+      rjMsg = `Render queue depth ${renderQueueDepth} — mini falling behind`;
+    } else if (renderQueueOldestAgeSec !== null && renderQueueOldestAgeSec > 1800) {
+      rjStatus = 'fail';
+      rjMsg = `Render queue oldest ${Math.floor(renderQueueOldestAgeSec / 60)}m — mini worker likely offline`;
+    } else if (renderQueueDepth > 0) {
+      rjMsg = `Render queue: ${renderQueueDepth} active`;
+    }
+    checks.push({
+      name: 'render_jobs_queue',
+      status: rjStatus,
+      message: rjMsg,
     });
   } catch (err) {
     checks.push({
@@ -202,7 +246,11 @@ export async function GET() {
     // Top-level metrics for external monitoring scrapers — easier to alarm on
     // than digging into the checks array.
     metrics: {
+      // ve_runs queue (legacy pipeline)
       queue_depth: queueDepth,
+      // render_jobs queue (mac mini)
+      render_queue_depth: renderQueueDepth,
+      render_queue_oldest_pending_age_sec: renderQueueOldestAgeSec,
       queue_oldest_pending_age_sec: queueOldestAgeSec,
     },
     checks,

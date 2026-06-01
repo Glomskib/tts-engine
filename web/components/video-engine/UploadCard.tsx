@@ -324,22 +324,11 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
 
   return (
     <div className="space-y-6">
-      {!isClipper && (
-        <>
-          <div>
-            <label className="block text-sm font-medium text-zinc-100 mb-2">Who is this for?</label>
-            <WorkspaceSelector value={workspace} onChange={setWorkspace} disabled={busy} />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-zinc-100 mb-2">
-              What should this video do? <span className="text-zinc-500 font-normal text-xs">(optional)</span>
-            </label>
-            <GoalSelector value={goal} onChange={setGoal} disabled={busy} />
-          </div>
-        </>
-      )}
-
+      {/* 2026-05-31: time-to-first-clip optimisation. The drop zone is now
+          the FIRST thing a new user sees — workspace/goal/captions toggles
+          all get safe defaults and live behind the "More options" disclosure
+          below. Brand-new creators are now 2 clicks from a rendered clip
+          (drop file → it just works). Power users can still tune everything. */}
       <DropZone
         busy={busy}
         progress={progress}
@@ -351,22 +340,12 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
         lane={lane}
       />
 
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <OptionToggle
-          label="Captions"
-          value={captionsEnabled}
-          onChange={setCaptionsEnabled}
-          disabled={busy}
-        />
-        <OptionToggle
-          label="Music"
-          value={musicEnabled}
-          onChange={setMusicEnabled}
-          disabled={busy}
-          hint="Coming soon"
-        />
-        <span className="text-zinc-600">B-roll clips — coming soon</span>
-      </div>
+      {!isClipper && (
+        <div>
+          <label className="block text-sm font-medium text-zinc-100 mb-2">Who is this for?</label>
+          <WorkspaceSelector value={workspace} onChange={setWorkspace} disabled={busy} />
+        </div>
+      )}
 
       {error && (
         <div
@@ -398,13 +377,35 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
         aria-expanded={showMore}
       >
         <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showMore ? 'rotate-180' : ''}`} />
-        {showMore
-          ? 'Hide details'
-          : isClipper
-            ? 'Add channel or show name (optional)'
-            : 'Add product or brand name (optional)'}
+        {showMore ? 'Hide options' : 'More options'}
       </button>
       {showMore && (
+        <div className="space-y-5 pt-2 border-t border-zinc-900">
+          {!isClipper && (
+            <div>
+              <label className="block text-sm font-medium text-zinc-100 mb-2">
+                What should this video do? <span className="text-zinc-500 font-normal text-xs">(optional)</span>
+              </label>
+              <GoalSelector value={goal} onChange={setGoal} disabled={busy} />
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <OptionToggle
+              label="Captions"
+              value={captionsEnabled}
+              onChange={setCaptionsEnabled}
+              disabled={busy}
+            />
+            <OptionToggle
+              label="Music"
+              value={musicEnabled}
+              onChange={setMusicEnabled}
+              disabled={busy}
+              hint="Coming soon"
+            />
+          </div>
+
         <div>
           <label className="block text-xs font-medium text-zinc-300 mb-1.5">
             {isClipper
@@ -424,6 +425,7 @@ export default function UploadCard({ lane = 'product' }: UploadCardProps) {
           <p className="mt-1.5 text-[11px] text-zinc-500">
             Helps us write sharper captions. You can skip this.
           </p>
+        </div>
         </div>
       )}
     </div>

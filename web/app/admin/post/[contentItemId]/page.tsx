@@ -212,9 +212,36 @@ export default function PostPage({ params }: { params: Promise<{ contentItemId: 
                   className="w-full bg-black aspect-[9/16] object-contain"
                 />
               ) : (
-                <div className="w-full aspect-[9/16] bg-black flex items-center justify-center text-zinc-500 text-sm">
-                  Render not finished yet
-                </div>
+                // 2026-05-31: was a black box saying "Render not finished yet."
+                // Now: named-stage progress so users see WHERE in the pipeline
+                // their clip is. Stage names match the create page's STAGES
+                // array so the language is consistent across the product.
+                (() => {
+                  const status = (item as unknown as { processing_status?: string; transcript_status?: string }).processing_status
+                    || (item as unknown as { transcript_status?: string }).transcript_status
+                    || 'queued';
+                  const stages = [
+                    { key: 'queued',       label: 'Queued',       sub: 'Waiting for an open slot' },
+                    { key: 'transcribing', label: 'Tuning in',    sub: 'Listening to the audio' },
+                    { key: 'analyzing',    label: 'Reading',      sub: 'Finding what will pop' },
+                    { key: 'assembling',   label: 'Polishing',    sub: 'Adding the creator polish' },
+                    { key: 'rendering',    label: 'Final cut',    sub: 'Almost there — wrapping up' },
+                  ];
+                  const idx = Math.max(0, stages.findIndex(s => s.key === status));
+                  const pct = ((idx + 1) / stages.length) * 100;
+                  const current = stages[idx];
+                  return (
+                    <div className="w-full aspect-[9/16] bg-gradient-to-b from-zinc-900 to-black flex flex-col items-center justify-center px-6 text-center">
+                      <div className="text-xs uppercase tracking-wider text-zinc-500 mb-3">In progress</div>
+                      <div className="text-2xl font-bold text-white mb-2">{current.label}</div>
+                      <div className="text-sm text-zinc-400 mb-8 max-w-[260px]">{current.sub}</div>
+                      <div className="w-full max-w-[280px] h-1.5 rounded-full bg-zinc-800 overflow-hidden">
+                        <div className="h-full bg-gradient-to-r from-teal-400 to-emerald-400 transition-all" style={{ width: `${pct}%` }} />
+                      </div>
+                      <div className="text-[11px] text-zinc-600 mt-3">Step {idx + 1} of {stages.length}</div>
+                    </div>
+                  );
+                })()
               )}
               <div className="p-4 space-y-3">
                 <div className="flex items-center gap-3">

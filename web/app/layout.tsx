@@ -6,6 +6,8 @@ import CookieConsent from "@/components/CookieConsent";
 import TopNav from '@/components/TopNav';
 import QueueTicker from '@/components/QueueTicker';
 import { SiteFooter } from '@/components/SiteFooter';
+import CreatorBottomNav from '@/components/CreatorBottomNav';
+import PWAInstallPrompt from '@/components/PWAInstallPrompt';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -160,12 +162,22 @@ export default function RootLayout({
       >
         <Providers>
           <TopNav />
-          {children}
+          {/* Bottom-padding for mobile so the fixed CreatorBottomNav doesn't
+              cover the last bit of page content. Desktop is unaffected. */}
+          <div className="pb-16 sm:pb-0">
+            {children}
+          </div>
           {/* Cookie consent banner — first-visit only, no-op after a choice. */}
           <CookieConsent />
           {/* Drives the worker queue from the user side while Vercel cron is
               broken. Self-stops with 401 if user is not logged in. */}
           <QueueTicker />
+          {/* Mobile-only bottom tab bar for creator surfaces (home/create/etc).
+              Auto-hides on marketing, admin, auth, etc. */}
+          <CreatorBottomNav />
+          {/* "Install FlashFlow" PWA banner — appears on 2nd+ visit only,
+              dismissible, suppressed if already installed. */}
+          <PWAInstallPrompt />
         </Providers>
               <SiteFooter />
       </body>

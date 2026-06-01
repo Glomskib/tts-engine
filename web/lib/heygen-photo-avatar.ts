@@ -23,7 +23,7 @@
  *     → { data: { generation_id } }
  *   GET  /v2/photo_avatar/generation/{id} → { data: { status, image_id } }
  *   POST /v2/photo_avatar/avatar_group/create { name, image_id }
- *     → { data: { id /* this is the photo_avatar_id we use later */ } }
+ *     → { data: { id } }   ← this `id` is the photo_avatar_id we use later
  *
  * We surface a single helper that does generate → poll → group → returns the
  * final usable photo_avatar_id. Callers pass an AbortSignal for early-cancel.

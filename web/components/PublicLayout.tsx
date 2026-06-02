@@ -1,15 +1,38 @@
 'use client';
 
-import { useState, ReactNode } from 'react';
+import { useState, useEffect, ReactNode } from 'react';
 import Link from 'next/link';
 
-const NAV_LINKS = [
-  { name: 'Script Generator', href: '/script-generator' },
-  { name: 'TikTok Transcriber', href: '/transcribe' },
-  { name: 'YouTube Transcriber', href: '/youtube-transcribe' },
+// Pricing only shown when logged out — logged-in users see plan in /account.
+// Items kept consistent with TopNav so the nav doesn't morph when you sign in.
+const NAV_LINKS_PUBLIC = [
+  { name: 'Free script writer', href: '/script-generator' },
+  { name: 'TikTok transcriber', href: '/transcribe' },
+  { name: 'YouTube transcriber', href: '/youtube-transcribe' },
   { name: 'Pricing', href: '/pricing' },
   { name: 'Blog', href: '/blog' },
 ];
+
+const NAV_LINKS_LOGGED_IN = [
+  { name: 'Free script writer', href: '/script-generator' },
+  { name: 'TikTok transcriber', href: '/transcribe' },
+  { name: 'YouTube transcriber', href: '/youtube-transcribe' },
+  { name: 'Blog', href: '/blog' },
+];
+
+function useIsLoggedIn(): boolean | null {
+  // null = unknown (during hydration), false/true once resolved.
+  // We hit /api/credits which is auth-gated; 401 → logged out, 200 → logged in.
+  const [v, setV] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/credits', { credentials: 'include' })
+      .then(r => { if (alive) setV(r.ok); })
+      .catch(() => { if (alive) setV(false); });
+    return () => { alive = false; };
+  }, []);
+  return v;
+}
 
 const FOOTER_COLUMNS = [
   {
@@ -40,6 +63,10 @@ const FOOTER_COLUMNS = [
 
 export function PublicHeader() {
   const [menuOpen, setMenuOpen] = useState(false);
+  const loggedIn = useIsLoggedIn();
+  // While loading auth state, use the public list (avoids flashing "Pricing"
+  // away from logged-in users — public list shows it, logged-in hides it).
+  const NAV_LINKS = loggedIn === true ? NAV_LINKS_LOGGED_IN : NAV_LINKS_PUBLIC;
 
   return (
     <header className="relative z-20 border-b border-white/5">
@@ -168,10 +195,15 @@ export function PublicFooter() {
 }
 
 export function PublicLayout({ children }: { children: ReactNode }) {
+  // NOTE: TopNav is also rendered globally by web/app/layout.tsx, so by the
+  // time PublicLayout mounts there's already a top bar. We intentionally do
+  // NOT render <TopNav /> here again — that would double-stack. We keep
+  // PublicLayout for the marketing background grid + footer. The legacy
+  // <PublicHeader /> was replaced by the global TopNav so the nav no longer
+  // morphs between marketing and app routes.
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 flex flex-col">
       <div className="fixed inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:64px_64px] pointer-events-none" />
-      <PublicHeader />
       <main className="relative z-10 flex-1">
         {children}
       </main>

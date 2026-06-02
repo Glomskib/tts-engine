@@ -229,7 +229,7 @@ export default function LandingPage() {
       {/* ================================================================ */}
       {/* SECTION 2 — TIKTOK SHOP EARNINGS CALCULATOR (already a client component) */}
       {/* ================================================================ */}
-      <section className="relative py-20 px-6 border-t border-white/5">
+      <section id="calculator" className="relative py-20 px-6 border-t border-white/5 scroll-mt-20">
         <AffiliateCalculator />
       </section>
 
@@ -579,7 +579,7 @@ export default function LandingPage() {
               {
                 title: 'Going from 2 to 5 posts a week',
                 body:
-                  'The AI Editor cuts pause + dead-air, dedupes repeat takes, and matches b-roll to what you said — so a single record session yields multiple finished clips without rebuilding the edit each time.',
+                  'The AI Editor cuts pause + dead-air, dedupes repeat takes, and matches b-roll to what you said — so a single record session yields multiple finished videos without rebuilding the edit each time.',
                 tag: 'Beauty · Lifestyle',
               },
               {

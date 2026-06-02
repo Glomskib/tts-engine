@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import TranscriberCore from '@/components/TranscriberCore';
+import TranscriberHeader from '@/components/TranscriberHeader';
 import Link from 'next/link';
 
 export default function TranscribePage() {
@@ -32,6 +33,10 @@ export default function TranscribePage() {
           Paste any TikTok or Instagram Reels link to get the full transcript, hook breakdown, and content notes. No signup required. (For YouTube, use our <Link href="/youtube-transcribe" className="text-teal-400 hover:text-teal-300 underline">YouTube transcriber</Link>.)
         </p>
       </div>
+
+      {/* Shared header — lets the user see they're on the short-video page
+          and switch to YouTube/any-URL without guessing. */}
+      <TranscriberHeader active="short" />
 
       {/* Tool */}
       <TranscriberCore isPortal={false} isLoggedIn={isLoggedIn} />

@@ -28,6 +28,7 @@ import {
 } from 'lucide-react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import VibeAnalysisCard from './VibeAnalysisCard';
+import WhileYouWait from './WhileYouWait';
 
 // ============================================================================
 // Types
@@ -989,6 +990,22 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
               {config.socialProof}
             </p>
           )}
+
+          {/* Cross-link to the YouTube version. Public TikTok page only —
+              long-form videos are a different mental model and users coming
+              from ads sometimes paste YouTube URLs into the TikTok field by
+              mistake. Reciprocal link added by Agent B on the YouTube page. */}
+          {!isPortal && platform === 'tiktok' && (
+            <p className="text-xs text-zinc-500 mt-3">
+              Got a YouTube link?{' '}
+              <Link
+                href="/youtube-transcribe"
+                className="text-teal-400 hover:text-teal-300 underline underline-offset-2 transition-colors"
+              >
+                Use the long-form transcriber →
+              </Link>
+            </p>
+          )}
         </div>
       </section>
 
@@ -1043,9 +1060,9 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             </div>
 
             {/* Upsell: turn this video into clips */}
-            <a
+            <Link
               href={`/admin/youtube-transcribe?url=${encodeURIComponent(url)}`}
-              className="block bg-gradient-to-r from-teal-500/10 via-teal-500/5 to-transparent border border-teal-500/30 rounded-xl p-5 hover:border-teal-400 hover:bg-teal-500/10 transition-colors group"
+              className="block cursor-pointer bg-gradient-to-r from-teal-500/10 via-teal-500/5 to-transparent border border-teal-500/30 rounded-xl p-5 hover:border-teal-400 hover:bg-teal-500/10 transition-colors group"
             >
               <div className="flex items-center justify-between gap-4">
                 <div>
@@ -1061,7 +1078,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                   <span className="group-hover:translate-x-0.5 transition-transform">→</span>
                 </span>
               </div>
-            </a>
+            </Link>
 
             {/* Analysis Cards */}
             {result.analysis && (
@@ -1329,10 +1346,13 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                   </p>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* Make Clips */}
-                  <a
+                  {/* Make Clips. Use Next.js <Link> not bare <a> — bare <a>
+                      was the dead-link culprit when nested next to <button>s
+                      with onClick handlers in the same grid (some browsers
+                      drop the click when stacking-context siblings differ). */}
+                  <Link
                     href={isLoggedIn ? `/admin/youtube-transcribe?url=${encodeURIComponent(url)}` : `/login?mode=signup&from=clip-cta`}
-                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-teal-500 hover:bg-teal-500/5 transition-all"
+                    className="group block cursor-pointer p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-teal-500 hover:bg-teal-500/5 transition-all"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-9 h-9 rounded-lg bg-teal-500/10 flex items-center justify-center">
@@ -1347,7 +1367,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                     <div className="mt-3 text-xs text-teal-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
                       {isLoggedIn ? 'Clip this video' : 'Sign up to clip'} <ArrowRight size={12} />
                     </div>
-                  </a>
+                  </Link>
 
                   {/* Generate Your Own Version */}
                   <button
@@ -1358,12 +1378,15 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                         return;
                       }
                       setRewriteOpen(true);
-                      // Scroll into rewrite section
+                      // Scroll into rewrite section. Target id="rewrite-section"
+                      // is set on the accordion wrapper further down — required
+                      // or this onClick set state silently and the user saw
+                      // nothing happen ("dead click" symptom).
                       setTimeout(() => {
-                        document.getElementById('rewrite-section')?.scrollIntoView({ behavior: 'smooth' });
+                        document.getElementById('rewrite-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                       }, 100);
                     }}
-                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-orange-500 hover:bg-orange-500/5 transition-all text-left"
+                    className="group p-5 cursor-pointer rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-orange-500 hover:bg-orange-500/5 transition-all text-left"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-9 h-9 rounded-lg bg-orange-500/10 flex items-center justify-center">
@@ -1389,8 +1412,14 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                         return;
                       }
                       setTranslateOpen(true);
+                      // Scroll the just-opened accordion into view — without
+                      // this, the state flip happens 1500px below the card
+                      // the user just clicked, and it feels "dead".
+                      setTimeout(() => {
+                        document.getElementById('translate-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 100);
                     }}
-                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-blue-500 hover:bg-blue-500/5 transition-all text-left"
+                    className="group p-5 cursor-pointer rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-blue-500 hover:bg-blue-500/5 transition-all text-left"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-9 h-9 rounded-lg bg-blue-500/10 flex items-center justify-center">
@@ -1416,8 +1445,13 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                         return;
                       }
                       setRecsOpen(true);
+                      // Scroll the accordion into view so the user sees the
+                      // panel they just opened (otherwise dead-click feel).
+                      setTimeout(() => {
+                        document.getElementById('recs-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      }, 100);
                     }}
-                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-violet-500 hover:bg-violet-500/5 transition-all text-left"
+                    className="group p-5 cursor-pointer rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-violet-500 hover:bg-violet-500/5 transition-all text-left"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-9 h-9 rounded-lg bg-violet-500/10 flex items-center justify-center">
@@ -1434,10 +1468,12 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                     </div>
                   </button>
 
-                  {/* Save to Winners Bank — the swipe library lives here */}
-                  <a
+                  {/* Save to library — internal route is still /admin/winners-bank,
+                      but logged-out viewers see sign-up oriented copy and
+                      logged-in viewers see plain "my library" wording. */}
+                  <Link
                     href={isLoggedIn ? '/admin/winners-bank' : '/login?mode=signup&from=library-cta'}
-                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-pink-500 hover:bg-pink-500/5 transition-all"
+                    className="group block cursor-pointer p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-pink-500 hover:bg-pink-500/5 transition-all"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-9 h-9 rounded-lg bg-pink-500/10 flex items-center justify-center">
@@ -1445,19 +1481,23 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       </div>
                       <span className="text-xs px-2 py-0.5 rounded-full bg-pink-500/10 text-pink-400 font-semibold">FREE</span>
                     </div>
-                    <div className="text-white font-semibold mb-1">Open Winners Bank</div>
+                    <div className="text-white font-semibold mb-1">
+                      {isLoggedIn ? 'Open my library' : 'Save this transcript →'}
+                    </div>
                     <p className="text-xs text-zinc-400 leading-relaxed">
-                      Your saved hooks, scripts, and angles in one place. Build a swipe file of proven viral content.
+                      {isLoggedIn
+                        ? 'Your saved hooks, scripts, and angles in one place. Build a swipe file of proven viral content.'
+                        : 'Free account — we keep every transcript and viral breakdown in your library so you can come back to it anytime.'}
                     </p>
                     <div className="mt-3 text-xs text-pink-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
-                      {isLoggedIn ? 'Open bank' : 'Sign up to save'} <ArrowRight size={12} />
+                      {isLoggedIn ? 'Open library' : 'Sign up to save'} <ArrowRight size={12} />
                     </div>
-                  </a>
+                  </Link>
 
                   {/* Generate Original Video — /create is the canonical AI clip tool */}
-                  <a
+                  <Link
                     href={isLoggedIn ? '/create?from=transcribe' : '/login?mode=signup&from=video-cta'}
-                    className="group p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-yellow-500 hover:bg-yellow-500/5 transition-all"
+                    className="group block cursor-pointer p-5 rounded-xl border border-zinc-800 bg-zinc-900/50 hover:border-yellow-500 hover:bg-yellow-500/5 transition-all"
                   >
                     <div className="flex items-center gap-2 mb-2">
                       <div className="w-9 h-9 rounded-lg bg-yellow-500/10 flex items-center justify-center">
@@ -1472,7 +1512,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                     <div className="mt-3 text-xs text-yellow-400 font-semibold flex items-center gap-1 group-hover:gap-2 transition-all">
                       {isLoggedIn ? 'Open clip tool' : 'Sign up to edit'} <ArrowRight size={12} />
                     </div>
-                  </a>
+                  </Link>
                 </div>
 
                 {!isLoggedIn && (
@@ -1506,7 +1546,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             {/* ================================================================ */}
             {/* AI Recommendations Section */}
             {/* ================================================================ */}
-            <div className="bg-zinc-900/50 border border-white/10 rounded-xl overflow-hidden">
+            <div id="recs-section" className="bg-zinc-900/50 border border-white/10 rounded-xl overflow-hidden scroll-mt-20">
               <button
                 onClick={() => setRecsOpen(!recsOpen)}
                 className="w-full flex items-center justify-between p-6 text-left hover:bg-white/[0.02] transition-colors"
@@ -1779,7 +1819,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             {/* ================================================================ */}
             {/* AI Translation Section */}
             {/* ================================================================ */}
-            <div className="bg-zinc-900/50 border border-white/10 rounded-xl overflow-hidden">
+            <div id="translate-section" className="bg-zinc-900/50 border border-white/10 rounded-xl overflow-hidden scroll-mt-20">
               <button
                 onClick={() => setTranslateOpen(!translateOpen)}
                 className="w-full flex items-center justify-between p-6 text-left hover:bg-white/[0.02] transition-colors"
@@ -1953,7 +1993,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
             {/* ================================================================ */}
             {/* AI Rewrite Section */}
             {/* ================================================================ */}
-            <div className="bg-zinc-900/50 border border-white/10 rounded-xl overflow-hidden">
+            <div id="rewrite-section" className="bg-zinc-900/50 border border-white/10 rounded-xl overflow-hidden scroll-mt-20">
               <button
                 onClick={() => setRewriteOpen(!rewriteOpen)}
                 className="w-full flex items-center justify-between p-6 text-left hover:bg-white/[0.02] transition-colors"
@@ -2256,13 +2296,13 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
               <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-6 text-center">
                 <div className="flex items-center justify-center gap-2 text-green-400 mb-2">
                   <Check size={20} />
-                  <span className="text-lg font-semibold">Added to Winners Bank</span>
+                  <span className="text-lg font-semibold">Saved to my library</span>
                 </div>
                 <Link
                   href="/admin/winners-bank"
                   className="text-green-400 hover:text-green-300 underline underline-offset-2 text-sm transition-colors"
                 >
-                  View in your Winners Bank &rarr;
+                  View in my library &rarr;
                 </Link>
               </div>
             ) : (
@@ -2284,7 +2324,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       ) : (
                         <>
                           <Trophy size={18} />
-                          Add to Winners Bank
+                          Save to my library
                         </>
                       )}
                     </button>
@@ -2319,7 +2359,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                           ) : (
                             <>
                               <Trophy size={18} />
-                              Add to Winners Bank
+                              Save to my library
                             </>
                           )}
                         </button>
@@ -2345,10 +2385,10 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                       </Link>
                       {!isLoggedIn && (
                         <p className="mt-4 text-zinc-500 text-sm">
-                          <Link href="/login" className="text-zinc-400 hover:text-zinc-300 underline underline-offset-2 transition-colors">
-                            Sign in
+                          <Link href="/login?mode=signup&next=/transcribe" className="text-zinc-400 hover:text-zinc-300 underline underline-offset-2 transition-colors">
+                            Create a free account
                           </Link>
-                          {' '}to save this to your Winners Bank
+                          {' '}to save this transcript to your library
                         </p>
                       )}
                     </div>
@@ -2437,6 +2477,12 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
                 takes 10-30 seconds.
               </p>
             </div>
+
+            {/* While-you-wait marketing surface — public funnel only.
+                Whisper takes 20-90s; dead air would be wasted real estate.
+                Hidden on /admin/transcribe (isPortal === true) since that's
+                already-logged-in admins — wrong audience for the upsell. */}
+            {!isPortal && <WhileYouWait isLoggedIn={isLoggedIn} />}
           </div>
         </section>
       )}

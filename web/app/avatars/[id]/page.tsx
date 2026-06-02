@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, FileText, Calendar, Play, Loader2, User, AlertCircle, RefreshCw, Trash2 } from 'lucide-react';
+import { ArrowLeft, Sparkles, FileText, Calendar, Play, Loader2, User, AlertCircle, RefreshCw, Trash2, Mic } from 'lucide-react';
+import VoicePicker from '@/components/VoicePicker';
 
 interface Avatar {
   id: string; name: string; avatar_display_name?: string; niche?: string;
@@ -30,6 +31,17 @@ export default function AvatarDetailPage() {
   const router = useRouter();
   const [regenerating, setRegenerating] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  // Re-fetch the avatar row from the API. Called after the voice picker
+  // saves so the displayed voice info updates without a full reload.
+  async function refetchAvatar() {
+    if (!id) return;
+    try {
+      const r = await fetch(`/api/avatars/${id}`);
+      const j = await r.json() as { ok: boolean; avatar?: Avatar };
+      if (j.ok) setAvatar(j.avatar || null);
+    } catch { /* best-effort */ }
+  }
 
   async function regenerateVisual() {
     if (!id) return;
@@ -144,6 +156,20 @@ export default function AvatarDetailPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Voice section — clickable scroll-anchor from /avatars list */}
+        <div id="voice" className="rounded-xl border border-white/10 bg-zinc-900/40 p-4 mt-6 scroll-mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold flex items-center gap-1.5">
+              <Mic className="w-4 h-4 text-zinc-400" /> Voice
+            </h3>
+          </div>
+          <VoicePicker
+            avatarId={id}
+            currentVoiceId={avatar.voice_clone_id}
+            onSaved={refetchAvatar}
+          />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-6">

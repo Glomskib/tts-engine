@@ -54,7 +54,7 @@ export default function PricingPage() {
         <PricingCanonicalPill />
       <h1 className="text-5xl font-bold mb-4">Pick your output.</h1>
         <p className="text-xl text-gray-300 mb-6">
-          One credit, one polished clip. Free to try — no card.
+          One credit, one polished video. Free to try — no card.
         </p>
         <div className="flex items-center justify-center gap-4 text-sm text-gray-400">
           <span className="flex items-center gap-1.5"><span className="text-emerald-400">✓</span> No card to start</span>
@@ -110,7 +110,7 @@ export default function PricingPage() {
           {/* Free Plan */}
           <div className="rounded-xl p-6 border border-gray-700 bg-gray-800/30 hover:border-gray-600 transition-all flex flex-col">
             <h3 className="text-xl font-bold mb-1">{PRICING_PLANS.free.name}</h3>
-            <p className="text-gray-400 text-sm mb-4">Three clips, no card. See if it clicks.</p>
+            <p className="text-gray-400 text-sm mb-4">Three videos, no card. See if it clicks.</p>
 
             <div className="mb-1">
               <span className="text-4xl font-bold">$0</span>
@@ -153,7 +153,7 @@ export default function PricingPage() {
               </p>
             ) : (
               <p className="text-xs text-gray-500 mb-6">
-                50 clips per month
+                50 videos per month
               </p>
             )}
 
@@ -197,7 +197,7 @@ export default function PricingPage() {
               </p>
             ) : (
               <p className="text-xs text-gray-500 mb-6">
-                200 clips per month
+                200 videos per month
               </p>
             )}
 
@@ -238,7 +238,7 @@ export default function PricingPage() {
               </p>
             ) : (
               <p className="text-xs text-gray-500 mb-6">
-                500 clips per month
+                500 videos per month
               </p>
             )}
 
@@ -325,19 +325,19 @@ export default function PricingPage() {
           <div>
             <h3 className="text-lg font-bold mb-2">What&apos;s included in the free plan?</h3>
             <p className="text-gray-300">
-              3 clips total, no card required. You get 720p output, one caption style, TikTok and YouTube Shorts formats, no watermark, and 7-day clip storage so you can see whether FlashFlow fits your workflow.
+              3 videos total, no card required. You get 720p output, one caption style, TikTok and YouTube Shorts formats, no watermark, and 7-day storage so you can see whether FlashFlow fits your workflow.
             </p>
           </div>
           <div>
-            <h3 className="text-lg font-bold mb-2">What happens when I run out of clips?</h3>
+            <h3 className="text-lg font-bold mb-2">What happens when I run out of videos?</h3>
             <p className="text-gray-300">
-              Your existing clips stay accessible through their storage window. To create more, upgrade to Lite, Creator, or Creator Pro and your monthly clip credits start immediately.
+              Your existing videos stay accessible through their storage window. To create more, upgrade to Starter, Creator, or Pro and your monthly video credits start immediately.
             </p>
           </div>
           <div>
             <h3 className="text-lg font-bold mb-2">What&apos;s the difference between the tiers?</h3>
             <p className="text-gray-300">
-              Free is for testing. Lite gives you a monthly clip allowance to keep posting weekly. Creator is the heavy-output tier — daily-posting volume plus custom caption styles and voice-clone TTS. Creator Pro adds 4K output, scheduling, and multiple brand profiles. Fleet is for agencies running 5+ client brands.
+              Free is for testing. Starter gives you a monthly video allowance to keep posting weekly. Creator is the heavy-output tier — daily-posting volume plus custom caption styles and voice-clone TTS. Pro adds 4K output, scheduling, and multiple brand profiles. Brand/Agency is for teams running 5+ client brands.
             </p>
           </div>
           <div>
@@ -363,7 +363,7 @@ export default function PricingPage() {
 
       {/* Bottom CTA */}
       <div className="max-w-4xl mx-auto px-4 py-16 text-center border-t border-gray-700">
-        <h2 className="text-3xl font-bold mb-4">Start making clips in 30 seconds</h2>
+        <h2 className="text-3xl font-bold mb-4">Start making videos in 30 seconds</h2>
         <p className="text-gray-300 mb-8">Free plan. No credit card. No commitment.</p>
         <div className="flex gap-4 justify-center flex-wrap">
           <Link

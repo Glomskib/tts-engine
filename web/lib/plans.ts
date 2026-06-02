@@ -39,12 +39,12 @@ export const PRICING_PLANS: Record<string, PricingPlan> = {
     monthly: { price: 0, display: 'Free', stripePriceId: null },
     credits: 3, // lifetime
     features: [
-      '3 clips total (no time limit, no card)',
+      '3 videos total (no time limit, no card)',
       '720p output',
       '1 caption style (Bold Yellow)',
       'TikTok + YouTube Shorts',
       'No watermark',
-      '7-day clip storage',
+      '7-day video storage',
     ],
   },
   starter: {
@@ -59,7 +59,7 @@ export const PRICING_PLANS: Record<string, PricingPlan> = {
     },
     credits: 50,
     features: [
-      '50 clips a month',
+      '50 videos a month',
       'All 6 caption styles, all 5 aspect ratios',
       '1 brand voice locked in',
       'Direct publish to TikTok, Reels, Shorts, IG, X',
@@ -76,7 +76,7 @@ export const PRICING_PLANS: Record<string, PricingPlan> = {
     credits: 200,
     badge: 'Most Popular',
     features: [
-      '200 clips a month',
+      '200 videos a month',
       'Custom caption styles',
       '3 brand voices',
       '100 voice-clone words/mo',
@@ -92,24 +92,28 @@ export const PRICING_PLANS: Record<string, PricingPlan> = {
     },
     credits: 500,
     features: [
-      '500 clips a month',
+      '500 videos a month',
       '4K output · custom font + color captions',
       '10 brand voices',
       '1,000 voice-clone words/mo',
       '1-year storage · direct publish + scheduling',
     ],
   },
+  // plan_id stays 'content_fleet' (canonical unlimited tier recognized by the
+  // SQL deduct_credit RPC and credits.ts UNLIMITED_PLAN_IDS). Only the public
+  // display name changed to 'Brand/Agency' per Brandon 2026-06-01 — the word
+  // "Fleet" was reading too internal/branded for an enterprise sales tier.
   content_fleet: {
-    name: 'Fleet',
+    name: 'Brand/Agency',
     contactUs: true,
     contactEmail: 'miles@makingmilesmatter.com',
     features: [
       'For agencies running 5+ client brands',
-      'Unlimited clips',
+      'Unlimited videos',
       'Unlimited brand profiles',
       'Team seats',
       'White-label option',
-      'Lifetime clip storage',
+      'Lifetime video storage',
       'Dedicated onboarding + priority pipeline',
       'Case-by-case pricing',
     ],

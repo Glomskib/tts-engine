@@ -31,7 +31,26 @@ interface RenderNode {
   platform?: string | null;
 }
 
+/**
+ * GET /api/render-jobs/heartbeat envelope.
+ *
+ * Server returns `{ ok, data: { nodes, queue }, correlation_id }`. Earlier
+ * versions of this badge tried to read `nodes` off the top level (the shape
+ * was changed when we added the queue stats for /admin/render-jobs but
+ * nobody updated the badge), which is why the badge was permanently stuck
+ * on "Render worker: offline" even when the mac mini was heartbeating fine
+ * (`/api/health` would still show `render_jobs_queue: pass`). Read the
+ * nested envelope and tolerate the legacy shape as a fallback so we don't
+ * regress if the API gets simplified later.
+ */
 interface HeartbeatResponse {
+  ok?: boolean;
+  data?: {
+    nodes?: RenderNode[];
+    queue?: { queued?: number; processing?: number };
+  };
+  // Legacy / fallback shape — kept so this component is robust to the
+  // server returning either envelope.
   nodes?: RenderNode[];
 }
 
@@ -68,7 +87,14 @@ export function RenderAgentBadge() {
         }
         const data: HeartbeatResponse = await res.json().catch(() => ({}));
         if (cancelled) return;
-        const ns = Array.isArray(data.nodes) ? data.nodes : [];
+        // Prefer the canonical envelope `data.data.nodes`; fall back to the
+        // legacy top-level shape so this stays robust across API shape
+        // changes. See HeartbeatResponse comment above for context.
+        const ns = Array.isArray(data?.data?.nodes)
+          ? data.data!.nodes!
+          : Array.isArray(data?.nodes)
+            ? data.nodes!
+            : [];
         setNodes(ns);
         setState(ns.some((n) => n.online) ? 'online' : 'offline');
       } catch {
@@ -100,7 +126,10 @@ export function RenderAgentBadge() {
     label = `Render: online${nodes.length > 1 ? ` · ${onlineCount}/${nodes.length}` : ''}`;
     cls = 'bg-emerald-500/15 text-emerald-300 ring-emerald-400/30';
   } else if (state === 'offline') {
-    label = nodes.length === 0 ? 'Render worker: offline' : 'Render worker: offline';
+    // Differentiate "no nodes have ever heartbeated" from "node was alive but
+    // hasn't checked in for 90s". Both are bad, but the tooltip copy below
+    // already covers the nuance — the badge itself stays terse.
+    label = nodes.length === 0 ? 'Render worker: offline' : 'Render worker: stale';
     cls = 'bg-rose-500/15 text-rose-300 ring-rose-400/30';
     Icon = AlertTriangle;
   } else {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import TranscriberCore from '@/components/TranscriberCore';
+import TranscriberHeader from '@/components/TranscriberHeader';
 import Link from 'next/link';
 
 /**
@@ -35,6 +36,10 @@ export default function TranscribeAnythingPage() {
           Paste any TikTok or YouTube link. We auto-detect the platform, extract the transcript, analyze the hook, and show you why it works. Works with Shorts, youtu.be, and vm.tiktok.com.
         </p>
       </div>
+
+      {/* Shared header — lets the user see they're on the universal page
+          and switch to a platform-specific transcriber if they prefer. */}
+      <TranscriberHeader active="any" />
 
       {/* Tool — TranscriberCore in 'auto' mode */}
       <TranscriberCore isPortal={false} isLoggedIn={isLoggedIn} platform="auto" />

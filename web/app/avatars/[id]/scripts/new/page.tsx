@@ -15,12 +15,13 @@
  *   { product_name, product_brief?, types: [{kind, count}] }
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, Sparkles, Loader2, AlertCircle, Check, ChevronDown, ChevronUp,
   Copy, Video, Play, Star, RefreshCw, User as UserIcon, Wand2,
+  Users, Plus, X,
 } from 'lucide-react';
 import { STARTER_SCRIPTS_BY_NICHE, type StarterScript } from '@/lib/avatar-niche-scripts';
 
@@ -432,6 +433,12 @@ export default function ScriptGenPage() {
             <div className="text-center text-[11px] text-zinc-500">
               Free to retry. We&apos;ll save everything to your library.
             </div>
+
+            {/* ─── Multi-avatar (multi-character) composer ─────────────── */}
+            <MultiAvatarComposer
+              primaryAvatarId={id}
+              primaryAvatarName={personaName}
+            />
           </div>
         )}
 
@@ -591,6 +598,287 @@ function PersonaCard({ avatar, loading }: { avatar: Avatar | null; loading: bool
       <div className="text-[10px] uppercase tracking-wider text-teal-300/80 font-semibold flex-shrink-0">
         Voice locked
       </div>
+    </div>
+  );
+}
+
+// ── Multi-avatar composer ───────────────────────────────────────────────
+/**
+ * Lets the user assemble a conversation between THIS avatar and any of their
+ * other avatars (that also have a HeyGen ID registered). Each segment is one
+ * spoken line. Calls /api/avatars/render/multi which fans the segments out to
+ * HeyGen's video_inputs array.
+ *
+ * Opt-in: collapsed by default. Single-avatar flow above is unaffected.
+ */
+interface AvatarOption {
+  id: string;
+  avatar_display_name?: string;
+  name?: string;
+  heygen_custom_avatar_id?: string;
+  avatar_visual_reference_url?: string;
+}
+
+interface Segment {
+  avatar_id: string;
+  text: string;
+}
+
+const MAX_SEGMENT_CHARS = 1500;
+const MAX_SEGMENTS = 6;
+
+function MultiAvatarComposer({
+  primaryAvatarId,
+  primaryAvatarName,
+}: { primaryAvatarId: string; primaryAvatarName: string }) {
+  const [open, setOpen] = useState(false);
+  const [avatars, setAvatars] = useState<AvatarOption[]>([]);
+  const [loadingAvatars, setLoadingAvatars] = useState(false);
+  const [segments, setSegments] = useState<Segment[]>([
+    { avatar_id: primaryAvatarId, text: '' },
+  ]);
+  const [aspectRatio, setAspectRatio] = useState<'9:16' | '16:9' | '1:1'>('9:16');
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [result, setResult] = useState<{ content_item_id?: string; heygen_video_id?: string } | null>(null);
+
+  // Lazy-load avatars only when the panel is opened (saves a request on page load).
+  useEffect(() => {
+    if (!open || avatars.length > 0) return;
+    setLoadingAvatars(true);
+    fetch('/api/avatars')
+      .then(async (r) => {
+        if (!r.ok) return;
+        const j = await r.json().catch(() => null) as { ok?: boolean; avatars?: AvatarOption[] } | null;
+        if (!j || !j.ok) return;
+        // Defensive: j.avatars can be missing/null/undefined; each entry may be missing fields.
+        const list = Array.isArray(j.avatars) ? j.avatars : [];
+        setAvatars(list.filter(a => a && typeof a.heygen_custom_avatar_id === 'string' && a.heygen_custom_avatar_id.length > 0));
+      })
+      .catch(() => { /* non-fatal */ })
+      .finally(() => setLoadingAvatars(false));
+  }, [open, avatars.length]);
+
+  const eligibleOthers = useMemo(
+    () => avatars.filter(a => a.id !== primaryAvatarId),
+    [avatars, primaryAvatarId],
+  );
+
+  const avatarName = useCallback((avId: string) => {
+    if (avId === primaryAvatarId) return primaryAvatarName;
+    const a = avatars.find(x => x.id === avId);
+    return a?.avatar_display_name || a?.name || 'Avatar';
+  }, [avatars, primaryAvatarId, primaryAvatarName]);
+
+  function addSegment() {
+    if (segments.length >= MAX_SEGMENTS) return;
+    // Default the new segment to the FIRST other avatar (so it's visibly multi).
+    const defaultAv = eligibleOthers[0]?.id || primaryAvatarId;
+    setSegments(prev => [...prev, { avatar_id: defaultAv, text: '' }]);
+  }
+
+  function removeSegment(idx: number) {
+    setSegments(prev => prev.filter((_, i) => i !== idx));
+  }
+
+  function updateSegment(idx: number, patch: Partial<Segment>) {
+    setSegments(prev => prev.map((s, i) => i === idx ? { ...s, ...patch } : s));
+  }
+
+  const distinctAvatars = new Set(segments.map(s => s.avatar_id)).size;
+  const allFilled = segments.every(s => s.text.trim().length > 0);
+  const canRender = segments.length >= 2 && distinctAvatars >= 2 && allFilled && !busy;
+
+  async function renderMulti() {
+    setBusy(true);
+    setErr(null);
+    setResult(null);
+    try {
+      const r = await fetch('/api/avatars/render/multi', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          avatars: segments.map(s => ({ avatar_id: s.avatar_id, text: s.text.trim().slice(0, MAX_SEGMENT_CHARS) })),
+          aspect_ratio: aspectRatio,
+        }),
+      });
+      const j = await r.json() as { ok: boolean; content_item_id?: string; heygen_video_id?: string; error?: string };
+      if (!j.ok) throw new Error(j.error || 'render failed');
+      setResult({ content_item_id: j.content_item_id, heygen_video_id: j.heygen_video_id });
+    } catch (e: unknown) {
+      setErr(e instanceof Error ? e.message : 'render failed');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="mt-4 border border-white/5 rounded-xl">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-zinc-200 hover:text-white"
+      >
+        <span className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-teal-400" />
+          Multi-avatar scene (conversation)
+          <span className="text-[10px] uppercase tracking-wider text-teal-300/80 ml-1">New</span>
+        </span>
+        {open ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 border-t border-white/5 pt-3 space-y-3">
+          <div className="text-[11px] text-zinc-400 leading-relaxed">
+            Add lines from two or more of your avatars and HeyGen will render them in one video. Great for back-and-forth conversations, interviews, or call-and-response ads.
+            <span className="text-zinc-500"> Each line is capped at {MAX_SEGMENT_CHARS} characters.</span>
+          </div>
+
+          {loadingAvatars && (
+            <div className="flex items-center gap-2 text-xs text-zinc-400">
+              <Loader2 className="w-3.5 h-3.5 animate-spin" /> Loading your other avatars…
+            </div>
+          )}
+
+          {!loadingAvatars && eligibleOthers.length === 0 && (
+            <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-500/30 text-xs text-amber-200 flex items-start gap-2">
+              <AlertCircle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+              <div>
+                You only have one avatar with a HeyGen ID registered. Create + register another avatar to use this feature.
+              </div>
+            </div>
+          )}
+
+          {/* Segments */}
+          {!loadingAvatars && eligibleOthers.length > 0 && (
+            <>
+              <div className="space-y-2">
+                {segments.map((seg, i) => {
+                  const overChars = seg.text.length > MAX_SEGMENT_CHARS;
+                  return (
+                    <div key={i} className="rounded-lg bg-zinc-900 border border-white/10 p-2.5 space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] uppercase tracking-wider text-zinc-500 w-12 flex-shrink-0">
+                          Line {i + 1}
+                        </span>
+                        <select
+                          value={seg.avatar_id}
+                          onChange={(e) => updateSegment(i, { avatar_id: e.target.value })}
+                          className="flex-1 px-2 py-1.5 rounded bg-zinc-800 border border-white/10 text-xs text-white focus:border-teal-500 outline-none"
+                        >
+                          <option value={primaryAvatarId}>{primaryAvatarName} (this avatar)</option>
+                          {eligibleOthers.map(a => (
+                            <option key={a.id} value={a.id}>
+                              {a.avatar_display_name || a.name || 'Avatar'}
+                            </option>
+                          ))}
+                        </select>
+                        {segments.length > 1 && (
+                          <button
+                            type="button"
+                            onClick={() => removeSegment(i)}
+                            title="Remove this line"
+                            className="p-1 rounded text-zinc-500 hover:text-red-300 hover:bg-red-900/20 flex-shrink-0"
+                          >
+                            <X className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      <textarea
+                        value={seg.text}
+                        onChange={(e) => updateSegment(i, { text: e.target.value })}
+                        rows={2}
+                        placeholder={`What does ${avatarName(seg.avatar_id)} say?`}
+                        className={`w-full px-2.5 py-2 rounded bg-zinc-950 border text-sm leading-snug outline-none resize-none ${
+                          overChars ? 'border-red-500/60' : 'border-white/10 focus:border-teal-500'
+                        }`}
+                      />
+                      <div className={`text-[10px] text-right ${overChars ? 'text-red-400' : 'text-zinc-500'}`}>
+                        {seg.text.length}/{MAX_SEGMENT_CHARS}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Add line */}
+              <button
+                type="button"
+                onClick={addSegment}
+                disabled={segments.length >= MAX_SEGMENTS}
+                className="w-full py-2 rounded-lg border border-dashed border-teal-500/30 text-xs text-teal-300 hover:bg-teal-500/5 disabled:opacity-40 flex items-center justify-center gap-1.5"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                {segments.length >= MAX_SEGMENTS ? `Max ${MAX_SEGMENTS} lines` : 'Add another avatar line'}
+              </button>
+
+              {/* Aspect ratio */}
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] uppercase tracking-wider text-zinc-500 flex-shrink-0">Aspect</span>
+                <div className="flex gap-1.5">
+                  {(['9:16', '16:9', '1:1'] as const).map(ar => (
+                    <button
+                      key={ar}
+                      type="button"
+                      onClick={() => setAspectRatio(ar)}
+                      className={`px-2.5 py-1 rounded text-[11px] font-semibold transition-colors ${
+                        aspectRatio === ar
+                          ? 'bg-teal-500/20 border border-teal-400 text-teal-200'
+                          : 'bg-zinc-900 border border-white/10 text-zinc-400 hover:border-zinc-600'
+                      }`}
+                    >
+                      {ar}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Validation hints */}
+              {segments.length >= 2 && distinctAvatars < 2 && (
+                <div className="text-[11px] text-amber-300">
+                  Pick at least 2 different avatars to make it a multi-character render.
+                </div>
+              )}
+
+              {err && (
+                <div className="p-2.5 rounded-lg bg-red-900/30 border border-red-500/30 text-xs text-red-200 flex items-start gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 mt-0.5" />{err}
+                </div>
+              )}
+
+              {result?.content_item_id && (
+                <div className="p-3 rounded-lg bg-emerald-900/20 border border-emerald-500/30 text-xs text-emerald-200 space-y-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" />
+                    Conversation render kicked off — HeyGen video {result.heygen_video_id?.slice(0, 8)}…
+                  </div>
+                  <div className="text-emerald-300/80">
+                    Multi-avatar renders take 2–5 min. Check{' '}
+                    <Link href="/library" className="underline">your Library</Link>{' '}
+                    once it&apos;s ready.
+                  </div>
+                </div>
+              )}
+
+              {/* Render CTA */}
+              <button
+                type="button"
+                onClick={renderMulti}
+                disabled={!canRender}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-600 to-teal-500 hover:opacity-90 disabled:opacity-40 font-semibold text-sm flex items-center justify-center gap-2"
+              >
+                {busy
+                  ? <><Loader2 className="w-4 h-4 animate-spin" /> Sending to HeyGen…</>
+                  : <><Video className="w-4 h-4" /> Render conversation ({segments.length} lines)</>
+                }
+              </button>
+              <div className="text-center text-[10px] text-zinc-500">
+                Burns 1 credit per avatar ({segments.length} this render). HeyGen plan must allow multi-character renders.
+              </div>
+            </>
+          )}
+        </div>
+      )}
     </div>
   );
 }

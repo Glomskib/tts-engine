@@ -70,8 +70,8 @@ export default function AccountPage() {
                   )}
                 </div>
                 <div className="text-xs text-zinc-500 mt-0.5">
-                  {limits.perDay != null && <>Up to {limits.perDay} clips/day · </>}
-                  {limits.perMonth != null && <>{limits.perMonth} clips/month · </>}
+                  {limits.perDay != null && <>Up to {limits.perDay} videos/day · </>}
+                  {limits.perMonth != null && <>{limits.perMonth} videos/month · </>}
                   Batches up to {limits.batchMax}
                 </div>
               </div>

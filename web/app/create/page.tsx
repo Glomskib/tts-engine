@@ -705,7 +705,7 @@ export default function CreatePage() {
           {entry === 'drive' && (
             <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 text-sm text-gray-300">
               <div className="font-medium mb-1">Drive folder watcher (coming soon)</div>
-              <p className="text-xs text-gray-500">Share a folder once, every new video auto-clips.</p>
+              <p className="text-xs text-gray-500">Share a folder once, every new video gets processed automatically.</p>
             </div>
           )}
 
@@ -1209,7 +1209,7 @@ function JobProgress({ jobId, onNewJob }: { jobId: string; onNewJob: () => void 
               })}
             </div>
             <div className="mt-4 pt-3 border-t border-gray-800 text-xs text-gray-500">
-              Typical render: 1–3 min for short clips, up to 5 min for long sources. Safe to navigate away — your clips will be in <Link href="/clips" className="text-teal-400 underline">My Clips</Link>.
+              Typical render: 1–3 min for short videos, up to 5 min for long sources. Safe to navigate away — your videos will be in <Link href="/clips" className="text-teal-400 underline">My Videos</Link>.
             </div>
           </div>
         )}
@@ -1221,7 +1221,7 @@ function JobProgress({ jobId, onNewJob }: { jobId: string; onNewJob: () => void 
               <div key={c.id} className="bg-gray-900 border border-gray-700 rounded-xl p-4">
                 <div className="flex items-center justify-between mb-3 gap-2">
                   <div className="font-semibold truncate">
-                    Clip {idx + 1}
+                    {mode === 'clip' ? 'Clip' : 'Video'} {idx + 1}
                     {c.duration_sec ? <span className="text-gray-500 font-normal"> · {c.duration_sec.toFixed(0)}s</span> : null}
                   </div>
                   {c.hook_score != null && (
@@ -1241,7 +1241,7 @@ function JobProgress({ jobId, onNewJob }: { jobId: string; onNewJob: () => void 
                 ) : (
                   <div className="aspect-[9/16] bg-gray-800 rounded-lg flex flex-col items-center justify-center text-gray-500 text-sm gap-2">
                     <Loader2 className="w-6 h-6 animate-spin opacity-50" />
-                    <span>Rendering this clip…</span>
+                    <span>Rendering this {mode === 'clip' ? 'clip' : 'video'}…</span>
                   </div>
                 )}
                 {c.feel_diagnosis && (

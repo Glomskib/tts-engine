@@ -262,6 +262,10 @@ export default function RunDetail({ runId }: { runId: string }) {
   const { run, asset, candidates, rendered } = data;
   const isTerminal = run.status === 'complete' || run.status === 'failed';
   const isClipper = run.mode === 'clipper';
+  // Per Brandon 2026-06-01: only Clip Picker outputs are "clips". Everything
+  // else (Post Maker, affiliate, nonprofit) calls the output a "video".
+  const outputNoun = isClipper ? 'clip' : 'video';
+  const outputNounPlural = isClipper ? 'clips' : 'videos';
   const otherMode: Mode | null = isClipper
     ? null
     : run.mode === 'affiliate' ? 'nonprofit' : 'affiliate';
@@ -398,7 +402,7 @@ export default function RunDetail({ runId }: { runId: string }) {
                     className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-800 text-zinc-100 text-sm sm:text-base font-medium min-h-[48px] px-4 disabled:opacity-60 transition-colors"
                   >
                     {runAgainBusy ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
-                    <span>{runAgainBusy ? 'Starting a new run…' : 'Generate more clips from this one'}</span>
+                    <span>{runAgainBusy ? 'Starting a new run…' : `Generate more ${outputNounPlural} from this one`}</span>
                   </button>
                   <button
                     type="button"
@@ -415,10 +419,10 @@ export default function RunDetail({ runId }: { runId: string }) {
                   className="flex items-center justify-center gap-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-800 text-zinc-100 text-sm sm:text-base font-medium min-h-[48px] px-4 transition-colors"
                 >
                   <Download className="w-4 h-4 shrink-0" />
-                  <span>Download all clips ({completeClips.length})</span>
+                  <span>Download all {outputNounPlural} ({completeClips.length})</span>
                 </button>
                 <p className="text-center text-[11px] sm:text-xs text-zinc-500">
-                  {completeClips.length} clips ready. Post one today — speed beats perfection.
+                  {completeClips.length} {outputNounPlural} ready. Post one today — speed beats perfection.
                 </p>
               </div>
             </>
@@ -561,6 +565,9 @@ function HeroClip({
   const [showTips, setShowTips] = useState(false);
   const [showReady, setShowReady] = useState(false);
   const isClipper = mode === 'clipper';
+  // Output noun — see top-of-file note (Brandon 2026-06-01).
+  const outputNoun = isClipper ? 'clip' : 'video';
+  const outputNounPlural = isClipper ? 'clips' : 'videos';
 
   // "Copy description + link" = what the creator pastes into TikTok / Reels.
   // When a product URL is attached, append it so it goes out together with
@@ -696,7 +703,7 @@ function HeroClip({
           className="flex items-center justify-center gap-2 rounded-xl bg-zinc-100 hover:bg-white active:bg-zinc-200 text-zinc-900 text-base font-semibold min-h-[52px] px-4 transition-colors"
         >
           <Download className="w-5 h-5 shrink-0" />
-          <span>Download clip</span>
+          <span>Download {outputNoun}</span>
         </a>
         {allClipUrls.length > 1 && (
           <button
@@ -705,7 +712,7 @@ function HeroClip({
             className="flex items-center justify-center gap-2 w-full rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-800 text-zinc-100 text-base font-medium min-h-[52px] px-4 transition-colors"
           >
             <Download className="w-5 h-5 shrink-0" />
-            <span>Download all clips ({allClipUrls.length})</span>
+            <span>Download all {outputNounPlural} ({allClipUrls.length})</span>
           </button>
         )}
 
@@ -780,7 +787,7 @@ function HeroClip({
             className="flex items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-zinc-900 hover:bg-zinc-800 active:bg-zinc-800 text-zinc-100 text-sm sm:text-base font-medium min-h-[48px] px-4 disabled:opacity-60 transition-colors"
           >
             {generateBusy ? <Loader2 className="w-4 h-4 animate-spin shrink-0" /> : <Wand2 className="w-4 h-4 shrink-0" />}
-            <span>{generateBusy ? 'Starting a new run…' : 'Generate more clips from this'}</span>
+            <span>{generateBusy ? 'Starting a new run…' : `Generate more ${outputNounPlural} from this`}</span>
           </button>
           <button
             type="button"

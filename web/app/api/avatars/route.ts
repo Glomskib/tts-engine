@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseAdmin
     .from('brand_profiles')
-    .select('id, name, avatar_display_name, niche, personality, target_audience, avatar_visual_reference_url, heygen_custom_avatar_id, voice_provider, voice_preset_id, voice_clone_id, setup_status, test_render_url, active, created_at, updated_at')
+    .select('id, name, avatar_display_name, niche, personality, target_audience, avatar_visual_reference_url, heygen_custom_avatar_id, heygen_register_status, heygen_register_error, heygen_register_attempts, heygen_register_attempted_at, voice_provider, voice_preset_id, voice_clone_id, setup_status, test_render_url, active, created_at, updated_at')
     .eq('user_id', auth.user.id)
     .eq('is_avatar', true)
     .eq('active', true)

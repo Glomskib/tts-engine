@@ -93,7 +93,7 @@ export default function ClipsPage() {
       <QueueStatusBanner />
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold">My Clips</h1>
+          <h1 className="text-3xl font-bold">My Videos</h1>
           <Link
             href="/create"
             className="px-4 py-2 bg-teal-500 hover:bg-teal-600 rounded-lg font-medium flex items-center gap-2"
@@ -117,9 +117,9 @@ export default function ClipsPage() {
                 <Sparkles className="w-7 h-7 text-teal-400" />
               </div>
             </div>
-            <h2 className="text-2xl font-bold text-white mb-2">Your clips library is empty</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">Your video library is empty</h2>
             <p className="text-zinc-400 mb-2 max-w-md mx-auto">
-              Upload a video — we pick the best moments, add karaoke captions, and ship vertical clips ready for TikTok, Reels, and Shorts.
+              Upload a video — we pick the best moments, add karaoke captions, and ship vertical videos ready for TikTok, Reels, and Shorts.
             </p>
             <p className="text-xs text-zinc-500 mb-8">Usually under a minute. No watermarks. Yours to keep.</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center items-center">
@@ -127,7 +127,7 @@ export default function ClipsPage() {
                 href="/create"
                 className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 rounded-xl font-semibold text-white shadow-lg shadow-teal-500/20 transition-all"
               >
-                <Plus className="w-4 h-4" /> Make your first clip
+                <Plus className="w-4 h-4" /> Make your first video
               </Link>
               <Link
                 href="/script-generator"
@@ -159,9 +159,9 @@ function JobCard({ job }: { job: JobRow }) {
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
       <div className="p-4 flex items-center justify-between">
         <div className="flex-1 min-w-0 pr-4">
-          <div className="font-medium truncate">{job.context_json?.describe || 'Untitled clip job'}</div>
+          <div className="font-medium truncate">{job.context_json?.describe || 'Untitled video job'}</div>
           <div className="text-xs text-gray-400 mt-1">
-            {job.target_clip_count} clip{job.target_clip_count === 1 ? '' : 's'}
+            {job.target_clip_count} video{job.target_clip_count === 1 ? '' : 's'}
             {job.context_json?.vibe ? ` · ${job.context_json.vibe}` : ''}
             {' · '}
             {new Date(job.created_at).toLocaleDateString()}

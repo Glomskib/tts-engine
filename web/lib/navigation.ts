@@ -179,7 +179,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Opportunities', href: '/admin/opportunities', icon: Lightbulb, subtitle: 'Personalized daily content ideas based on your niche and trends', minPlan: 'creator_lite' },
       { name: 'Hooks', href: '/admin/hook-generator', icon: Zap, subtitle: 'Generate scroll-stopping hooks for TikTok, Reels, and Shorts' },
       { name: 'Comment Miner', href: '/admin/comment-miner', icon: Pickaxe, subtitle: 'Find viral comments across creators and turn them into content ideas' },
-      { name: 'Affiliate Hub', href: '/admin/affiliate', icon: DollarSign, subtitle: 'Discover TT Shop products, request samples, track commissions', badge: 'New' },
+      { name: 'TikTok Shop Products', href: '/admin/affiliate', icon: DollarSign, subtitle: 'Find products to promote, request free samples, track your commissions', badge: 'New' },
       { name: 'Transcriber', href: '/admin/transcribe', icon: Mic, subtitle: 'Transcribe video and audio to text in seconds with AI', tourId: 'nav-transcriber' },
       { name: 'Saved Scripts', href: '/admin/script-library', icon: FileText, subtitle: 'Your reusable library of scripts, hooks, and angles', featureKey: 'save_skits', minPlan: 'creator_lite', tourId: 'nav-script-library' },
     ],
@@ -193,7 +193,7 @@ export const NAV_SECTIONS: NavSection[] = [
     title: 'PIPELINE',
     subscriptionType: 'saas',
     items: [
-      { name: 'Footage Hub', href: '/admin/footage', icon: Film, subtitle: 'Upload, organize, and search every piece of raw footage you film', minPlan: 'creator_pro' },
+      { name: 'My Footage', href: '/admin/footage', icon: Film, subtitle: 'Upload, organize, and search every video clip you have filmed', minPlan: 'creator_pro' },
       { name: 'Content Items', href: '/admin/content-items', icon: ListTodo, subtitle: 'Every script, draft, and finished video in one searchable list', tourId: 'nav-content-items' },
       { name: 'Production Board', href: '/admin/pipeline', icon: Video, subtitle: 'Kanban board for tracking videos from idea to posted', minPlan: 'creator_pro', tourId: 'nav-pipeline' },
       { name: 'Content Planner', href: '/admin/calendar', icon: Calendar, subtitle: 'Plan, schedule, and hit posting goals across every platform', minPlan: 'creator_pro', tourId: 'nav-content-planner' },
@@ -208,10 +208,10 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'AI Insights', href: '/admin/performance', icon: BarChart3, subtitle: 'AI analysis of what is and isn\'t working in your content', minPlan: 'creator_pro', badge: 'Beta' },
-      { name: 'Performance Loop', href: '/admin/performance-loop', icon: TrendingUp, subtitle: 'Close the loop between posting, analyzing, and improving' },
-      { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy, subtitle: 'Browse viral videos and break down what made them work', minPlan: 'creator_pro', tourId: 'nav-winners' },
-      { name: 'Hook Library', href: '/admin/hooks', icon: Anchor, subtitle: 'Your private library of proven hook patterns to remix', minPlan: 'creator_pro' },
-      { name: 'Audience', href: '/admin/audience', icon: UserCheck, subtitle: 'Build a clear ICP and speak directly to the right viewer' },
+      { name: "What's Working", href: '/admin/performance-loop', icon: TrendingUp, subtitle: 'See which of your videos won, why, and what to make next' },
+      { name: 'Viral Library', href: '/admin/winners-bank', icon: Trophy, subtitle: 'Other peoples viral videos broken down so you can copy what works', minPlan: 'creator_pro', tourId: 'nav-winners' },
+      { name: 'Saved Hooks', href: '/admin/hooks', icon: Anchor, subtitle: 'Your collection of opening lines that grab attention in the first 3 seconds', minPlan: 'creator_pro' },
+      { name: 'My Audience', href: '/admin/audience', icon: UserCheck, subtitle: 'Describe who your videos are for so the AI talks straight to them' },
     ],
   },
   {
@@ -223,8 +223,8 @@ export const NAV_SECTIONS: NavSection[] = [
     items: [
       { name: 'Products', href: '/admin/products', icon: Package, subtitle: 'Catalog the products you promote so AI can write better scripts', featureKey: 'product_catalog', tourId: 'nav-products' },
       { name: 'Brands', href: '/admin/brands', icon: Building, subtitle: 'Manage every brand workspace from a single FlashFlow login', minPlan: 'creator_pro' },
-      { name: 'Briefs', href: '/admin/briefs', icon: FileText, subtitle: 'Track brand deliverables, briefs, and creative requirements', minPlan: 'creator_pro' },
-      { name: 'Retainers', href: '/admin/retainers', icon: Target, subtitle: 'Monitor monthly brand-deal deliverables and renewal risk', minPlan: 'creator_pro', badge: 'Beta' },
+      { name: 'Brand Briefs', href: '/admin/briefs', icon: FileText, subtitle: 'Track what each brand has asked you to deliver and when its due', minPlan: 'creator_pro' },
+      { name: 'Monthly Deals', href: '/admin/retainers', icon: Target, subtitle: 'See your recurring brand deals, what is owed, and renewal dates', minPlan: 'creator_pro', badge: 'Beta' },
       { name: 'Campaigns', href: '/admin/campaigns', icon: Rocket, subtitle: 'Plan and run bulk content campaigns across multiple posts' },
       { name: 'Organization', href: '/admin/organization', icon: Building, subtitle: 'Invite teammates and manage roles', minPlan: 'brand' },
       { name: 'Settings', href: '/admin/settings', icon: Settings, subtitle: 'Account, billing, and connected platform integrations' },
@@ -264,7 +264,7 @@ export const NAV_SECTIONS: NavSection[] = [
       { name: 'Analytics', href: '/client/analytics', icon: BarChart },
       { name: 'Create', href: '/create', icon: Sparkles },
       { name: 'Comment Reply Creator', href: '/admin/tools/tok-comment', icon: MessageSquare },
-      { name: 'Winners Bank', href: '/admin/winners-bank', icon: Trophy },
+      { name: 'Viral Library', href: '/admin/winners-bank', icon: Trophy },
     ],
   },
   {

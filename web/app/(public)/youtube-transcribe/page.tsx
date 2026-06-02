@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 import TranscriberCore from '@/components/TranscriberCore';
+import TranscriberHeader from '@/components/TranscriberHeader';
 import Link from 'next/link';
 
 export default function YouTubeTranscribePage() {
@@ -33,6 +34,10 @@ export default function YouTubeTranscribePage() {
           Paste any YouTube link. Get a clean transcript in seconds. Plus an AI breakdown of hooks, structure, and what works &mdash; bonus, free.
         </p>
       </div>
+
+      {/* Shared header — lets the user see they're on the YouTube page
+          and switch to TikTok/any-URL without guessing. */}
+      <TranscriberHeader active="youtube" />
 
       {/* Tool */}
       <TranscriberCore isPortal={false} isLoggedIn={isLoggedIn} platform="youtube" />

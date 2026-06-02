@@ -62,8 +62,8 @@ export default function DeleteAccountPage() {
           <div className="bg-gray-900 border border-gray-800 rounded-xl p-5 mb-6">
             <h2 className="text-sm font-semibold mb-3 text-gray-200">What gets deleted:</h2>
             <ul className="space-y-2 text-sm text-gray-300">
-              <li>· Every video you&apos;ve uploaded (sources in storage)</li>
-              <li>· Every clip we&apos;ve made for you (rendered outputs)</li>
+              <li>· Every source you&apos;ve uploaded (originals in storage)</li>
+              <li>· Every video we&apos;ve made for you (rendered outputs)</li>
               <li>· Every brand voice profile you&apos;ve created</li>
               <li>· Your subscription record + remaining credits (no refund issued automatically — cancel first if you want a refund)</li>
               <li>· Your transcripts, analysis, hook scores, all derived data</li>
@@ -75,7 +75,7 @@ export default function DeleteAccountPage() {
             </ul>
             <h2 className="text-sm font-semibold mt-5 mb-2 text-red-400">What we can&apos;t do:</h2>
             <ul className="space-y-1 text-sm text-gray-300">
-              <li>· Undo this. There is no recovery. Make sure your clips are downloaded first if you want to keep any.</li>
+              <li>· Undo this. There is no recovery. Make sure your videos are downloaded first if you want to keep any.</li>
             </ul>
           </div>
         )}

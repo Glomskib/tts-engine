@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Plus, User, Loader2, Sparkles, Mic, Camera as CameraIcon, Check, AlertCircle, Trash2, RefreshCw, AlertTriangle } from 'lucide-react';
 
 interface Avatar {
@@ -13,6 +14,10 @@ interface Avatar {
   target_audience?: string;
   avatar_visual_reference_url?: string;
   heygen_custom_avatar_id?: string;
+  heygen_register_status?: 'processing' | 'success' | 'failed' | null;
+  heygen_register_error?: string | null;
+  heygen_register_attempts?: number;
+  heygen_register_attempted_at?: string | null;
   voice_clone_id?: string;
   setup_status?: string;
   test_render_url?: string;
@@ -71,9 +76,17 @@ export default function AvatarsPage() {
       // got registered with HeyGen (created before the auto-register fix in
       // /avatars/new). For each one, fire the register-photo endpoint in
       // the background. Idempotent — endpoint short-circuits when
-      // heygen_custom_avatar_id is already set. Errors are swallowed; the
-      // user can also trigger this manually from the avatar detail page.
-      const stragglers = list.filter(a => a.avatar_visual_reference_url && !a.heygen_custom_avatar_id);
+      // heygen_custom_avatar_id is already set.
+      //
+      // 2026-06-01: only auto-fire if attempts<3 OR no attempt has happened
+      // yet (status IS NULL). Otherwise we'd hammer HeyGen forever on a
+      // permanently-bad URL. The avatar card surfaces a manual "Retry" button
+      // for the >=3-attempt cases.
+      const stragglers = list.filter(a =>
+        a.avatar_visual_reference_url &&
+        !a.heygen_custom_avatar_id &&
+        ((a.heygen_register_attempts || 0) < 3 || !a.heygen_register_status)
+      );
       if (stragglers.length > 0) {
         console.log(`[avatars] healing ${stragglers.length} avatar(s) missing HeyGen registration`);
         for (const a of stragglers) {
@@ -81,7 +94,7 @@ export default function AvatarsPage() {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({}),
-          }).catch(() => { /* best-effort */ });
+          }).catch(() => { /* best-effort — real errors are persisted server-side now */ });
         }
       }
     } catch (e) {
@@ -180,26 +193,104 @@ export default function AvatarsPage() {
 }
 
 function AvatarCard({ a }: { a: Avatar }) {
+  // Need a router for the inner "Set voice" link since we can't nest an
+  // <a> inside the card-wide <Link>. Anchor inside anchor = invalid HTML.
+  const router = useRouter();
   // 2026-05-31: the badge used to say "Photo needed" any time setup wasn't
   // 100% finished — including avatars that already had a photo but were
   // waiting on HeyGen/voice processing. That lied to the user. Now we name
   // the actual missing piece (photo OR processing OR voice OR test render).
+  //
+  // 2026-06-01: the "Processing photo" badge used to sit forever even when
+  // HeyGen had outright rejected the photo (silent failure in the heal
+  // loop). Now we read brand_profiles.heygen_register_* columns:
+  //   - status='failed'  + attempts>=5  → RED "HeyGen rejected" + retry btn
+  //   - status='failed'  + attempts<5   → still in heal-loop range, show
+  //                                       "Processing photo" (will auto-retry)
+  //   - status='processing' + <5min ago → "Processing photo" (current)
+  //   - status='processing' + >5min ago → YELLOW "Photo stuck — retry"
+  //   - otherwise → existing setup-step ladder.
   const hasPhoto = !!a.avatar_visual_reference_url;
   const photoProcessed = !!a.heygen_custom_avatar_id;
   const voiceReady = !!a.voice_clone_id;
   const tested = !!a.test_render_url;
   const setupComplete = photoProcessed && voiceReady && tested;
 
-  let badge: { label: string; tone: 'amber' | 'sky' } | null = null;
+  const regStatus = a.heygen_register_status;
+  const regAttempts = a.heygen_register_attempts || 0;
+  const regError = a.heygen_register_error || '';
+  const lastAttempt = a.heygen_register_attempted_at
+    ? new Date(a.heygen_register_attempted_at).getTime()
+    : 0;
+  const ageMs = lastAttempt ? Date.now() - lastAttempt : 0;
+  const STUCK_MS = 5 * 60 * 1000;
+
+  type BadgeTone = 'amber' | 'sky' | 'red' | 'yellow';
+  let badge: {
+    label: string;
+    tone: BadgeTone;
+    tooltip?: string;
+    retry?: boolean;
+  } | null = null;
+
   if (!setupComplete) {
-    if (!hasPhoto)            badge = { label: 'Photo needed',     tone: 'amber' };
-    else if (!photoProcessed) badge = { label: 'Processing photo', tone: 'sky'   };
-    else if (!voiceReady)     badge = { label: 'Voice not set',    tone: 'amber' };
-    else                      badge = { label: 'Test render pending', tone: 'sky' };
+    if (!hasPhoto) {
+      badge = { label: 'Photo needed', tone: 'amber' };
+    } else if (!photoProcessed) {
+      // Has a photo but HeyGen hasn't returned a custom avatar id yet —
+      // crack open the registration-state columns to figure out what's
+      // actually going on.
+      if (regStatus === 'failed' && regAttempts >= 5) {
+        badge = {
+          label: 'HeyGen rejected',
+          tone: 'red',
+          tooltip: regError ? regError.slice(0, 80) : 'HeyGen rejected this photo',
+          retry: true,
+        };
+      } else if (regStatus === 'processing' && ageMs > STUCK_MS) {
+        badge = {
+          label: 'Photo stuck — retry',
+          tone: 'yellow',
+          tooltip: 'HeyGen registration has been in-flight for over 5 minutes',
+          retry: true,
+        };
+      } else {
+        badge = { label: 'Processing photo', tone: 'sky' };
+      }
+    } else if (!voiceReady) {
+      badge = { label: 'Voice not set', tone: 'amber' };
+    } else {
+      badge = { label: 'Test render pending', tone: 'sky' };
+    }
   }
-  const badgeClass = badge?.tone === 'sky'
-    ? 'bg-sky-500/30 border-sky-400 text-sky-100'
-    : 'bg-amber-500/30 border-amber-400 text-amber-100';
+
+  const badgeClass =
+    badge?.tone === 'red'    ? 'bg-red-500/40 border-red-400 text-red-50' :
+    badge?.tone === 'yellow' ? 'bg-yellow-500/30 border-yellow-400 text-yellow-50' :
+    badge?.tone === 'sky'    ? 'bg-sky-500/30 border-sky-400 text-sky-100' :
+                               'bg-amber-500/30 border-amber-400 text-amber-100';
+
+  async function handleRetry(e: React.MouseEvent) {
+    // Don't navigate into the card when the user clicks Retry.
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const r = await fetch(`/api/avatars/${a.id}/heygen/register-photo?force=true`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ force: true }),
+      });
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}));
+        alert('Retry failed: ' + ((j as { error?: string }).error || `HTTP ${r.status}`));
+        return;
+      }
+      // HeyGen calls are 30-90s synchronous. Reload to pick up the new state.
+      window.location.reload();
+    } catch (err) {
+      alert('Retry failed: ' + (err instanceof Error ? err.message : String(err)));
+    }
+  }
 
   return (
     <Link
@@ -215,8 +306,19 @@ function AvatarCard({ a }: { a: Avatar }) {
           </div>
         )}
         {badge && (
-          <div className={`absolute top-2 right-2 px-2 py-0.5 rounded-full border text-[10px] font-semibold flex items-center gap-1 ${badgeClass}`}>
+          <div
+            className={`absolute top-2 right-2 px-2 py-0.5 rounded-full border text-[10px] font-semibold flex items-center gap-1 ${badgeClass}`}
+            title={badge.tooltip}
+          >
             <AlertCircle className="w-3 h-3" /> {badge.label}
+            {badge.retry && (
+              <button
+                onClick={handleRetry}
+                className="ml-1 px-1.5 py-0.5 rounded bg-white/20 hover:bg-white/30 text-[9px] font-bold uppercase tracking-wide"
+              >
+                Retry
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -227,9 +329,28 @@ function AvatarCard({ a }: { a: Avatar }) {
           <span className={`flex items-center gap-1 ${a.heygen_custom_avatar_id ? 'text-teal-300' : 'text-zinc-400'}`}>
             <CameraIcon className="w-3 h-3" /> {a.heygen_custom_avatar_id ? 'Face' : 'no photo'}
           </span>
-          <span className={`flex items-center gap-1 ${a.voice_clone_id ? 'text-teal-300' : 'text-zinc-400'}`}>
-            <Mic className="w-3 h-3" /> {a.voice_clone_id ? 'Voice' : 'voice unset'}
-          </span>
+          {a.voice_clone_id ? (
+            <span className="flex items-center gap-1 text-teal-300">
+              <Mic className="w-3 h-3" /> Voice set
+            </span>
+          ) : (
+            // "voice unset" used to be silent text — now it's a clickable
+            // "button" that drops the user on the detail page's #voice
+            // anchor so they land right on the voice picker. We can't use
+            // a Link here because the whole card is already wrapped in
+            // one (nested <a> is invalid HTML) — use router.push instead.
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                router.push(`/avatars/${a.id}#voice`);
+              }}
+              className="flex items-center gap-1 text-amber-300 hover:text-amber-200 underline-offset-2 hover:underline"
+            >
+              <Mic className="w-3 h-3" /> Set voice →
+            </button>
+          )}
           <span className={`flex items-center gap-1 ${a.test_render_url ? 'text-emerald-300' : 'text-zinc-400'}`}>
             <Check className="w-3 h-3" /> {a.test_render_url ? 'Tested' : 'not filmed yet'}
           </span>

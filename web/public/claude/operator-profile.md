@@ -75,6 +75,16 @@ Brandon Glomski. Builder and operator running multiple ventures from a 5-device 
 
 Plus: 2TB external APFS encrypted SSD on MBP1 with 4 volumes (Working / Backups / Renders / Archive).
 
+## Fleet storage layout (clarified 2026-05-11)
+
+| Volume | Where | Purpose |
+|---|---|---|
+| MBP1 SSD (4 APFS vols: MBP1-Working / Backups / Renders / Archive) | local on MBP1 | Active working files, daily renders, MBP1-local backups |
+| **`/Volumes/Archive5TB/vault-archive/`** | **mini's 5TB HDD** | **Canonical ancient stuff library — fleet-wide archive, GPT export, deep history. Reach via Tailscale.** |
+| Mini 2TB SSD | mini | Active worker storage, render scratch, OpenClaw runtime |
+
+The 5TB Archive5TB on mini is the fleet's long-term brain. Reach it via Tailscale (SSH currently broken, fall back to fleet-mailbox briefs for now).
+
 ## Shipping philosophy
 
 - **Revenue-first.** Every feature, every push, every script: does this help generate or protect revenue?

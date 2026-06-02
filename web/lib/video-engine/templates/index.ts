@@ -4,9 +4,16 @@
 
 import type { Mode, RenderTemplate } from '../types';
 import { AFFILIATE_TEMPLATES } from './affiliate';
+import { CLIPPER_TEMPLATES } from './clipper';
 import { NONPROFIT_TEMPLATES } from './nonprofit';
+import { ZEBBY_TEMPLATES } from './zebby';
 
-const ALL: RenderTemplate[] = [...AFFILIATE_TEMPLATES, ...NONPROFIT_TEMPLATES];
+const ALL: RenderTemplate[] = [
+  ...AFFILIATE_TEMPLATES,
+  ...NONPROFIT_TEMPLATES,
+  ...CLIPPER_TEMPLATES,
+  ...ZEBBY_TEMPLATES,
+];
 
 export function listTemplates(mode: Mode): RenderTemplate[] {
   return ALL.filter((t) => t.mode === mode);

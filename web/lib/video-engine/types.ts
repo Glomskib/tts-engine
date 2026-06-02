@@ -5,9 +5,9 @@
  * template registry, and CTA registry without forking the pipeline.
  */
 
-export type Mode = 'affiliate' | 'nonprofit' | 'clipper';
+export type Mode = 'affiliate' | 'nonprofit' | 'clipper' | 'zebby';
 
-export const MODES: Mode[] = ['affiliate', 'nonprofit', 'clipper'];
+export const MODES: Mode[] = ['affiliate', 'nonprofit', 'clipper', 'zebby'];
 
 export type RunStatus =
   | 'created'

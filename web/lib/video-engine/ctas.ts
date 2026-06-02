@@ -17,6 +17,16 @@ const CTAS: CTA[] = [
   { key: 'join_the_ride',  mode: 'nonprofit', label: 'Join the Ride',  overlayText: 'JOIN THE RIDE',     subtitle: 'See you there', accentColor: '#1AAE5B' },
   { key: 'donate_today',   mode: 'nonprofit', label: 'Donate Today',   overlayText: 'DONATE TODAY',      subtitle: 'Every dollar matters', accentColor: '#E53935' },
   { key: 'become_sponsor', mode: 'nonprofit', label: 'Become a Sponsor', overlayText: 'BECOME A SPONSOR', subtitle: 'Partner with us', accentColor: '#FFB400' },
+
+  // Zebby's World
+  { key: 'follow_herd', mode: 'zebby', label: 'Join the Herd', overlayText: 'JOIN THE HERD', subtitle: 'Follow for spoonie support', accentColor: '#8B5CF6' },
+  { key: 'install_app', mode: 'zebby', label: 'Try Zebby', overlayText: 'TRY ZEBBY', subtitle: 'Track symptoms with a friend', accentColor: '#2DD4BF' },
+
+  // Long-form clipper
+  { key: 'follow_for_more', mode: 'clipper', label: 'Follow for More', overlayText: 'FOLLOW FOR MORE', subtitle: 'New clips daily', accentColor: '#FF3C00' },
+  { key: 'part_two', mode: 'clipper', label: 'Part 2', overlayText: 'PART 2?', subtitle: 'Follow for the next clip', accentColor: '#FACC15' },
+  { key: 'watch_full', mode: 'clipper', label: 'Watch Full Video', overlayText: 'WATCH THE FULL VIDEO', subtitle: 'Link in bio', accentColor: '#00D4AA' },
+  { key: 'subscribe', mode: 'clipper', label: 'Subscribe', overlayText: 'SUBSCRIBE', subtitle: 'More moments like this', accentColor: '#FFFFFF' },
 ];
 
 export function listCTAs(mode: Mode): CTA[] {

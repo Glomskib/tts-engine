@@ -378,7 +378,7 @@ function QueueTab() {
                       {post.meta?.approved === true && (
                         <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-300">approved</span>
                       )}
-                      {post.meta?.parent_brand && (
+                      {Boolean(post.meta?.parent_brand) && (
                         <span className="ml-1 px-1.5 py-0.5 rounded text-[10px] bg-purple-500/20 text-purple-300">
                           farm: {String(post.meta.parent_brand)}
                         </span>

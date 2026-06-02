@@ -28,6 +28,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { createApiErrorResponse, generateCorrelationId } from '@/lib/api-errors';
 import { isMode, getMode } from '@/lib/video-engine/modes';
+import type { Mode } from '@/lib/video-engine/types';
 import { resolveRenderTemplateKeys } from '@/lib/video-engine/templates';
 import {
   getVEPlan,
@@ -64,7 +65,7 @@ interface CreateBody {
   broll_paths?: string[];              // additional source clips in the `renders` bucket
 }
 
-function workspaceToMode(w: string | undefined): 'affiliate' | 'nonprofit' | 'clipper' | null {
+function workspaceToMode(w: string | undefined): Mode | null {
   if (w === 'creator') return 'affiliate';
   if (w === 'brand_agency') return 'nonprofit';
   if (w === 'clipper') return 'clipper';
@@ -77,7 +78,7 @@ function workspaceToMode(w: string | undefined): 'affiliate' | 'nonprofit' | 'cl
  * creators get a real batch of clips to scan, pick, and post from a single source.
  * Affiliate / nonprofit stick with the plan cap.
  */
-function defaultTargetForMode(mode: 'affiliate' | 'nonprofit' | 'clipper', planCap: number): number {
+function defaultTargetForMode(mode: Mode, planCap: number): number {
   if (mode === 'clipper') return Math.min(8, planCap);
   return planCap;
 }

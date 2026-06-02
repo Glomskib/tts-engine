@@ -23,6 +23,7 @@ import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { getTikTokContentClient } from '@/lib/tiktok-content';
 import { sendTelegramLog } from '@/lib/telegram';
+import { logSessionValidity } from '@/lib/session-logger';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -41,6 +42,17 @@ interface AvatarContentItem {
   tiktok_post_status: string | null;
   tiktok_post_publish_id: string | null;
   tiktok_post_started_at: string | null;
+}
+
+interface ContentConnection {
+  id: string;
+  account_id: string;
+  access_token: string;
+  refresh_token: string;
+  token_expires_at: string;
+  refresh_token_expires_at?: string | null;
+  privacy_level: string | null;
+  status: string;
 }
 
 function authorized(req: Request): boolean {
@@ -111,7 +123,13 @@ async function pollInFlight(results: Record<string, unknown>[]) {
     // Poll TikTok for status
     try {
       if (!item.tiktok_post_publish_id || !item.tiktok_post_account_id) continue;
-      const status = await client.getPublishStatus(item.tiktok_post_account_id, item.tiktok_post_publish_id);
+      const connection = await getActiveConnectionByAccountId(item.tiktok_post_account_id);
+      if (!connection) {
+        results.push({ id: item.id, status: 'poll_skipped', reason: 'no_connection' });
+        continue;
+      }
+      const accessToken = await ensureFreshToken(connection, client);
+      const status = await client.getPublishStatus(accessToken, item.tiktok_post_publish_id);
       if (status.status === 'PUBLISH_COMPLETE') {
         await supabaseAdmin
           .from('content_items')
@@ -163,14 +181,7 @@ async function submitNewAvatarContent(results: Record<string, unknown>[]) {
   for (const item of eligible as AvatarContentItem[]) {
     try {
       // Find the user's primary TikTok account (workspace_id = user.id).
-      const { data: conn } = await supabaseAdmin
-        .from('tiktok_content_connections')
-        .select('account_id, access_token, refresh_token, is_active')
-        .eq('user_id', item.workspace_id)
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
+      const conn = await getPrimaryActiveConnectionForUser(item.workspace_id);
 
       if (!conn?.account_id) {
         await supabaseAdmin
@@ -190,10 +201,11 @@ async function submitNewAvatarContent(results: Record<string, unknown>[]) {
       const caption = (baseCaption + (tags ? `\n\n${tags}` : '')).slice(0, 2200);
 
       // Submit to TikTok
-      const publish = await client.publishVideoFromUrl({
-        accountId: conn.account_id,
-        videoUrl: item.final_video_url!,
+      const accessToken = await ensureFreshToken(conn, client);
+      const publish = await client.publishVideoFromUrl(accessToken, {
+        video_url: item.final_video_url!,
         title: caption,
+        privacy_level: conn.privacy_level || 'SELF_ONLY',
       });
 
       await supabaseAdmin
@@ -219,5 +231,98 @@ async function submitNewAvatarContent(results: Record<string, unknown>[]) {
       results.push({ id: item.id, status: 'submit_error', error: msg });
       sendTelegramLog(`❌ Avatar auto-post failed: ${item.id} — ${msg}`).catch(() => {});
     }
+  }
+}
+
+async function getPrimaryActiveConnectionForUser(userId: string): Promise<ContentConnection | null> {
+  const { data: account } = await supabaseAdmin
+    .from('tiktok_accounts')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!account?.id) return null;
+  return getActiveConnectionByAccountId(account.id as string);
+}
+
+async function getActiveConnectionByAccountId(accountId: string): Promise<ContentConnection | null> {
+  if (!accountId) return null;
+  const { data } = await supabaseAdmin
+    .from('tiktok_content_connections')
+    .select('id, account_id, access_token, refresh_token, token_expires_at, refresh_token_expires_at, privacy_level, status')
+    .eq('account_id', accountId)
+    .eq('status', 'active')
+    .maybeSingle();
+
+  return (data as ContentConnection | null) || null;
+}
+
+async function ensureFreshToken(
+  connection: ContentConnection,
+  client: ReturnType<typeof getTikTokContentClient>,
+): Promise<string> {
+  const expiresAt = new Date(connection.token_expires_at).getTime();
+  const isExpired = Number.isFinite(expiresAt) && Date.now() > expiresAt - 60_000;
+
+  if (!isExpired) {
+    logSessionValidity({
+      nodeName: 'vercel-avatar-cron',
+      platform: 'tiktok_content_api',
+      isValid: true,
+      reason: 'token_valid',
+      accountId: connection.account_id,
+    });
+    return connection.access_token;
+  }
+
+  try {
+    const refreshed = await client.refreshToken(connection.refresh_token);
+    const newExpiresAt = new Date(Date.now() + refreshed.expires_in * 1000).toISOString();
+    const newRefreshExpiresAt = new Date(Date.now() + refreshed.refresh_expires_in * 1000).toISOString();
+
+    await supabaseAdmin
+      .from('tiktok_content_connections')
+      .update({
+        access_token: refreshed.access_token,
+        refresh_token: refreshed.refresh_token,
+        token_expires_at: newExpiresAt,
+        refresh_token_expires_at: newRefreshExpiresAt,
+        status: 'active',
+        last_error: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', connection.id);
+
+    logSessionValidity({
+      nodeName: 'vercel-avatar-cron',
+      platform: 'tiktok_content_api',
+      isValid: true,
+      reason: 'token_refreshed',
+      accountId: connection.account_id,
+    });
+
+    return refreshed.access_token;
+  } catch (err) {
+    await supabaseAdmin
+      .from('tiktok_content_connections')
+      .update({
+        status: 'expired',
+        last_error: err instanceof Error ? err.message : String(err),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', connection.id);
+
+    logSessionValidity({
+      nodeName: 'vercel-avatar-cron',
+      platform: 'tiktok_content_api',
+      isValid: false,
+      reason: err instanceof Error ? err.message : String(err),
+      accountId: connection.account_id,
+    });
+
+    throw err;
   }
 }

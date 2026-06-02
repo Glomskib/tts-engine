@@ -258,6 +258,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       })
       .eq('id', avatarId);
 
-    return createApiErrorResponse('HEYGEN_ERROR', truncated, 502, correlationId);
+    return createApiErrorResponse('AI_ERROR', truncated, 502, correlationId);
   }
 }

@@ -71,6 +71,9 @@ export default function TopNav() {
   const [open, setOpen] = useState(false);
   const loggedIn = useIsLoggedIn();
 
+  // The landing page has its own marketing nav with Log in / Sign up buttons.
+  // Rendering the global app nav underneath it leaves two active top bars.
+  if (pathname === '/') return null;
   if (HIDDEN_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/'))) return null;
 
   // While auth state is unknown, render the logged-OUT list (which includes

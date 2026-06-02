@@ -120,7 +120,6 @@ const CAPTION_STYLES: {
   },
 ];
 
-interface BrandProfile { id: string; name: string; tone_descriptor: string | null }
 interface CreditState { remaining: number; isUnlimited: boolean; plan: string }
 
 interface UploadedSource {
@@ -194,7 +193,6 @@ export default function CreatePage() {
   const [creating, setCreating] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [brands, setBrands] = useState<BrandProfile[]>([]);
   const [credits, setCredits] = useState<CreditState | null>(null);
   const [recording, setRecording] = useState(false);
   const [recorderError, setRecorderError] = useState<string | null>(null);
@@ -220,12 +218,8 @@ export default function CreatePage() {
   useEffect(() => {
     void (async () => {
       try {
-        const [c, b] = await Promise.all([
-          fetch('/api/credits/balance', { cache: 'no-store' }).then((r) => r.json()),
-          fetch('/api/create/brand-profiles', { cache: 'no-store' }).then((r) => r.json()),
-        ]);
+        const c = await fetch('/api/credits/balance', { cache: 'no-store' }).then((r) => r.json());
         if (c?.ok) setCredits({ remaining: c.remaining, isUnlimited: c.isUnlimited, plan: c.plan });
-        if (b?.ok) setBrands(b.profiles || []);
       } catch (e) {
         console.warn('Create page init load failed', e);
       }
@@ -531,7 +525,7 @@ export default function CreatePage() {
 
   // ── UI ─────────────────────────────────────────────────────────────────
   if (jobId) {
-    return <JobProgress jobId={jobId} onNewJob={() => { setJobId(null); setSources([]); setLinkValue(''); }} />;
+    return <JobProgress mode={mode} jobId={jobId} onNewJob={() => { setJobId(null); setSources([]); setLinkValue(''); }} />;
   }
 
   return (
@@ -1048,7 +1042,7 @@ const STATUS_COPY: Record<string, { title: string; sub: string }> = {
   rendering:    { title: 'Final cut',        sub: 'Almost there — bringing it home.' },
 };
 
-function JobProgress({ jobId, onNewJob }: { jobId: string; onNewJob: () => void }) {
+function JobProgress({ mode, jobId, onNewJob }: { mode: Mode; jobId: string; onNewJob: () => void }) {
   const [job, setJob] = useState<JobStatus | null>(null);
   const [elapsedSec, setElapsedSec] = useState(0);
   const [copiedClipId, setCopiedClipId] = useState<string | null>(null);

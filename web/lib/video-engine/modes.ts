@@ -99,10 +99,36 @@ const CLIPPER: ModeConfig = {
   defaultCTAKey: 'watch_full',
 };
 
+const ZEBBY: ModeConfig = {
+  key: 'zebby',
+  label: "Zebby's World",
+  description:
+    'Character-driven chronic-illness shorts. Optimizes for emotional resonance, helpful education, and soft community growth.',
+  scoreWeights: {
+    ...zeroWeights(),
+    emotionalIntensity: 1.5,
+    testimonialPhrase: 1.2,
+    benefitStatement: 1.0,
+    groupLanguage: 1.0,
+    hookStrength: 0.9,
+    retentionPotential: 0.8,
+    specificity: 0.7,
+    durationFit: 0.8,
+  },
+  defaultTemplateKeys: [
+    'zebby_character_moment',
+    'zebby_symptom_explainer',
+    'zebby_educational',
+    'zebby_skit',
+  ],
+  defaultCTAKey: 'follow_herd',
+};
+
 const REGISTRY: Record<Mode, ModeConfig> = {
   affiliate: AFFILIATE,
   nonprofit: NONPROFIT,
   clipper: CLIPPER,
+  zebby: ZEBBY,
 };
 
 export function getMode(mode: Mode): ModeConfig {
@@ -116,5 +142,5 @@ export function listModes(): ModeConfig[] {
 }
 
 export function isMode(value: unknown): value is Mode {
-  return value === 'affiliate' || value === 'nonprofit' || value === 'clipper';
+  return value === 'affiliate' || value === 'nonprofit' || value === 'clipper' || value === 'zebby';
 }

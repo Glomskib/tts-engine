@@ -25,13 +25,25 @@ import { createBrowserSupabaseClient } from '@/lib/supabase/client';
 // or with cryptic errors. Don't change this without reading the docs.
 const SUPABASE_TUS_CHUNK_SIZE = 6 * 1024 * 1024;
 
+/** Live upload telemetry handed to the UI on every TUS progress tick. */
+export interface ResumableProgress {
+  /** 0-100, rounded. */
+  pct: number;
+  bytesUploaded: number;
+  bytesTotal: number;
+  /** Smoothed transfer rate in bytes/sec (EMA). 0 until the first real sample. */
+  bytesPerSecond: number;
+  /** Estimated seconds remaining, or null until we have a rate. */
+  etaSeconds: number | null;
+}
+
 export interface ResumableUploadOptions {
   bucketName: string;
   /** Full object path inside the bucket, e.g. `${userId}/${jobId}/raw/123_clip.mp4` */
   storagePath: string;
   file: File;
-  /** Called with 0-100 as the upload progresses. */
-  onProgress?: (pct: number) => void;
+  /** Called on every progress tick with pct + live speed/ETA telemetry. */
+  onProgress?: (p: ResumableProgress) => void;
   /** AbortSignal — calling .abort() on the underlying upload. */
   signal?: AbortSignal;
 }
@@ -60,6 +72,13 @@ export async function uploadResumableToSupabase(opts: ResumableUploadOptions): P
   if (!accessToken) {
     throw new Error('Not signed in — please refresh the page and try again.');
   }
+
+  // Speed/ETA tracking. tus-js-client fires onProgress frequently; we smooth
+  // the instantaneous rate with an exponential moving average so the number
+  // the user sees doesn't jitter between chunks.
+  let lastTime = performance.now();
+  let lastBytes = 0;
+  let emaBytesPerSec = 0;
 
   await new Promise<void>((resolve, reject) => {
     const upload = new tus.Upload(opts.file, {
@@ -103,8 +122,21 @@ export async function uploadResumableToSupabase(opts: ResumableUploadOptions): P
       },
       onProgress: (bytesUploaded, bytesTotal) => {
         if (!opts.onProgress) return;
+        const now = performance.now();
+        const dtSec = (now - lastTime) / 1000;
+        const dBytes = bytesUploaded - lastBytes;
+        // Only update the rate on forward progress over a real time delta —
+        // guards against divide-by-zero and the occasional out-of-order tick.
+        if (dtSec > 0 && dBytes > 0) {
+          const instant = dBytes / dtSec;
+          emaBytesPerSec = emaBytesPerSec === 0 ? instant : emaBytesPerSec * 0.7 + instant * 0.3;
+          lastTime = now;
+          lastBytes = bytesUploaded;
+        }
         const pct = bytesTotal > 0 ? Math.round((bytesUploaded / bytesTotal) * 100) : 0;
-        opts.onProgress(pct);
+        const remaining = Math.max(0, bytesTotal - bytesUploaded);
+        const etaSeconds = emaBytesPerSec > 0 ? Math.round(remaining / emaBytesPerSec) : null;
+        opts.onProgress({ pct, bytesUploaded, bytesTotal, bytesPerSecond: emaBytesPerSec, etaSeconds });
       },
       onSuccess: () => {
         resolve();

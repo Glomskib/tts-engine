@@ -61,7 +61,26 @@ interface UploadProgress {
   kind: string;
   pct: number;
   status: 'queued' | 'signing' | 'uploading' | 'finalizing' | 'done' | 'error';
+  /** Live transfer rate (bytes/sec) while uploading. */
+  bytesPerSecond?: number;
+  /** Estimated seconds remaining while uploading. */
+  etaSeconds?: number | null;
   error?: string;
+}
+
+function fmtSpeed(bytesPerSec?: number): string {
+  if (!bytesPerSec || bytesPerSec <= 0) return '';
+  const mbps = bytesPerSec / (1024 * 1024);
+  if (mbps >= 1) return `${mbps.toFixed(1)} MB/s`;
+  return `${Math.round(bytesPerSec / 1024)} KB/s`;
+}
+
+function fmtEta(seconds?: number | null): string {
+  if (seconds == null || !Number.isFinite(seconds) || seconds < 0) return '';
+  if (seconds < 60) return `~${seconds}s left`;
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `~${m}m ${s.toString().padStart(2, '0')}s left`;
 }
 
 /**
@@ -81,11 +100,13 @@ interface UploadProgress {
  * Network drop mid-upload: tus-js-client resumes from the last completed chunk.
  * Sign + finalize are cheap, deterministic — they don't retry here.
  */
+interface ProgressTelemetry { bytesPerSecond?: number; etaSeconds?: number | null }
+
 async function uploadViaResumable(
   jobId: string,
   kind: 'raw' | 'broll' | 'product' | 'music',
   file: File,
-  onProgress: (pct: number, phase: UploadProgress['status']) => void,
+  onProgress: (pct: number, phase: UploadProgress['status'], telemetry?: ProgressTelemetry) => void,
 ): Promise<void> {
   // 1. Sign — server-validates size + mime AND returns the canonical storagePath.
   //    We don't actually use the signedUrl on the TUS path; the storagePath
@@ -109,7 +130,7 @@ async function uploadViaResumable(
       bucketName: 'edit-jobs',
       storagePath: sign.storagePath,
       file,
-      onProgress: (pct) => onProgress(pct, 'uploading'),
+      onProgress: (p) => onProgress(p.pct, 'uploading', { bytesPerSecond: p.bytesPerSecond, etaSeconds: p.etaSeconds }),
     });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Upload failed';
@@ -147,13 +168,17 @@ export default function NewEditJobPage() {
   const [status, setStatus] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  function setUploadProgress(name: string, kind: string, pct: number, phase: UploadProgress['status'], error?: string) {
+  function setUploadProgress(name: string, kind: string, pct: number, phase: UploadProgress['status'], telemetry?: ProgressTelemetry, error?: string) {
     setUploads((prev) => {
       const idx = prev.findIndex((u) => u.fileName === name && u.kind === kind);
       const next = idx >= 0 ? [...prev] : [...prev, { fileName: name, kind, pct: 0, status: 'queued' as const }];
       const target = idx >= 0 ? next[idx] : next[next.length - 1];
       target.pct = pct;
       target.status = phase;
+      if (telemetry) {
+        target.bytesPerSecond = telemetry.bytesPerSecond;
+        target.etaSeconds = telemetry.etaSeconds;
+      }
       if (error) target.error = error;
       return next;
     });
@@ -201,12 +226,12 @@ export default function NewEditJobPage() {
       await Promise.all(
         allPairs.map(async (p) => {
           try {
-            await uploadViaResumable(jobId!, p.kind, p.file, (pct, phase) => {
-              setUploadProgress(p.file.name, p.kind, pct, phase);
+            await uploadViaResumable(jobId!, p.kind, p.file, (pct, phase, telemetry) => {
+              setUploadProgress(p.file.name, p.kind, pct, phase, telemetry);
             });
           } catch (e) {
             const msg = e instanceof Error ? e.message : 'Upload failed';
-            setUploadProgress(p.file.name, p.kind, 0, 'error', msg);
+            setUploadProgress(p.file.name, p.kind, 0, 'error', undefined, msg);
             throw e;
           }
         })
@@ -367,7 +392,15 @@ export default function NewEditJobPage() {
                   {u.status === 'error' && <AlertCircle className="w-3.5 h-3.5 text-red-400" />}
                   {(u.status === 'uploading' || u.status === 'signing' || u.status === 'finalizing') && <Loader2 className="w-3.5 h-3.5 text-teal-400 animate-spin" />}
                   <span className="text-zinc-300 truncate flex-1">{u.fileName}</span>
-                  <span className="text-zinc-500">{u.status === 'uploading' ? `${u.pct}%` : u.status}</span>
+                  {u.status === 'uploading' ? (
+                    <span className="text-zinc-500 tabular-nums whitespace-nowrap">
+                      {u.pct}%
+                      {fmtSpeed(u.bytesPerSecond) && <span className="text-zinc-600"> · {fmtSpeed(u.bytesPerSecond)}</span>}
+                      {fmtEta(u.etaSeconds) && <span className="text-zinc-600"> · {fmtEta(u.etaSeconds)}</span>}
+                    </span>
+                  ) : (
+                    <span className="text-zinc-500">{u.status}</span>
+                  )}
                 </div>
                 {(u.status === 'uploading' || u.status === 'finalizing' || u.status === 'done') && (
                   <div className="h-1 rounded-full bg-zinc-800 overflow-hidden">

@@ -14,7 +14,7 @@
  * queue depth metric forever; this self-heals the queue.
  */
 import { NextRequest, NextResponse } from 'next/server';
-import { tickActiveRuns } from '@/lib/video-engine/pipeline';
+import { tickActiveRuns, tickRun } from '@/lib/video-engine/pipeline';
 import { notifyPendingRuns } from '@/lib/video-engine/notify';
 import { processDistributionJobs } from '@/lib/video-engine/distribution';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
@@ -126,6 +126,30 @@ export async function GET(request: NextRequest) {
   }
 
   const url = new URL(request.url);
+
+  // 2026-06-05: ?force_id=<runId> — bypass the tickActiveRuns claim race
+  // and directly tick a specific run. Returns the tickRun result + any
+  // thrown error so we can SEE why a stuck 'created' row isn't advancing.
+  // Auth-protected like the rest of the endpoint (vercel-cron or
+  // CRON_SECRET). Use sparingly — bypasses concurrency safety.
+  const forceId = url.searchParams.get('force_id');
+  if (forceId) {
+    try {
+      const result = await tickRun(forceId);
+      return NextResponse.json({ ok: true, forced: true, runId: forceId, result });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      const stack = err instanceof Error ? err.stack?.split('\n').slice(0, 5).join('\n') : undefined;
+      return NextResponse.json({
+        ok: false,
+        forced: true,
+        runId: forceId,
+        error: message,
+        stack,
+      }, { status: 500 });
+    }
+  }
+
   // Scale: cap raised from 20 → 50 to handle the /create queue at 10K-user
   // projection. Each tick processes up to N runs in parallel; the cron runs
   // every minute, so steady-state throughput is N runs/minute. At 10K users

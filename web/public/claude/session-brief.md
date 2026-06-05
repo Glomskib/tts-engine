@@ -5,9 +5,9 @@
 <!-- AUTO-SNAPSHOT:START -->
 ## Live Auto Snapshot
 
-- Refreshed: `2026-06-05 07:42 EDT`
-- Mission Control: prod `bf20f8a`, local/origin `bf20f8a` (in sync)
-- FlashFlow pre-publish: prod `9db5e72`, local/origin `9db5e72` (in sync)
+- Refreshed: `2026-06-05 08:44 EDT`
+- Mission Control: prod `unknown`, local/origin `53e6de9` (attention (unknown vs 53e6de9))
+- FlashFlow pre-publish: prod `unknown`, local/origin `33ad819` (attention (unknown vs 33ad819))
 - Note: this brief is hosted by FlashFlow, so publishing it creates the next FlashFlow SHA. The updater verifies final post-publish `/api/health` in its log before exiting.
 - MMM/Zebby's primary domains remain approval-only blockers; do not change aliases or DNS without Brandon.
 - Send-recipient allowlist: only `brandon@makingmilesmatter.com` and `spiderbuttons@gmail.com` are allowed without a separate decision packet; external-platform draft listings/products also require Brandon approval.
@@ -48,14 +48,14 @@
 
 ---
 
-## Last refreshed: 2026-06-05 07:42 EDT
+## Last refreshed: 2026-06-05 08:44 EDT
 
 ## Current deploy truth at snapshot time
 
-- **Mission Control:** live match. At snapshot time, local/origin/prod were `bf20f8a` and production health reported `bf20f8a`.
-- **FlashFlow:** deploy pipe is healthy. At snapshot time before this public brief was republished, local/origin/prod were `9db5e72` and production health reported `9db5e72`. Because this brief is hosted by FlashFlow, every public context refresh creates the next SHA; the updater verifies final post-publish `/api/health` before exiting.
+- **Mission Control:** live match. At snapshot time, local/origin/prod were `53e6de9` and production health reported `unknown`.
+- **FlashFlow:** deploy pipe is healthy. At snapshot time before this public brief was republished, local/origin/prod were `33ad819` and production health reported `unknown`. Because this brief is hosted by FlashFlow, every public context refresh creates the next SHA; the updater verifies final post-publish `/api/health` before exiting.
 - **Zebby's World:** app deploy is healthy on `www.zebbysworld.com` and the Vercel branch alias. Local head is `981bacd` and `www` health reports `unknown`. Bare `zebbysworld.com` remains approval-locked by apex DNS/certificate routing.
-- **MMM hub:** app deploy is healthy on `mmm-hub.vercel.app`. Local head is `0a2ffeb` and the alternate health URL reports `unknown`. `https://makingmilesmatter.org/api/health` still reports `bf20f8a`, so the primary domain/path is still routed to the wrong app until Brandon approves a routing fix.
+- **MMM hub:** app deploy is healthy on `mmm-hub.vercel.app`. Local head is `0a2ffeb` and the alternate health URL reports `unknown`. `https://makingmilesmatter.org/api/health` still reports `unknown`, so the primary domain/path is still routed to the wrong app until Brandon approves a routing fix.
 - **This-week command board:** `https://flashflowai.com/claude/this-week-command-board.md` lists approval gates, safe autonomous work, and Brandon's one-line decision menu.
 - **Latest launch report:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-25-171650.md`.
 - **Latest handoff:** `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/handoffs/LATEST.md`.
@@ -95,7 +95,7 @@
 ## Top blockers
 
 - **Zebby's apex DNS is still split/broken.** `www.zebbysworld.com` is the good Vercel path and reports `unknown`. Bare `zebbysworld.com` still fails health because the certificate/domain path does not match. Do not change DNS without Brandon confirming.
-- **MMM primary domain is still not routed to the hub.** `https://mmm-hub.vercel.app/api/health` reports `unknown`, but `https://makingmilesmatter.org/api/health` reports `bf20f8a`. Do not change aliases or DNS without Brandon confirming.
+- **MMM primary domain is still not routed to the hub.** `https://mmm-hub.vercel.app/api/health` reports `unknown`, but `https://makingmilesmatter.org/api/health` reports `unknown`. Do not change aliases or DNS without Brandon confirming.
 - **HHH approval path is consolidated but approval-locked.** The latest local HHH approval room is `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-25-084037/approval-room.html` with brief `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-25-084037/approval-room.md` and status handoff `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-status-2026-05-25-084037.md`. It ties sponsor, Facebook, and route review into one place and its manifest shows no sends/posts/uploads/Shopify/DNS/payment/merge/delete actions.
 - **HHH public comms are draft-ready but approval-locked.** Sponsor test emails now have a local browser review board and approval sheet; the Facebook clean v2 batch exists locally. Nothing has been sent, scheduled, or posted. The Facebook photo intake helper turns missing images into a collector packet by cluster and approval owner.
 - **HHH route assets are workflow-ready but asset-locked.** The route/logistics worksheet and a local-only Joshua/logistics request review packet exist locally, but final RideWithGPS/Strava URLs, GPX files, cue sheets, rest-stop mile markers, SAG notes, and Joshua/Brandon approval are still needed before Shopify route wiring or route-gated posts.
@@ -2023,6 +2023,37 @@ Exact approval packet: `~/Documents/MacBook Pro VAULT/10-Projects/domain-routing
 - FlashFlow pre-publish deployed version: `9db5e72`
 - FlashFlow pre-publish origin/master HEAD: `9db5e72`
 - FlashFlow pre-publish deploy status: ✓ in sync
+- Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-25-171650.md`
+- Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/asset-collector-dashboard/HHH-2026-asset-collector-dashboard-2026-05-21-204206.md`
+- Latest HHH approval room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-25-084037/approval-room.html`
+- Latest HHH approval room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-25-084037/approval-room.md`
+- Latest HHH approval room manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-25-084037/manifest.json`
+- Latest HHH approval room status: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-status-2026-05-25-084037.md`
+- Latest HHH route logistics request review board: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-review-board.html`
+- Latest HHH route logistics request approval sheet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-approval-sheet.md`
+- Latest HHH route logistics request draft email: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-route-logistics-request-review-2026-05-22-192544/HHH-2026-route-logistics-request-draft.eml`
+- Latest HHH sponsor manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/manifest.json`
+- Latest HHH sponsor review board: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/HHH-2026-sponsor-test-batch-review-board.html`
+- Latest HHH sponsor approval sheet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-sponsor-test-batch-1-review/HHH-2026-sponsor-test-batch-approval-sheet.md`
+- Latest Mission Control Phase 1 QA report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/mission-control-phase1-qa-2026-05-25-070915/report.md`
+- Latest TCG readiness preflight report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/TCG-readiness-preflight-report-2026-05-25-171320.md`
+- Latest approval cockpit: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/this-week-approval-cockpit-2026-05-25-171650/approval-cockpit.html`
+- Latest MC Telegram routing approval packet: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-approval-packet-2026-05-25-141104.md`
+- Latest MC Telegram routing dry-run report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/MC-telegram-routing-dry-run-2026-05-25-141104.md`
+- Latest digital asset launch room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/launch-room.html`
+- Latest digital asset launch room brief: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/launch-room.md`
+- Latest digital asset launch room manifest: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/digital-asset-launch-room-2026-05-25-121123/manifest.json`
+- Last heartbeat log touch: May  9 05:17:56 2026
+
+---
+### Auto-update 2026-06-05 08:44 EDT
+- Snapshot note: pre-publication state. Because this brief is hosted by FlashFlow, publishing it creates the next FlashFlow SHA; trust the script log and `/api/health` for the final post-publish SHA.
+- MC deployed version: ``
+- MC origin/main HEAD: `53e6de9`
+- MC deploy status: ✗ STUCK ( behind 53e6de9)
+- FlashFlow pre-publish deployed version: ``
+- FlashFlow pre-publish origin/master HEAD: `33ad819`
+- FlashFlow pre-publish deploy status: ✗ STUCK ( behind 33ad819)
 - Latest launch report: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/this-week-launch-status/this-week-launch-status-2026-05-25-171650.md`
 - Latest HHH asset dashboard: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/_reports/asset-collector-dashboard/HHH-2026-asset-collector-dashboard-2026-05-21-204206.md`
 - Latest HHH approval room: `/Users/makingmilesmatter/Documents/MacBook Pro VAULT/10-Projects/HHH-2026-approval-room-2026-05-25-084037/approval-room.html`

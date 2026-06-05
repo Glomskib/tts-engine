@@ -29,7 +29,17 @@ const TABS = [
 
 // Routes where we suppress the dock entirely so marketing / auth / admin
 // don't get the creator shell.
-const HIDE_PREFIXES = ['/admin', '/mission-control'];
+//
+// 2026-06-05: added public marketing/free-tool pages — bottom dock on
+// /script-generator etc. ate vertical space + cluttered the page on
+// mobile when the user is logged-out trying out the free tool.
+const HIDE_PREFIXES = [
+  '/admin', '/mission-control',
+  '/transcribe', '/youtube-transcribe', '/transcribe-anything',
+  '/script-generator', '/free-scripts', '/blog',
+  '/pricing', '/about', '/privacy', '/terms', '/refund',
+  '/lp', '/tools', '/trend-radar', '/remix', '/roadmap',
+];
 const HIDE_EXACT = new Set<string>(['/', '/login', '/signup', '/onboarding']);
 
 export default function CreatorBottomNav() {

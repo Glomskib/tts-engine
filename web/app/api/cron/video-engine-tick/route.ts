@@ -6,14 +6,26 @@
  *
  * Schedule (add to vercel.json):
  *   { "path": "/api/cron/video-engine-tick", "schedule": "*\/1 * * * *" }
+ *
+ * 2026-06-05: added diagnostic output (candidate count, claim attempts,
+ * each tick's stage/error) so when the queue stalls we can see WHY in one
+ * curl instead of log-diving. Also auto-fails any run older than 24h that's
+ * never reached complete/failed — those are stuck zombies that block the
+ * queue depth metric forever; this self-heals the queue.
  */
 import { NextRequest, NextResponse } from 'next/server';
 import { tickActiveRuns } from '@/lib/video-engine/pipeline';
 import { notifyPendingRuns } from '@/lib/video-engine/notify';
 import { processDistributionJobs } from '@/lib/video-engine/distribution';
+import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
+
+// Runs older than this with status not in (complete, failed) are treated as
+// abandoned zombies and force-failed so they stop blocking the queue depth
+// metric and the cron's tickActiveRuns candidate window.
+const ZOMBIE_AGE_HOURS = 24;
 
 function authorized(request: NextRequest): boolean {
   if (request.headers.get('x-vercel-cron')) return true;
@@ -21,6 +33,71 @@ function authorized(request: NextRequest): boolean {
   if (!secret) return process.env.NODE_ENV === 'development'; // only allow unauthenticated in local dev
   const auth = request.headers.get('authorization');
   return auth === `Bearer ${secret}`;
+}
+
+/**
+ * Auto-fail runs older than ZOMBIE_AGE_HOURS that never reached a terminal
+ * status. Returns the IDs that got expired so the cron response can show
+ * them. Safe to call every tick — UPDATE is a no-op when nothing matches.
+ */
+async function expireZombieRuns(): Promise<{ count: number; ids: string[] }> {
+  const cutoff = new Date(Date.now() - ZOMBIE_AGE_HOURS * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabaseAdmin
+    .from('ve_runs')
+    .update({
+      status: 'failed',
+      error_message: `auto-failed: stuck >${ZOMBIE_AGE_HOURS}h with no progress (zombie cleanup)`,
+      completed_at: new Date().toISOString(),
+      last_tick_at: new Date().toISOString(),
+    })
+    .not('status', 'in', '(complete,failed)')
+    .lt('created_at', cutoff)
+    .select('id');
+  if (error) {
+    console.error('[VE-cron] zombie cleanup failed:', error.message);
+    return { count: 0, ids: [] };
+  }
+  const ids = (data ?? []).map((r) => r.id as string);
+  if (ids.length > 0) {
+    console.warn('[VE-cron] auto-failed zombie runs:', ids);
+  }
+  return { count: ids.length, ids };
+}
+
+/**
+ * Snapshot the queue depth + oldest pending age so the cron response can
+ * show whether the queue is moving or stuck without a separate query.
+ */
+async function snapshotQueue(): Promise<{
+  depth: number;
+  oldest_pending_age_sec: number | null;
+  by_status: Record<string, number>;
+}> {
+  const by_status: Record<string, number> = {};
+  let depth = 0;
+  let oldest_pending_age_sec: number | null = null;
+  try {
+    const { data } = await supabaseAdmin
+      .from('ve_runs')
+      .select('status,created_at')
+      .not('status', 'in', '(complete,failed)')
+      .order('created_at', { ascending: true })
+      .limit(200);
+    const rows = data ?? [];
+    depth = rows.length;
+    for (const r of rows) {
+      const s = (r.status as string) || 'unknown';
+      by_status[s] = (by_status[s] || 0) + 1;
+    }
+    if (rows.length > 0 && rows[0].created_at) {
+      oldest_pending_age_sec = Math.floor(
+        (Date.now() - new Date(rows[0].created_at as string).getTime()) / 1000,
+      );
+    }
+  } catch (e) {
+    console.error('[VE-cron] snapshotQueue failed:', e);
+  }
+  return { depth, oldest_pending_age_sec, by_status };
 }
 
 export async function GET(request: NextRequest) {
@@ -55,9 +132,17 @@ export async function GET(request: NextRequest) {
   // doing 500 vids/mo that's ~7K runs/hour peak — 50/min handles it.
   const max = Math.min(50, Math.max(1, Number(url.searchParams.get('max') ?? 25)));
   try {
+    // 0. Sweep zombies BEFORE ticking so we don't waste a claim on them.
+    const zombie = await expireZombieRuns();
+
+    // 1. Snapshot the pre-tick queue state so the response shows what we saw.
+    const queueBefore = await snapshotQueue();
+
+    // 2. Tick active runs.
     const results = await tickActiveRuns(max);
-    // Safety-net sweep: catch any terminal-state runs whose in-line notify call
-    // was lost (process restart, transient Resend failure, etc.).
+
+    // 3. Safety-net sweep: catch any terminal-state runs whose in-line notify
+    //    call was lost (process restart, transient Resend failure, etc.).
     const notified = await notifyPendingRuns(10).catch((e) => {
       console.error('[cron] notifyPendingRuns failed:', e);
       return [];
@@ -66,12 +151,32 @@ export async function GET(request: NextRequest) {
       console.error('[cron] processDistributionJobs failed:', e);
       return 0;
     });
+
+    // 4. Snapshot queue AFTER for delta visibility.
+    const queueAfter = await snapshotQueue();
+
     return NextResponse.json({
       ok: true,
       ticked: results.length,
       results,
       notified: notified.length,
       distributed,
+      // Diagnostics added 2026-06-05 to make "ticked: 0 but queue not empty"
+      // visible in one curl. If results=[] but candidates_examined>0, the
+      // claim conditional UPDATE is rejecting because last_tick_at is fresh
+      // — meaning a previous tick claimed these and didn't progress them.
+      // If candidates_examined==0 but queue depth>0, the candidate query and
+      // the depth metric disagree (status set drift).
+      queue: {
+        depth_before: queueBefore.depth,
+        depth_after: queueAfter.depth,
+        oldest_pending_age_sec_before: queueBefore.oldest_pending_age_sec,
+        oldest_pending_age_sec_after: queueAfter.oldest_pending_age_sec,
+        by_status_before: queueBefore.by_status,
+        by_status_after: queueAfter.by_status,
+      },
+      zombies_expired: zombie.count,
+      zombie_ids: zombie.ids,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

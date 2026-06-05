@@ -90,11 +90,26 @@ export default function AvatarsPage() {
       if (stragglers.length > 0) {
         console.log(`[avatars] healing ${stragglers.length} avatar(s) missing HeyGen registration`);
         for (const a of stragglers) {
+          // 2026-06-05: surface heal-loop responses to the console so we see
+          // why an avatar isn't healing (e.g. 404 ownership mismatch, 403 plan
+          // tier, 5xx server bug). Previously errors were silently swallowed
+          // with .catch(()=>{}) and the row's heygen_register_error was the
+          // only signal — which is invisible when an /api/avatars filter
+          // returns the row but the register-photo route doesn't recognize it.
           fetch(`/api/avatars/${a.id}/heygen/register-photo`, {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
             body: JSON.stringify({}),
-          }).catch(() => { /* best-effort — real errors are persisted server-side now */ });
+          })
+            .then(async (r) => {
+              if (!r.ok) {
+                const body = await r.text().catch(() => '');
+                console.warn(`[avatars] heal ${a.id} (${a.avatar_display_name || a.name}) → ${r.status}: ${body.slice(0, 200)}`);
+              }
+            })
+            .catch((e) => {
+              console.warn(`[avatars] heal ${a.id} network error:`, e);
+            });
         }
       }
     } catch (e) {

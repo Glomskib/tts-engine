@@ -125,10 +125,20 @@ async function main() {
   while (true) {
     try {
       await sb.from('ff_render_workers').update({ last_heartbeat_at: new Date().toISOString(), status: 'online' }).eq('id', workerId);
-      const { data, error } = await sb.rpc('ff_claim_next_render_job', { p_worker_id: workerId, p_allowed_kinds: ['clip_render'] });
-      if (error) { console.error('[slice-worker] claim error:', error.message); await sleep(POLL_MS); continue; }
-      const job = Array.isArray(data) ? data[0] : data;
-      if (!job || !job.id) { idle++; if (idle % 15 === 0) console.log('[slice-worker] queue empty'); await sleep(POLL_MS); continue; }
+      // Claim WITHOUT the ff_claim_next_render_job RPC (not present in prod's
+      // PostgREST schema cache): pick the oldest pending clip_render, then flip
+      // it to 'rendering' only if it is still 'pending' — the conditional update
+      // makes the claim atomic so concurrent workers can't double-claim.
+      const { data: pend } = await sb.from('ff_render_jobs')
+        .select('id').eq('status', 'pending').eq('kind', 'clip_render')
+        .order('priority', { ascending: true }).order('created_at', { ascending: true }).limit(1);
+      if (!pend || pend.length === 0) { idle++; if (idle % 15 === 0) console.log('[slice-worker] queue empty'); await sleep(POLL_MS); continue; }
+      const claimIso = new Date().toISOString();
+      const { data: claimed } = await sb.from('ff_render_jobs')
+        .update({ status: 'rendering', claimed_by: workerId, claimed_at: claimIso, started_at: claimIso, updated_at: claimIso })
+        .eq('id', pend[0].id).eq('status', 'pending').select('*').maybeSingle();
+      if (!claimed || !claimed.id) { await sleep(250); continue; }
+      const job = claimed;
       idle = 0;
       console.log(`[slice-worker] claimed job=${job.id}`);
       await renderJob(job);

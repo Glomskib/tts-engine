@@ -487,20 +487,10 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   const renderedRows: Array<Record<string, unknown>> = [];
   const ffJobRows: Array<Record<string, unknown>> = [];
 
-  // Capability-based routing: the timeline object stored on each row is
-  // Shotstack-shaped and includes video-asset clips. Only Shotstack can render
-  // those. Mark the row's kind accordingly so the local fleet's claim RPC
-  // (ff_claim_next_render_job, which filters on kind = ANY(p_allowed_kinds))
-  // never hands these to a Mac-mini worker — previously the worker would claim
-  // the row and die with "unsupported_feature: asset type 'video'".
-  //
-  // The in-process local fallback below does NOT use `timeline` at all — it
-  // does a plain ffmpeg trim against the source asset and writes the result
-  // back to the row directly. So the kind stays 'shotstack_timeline' even when
-  // VIDEO_ENGINE_RENDERER=local; the worker simply skips it, and the pipeline
-  // handles rendering synchronously.
-  const dispatchRenderer = (process.env.VIDEO_ENGINE_RENDERER || 'local').toLowerCase();
-  const dispatchJobKind: 'shotstack_timeline' | 'clip_render' = 'shotstack_timeline';
+  // Create clips are rendered by the Mac-mini fleet (scripts/render-node/
+  // slice-worker.mjs): each row is enqueued as kind 'clip_render' carrying a
+  // slice spec, and the worker trims the source with ffmpeg. In-process Vercel
+  // render was retired (it cannot spawn ffmpeg on the serverless runtime).
 
   // Skip the timeline-build + row-staging when we're re-entering — those
   // arrays only matter for the INSERT path, which is gated on !alreadyAssembled.
@@ -555,13 +545,29 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
       package_status: 'pending',
     });
 
+    // Slice spec consumed by the Mac-mini fleet worker
+    // (scripts/render-node/slice-worker.mjs): it trims [start,end] from the
+    // source asset, polishes audio, uploads the clip, and marks the job done.
+    const sliceSpec = {
+      kind: 'clip_render',
+      source_bucket: asset.storage_bucket,
+      source_path: asset.storage_path,
+      source_url: asset.storage_url ?? null,
+      start_sec: Number(cand.start_sec),
+      end_sec: Number(cand.end_sec),
+      user_id: run.user_id,
+      run_id: run.id,
+      clip_id: renderedId,
+      watermark: !!run.watermark,
+    };
+
     ffJobRows.push({
       id: ffJobId,
       user_id: run.user_id,
       correlation_id: `ve:${run.id}:${renderedId}`,
-      kind: dispatchJobKind,
+      kind: 'clip_render',
       priority: planForPriority.renderPriority,
-      timeline,
+      timeline: sliceSpec,
       output_spec: { format: 'mp4', resolution: 'sd', aspectRatio: '9:16', fps: 30 },
       status: 'pending',
     });
@@ -614,7 +620,7 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   // dispatch to it. Set VIDEO_ENGINE_RENDERER=shotstack to re-enable.
   const renderer = (process.env.VIDEO_ENGINE_RENDERER || 'local').toLowerCase();
 
-  if (renderer === 'local') {
+  if (renderer === 'local_DISABLED_in_process_render_moved_to_mini_fleet') {
     for (let i = 0; i < candidates.length; i++) {
       const cand = candidates[i];
       const renderedRow = renderedRows[i];
@@ -723,7 +729,7 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
           .eq('id', clipId);
       }
     }
-  } else {
+  } else if (renderer === 'shotstack') {
     // Legacy Shotstack dispatch — kept for when the account has credits again.
     for (const job of ffJobRows) {
       try {
@@ -737,6 +743,13 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
         console.error(`[ve-pipeline] Shotstack dispatch failed for job ${job.id}:`, err instanceof Error ? err.message : err);
       }
     }
+  } else {
+    // FLEET (default): clip_render jobs are now pending in ff_render_jobs. The
+    // Mac-mini slice-worker claims, renders with ffmpeg, uploads, and marks them
+    // done; stageRendering's existing poll then completes the run. In-process
+    // Vercel ffmpeg was retired — it cannot spawn ffmpeg on the serverless
+    // runtime (proven 2026-06-08: `spawn` error even with the binary bundled).
+    console.log(`[ve-pipeline] fleet: ${ffJobRows.length} clip_render job(s) queued for mini worker (run=${run.id})`);
   }
 
   return 'rendering';

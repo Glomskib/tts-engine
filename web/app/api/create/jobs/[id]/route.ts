@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
   try {
     const { data } = await supabaseAdmin
       .from('ve_rendered_clips')
-      .select('id, output_url, output_storage_url, duration_sec, hook_score, score, status, feel_diagnosis')
+      .select('id, output_url, output_storage_url, duration_sec, status, feel_diagnosis')
       .eq('run_id', id)
       .order('created_at', { ascending: true });
     rendered = data as Array<Record<string, unknown>> | null;

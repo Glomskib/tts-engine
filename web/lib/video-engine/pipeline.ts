@@ -1033,9 +1033,32 @@ export async function tickActiveRuns(max = 5): Promise<TickResult[]> {
     if (upd && upd.length > 0) claimed.push(id);
   }
 
+  // Advance each claimed run through as many stages as fit in this invocation,
+  // instead of one stage per CLAIM_TTL window (which made a run crawl ~1 stage
+  // / 4 min ≈ 15 min/video). We keep the 4-min claim TTL for concurrency safety
+  // — the run is claimed ONCE here; this loop just keeps ticking the same run
+  // within that single claim until it reaches a terminal state, stops making
+  // progress, or we run low on the function's wall-clock budget (the render
+  // stage is the slow one, so we cap to stay under the 300s function limit).
   const results: TickResult[] = [];
+  const startedAt = Date.now();
+  const MAX_WALL_MS = 240_000;
   for (const id of claimed) {
-    results.push(await tickRun(id));
+    let last = await tickRun(id);
+    results.push(last);
+    let guard = 0;
+    while (
+      last.toStatus !== 'complete' &&
+      last.toStatus !== 'failed' &&
+      last.toStatus !== last.fromStatus &&
+      guard++ < 6 &&
+      Date.now() - startedAt < MAX_WALL_MS
+    ) {
+      const next = await tickRun(id);
+      results.push(next);
+      last = next;
+    }
+    if (Date.now() - startedAt >= MAX_WALL_MS) break;
   }
   return results;
 }

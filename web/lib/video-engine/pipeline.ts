@@ -913,18 +913,13 @@ async function stageRendering(run: RunRow): Promise<RunStatus> {
     }
   }
 
-  // Block "complete" until packaging has had a chance to finish on every clip.
+  // Once every clip's VIDEO is rendered, the run is complete. Packaging
+  // (captions/hashtags/title) is best-effort metadata and must NOT block
+  // completion — otherwise a packaging hiccup leaves a fully-rendered video
+  // stuck at 'rendering' forever. packagePendingClips above still backfills
+  // captions opportunistically; if it fails the run still completes with the
+  // downloadable clip.
   if (allDone) {
-    const { count: stillPending } = await supabaseAdmin
-      .from('ve_rendered_clips')
-      .select('id', { count: 'exact', head: true })
-      .eq('run_id', run.id)
-      .eq('package_status', 'pending');
-    if ((stillPending ?? 0) > 0) {
-      // Stay in 'rendering' so the next tick keeps draining the packaging queue.
-      return 'rendering';
-    }
-
     return anyFailed && rendered.every((r) => jobMap.get(r.ff_render_job_id ?? '')?.status === 'failed')
       ? 'failed'
       : 'complete';

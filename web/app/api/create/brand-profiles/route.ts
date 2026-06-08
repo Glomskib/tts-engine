@@ -34,12 +34,42 @@ export async function GET(req: NextRequest) {
     .order('updated_at', { ascending: false });
 
   if (error) {
-    // Table missing or other DB error — soft-fail so the UI still works.
+    // Table missing or other DB error — soft-fail; still try the brands bridge.
     console.warn('[brand-profiles] read error:', error.message);
-    return NextResponse.json({ ok: true, profiles: [] });
   }
 
-  return NextResponse.json({ ok: true, profiles: data || [] });
+  const profiles = ((data as Array<Record<string, unknown>>) || []);
+
+  // BRIDGE (2026-06-08): brands a creator builds in their Brands area live in
+  // the separate `brands` table and never appeared in this picker, so "Use
+  // brand voice" looked empty. Surface them too, prefixing the id with
+  // `brand:` so the pipeline resolves them from `brands`. No DB migration.
+  let bridged: Array<Record<string, unknown>> = [];
+  try {
+    const { data: brands } = await supabaseAdmin
+      .from('brands')
+      .select('id, name, tone_of_voice, is_active')
+      .eq('user_id', auth.user.id)
+      .eq('is_active', true)
+      .order('name');
+    bridged = (brands || []).map((b: Record<string, unknown>) => ({
+      id: `brand:${b.id as string}`,
+      name: b.name as string,
+      tone_descriptor: (b.tone_of_voice as string) || null,
+      sample_posts_json: '[]',
+      style_notes: null,
+      prohibited_phrases: null,
+      preferred_phrases: null,
+      brand_color: null,
+      brand_font: null,
+      active: true,
+      source: 'brand',
+    }));
+  } catch (e) {
+    console.warn('[brand-profiles] brands bridge read failed:', e instanceof Error ? e.message : e);
+  }
+
+  return NextResponse.json({ ok: true, profiles: [...profiles, ...bridged] });
 }
 
 // Production hard caps — keep brand_profiles row size bounded so a single

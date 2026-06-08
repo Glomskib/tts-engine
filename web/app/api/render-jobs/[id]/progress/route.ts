@@ -24,6 +24,13 @@ export async function PATCH(
     return createApiErrorResponse('UNAUTHORIZED', 'Invalid render node secret', 401, correlationId);
   }
 
+  // A malformed id (e.g. the literal string "null") must never reach the DB:
+  // an invalid-uuid query 500s, and under the worker's retry loop that became a
+  // multiple-times-per-second 500 storm. Reject it cheaply instead.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id)) {
+    return createApiErrorResponse('BAD_REQUEST', `Invalid job id: ${id}`, 400, correlationId);
+  }
+
   let body: { progress_pct: number; progress_message?: string; node_id?: string };
   try {
     body = await request.json();

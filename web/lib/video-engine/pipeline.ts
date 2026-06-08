@@ -323,7 +323,26 @@ async function stageAnalyze(run: RunRow): Promise<RunStatus> {
   const brandProfileId = rankerContext?.brand_profile_id as string | null;
 
   let brandProfile: Parameters<typeof rankClips>[0]['brand_profile'] = null;
-  if (brandProfileId) {
+  if (brandProfileId && brandProfileId.startsWith('brand:')) {
+    // Bridged from the creator's `brands` table (see /api/create/brand-profiles).
+    const realBrandId = brandProfileId.slice('brand:'.length);
+    const { data: b } = await supabaseAdmin
+      .from('brands')
+      .select('name, tone_of_voice, target_audience, description, guidelines')
+      .eq('id', realBrandId)
+      .maybeSingle();
+    if (b) {
+      const preferred = [b.guidelines, b.target_audience ? `Audience: ${b.target_audience}` : null]
+        .filter(Boolean).join('\n') || null;
+      brandProfile = {
+        name: b.name as string,
+        tone_descriptor: (b.tone_of_voice as string) || null,
+        prohibited_phrases: null,
+        preferred_phrases: preferred as string | null,
+        sample_posts: b.description ? [b.description as string] : [],
+      };
+    }
+  } else if (brandProfileId) {
     const { data: bp } = await supabaseAdmin
       .from('brand_profiles')
       .select('name, tone_descriptor, prohibited_phrases, preferred_phrases, sample_posts_json')
@@ -989,12 +1008,28 @@ export async function tickActiveRuns(max = 5): Promise<TickResult[]> {
   for (const c of candidates) {
     if (claimed.length >= max) break;
     const id = c.id as string;
-    const { data: upd } = await supabaseAdmin
+    // Claim via two precise filters instead of one `.or()` string. The old
+    // `.or('last_tick_at.is.null,last_tick_at.lt.<ISO>')` matched ZERO rows
+    // because the ISO timestamp's millisecond period (e.g. ...:48.312Z) breaks
+    // PostgREST's dot-delimited or() parser — so the cron SAW pending runs but
+    // never claimed one, and every Create run stalled at 'created' until the
+    // 24h zombie sweep failed it. Confirmed in prod 2026-06-08: a normal tick
+    // reported {created:1} but ticked 0, while a claim-bypassing force_id tick
+    // advanced the same run instantly.
+    let { data: upd } = await supabaseAdmin
       .from('ve_runs')
       .update({ last_tick_at: new Date().toISOString() })
       .eq('id', id)
-      .or(`last_tick_at.is.null,last_tick_at.lt.${cutoff}`)
+      .lt('last_tick_at', cutoff)
       .select('id');
+    if (!upd || upd.length === 0) {
+      ({ data: upd } = await supabaseAdmin
+        .from('ve_runs')
+        .update({ last_tick_at: new Date().toISOString() })
+        .eq('id', id)
+        .is('last_tick_at', null)
+        .select('id'));
+    }
     if (upd && upd.length > 0) claimed.push(id);
   }
 

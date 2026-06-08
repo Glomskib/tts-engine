@@ -54,8 +54,12 @@ export async function POST(request: NextRequest) {
     return createApiErrorResponse('DB_ERROR', error.message, 500, correlationId);
   }
 
-  // No jobs available
-  if (!data) {
+  // Normalize: the claim RPC may return a single composite row or (defensively)
+  // a single-element array. A "claim" with no usable id is treated as no job,
+  // so the worker idles cleanly instead of looping on /api/render-jobs/null/* —
+  // which is what produced the 24/7 PATCH .../null/progress 500 storm.
+  const claimed = (Array.isArray(data) ? data[0] : data) as (Record<string, unknown> | null);
+  if (!claimed || !claimed.id) {
     return new NextResponse(null, { status: 204 });
   }
 
@@ -63,8 +67,8 @@ export async function POST(request: NextRequest) {
   // in the allowlist (e.g. legacy migration that ignores p_job_types), release
   // it back to pending so Shotstack can pick it up. This is the hard guarantee
   // that Mac mini workers NEVER execute shotstack_timeline rows.
-  const claimedKind = (data as { kind?: string } | null)?.kind;
-  const claimedId = (data as { id?: string } | null)?.id;
+  const claimedKind = (claimed as { kind?: string }).kind;
+  const claimedId = (claimed as { id?: string }).id;
   if (claimedKind && !(jobTypes as string[]).includes(claimedKind) && claimedId) {
     console.warn('[render-claim] releasing mis-claimed job', { id: claimedId, kind: claimedKind, node: body.node_id });
     await supabaseAdmin
@@ -79,9 +83,14 @@ export async function POST(request: NextRequest) {
     return new NextResponse(null, { status: 204 });
   }
 
+  // Expose the job id at the top level AND under job/data so the worker reads
+  // it however it was written. The old shape only nested it under `data`,
+  // which is the most likely source of the literal "null" id in the logs.
   return NextResponse.json({
     ok: true,
-    data,
+    id: claimed.id,
+    job: claimed,
+    data: claimed,
     correlation_id: correlationId,
   });
 }

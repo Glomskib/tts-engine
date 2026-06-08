@@ -31,6 +31,16 @@ interface BrollClip { at_sec: number; duration_sec: number; video_url: string }
 interface MusicTrack { audio_url: string; volume_db: number }
 
 function getFFmpegPath(): string {
+  // Prefer the bundled static binary FIRST — it's the one shipped into the
+  // Vercel render lambdas via vercel.json `includeFiles`. The old order tried
+  // @ffmpeg-installer, whose binary was NOT included in the video-engine-tick /
+  // worker-tick / regenerate function bundles, so ffmpeg was effectively absent
+  // and renders hung forever at 'rendering' (no clip ever produced).
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const p = require('ffmpeg-static');
+    if (p && typeof p === 'string') return p;
+  } catch { /* not available */ }
   try {
     const sys = execSync('which ffmpeg', { encoding: 'utf8' }).trim();
     if (sys) return sys;

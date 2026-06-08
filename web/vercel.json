@@ -17,6 +17,21 @@
       "maxDuration": 300,
       "memory": 3008,
       "includeFiles": "node_modules/ffmpeg-static/**"
+    },
+    "app/api/cron/video-engine-tick/route.ts": {
+      "maxDuration": 300,
+      "memory": 3008,
+      "includeFiles": "node_modules/ffmpeg-static/**"
+    },
+    "app/api/worker/tick/route.ts": {
+      "maxDuration": 300,
+      "memory": 3008,
+      "includeFiles": "node_modules/ffmpeg-static/**"
+    },
+    "app/api/video-engine/clips/[id]/regenerate/route.ts": {
+      "maxDuration": 300,
+      "memory": 3008,
+      "includeFiles": "node_modules/ffmpeg-static/**"
     }
   },
   "crons": [

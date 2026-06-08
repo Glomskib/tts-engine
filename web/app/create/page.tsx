@@ -631,11 +631,17 @@ export default function CreatePage() {
 
         {/* 1 · SOURCES */}
         <Section title={mode === 'post' ? `1 · Your take${defaults.maxSources > 1 ? 's' : ''} (up to ${defaults.maxSources})` : '1 · Source'}>
-          <div className="grid grid-cols-4 gap-2 mb-4">
+          <div className="grid grid-cols-2 gap-2 mb-4">
             <EntryTab active={entry === 'record'} onClick={() => setEntry('record')} icon={<Video className="w-4 h-4" />} label="Record" />
             <EntryTab active={entry === 'upload'} onClick={() => setEntry('upload')} icon={<Upload className="w-4 h-4" />} label="Upload" />
+            {/* Link + Drive hidden for launch (2026-06-08): no reliable video
+                downloader ingests the source yet, so link/drive jobs fail at
+                transcribe ("Failed to download asset"). Re-enable once the
+                yt-dlp-on-mini ingest ships. Kept in JSX so imports stay valid. */}
+            {false && (<>
             <EntryTab active={entry === 'link'}   onClick={() => setEntry('link')}   icon={<LinkIcon className="w-4 h-4" />} label="Link" />
             <EntryTab active={entry === 'drive'}  onClick={() => setEntry('drive')}  icon={<Sparkles className="w-4 h-4" />} label="Drive" />
+            </>)}
           </div>
 
           {entry === 'record' && (

@@ -8,6 +8,11 @@ import {
   // Avatar Engine niche archetypes (2026-06-01)
   Bone, Scale, Droplet, FlaskConical, PawPrint, DollarSign, Moon, Brain, Scissors, Cpu,
 } from 'lucide-react';
+// 2026-06-09: Scene Library — 10 hyperrealistic environments the avatar
+// "speaks from" (stage, kitchen, gym, etc.). When picked, /api/avatars/[id]/
+// scene/generate composes the face into the scene via Gemini Nano Banana
+// before HeyGen registers the result for animation.
+import { AVATAR_SCENES } from '@/lib/avatar-scenes';
 
 // ------------------------------------------------------------------
 // Archetypes — themed cards, no fake silhouettes. Each one has a
@@ -246,6 +251,13 @@ export default function NewAvatarPage() {
   // /api/avatars endpoint + DB column expects a comma-separated string.
   const [prohibited, setProhibited] = useState(arch.prohibited_phrases.join(', '));
   const [voiceKey, setVoiceKey] = useState<string>(VOICE_PRESETS[0].key);
+  // 2026-06-09: Scene Library — picks the hyperrealistic environment the
+  // avatar speaks IN (convention stage, kitchen, gym, etc.). When set,
+  // /api/avatars/[id]/scene/generate is called after creation to compose
+  // the face into the scene via Gemini Nano Banana, and HeyGen registers
+  // the scene-grounded image instead of the bare face.
+  // null = plain background (existing behavior; backwards-compatible).
+  const [sceneKey, setSceneKey] = useState<string | null>(null);
   const [platforms, setPlatforms] = useState<string[]>(PLATFORMS.filter(p => p.default).map(p => p.key));
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [face, setFace] = useState<FaceState>({ status: 'idle' });
@@ -411,17 +423,42 @@ export default function NewAvatarPage() {
           body: JSON.stringify({ avatar_visual_reference_url: chosenFaceUrl, setup_status: 'face' }),
         });
 
+        // 2026-06-09: If the user picked a Scene from the library, generate
+        // the scene-grounded face image FIRST via Gemini Nano Banana, then
+        // register THAT image with HeyGen. This produces avatar speaking IN
+        // a context (stage, kitchen, gym) instead of on a plain background.
+        // We await this one because HeyGen registration needs the scene
+        // image to exist first — otherwise it'd register the bare face.
+        // If Scene generation fails we just fall through to plain face.
+        if (sceneKey) {
+          try {
+            const sceneRes = await fetch(`/api/avatars/${avatarId}/scene/generate`, {
+              method: 'POST',
+              headers: { 'content-type': 'application/json' },
+              body: JSON.stringify({ scene_key: sceneKey }),
+            });
+            if (!sceneRes.ok) {
+              const sj = await sceneRes.json().catch(() => ({}));
+              console.warn('[avatars/new] Scene generation failed, will register bare face:', sj);
+            }
+          } catch (e) {
+            console.warn('[avatars/new] Scene generation network error:', e);
+          }
+        }
+
         // 2026-05-31: kick HeyGen photo-avatar registration in the background.
         // This is what turns the uploaded URL into a heygen_custom_avatar_id
         // that can be used in /v2/video/generate. Without it, the avatar
         // would fall back to the stock "Daisy" stock avatar and the user
         // would see "Photo needed" never clear.
+        // 2026-06-09: when scene_image_url was set above, register-photo
+        // automatically prefers it over avatar_visual_reference_url.
         // Fire-and-forget: the registration can take 30-90s on HeyGen's side;
         // the /avatars/[id] detail page polls and updates the badge when done.
         fetch(`/api/avatars/${avatarId}/heygen/register-photo`, {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
-          body: JSON.stringify({ imageUrl: chosenFaceUrl }),
+          body: JSON.stringify({}),  // imageUrl omitted → server picks scene_image_url || avatar_visual_reference_url
         }).catch((e) => {
           // Background work — log but don't block the user. If HeyGen is down
           // the next manual "Re-register photo" action on the avatar page can
@@ -546,6 +583,52 @@ export default function NewAvatarPage() {
                   );
                 })}
               </div>
+            </section>
+
+            {/* STEP 5: SCENE — where this avatar lives.
+                2026-06-09: The wedge difference between "AI demo" and "real
+                influencer." Plain background = looks fake. Scene-grounded
+                (stage / kitchen / gym / aisle) = looks like a real person
+                speaking from a real place. This is what AICreatorLab teaches
+                creators to do manually with Higgsfield + Nano Banana. We
+                automate it. */}
+            <section>
+              <h2 className="text-xl font-bold mb-1">5. Scene</h2>
+              <p className="text-sm text-zinc-300 mb-4">
+                Where are they speaking from? We'll place their face in this scene so the video looks like a real person — not a talking head.
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                {/* "Plain background" option preserves the old behavior. */}
+                <button
+                  type="button"
+                  onClick={() => setSceneKey(null)}
+                  className={`text-left p-3 rounded-xl border ${sceneKey === null ? 'bg-teal-600/30 border-teal-400' : 'bg-zinc-900 border-zinc-700 hover:border-zinc-500'}`}
+                >
+                  <div className="flex items-center gap-2 mb-1.5"><span className="text-lg">⬜</span></div>
+                  <div className="text-xs font-semibold">Plain background</div>
+                  <div className="text-[10px] text-zinc-400 mt-0.5">Just the face, no scene</div>
+                </button>
+                {AVATAR_SCENES.map(scene => {
+                  const on = sceneKey === scene.key;
+                  return (
+                    <button
+                      key={scene.key}
+                      type="button"
+                      onClick={() => setSceneKey(scene.key)}
+                      className={`text-left p-3 rounded-xl border ${on ? 'bg-teal-600/30 border-teal-400' : 'bg-zinc-900 border-zinc-700 hover:border-zinc-500'}`}
+                    >
+                      <div className="flex items-center gap-2 mb-1.5"><span className="text-lg">{scene.emoji}</span></div>
+                      <div className="text-xs font-semibold">{scene.name}</div>
+                      <div className="text-[10px] text-zinc-400 mt-0.5">{scene.subtitle}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              {sceneKey && (
+                <div className="mt-3 text-[11px] text-zinc-400">
+                  When you click "Bring {displayName || 'this avatar'} to life," we'll generate the scene-grounded image (adds ~6 sec).
+                </div>
+              )}
             </section>
 
             {/* ADVANCED */}

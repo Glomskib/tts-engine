@@ -145,9 +145,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const force = !!body.force || urlForce;
 
   // Load the avatar — must belong to the user.
+  // 2026-06-09: also read scene_image_url. When set (after Scene Library
+  // applied via /api/avatars/[id]/scene/generate), we register the scene-
+  // grounded image with HeyGen instead of the bare face — produces avatar
+  // speaking IN a context (convention / kitchen / gym) instead of on a
+  // plain background. This is the AICreatorLab wedge for AI influencers.
   const { data: profile, error: profileErr } = await supabaseAdmin
     .from('brand_profiles')
-    .select('id, user_id, avatar_display_name, name, avatar_visual_reference_url, heygen_custom_avatar_id, heygen_register_status, heygen_register_attempts, is_avatar')
+    .select('id, user_id, avatar_display_name, name, avatar_visual_reference_url, scene_image_url, scene_preset, heygen_custom_avatar_id, heygen_register_status, heygen_register_attempts, is_avatar')
     .eq('id', avatarId)
     .eq('user_id', auth.user.id)
     .maybeSingle();
@@ -156,7 +161,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     return createApiErrorResponse('NOT_FOUND', 'Avatar not found', 404, correlationId);
   }
 
-  const imageUrl = body.imageUrl || profile.avatar_visual_reference_url;
+  // Prefer the scene-grounded image when present — that's what gives us the
+  // hyperrealistic "speaking on stage / in their kitchen" look. Fall back
+  // to the bare face when no scene has been applied yet.
+  const imageUrl = body.imageUrl || profile.scene_image_url || profile.avatar_visual_reference_url;
   if (!imageUrl) {
     return createApiErrorResponse('VALIDATION_ERROR', 'No photo URL on this avatar — upload one first', 400, correlationId);
   }

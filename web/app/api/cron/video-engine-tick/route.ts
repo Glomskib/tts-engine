@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { tickActiveRuns, tickRun } from '@/lib/video-engine/pipeline';
 import { notifyPendingRuns } from '@/lib/video-engine/notify';
 import { processDistributionJobs } from '@/lib/video-engine/distribution';
+import { tickGenerationJobs } from '@/lib/generation-jobs/worker';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 
 export const runtime = 'nodejs';
@@ -162,6 +163,16 @@ export async function GET(request: NextRequest) {
     // 1. Snapshot the pre-tick queue state so the response shows what we saw.
     const queueBefore = await snapshotQueue();
 
+    // 1a. Tick generation_jobs (Quick Video / oneprompt orchestrator).
+    // 2026-06-05: the oneprompt pipeline writes to generation_jobs but the
+    // cron only ticked ve_runs — every Quick Video stuck at "Reading the
+    // prompt" forever. Wedge fix: advance up to 3 generation jobs per cron
+    // tick. Safe to run alongside tickActiveRuns (different tables).
+    const genResults = await tickGenerationJobs(3).catch((e) => {
+      console.error('[VE-cron] tickGenerationJobs failed:', e);
+      return [];
+    });
+
     // 2. Tick active runs.
     const results = await tickActiveRuns(max);
 
@@ -183,6 +194,8 @@ export async function GET(request: NextRequest) {
       ok: true,
       ticked: results.length,
       results,
+      gen_jobs_ticked: genResults.length,
+      gen_jobs_results: genResults,
       notified: notified.length,
       distributed,
       // Diagnostics added 2026-06-05 to make "ticked: 0 but queue not empty"

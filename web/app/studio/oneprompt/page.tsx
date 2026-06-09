@@ -62,10 +62,20 @@ export default function OnePromptPage() {
     return () => { cancelled = true; };
   }, []);
 
-  // Poll once started
+  // Poll once started.
+  // 2026-06-05: also fire /api/worker/tick on each poll so the generation_jobs
+  // pipeline ACTUALLY ADVANCES while this tab is open. Previously the page
+  // only polled GET /api/studio/oneprompt?job_id= for status, which gave a
+  // read-only view of a job that nothing was advancing. Result: every Quick
+  // Video stuck at "Reading the prompt" forever. The Vercel cron now ticks
+  // generation_jobs too (server-side advancement when no tab is open), and
+  // this tick keeps things snappy when the user IS watching.
   useEffect(() => {
     if (!job?.id) return;
     const id = setInterval(async () => {
+      // Fire-and-forget worker tick — advances any pending oneprompt /
+      // ve_runs work for this user. Rate-limited server-side to 1/3s/user.
+      void fetch('/api/worker/tick', { method: 'POST', credentials: 'include' }).catch(() => {});
       try {
         const r = await fetch(`/api/studio/oneprompt?job_id=${job.id}`, { cache: 'no-store' });
         const j = await r.json() as { ok: boolean; job?: Job };

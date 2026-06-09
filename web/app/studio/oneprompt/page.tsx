@@ -39,6 +39,7 @@ interface AvatarLite {
 export default function OnePromptPage() {
   const sp = useSearchParams();
   const initialAvatar = sp.get('avatar') || '';
+  const initialJobId = sp.get('job_id') || sp.get('job') || '';
   const [prompt, setPrompt] = useState('');
   const [avatarId, setAvatarId] = useState(initialAvatar);
   const [avatars, setAvatars] = useState<AvatarLite[]>([]);
@@ -61,6 +62,23 @@ export default function OnePromptPage() {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  // 2026-06-09: resume an in-progress (or finished) job from ?job_id= in the
+  // URL. Without this, refreshing the tab during a Quick Video render dumps
+  // the user back to the empty form even though their job is alive in the
+  // DB. Single fetch on mount — the existing poll loop then takes over.
+  useEffect(() => {
+    if (!initialJobId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch(`/api/studio/oneprompt?job_id=${initialJobId}`, { cache: 'no-store' });
+        const j = await r.json() as { ok: boolean; job?: Job };
+        if (!cancelled && j.ok && j.job) setJob(j.job);
+      } catch { /* show form instead */ }
+    })();
+    return () => { cancelled = true; };
+  }, [initialJobId]);
 
   // Poll once started.
   // 2026-06-05: also fire /api/worker/tick on each poll so the generation_jobs

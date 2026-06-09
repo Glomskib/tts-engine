@@ -816,19 +816,28 @@ async function packagePendingClips(run: RunRow): Promise<void> {
         context: mergedContext,
       }, { correlationId: `ve-pkg:${run.id}:${rc.id}` });
 
-      await supabaseAdmin
+      // Write only columns confirmed to exist in prod. hook_line/alt_captions
+      // were silently failing the whole UPDATE (column missing) -> caption_text
+      // stayed null. Capture the error instead of ignoring it.
+      const { error: upErr } = await supabaseAdmin
         .from('ve_rendered_clips')
         .update({
           caption_text: pkg.caption_text,
           hashtags: pkg.hashtags,
           suggested_title: pkg.suggested_title,
           cta_suggestion: pkg.cta_suggestion,
-          hook_line: pkg.hook_line,
-          alt_captions: pkg.alt_captions,
           package_status: 'done',
           package_error: null,
         })
         .eq('id', rc.id);
+      if (upErr) {
+        console.error('[ve-pkg] write failed clip=%s: %s', rc.id, upErr.message);
+        await supabaseAdmin.from('ve_rendered_clips')
+          .update({ package_status: 'failed', package_error: upErr.message.slice(0, 400) })
+          .eq('id', rc.id);
+      } else {
+        console.log('[ve-pkg] packaged clip=%s caption="%s"', rc.id, (pkg.caption_text || '').slice(0, 40));
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       await supabaseAdmin

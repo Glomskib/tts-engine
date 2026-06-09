@@ -116,7 +116,8 @@ async function renderJob(job) {
   const work = crypto.randomUUID();
   const src = path.join(os.tmpdir(), `ff-src-${work}.mp4`);
   const out = path.join(os.tmpdir(), `ff-out-${work}.mp4`);
-  const ass = path.join(os.tmpdir(), `ff-cap-${work}.ass`);
+  const assName = `ffcap-${work}.ass`;
+  const ass = path.join(os.tmpdir(), assName);
   const cleanup = [src, out, ass];
   try {
     await downloadSource(spec, src);
@@ -129,7 +130,7 @@ async function renderJob(job) {
       const events = await fetchCaptionEvents(spec.run_id, start, end, st);
       if (events.length) {
         fs.writeFileSync(ass, buildAss(events, st));
-        assFilter = `,ass=${ass}`;
+        assFilter = `,ass=${assName}`; // relative name + cwd=tmpdir avoids filtergraph path parsing
         console.log(`[slice-worker] captions: ${events.length} cues, style=${spec.caption_style}`);
       } else {
         console.log('[slice-worker] no caption events (no transcript chunks in window)');
@@ -146,7 +147,7 @@ async function renderJob(job) {
       '-vf', vf, '-af', af,
       '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
       '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '128k', out,
-    ], { timeout: 240000, maxBuffer: 64 * 1024 * 1024 });
+    ], { timeout: 240000, maxBuffer: 64 * 1024 * 1024, cwd: os.tmpdir() });
     if (!fs.existsSync(out) || fs.statSync(out).size < 1024) throw new Error('ffmpeg produced no/empty output');
     const bytes = fs.statSync(out).size;
     const key = `ve-renders/${spec.user_id}/${spec.clip_id}.mp4`;

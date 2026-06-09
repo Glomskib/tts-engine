@@ -21,7 +21,13 @@
  */
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
-const GEMINI_MODEL = 'gemini-2.5-flash-image-preview';
+// 2026-06-09: verified against live model list. The marketed "Nano Banana Pro"
+// is gemini-3-pro-image (image-conditioned generation, highest quality of the
+// image-supporting family). gemini-2.5-flash-image is the cheaper Nano Banana
+// (no Pro) — fall back to it if the Pro model 404s on a particular API key
+// (some keys only have the older Flash image model enabled).
+const GEMINI_MODEL_PRO = 'gemini-3-pro-image';
+const GEMINI_MODEL_FLASH = 'gemini-2.5-flash-image';
 
 interface GeminiPart {
   inlineData?: {
@@ -137,19 +143,30 @@ export async function generateScenedAvatarImage(
     // no responseModalities tweak needed in current preview.
   };
 
-  const url = `${GEMINI_API_BASE}/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`;
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  const text = await res.text();
+  // Try the Pro model first (best quality), fall back to Flash if 404.
+  // 404 on Pro = key doesn't have access to the Pro model (some Free tier
+  // keys only get the cheaper Flash image model).
+  const modelsToTry = [GEMINI_MODEL_PRO, GEMINI_MODEL_FLASH];
+  let res: Response | null = null;
+  let text = '';
   let json: GeminiResponse | null = null;
-  try { json = JSON.parse(text) as GeminiResponse; } catch { /* keep raw */ }
+  let lastModelTried = '';
+  for (const model of modelsToTry) {
+    lastModelTried = model;
+    const url = `${GEMINI_API_BASE}/models/${model}:generateContent?key=${encodeURIComponent(key)}`;
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    text = await res.text();
+    try { json = JSON.parse(text) as GeminiResponse; } catch { json = null; }
+    // 404 → try next model. Other errors → bubble up immediately.
+    if (res.status !== 404) break;
+  }
 
-  if (!res.ok || !json) {
-    throw new Error(`Gemini image API ${res.status}: ${text.slice(0, 300)}`);
+  if (!res || !res.ok || !json) {
+    throw new Error(`Gemini image API ${res?.status} on ${lastModelTried}: ${text.slice(0, 300)}`);
   }
   if (json.error) {
     throw new Error(`Gemini error: ${json.error.message || 'unknown error'}`);

@@ -487,6 +487,13 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   const renderedRows: Array<Record<string, unknown>> = [];
   const ffJobRows: Array<Record<string, unknown>> = [];
 
+  // Generate ready-to-paste copy (caption/hashtags/title) now — the candidate
+  // text is available and this no longer depends on render-stage timing.
+  if (!alreadyAssembled) {
+    await packagePendingClips(run).catch((e) =>
+      console.warn('[ve-pkg] assemble-stage packaging error (non-fatal):', e instanceof Error ? e.message : e));
+  }
+
   // Create clips are rendered by the Mac-mini fleet (scripts/render-node/
   // slice-worker.mjs): each row is enqueued as kind 'clip_render' carrying a
   // slice spec, and the worker trims the source with ffmpeg. In-process Vercel
@@ -762,12 +769,14 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
  * Best-effort: any single failure marks that clip as 'failed' and the run continues.
  */
 async function packagePendingClips(run: RunRow): Promise<void> {
-  const { data: pending } = await supabaseAdmin
+  const { data: pending, error: pendErr } = await supabaseAdmin
     .from('ve_rendered_clips')
     .select('id,template_key,cta_key,candidate_id')
     .eq('run_id', run.id)
-    .eq('package_status', 'pending')
+    .is('caption_text', null)            // self-heal: (re)package any clip missing copy
     .limit(PACKAGING_PER_TICK);
+  if (pendErr) { console.error('[ve-pkg] select failed run=%s: %s', run.id, pendErr.message); return; }
+  console.log('[ve-pkg] run=%s clips_to_package=%d', run.id, pending?.length ?? 0);
   if (!pending || pending.length === 0) return;
 
   for (const rc of pending) {

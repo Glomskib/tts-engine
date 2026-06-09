@@ -105,13 +105,40 @@ async function registerWorker() {
 }
 
 async function downloadSource(spec, dest) {
+  // Prefer the (already-signed) source_url — uploads are stored in R2, which is
+  // NOT a Supabase Storage bucket, so sb.storage.from(bucket) would 'Bucket not
+  // found'. Fall back to the Supabase SDK only for real Supabase buckets.
+  if (spec.source_url) {
+    try { const r = await fetch(spec.source_url); if (r.ok) { fs.writeFileSync(dest, Buffer.from(await r.arrayBuffer())); return; } } catch (e) { console.warn('[slice-worker] source_url fetch failed:', e?.message || e); }
+  }
   if (spec.source_bucket && spec.source_path) {
     const { data, error } = await sb.storage.from(spec.source_bucket).download(spec.source_path);
     if (!error && data) { fs.writeFileSync(dest, Buffer.from(await data.arrayBuffer())); return; }
-    console.warn(`[slice-worker] storage download failed (${error?.message}); trying source_url`);
+    throw new Error(`source download failed: ${error?.message || 'no data'}`);
   }
-  if (spec.source_url) { const r = await fetch(spec.source_url); if (!r.ok) throw new Error(`source fetch ${r.status}`); fs.writeFileSync(dest, Buffer.from(await r.arrayBuffer())); return; }
-  throw new Error('no source_bucket/path or source_url in slice spec');
+  throw new Error('no source_url or source_bucket/path in slice spec');
+}
+
+// Reaper: requeue clip_render jobs stuck in a claimed/rendering state (e.g. a
+// worker crashed mid-render) back to pending so they get re-rendered. Bounded
+// by attempts so a permanently-bad job eventually fails instead of looping.
+async function reapStale() {
+  const cutoff = new Date(Date.now() - 8 * 60 * 1000).toISOString();
+  const { data: stale } = await sb.from('ff_render_jobs')
+    .select('id,attempts,max_attempts')
+    .eq('kind', 'clip_render')
+    .in('status', ['claimed', 'rendering', 'uploading'])
+    .lt('claimed_at', cutoff);
+  for (const j of (stale || [])) {
+    const dead = (j.attempts ?? 0) >= (j.max_attempts ?? 3);
+    await sb.from('ff_render_jobs').update({
+      status: dead ? 'failed' : 'pending',
+      error: dead ? 'reaped: exceeded max attempts' : null,
+      claimed_by: null, claimed_at: null, updated_at: new Date().toISOString(),
+    }).eq('id', j.id);
+    if (dead) await sb.from('ve_rendered_clips').update({ status: 'failed', error_message: 'render reaped (stuck worker)' }).eq('ff_render_job_id', j.id);
+    console.log(`[slice-worker] reaped stale job ${j.id} -> ${dead ? 'failed' : 'pending'}`);
+  }
 }
 
 async function renderJob(job) {

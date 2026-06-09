@@ -26,7 +26,13 @@ export const maxDuration = 300;
 // Runs older than this with status not in (complete, failed) are treated as
 // abandoned zombies and force-failed so they stop blocking the queue depth
 // metric and the cron's tickActiveRuns candidate window.
-const ZOMBIE_AGE_HOURS = 24;
+//
+// 2026-06-09: lowered from 24h → 6h. Launch-day audit caught a single
+// 16h stuck ve_run keeping /api/health stuck on `degraded`. 6h is plenty
+// of slack for any legitimate render — HeyGen worst case is ~5min, our
+// own pipelines cap at 90s — so anything older than 6h is definitionally
+// abandoned. Sweeps on the next cron tick (every minute).
+const ZOMBIE_AGE_HOURS = 6;
 
 function authorized(request: NextRequest): boolean {
   if (request.headers.get('x-vercel-cron')) return true;

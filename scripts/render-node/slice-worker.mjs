@@ -12,6 +12,8 @@ import crypto from 'crypto';
 import { execFile, execSync } from 'child_process';
 import { promisify } from 'util';
 import { createClient } from '@supabase/supabase-js';
+import { createRequire } from 'module';
+const require = createRequire(import.meta.url);
 
 const execFileAsync = promisify(execFile);
 const SUPABASE_URL = process.env.SUPABASE_URL;
@@ -22,6 +24,10 @@ if (!SUPABASE_URL || !SERVICE_ROLE) { console.error('[slice-worker] SUPABASE_URL
 const sb = createClient(SUPABASE_URL, SERVICE_ROLE, { auth: { persistSession: false } });
 
 function ffmpegPath() {
+  // Prefer ffmpeg-static — the mini's /opt/homebrew ffmpeg is a stripped build
+  // with NO libass/libfreetype (no caption filters). ffmpeg-static is a full
+  // static build that has them.
+  try { const p = require('ffmpeg-static'); if (p && fs.existsSync(p)) return p; } catch {}
   for (const c of ['/opt/homebrew/bin/ffmpeg', '/usr/local/bin/ffmpeg']) if (fs.existsSync(c)) return c;
   try { const p = execSync('command -v ffmpeg', { encoding: 'utf8' }).trim(); if (p) return p; } catch {}
   return 'ffmpeg';
@@ -130,7 +136,7 @@ async function renderJob(job) {
       const events = await fetchCaptionEvents(spec.run_id, start, end, st);
       if (events.length) {
         fs.writeFileSync(ass, buildAss(events, st));
-        assFilter = `,ass=${assName}`; // relative name + cwd=tmpdir avoids filtergraph path parsing
+        assFilter = `,subtitles=${assName}`; // libass; relative name + cwd=tmpdir
         console.log(`[slice-worker] captions: ${events.length} cues, style=${spec.caption_style}`);
       } else {
         console.log('[slice-worker] no caption events (no transcript chunks in window)');

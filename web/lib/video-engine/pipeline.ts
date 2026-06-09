@@ -559,6 +559,7 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
       run_id: run.id,
       clip_id: renderedId,
       watermark: !!run.watermark,
+      caption_style: (((run.context_json as Record<string, unknown> | null) ?? {}).caption_style as string) || 'bold_yellow',
     };
 
     ffJobRows.push({

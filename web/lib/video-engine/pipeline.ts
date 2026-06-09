@@ -960,6 +960,26 @@ export async function tickRun(runId: string): Promise<TickResult> {
     return fail(runId, new Error(`Invalid mode: ${run.mode}`), run.status);
   }
 
+  // Link-source gate: a link asset lives at storage_path 'link/...' until the
+  // Mac-mini worker downloads it (yt-dlp) and rewrites storage_path/storage_url.
+  // Until that happens there's nothing to transcribe, so hold the run in
+  // 'created' rather than racing the downloader and failing on a 404. The mini
+  // marks the run failed itself if the download genuinely can't be completed.
+  if (run.status === 'created') {
+    const { data: gateAsset } = await supabaseAdmin
+      .from('ve_assets')
+      .select('storage_path, metadata')
+      .eq('run_id', runId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const meta = (gateAsset?.metadata ?? {}) as Record<string, unknown>;
+    const isLink = meta.source_kind === 'link' || (gateAsset?.storage_path ?? '').startsWith('link/');
+    if (isLink && !meta.ingested) {
+      return { runId, fromStatus: 'created', toStatus: 'created', message: 'awaiting link ingest' };
+    }
+  }
+
   // Bump attempts + last_tick_at + move into the active stage label.
   const activeStage: RunStatus =
     run.status === 'created' ? 'transcribing' :

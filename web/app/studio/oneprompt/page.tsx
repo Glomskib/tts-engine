@@ -223,8 +223,27 @@ export default function OnePromptPage() {
                   );
                 })}
               </div>
-              {job.error_message && (
-                <div className="mt-4 p-3 rounded-lg bg-red-900/30 border border-red-500/30 text-sm text-red-200">{job.error_message}</div>
+              {/* Failure banner — prominent, retry-able. Read error_message OR
+                  output.error since the worker has historically written to
+                  output.error and we now also write error_message. Fall back
+                  to a generic message so users never see "stuck silently". */}
+              {(job.status === 'failed' || job.step === 'failed') && (
+                <div className="mt-4 p-4 rounded-lg bg-red-950/40 border border-red-700 text-sm text-red-200">
+                  <div className="font-semibold mb-1 text-red-100">Something went wrong</div>
+                  <div className="text-red-300/90 text-xs mb-3 whitespace-pre-wrap">
+                    {job.error_message || (job.output as { error?: string } | null)?.error || 'Unknown error — try again, and contact support if it keeps happening.'}
+                  </div>
+                  <button
+                    onClick={() => { setJob(null); setPrompt(''); }}
+                    className="px-3 py-1.5 rounded-md bg-red-700/40 hover:bg-red-700/60 text-xs font-medium text-red-100"
+                  >
+                    Start over
+                  </button>
+                </div>
+              )}
+              {/* Non-fatal error_message while still running */}
+              {job.error_message && job.status !== 'failed' && job.step !== 'failed' && (
+                <div className="mt-4 p-3 rounded-lg bg-amber-900/30 border border-amber-500/30 text-sm text-amber-200">{job.error_message}</div>
               )}
             </div>
 

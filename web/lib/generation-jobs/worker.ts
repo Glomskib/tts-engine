@@ -170,12 +170,17 @@ async function advanceJob(jobId: string): Promise<TickResult> {
     return { jobId, from, to, ok: true };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // 2026-06-09: also write to error_message column (not just output.error)
+    // so the /studio/oneprompt page can show a clear failure banner. Without
+    // this, the failure was silent — page kept polling forever showing
+    // "Reading the prompt" in green while the row was actually 'failed'.
     await supabaseAdmin
       .from('generation_jobs')
       .update({
         status: 'failed',
         step: 'failed',
         progress: 100,
+        error_message: msg.slice(0, 1000),
         output: { ...output, error: msg.slice(0, 1000) },
         updated_at: new Date().toISOString(),
       })

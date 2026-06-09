@@ -90,6 +90,51 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
   return head + lines + '\n';
 }
 
+// ─── Link ingest (yt-dlp) ─────────────────────────────────────────────────────
+function ytdlpPath() {
+  for (const c of ['/opt/homebrew/bin/yt-dlp', '/usr/local/bin/yt-dlp']) if (fs.existsSync(c)) return c;
+  try { const p = execSync('command -v yt-dlp', { encoding: 'utf8' }).trim(); if (p) return p; } catch {}
+  return 'yt-dlp';
+}
+// Download link-source videos (TikTok/YouTube/etc) into clip-sources so the
+// pipeline can transcribe + clip them. Vercel can't run yt-dlp; the mini can.
+async function ingestLinks() {
+  const { data: assets } = await sb.from('ve_assets')
+    .select('id,run_id,user_id,storage_path,metadata')
+    .like('storage_path', 'link/%')
+    .limit(3);
+  const a = (assets || []).find((x) => x?.metadata?.source_kind === 'link' && !x?.metadata?.ingested && !x?.metadata?.ingesting);
+  if (!a) return;
+  const url = a.metadata?.original_url;
+  if (!url) return;
+  // optimistic lock so a second worker doesn't double-ingest
+  await sb.from('ve_assets').update({ metadata: { ...a.metadata, ingesting: true } }).eq('id', a.id);
+  const tmp = path.join(os.tmpdir(), `ingest-${a.run_id}.mp4`);
+  console.log(`[slice-worker] ingesting link run=${a.run_id} ${url}`);
+  try {
+    const YTDLP = ytdlpPath();
+    await execFileAsync(YTDLP, [
+      '-f', 'b[ext=mp4]/bv*[ext=mp4]+ba/b', '--no-playlist', '--no-warnings',
+      '--max-filesize', '600M', '--retries', '3', '-o', tmp, url,
+    ], { timeout: 300000, maxBuffer: 64 * 1024 * 1024 });
+    if (!fs.existsSync(tmp) || fs.statSync(tmp).size < 1024) throw new Error('yt-dlp produced no file');
+    const key = `ve-ingest/${a.user_id}/${a.run_id}.mp4`;
+    const up = await sb.storage.from('clip-sources').upload(key, fs.readFileSync(tmp), { contentType: 'video/mp4', upsert: true });
+    if (up.error) throw new Error('ingest upload: ' + up.error.message);
+    const { data: signed } = await sb.storage.from('clip-sources').createSignedUrl(key, 60 * 60 * 24);
+    await sb.from('ve_assets').update({
+      storage_bucket: 'clip-sources', storage_path: key, storage_url: signed?.signedUrl || null,
+      metadata: { ...a.metadata, ingested: true, ingesting: false },
+    }).eq('id', a.id);
+    console.log(`[slice-worker] ingested link run=${a.run_id} -> ${key} (${fs.statSync(tmp).size}B)`);
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    console.error(`[slice-worker] link ingest FAIL run=${a.run_id}: ${msg}`);
+    await sb.from('ve_assets').update({ metadata: { ...a.metadata, ingested: true, ingesting: false, ingest_error: msg.slice(0, 300) } }).eq('id', a.id);
+    await sb.from('ve_runs').update({ status: 'failed', error_message: ('Could not download that link: ' + msg).slice(0, 200) }).eq('id', a.run_id);
+  } finally { try { fs.existsSync(tmp) && fs.unlinkSync(tmp); } catch {} }
+}
+
 // ─── Worker ──────────────────────────────────────────────────────────────────
 async function registerWorker() {
   const hostname = `${os.hostname()}-slice`;

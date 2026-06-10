@@ -209,13 +209,55 @@ export default function CreatePage() {
   const videoPreviewRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // When mode changes, apply mode defaults (only override if user hasn't customized)
+  // 2026-06-10 Brandon: "record and make another one... one group of default
+  // settings applied to all, readjust afterwards if they want." The settings
+  // group that produced the last render is saved (see createJob) and restored
+  // here, so every new take/video starts from THE USER'S defaults — not
+  // factory defaults.
+  const savedDefaultsRef = useRef<Record<string, unknown> | null>(null);
+  const applySavedDefaults = useCallback((d: Record<string, unknown>, m: Mode) => {
+    setClipCount(typeof d.clipCount === 'number' ? d.clipCount : MODE_DEFAULTS[m].clipCount);
+    setAspectRatios(Array.isArray(d.aspectRatios) && d.aspectRatios.length ? d.aspectRatios as string[] : MODE_DEFAULTS[m].aspectRatios);
+    setCaptionStyle(typeof d.captionStyle === 'string' && d.captionStyle ? d.captionStyle : MODE_DEFAULTS[m].captionStyle);
+    setVibe(typeof d.vibe === 'string' && d.vibe ? d.vibe : MODE_DEFAULTS[m].vibe);
+    if (typeof d.customVibe === 'string' && d.customVibe) setCustomVibe(d.customVibe);
+    setEnableBroll(d.enableBroll === true);
+    setEnableMusic(d.enableMusic === true);
+    setEnableSmartCuts(d.enableSmartCuts !== false);
+  }, []);
+
   useEffect(() => {
+    try {
+      const raw = localStorage.getItem('ff-create-defaults');
+      if (!raw) return;
+      const d = JSON.parse(raw) as Record<string, unknown>;
+      if (!d || typeof d !== 'object') return;
+      const savedMode = typeof d.mode === 'string' && MODE_DEFAULTS[d.mode as Mode] ? (d.mode as Mode) : null;
+      if (savedMode && savedMode !== mode) {
+        // Mode differs: stash, switch mode — the [mode] effect applies the rest.
+        savedDefaultsRef.current = d;
+        setMode(savedMode);
+      } else {
+        applySavedDefaults(d, mode);
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // When mode changes, apply mode defaults — or the user's saved group, if a
+  // restore is pending for this mode.
+  useEffect(() => {
+    const pending = savedDefaultsRef.current;
+    if (pending && pending.mode === mode) {
+      savedDefaultsRef.current = null;
+      applySavedDefaults(pending, mode);
+      return;
+    }
     setClipCount(MODE_DEFAULTS[mode].clipCount);
     setAspectRatios(MODE_DEFAULTS[mode].aspectRatios);
     setCaptionStyle(MODE_DEFAULTS[mode].captionStyle);
     setVibe(MODE_DEFAULTS[mode].vibe);
-  }, [mode]);
+  }, [mode, applySavedDefaults]);
 
   // Load credits + brand profiles
   useEffect(() => {
@@ -561,13 +603,23 @@ export default function CreatePage() {
         setError(j.error || 'Could not start the job. Check credits or try again.');
       } else {
         setJobId(j.job_id);
+        // 2026-06-10 Brandon: "one group of default settings applied to all"
+        // — whatever settings produced this render become the user's defaults
+        // for every future take/video on this device. Readjust any time; the
+        // next render saves the new group.
+        try {
+          localStorage.setItem('ff-create-defaults', JSON.stringify({
+            mode, vibe, customVibe, captionStyle, clipCount, aspectRatios,
+            enableBroll, enableMusic, enableSmartCuts,
+          }));
+        } catch {}
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Job create failed');
     } finally {
       setCreating(false);
     }
-  }, [sources, linkValue, mode, describe, vibe, customVibe, brandId, captionStyle, clipCount, aspectRatios, enableBroll, enableMusic, defaults]);
+  }, [sources, linkValue, mode, describe, vibe, customVibe, brandId, captionStyle, clipCount, aspectRatios, enableBroll, enableMusic, enableSmartCuts, defaults]);
 
   // ── UI ─────────────────────────────────────────────────────────────────
   if (jobId) {

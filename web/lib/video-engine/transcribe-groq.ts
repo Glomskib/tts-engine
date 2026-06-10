@@ -42,6 +42,8 @@ function getFFmpegPath(): string {
 export interface GroqTranscriptResult {
   transcript: string;
   segments: TranscriptSegment[];
+  /** Word-level timestamps (2026-06-10) — powers filler-word removal. */
+  words?: Array<{ start: number; end: number; text: string }>;
   language: string;
   duration_sec: number;
 }
@@ -131,7 +133,9 @@ export async function transcribeStorageAssetViaGroq(params: {
     file: createReadStream(finalPath),
     model: 'whisper-large-v3',
     response_format: 'verbose_json',
-    timestamp_granularities: ['segment'],
+    // 2026-06-10: word granularity added — filler-word removal ("um"/"uh"
+    // jump cuts) needs per-word timestamps. Segment stays for captions/clips.
+    timestamp_granularities: ['word', 'segment'],
   });
 
   // OpenAI SDK return shape (verbose_json)
@@ -140,6 +144,7 @@ export async function transcribeStorageAssetViaGroq(params: {
     language?: string;
     duration?: number;
     segments?: Array<{ id?: number; start: number; end: number; text: string }>;
+    words?: Array<{ word: string; start: number; end: number }>;
   };
 
   // 4. Clean up tmp files
@@ -154,6 +159,11 @@ export async function transcribeStorageAssetViaGroq(params: {
       start: s.start,
       end: s.end,
       text: s.text.trim(),
+    })),
+    words: (r.words || []).map((w) => ({
+      start: w.start,
+      end: w.end,
+      text: String(w.word || '').trim(),
     })),
     language: r.language || 'en',
     duration_sec: r.duration || 0,

@@ -241,7 +241,7 @@ async function stageTranscribe(run: RunRow): Promise<RunStatus> {
       full_text: result.transcript,
       source: 'whisper',
       duration_sec: result.duration_sec,
-      raw_json: { segments: result.segments },
+      raw_json: { segments: result.segments, words: result.words ?? [] },
     })
     .select('id')
     .single();
@@ -592,7 +592,34 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
         }
 
         // 2. Subtract retake cuts (keep the LAST take) from the spans.
-        const cuts = dedupeTranscriptTakes(words).sort((a, b) => a.start_sec - b.start_sec);
+        const cuts = dedupeTranscriptTakes(words);
+
+        // 2b. Filler-word cuts (2026-06-10) — word-level timestamps are
+        // stored for runs transcribed from today on; "um/uh" disappear like
+        // a hand edit. Older runs without words just skip this.
+        if (jumpCutsOn) {
+          try {
+            const { data: tRow } = await supabaseAdmin
+              .from('ve_transcripts')
+              .select('raw_json')
+              .eq('run_id', run.id)
+              .order('created_at', { ascending: false })
+              .limit(1)
+              .single();
+            const rawWords = (tRow?.raw_json as { words?: Array<{ start: number; end: number; text: string }> } | null)?.words ?? [];
+            const FILLER = /^(um+|uh+|uhm+|erm+|mmm+|hmm+)$/i;
+            let fillerCount = 0;
+            for (const w of rawWords) {
+              const t = String(w.text || '').replace(/[^a-z]/gi, '');
+              if (t && FILLER.test(t) && w.end - w.start >= 0.12) {
+                cuts.push({ start_sec: Math.max(0, w.start - 0.03), end_sec: w.end + 0.03, reason: 'filler word' });
+                fillerCount++;
+              }
+            }
+            if (fillerCount) console.log(`[ve-pipeline] filler-word cuts run=${run.id}: ${fillerCount}`);
+          } catch { /* non-fatal — no word data for this run */ }
+        }
+        cuts.sort((a, b) => a.start_sec - b.start_sec);
         const keeps: Array<{ start_sec: number; end_sec: number }> = [];
         for (const span of spans) {
           let cursor = span.start_sec;

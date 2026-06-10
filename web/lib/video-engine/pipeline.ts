@@ -307,6 +307,33 @@ async function stageAnalyze(run: RunRow): Promise<RunStatus> {
   console.log(`[ve-pipeline] analyze run=${run.id} source_duration=${sourceDuration?.toFixed(1) ?? 'unknown'}s segments=${segments.length} mode=${run.mode} target=${run.target_clip_count}`);
 
   const { selected } = generateCandidates(segments, run.mode, run.target_clip_count, sourceDuration);
+  if (!selected.length && run.mode === 'post') {
+    // 2026-06-10 — Brandon hit "couldn't find a strong shorter cut" on a
+    // normal Post Maker take. Scoring rejects any window covering >80% of
+    // the source (MAX_CANDIDATE_SOURCE_RATIO) — correct for Clip Picker
+    // (find highlights in a long video), wrong for Post Maker where the
+    // whole take IS the content. Post mode now falls back to the full
+    // speech span; polish (silence trim at edges, retake dedupe, captions,
+    // fades) still applies downstream, so it's not a raw re-export.
+    const first = segments[0];
+    const last = segments[segments.length - 1];
+    const fullStart = Math.max(0, first.start - 0.2);
+    const fullEnd = sourceDuration ? Math.min(sourceDuration, last.end + 0.3) : last.end + 0.3;
+    if (fullEnd - fullStart >= 2) {
+      selected.push({
+        start: fullStart,
+        end: fullEnd,
+        text: segments.map((s) => s.text).join(' ').trim(),
+        hookText: segments[0]?.text?.trim() || null,
+        clipType: 'full_take',
+        score: 0.5,
+        scoreBreakdown: { full_take_fallback: 1 },
+        sourceChunkIdxs: [],
+        rank: 1,
+      });
+      console.log(`[ve-pipeline] post full-take fallback run=${run.id}: ${fullStart.toFixed(1)}-${fullEnd.toFixed(1)}s (scoring found no shorter cut)`);
+    }
+  }
   if (!selected.length) {
     // Distinguish "no candidates at all" from "every candidate was effectively
     // the full source" — the latter is the common case when footage has no

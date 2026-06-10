@@ -398,10 +398,15 @@ export default function CreatePage() {
       return;
     }
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: { ideal: 1080 }, height: { ideal: 1920 }, facingMode: 'user' },
-        audio: true,
-      });
+      // Reuse the live preview stream if the Record tab already started one —
+      // avoids a second permission prompt / double camera grab.
+      const existing = streamRef.current;
+      const stream = existing && existing.getTracks().some((t) => t.readyState === 'live')
+        ? existing
+        : await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 1080 }, height: { ideal: 1920 }, facingMode: 'user' },
+            audio: true,
+          });
       streamRef.current = stream;
       if (videoPreviewRef.current) {
         videoPreviewRef.current.srcObject = stream;
@@ -466,6 +471,42 @@ export default function CreatePage() {
     recorderRef.current?.stop();
     setRecording(false);
   }, []);
+
+  // 2026-06-10 audit fix — "Record: nothing pops up" (Brandon, multiple devices).
+  // Selecting the Record tab used to render a dead black <video> with the red
+  // Record button below the fold; the camera only started after that button.
+  // Now the camera preview (and the browser permission prompt) starts the
+  // moment the Record tab is selected, so something visibly happens. The red
+  // button still controls actual recording.
+  useEffect(() => {
+    if (entry !== 'record' || recording) return;
+    let cancelled = false;
+    (async () => {
+      if (typeof window === 'undefined' || !navigator.mediaDevices?.getUserMedia) return;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 1080 }, height: { ideal: 1920 }, facingMode: 'user' },
+          audio: true,
+        });
+        if (cancelled) { stream.getTracks().forEach((t) => t.stop()); return; }
+        streamRef.current = stream;
+        if (videoPreviewRef.current) {
+          videoPreviewRef.current.srcObject = stream;
+          void videoPreviewRef.current.play();
+        }
+      } catch {
+        // Denied/no camera — pressing the red button surfaces the detailed copy.
+      }
+    })();
+    return () => {
+      cancelled = true;
+      // Don't kill the stream mid-recording — the recorder owns it then.
+      if (recorderRef.current?.state !== 'recording') {
+        streamRef.current?.getTracks().forEach((t) => t.stop());
+        streamRef.current = null;
+      }
+    };
+  }, [entry, recording]);
 
   // ── Submit job ─────────────────────────────────────────────────────────
   const createJob = useCallback(async () => {
@@ -862,17 +903,26 @@ export default function CreatePage() {
         <Section title="7 · Polish (optional)">
           <div className="space-y-2">
             <ToggleRow
-              label="Add B-roll"
-              sublabel="Cuts in stock clips that match your vibe + transcript. Off = your footage only."
+              label="B-roll cutaways"
+              sublabel="Cuts in stock clips that match your vibe + transcript."
+              onSublabel="ON — we'll splice in 3–6 cutaways matching your vibe."
+              offSublabel="OFF — your footage only, no cutaways."
               checked={enableBroll}
               onChange={setEnableBroll}
             />
             <ToggleRow
-              label="Add background music"
-              sublabel="Layers a vibe-matched track under your audio. Off = clean voice only."
+              label="Background music"
+              sublabel="Layers a vibe-matched track under your audio."
+              onSublabel="ON — a vibe-matched track will mix in under your voice."
+              offSublabel="OFF — clean voice only, no music bed."
               checked={enableMusic}
               onChange={setEnableMusic}
             />
+            {(enableBroll || enableMusic) && (
+              <div className="mt-2 text-[11px] text-zinc-500 px-1">
+                Polish runs only on Post Maker mode. If a step can&apos;t find a match for your vibe, we tell you in the result — no silent fallbacks.
+              </div>
+            )}
           </div>
         </Section>
 
@@ -921,22 +971,65 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 }
 
 function ToggleRow({
-  label, sublabel, checked, onChange,
-}: { label: string; sublabel: string; checked: boolean; onChange: (v: boolean) => void }) {
+  label, sublabel, checked, onChange, onSublabel, offSublabel,
+}: {
+  label: string;
+  sublabel: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  /** Override sublabel when ON — lets the row tell the user exactly what
+   *  will happen instead of repeating the same hint in both states. */
+  onSublabel?: string;
+  /** Override sublabel when OFF. */
+  offSublabel?: string;
+}) {
+  // Incident 2026-06-02 — Brandon: "Turning on the B-roll and music looks like
+  // turning it off." The old toggle had the same label/copy in both states and
+  // only colour changed. New design:
+  //   - Explicit ON / OFF pill on the right (the unmissable signal)
+  //   - Label color shifts on (white → teal)
+  //   - Sublabel text changes to describe the state instead of generic hint
+  const effectiveSublabel = checked
+    ? (onSublabel || sublabel)
+    : (offSublabel || sublabel);
+
   return (
     <button
       type="button"
       onClick={() => onChange(!checked)}
+      aria-pressed={checked}
       className={`w-full flex items-start gap-3 p-3 rounded-lg border text-left transition-colors ${
-        checked ? 'bg-teal-600/15 border-teal-500' : 'bg-gray-900 border-gray-700 hover:border-gray-500'
+        checked
+          ? 'bg-teal-600/15 border-teal-500 ring-1 ring-teal-500/40'
+          : 'bg-gray-900 border-gray-700 hover:border-gray-500'
       }`}
     >
-      <div className={`mt-0.5 flex-shrink-0 w-10 h-6 rounded-full transition-colors flex items-center px-0.5 ${checked ? 'bg-teal-500 justify-end' : 'bg-gray-700 justify-start'}`}>
+      {/* Visual switch */}
+      <div className={`mt-0.5 flex-shrink-0 w-11 h-6 rounded-full transition-colors flex items-center px-0.5 ${
+        checked ? 'bg-teal-500 justify-end' : 'bg-gray-700 justify-start'
+      }`}>
         <div className="w-5 h-5 bg-white rounded-full shadow" />
       </div>
+
+      {/* Label + sublabel */}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium">{label}</div>
-        <div className="text-xs text-gray-400 leading-snug">{sublabel}</div>
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-medium ${checked ? 'text-teal-200' : 'text-white'}`}>{label}</span>
+          {/* Explicit ON/OFF pill — the unambiguous state signal */}
+          <span
+            className={`shrink-0 text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded ${
+              checked
+                ? 'bg-teal-500 text-zinc-950'
+                : 'bg-gray-700 text-gray-300'
+            }`}
+            aria-hidden="true"
+          >
+            {checked ? 'ON' : 'OFF'}
+          </span>
+        </div>
+        <div className={`text-xs leading-snug mt-0.5 ${checked ? 'text-teal-100/80' : 'text-gray-400'}`}>
+          {effectiveSublabel}
+        </div>
       </div>
     </button>
   );

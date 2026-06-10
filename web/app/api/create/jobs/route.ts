@@ -58,6 +58,9 @@ interface CreateBody {
    *  and only layers B-roll / music when explicitly enabled. */
   enable_broll?: boolean;
   enable_music?: boolean;
+  /** Smart cuts (jump cuts + punch-ins) — default ON; explicit false disables. */
+  enable_jump_cuts?: boolean;
+  enable_punch_ins?: boolean;
 }
 
 /**
@@ -178,6 +181,9 @@ export async function POST(req: NextRequest) {
     // fields keep historical behavior elsewhere via the mode-based check.
     enable_broll: body.enable_broll === true,
     enable_music: body.enable_music === true,
+    // Smart cuts default ON — only an explicit false from the toggle disables.
+    enable_jump_cuts: body.enable_jump_cuts !== false,
+    enable_punch_ins: body.enable_punch_ins !== false,
     created_via: 'create_page_v2_modes',
     // Storage retention hint — ve-cleanup uses this to decide source delete timing.
     // Post Maker source can be deleted fast (we only output 1-2 polished clips);

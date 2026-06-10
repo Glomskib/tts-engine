@@ -200,6 +200,9 @@ export default function CreatePage() {
   // Brandon's call — make these explicit opt-in instead of auto-applied.
   const [enableBroll, setEnableBroll] = useState(false);
   const [enableMusic, setEnableMusic] = useState(false);
+  // Smart cuts (jump cuts on pauses + alternating punch-ins) — default ON
+  // per Brandon 2026-06-10: the edit is the product. One toggle controls both.
+  const [enableSmartCuts, setEnableSmartCuts] = useState(true);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -545,6 +548,8 @@ export default function CreatePage() {
         aspect_ratios: aspectRatios,
         enable_broll: enableBroll,
         enable_music: enableMusic,
+        enable_jump_cuts: enableSmartCuts,
+        enable_punch_ins: enableSmartCuts,
       };
       const r = await fetch('/api/create/jobs', {
         method: 'POST',
@@ -907,6 +912,14 @@ export default function CreatePage() {
             often felt like filler. Turn on per-project when you want extra. */}
         <Section title="7 · Polish (optional)">
           <div className="space-y-2">
+            <ToggleRow
+              label="Smart cuts & zooms"
+              sublabel="Jump-cuts the pauses, removes retakes, adds subtle punch-ins."
+              onSublabel="ON — pauses become jump cuts, every other segment gets a subtle zoom."
+              offSublabel="OFF — one continuous take, only edge trim + captions."
+              checked={enableSmartCuts}
+              onChange={setEnableSmartCuts}
+            />
             <ToggleRow
               label="B-roll cutaways"
               sublabel="Cuts in stock clips that match your vibe + transcript."

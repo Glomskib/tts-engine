@@ -26,6 +26,7 @@ import { transcribeStorageAsset } from './transcribe';
 import { transcribeWithFallback } from './transcribe-groq';
 import { rankClips, type RankedClip } from './hook-ranker';
 import { generateCandidates } from './scoring';
+import { dedupeTranscriptTakes } from '@/lib/editing/dedupe-takes';
 import { resolveRenderTemplateKeys, getTemplateOrDefault } from './templates';
 import { getCTAOrDefault } from './ctas';
 import { renderVideo as shotstackRenderVideo, getRenderStatus as shotstackGetStatus } from '@/lib/shotstack';
@@ -513,6 +514,51 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   const doPolishBroll = polishBrollFlag === null ? polishLegacy : polishBrollFlag;
   const doPolishMusic = polishMusicFlag === null ? polishLegacy : polishMusicFlag;
 
+  // 2026-06-10 audit fix — Brandon: "the auto editor cuts off/ends videos
+  // instead of leaving in the 'fixed' sentences when I mess up and repeat."
+  // Post Maker previously rendered ONE contiguous scored window, so a flub
+  // mid-take meant the clip just ended before the corrected sentence. Now,
+  // for post mode, we run the retake deduper (keep the LAST take — Brandon's
+  // locked decision) over the whole take and ship keep_ranges to the fleet
+  // worker, which cuts the flubs and stitches the rest together.
+  let postKeepRanges: Array<{ start_sec: number; end_sec: number }> | null = null;
+  if (run.mode === 'post' && !alreadyAssembled) {
+    try {
+      const { data: takeChunks } = await supabaseAdmin
+        .from('ve_transcript_chunks')
+        .select('start_sec,end_sec,text')
+        .eq('run_id', run.id)
+        .order('idx', { ascending: true });
+      if (takeChunks && takeChunks.length) {
+        const words = takeChunks.map((c) => ({
+          start: Number(c.start_sec), end: Number(c.end_sec), text: String(c.text || ''),
+        }));
+        const cuts = dedupeTranscriptTakes(words);
+        if (cuts.length) {
+          const wStart = Math.max(0, words[0].start - 0.2);
+          const wEnd = words[words.length - 1].end + 0.3;
+          let cursor = wStart;
+          const keeps: Array<{ start_sec: number; end_sec: number }> = [];
+          for (const c of cuts.slice().sort((a, b) => a.start_sec - b.start_sec)) {
+            const cs = Math.max(wStart, c.start_sec);
+            const ce = Math.min(wEnd, c.end_sec);
+            if (ce <= cursor) continue;
+            if (cs > cursor + 0.25) keeps.push({ start_sec: cursor, end_sec: cs });
+            cursor = Math.max(cursor, ce);
+          }
+          if (wEnd > cursor + 0.25) keeps.push({ start_sec: cursor, end_sec: wEnd });
+          if (keeps.length) {
+            postKeepRanges = keeps;
+            const kept = keeps.reduce((t, k) => t + (k.end_sec - k.start_sec), 0);
+            console.log(`[ve-pipeline] post retake-dedupe run=${run.id}: ${cuts.length} flubbed take(s) removed, ${keeps.length} keep range(s), ${kept.toFixed(1)}s kept`);
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('[ve-pipeline] retake dedupe failed (rendering scored window):', (e as Error).message);
+    }
+  }
+
   // Skip the timeline-build + row-staging when we're re-entering — those
   // arrays only matter for the INSERT path, which is gated on !alreadyAssembled.
   for (let i = 0; i < candidates.length && !alreadyAssembled; i++) {
@@ -568,7 +614,9 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
 
     // Pick polish assets for THIS clip (transcript-matched B-roll, vibe music).
     // Best-effort: a Pexels/R2 hiccup must never block the render itself.
-    const polishLen = Math.max(0.5, Number(cand.end_sec) - Number(cand.start_sec));
+    const polishLen = postKeepRanges
+      ? Math.max(0.5, postKeepRanges.reduce((t, k) => t + (k.end_sec - k.start_sec), 0))
+      : Math.max(0.5, Number(cand.end_sec) - Number(cand.start_sec));
     let polishMusic: { audio_url: string; volume_db: number } | null = null;
     let polishBroll: Array<{ at_sec: number; duration_sec: number; video_url: string }> = [];
     if (doPolishMusic) {
@@ -596,8 +644,10 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
       source_bucket: asset.storage_bucket,
       source_path: asset.storage_path,
       source_url: asset.storage_url ?? null,
-      start_sec: Number(cand.start_sec),
-      end_sec: Number(cand.end_sec),
+      start_sec: postKeepRanges ? postKeepRanges[0].start_sec : Number(cand.start_sec),
+      end_sec: postKeepRanges ? postKeepRanges[postKeepRanges.length - 1].end_sec : Number(cand.end_sec),
+      // Multi-range edit: worker cuts the flubbed takes and stitches these.
+      keep_ranges: postKeepRanges ?? undefined,
       user_id: run.user_id,
       run_id: run.id,
       clip_id: renderedId,

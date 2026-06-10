@@ -190,7 +190,15 @@ async function renderJob(job) {
   const spec = typeof job.timeline === 'string' ? JSON.parse(job.timeline) : (job.timeline || {});
   const start = Math.max(0, Number(spec.start_sec) || 0);
   const end = Math.max(start + 0.5, Number(spec.end_sec) || start + 1);
-  const len = end - start;
+  // 2026-06-10 retake fix: spec.keep_ranges = multi-range edit (flubbed takes
+  // already subtracted by the pipeline). We cut those ranges and stitch them.
+  const ranges = Array.isArray(spec.keep_ranges) && spec.keep_ranges.length
+    ? spec.keep_ranges
+        .map((r) => ({ s: Math.max(0, Number(r.start_sec) || 0), e: Math.max(0, Number(r.end_sec) || 0) }))
+        .filter((r) => r.e - r.s >= 0.25)
+        .sort((a, b) => a.s - b.s)
+    : null;
+  const len = ranges ? ranges.reduce((t, r) => t + (r.e - r.s), 0) : end - start;
   const work = crypto.randomUUID();
   const src = path.join(os.tmpdir(), `ff-src-${work}.mp4`);
   const out = path.join(os.tmpdir(), `ff-out-${work}.mp4`);
@@ -205,7 +213,19 @@ async function renderJob(job) {
     let assFilter = '';
     try {
       const st = captionStyle(spec.caption_style);
-      const events = await fetchCaptionEvents(spec.run_id, start, end, st);
+      let events = [];
+      if (ranges) {
+        // Remap caption timing onto the stitched timeline: each range's cues
+        // are offset by the total duration of the ranges before it.
+        let offset = 0;
+        for (const r of ranges) {
+          const evs = await fetchCaptionEvents(spec.run_id, r.s, r.e, st);
+          for (const ev of evs) events.push({ start: ev.start + offset, end: ev.end + offset, text: ev.text });
+          offset += r.e - r.s;
+        }
+      } else {
+        events = await fetchCaptionEvents(spec.run_id, start, end, st);
+      }
       if (events.length) {
         fs.writeFileSync(ass, buildAss(events, st));
         assFilter = `,subtitles=${assName}`; // libass; relative name + cwd=tmpdir
@@ -248,7 +268,7 @@ async function renderJob(job) {
     const vf = `scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black${assFilter},fade=t=in:st=0:d=0.2${foDur > 0 ? `,fade=t=out:st=${foStart}:d=${foDur.toFixed(3)}` : ''}`;
     const af = `loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=in:st=0:d=0.2${foDur > 0 ? `,afade=t=out:st=${foStart}:d=${foDur.toFixed(3)}` : ''}`;
 
-    if (brollFiles.length === 0 && !musicFile) {
+    if (brollFiles.length === 0 && !musicFile && !ranges) {
       // Fast path — plain slice + captions + audio polish (unchanged).
       await execFileAsync(FFMPEG, [
         '-y', '-hide_banner', '-loglevel', 'error',
@@ -260,14 +280,27 @@ async function renderJob(job) {
     } else {
       // Composite path — trim INSIDE the filtergraph (setpts to 0) so caption
       // timing, fades, and overlay enable-windows all share one clip-relative
-      // clock, then chain B-roll overlays and duck music under speech.
+      // clock. Optionally stitch multi-range retake edits, then chain B-roll
+      // overlays and duck music under speech.
       const args = ['-y', '-hide_banner', '-loglevel', 'error', '-i', src];
       if (musicFile) args.push('-stream_loop', '-1', '-i', musicFile);
       for (const b of brollFiles) args.push('-i', b.path);
 
       const parts = [];
-      parts.push(`[0:v]trim=start=${start.toFixed(3)}:duration=${len.toFixed(3)},setpts=PTS-STARTPTS,${vf}[vbase]`);
-      parts.push(`[0:a]atrim=start=${start.toFixed(3)}:duration=${len.toFixed(3)},asetpts=PTS-STARTPTS,${af}[abase]`);
+      if (ranges) {
+        // Retake edit: cut each keep-range, stitch with concat, THEN style.
+        ranges.forEach((r, i) => {
+          parts.push(`[0:v]trim=start=${r.s.toFixed(3)}:duration=${(r.e - r.s).toFixed(3)},setpts=PTS-STARTPTS[kv${i}]`);
+          parts.push(`[0:a]atrim=start=${r.s.toFixed(3)}:duration=${(r.e - r.s).toFixed(3)},asetpts=PTS-STARTPTS[ka${i}]`);
+        });
+        parts.push(`${ranges.map((_, i) => `[kv${i}][ka${i}]`).join('')}concat=n=${ranges.length}:v=1:a=1[vcat][acat]`);
+        parts.push(`[vcat]${vf}[vbase]`);
+        parts.push(`[acat]${af}[abase]`);
+        console.log(`[slice-worker] retake edit: stitching ${ranges.length} keep range(s), ${len.toFixed(1)}s total`);
+      } else {
+        parts.push(`[0:v]trim=start=${start.toFixed(3)}:duration=${len.toFixed(3)},setpts=PTS-STARTPTS,${vf}[vbase]`);
+        parts.push(`[0:a]atrim=start=${start.toFixed(3)}:duration=${len.toFixed(3)},asetpts=PTS-STARTPTS,${af}[abase]`);
+      }
 
       let curV = 'vbase';
       const brollFirstIdx = musicFile ? 2 : 1;

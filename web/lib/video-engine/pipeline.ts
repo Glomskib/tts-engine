@@ -499,6 +499,20 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   // slice spec, and the worker trims the source with ffmpeg. In-process Vercel
   // render was retired (it cannot spawn ffmpeg on the serverless runtime).
 
+  // 2026-06-10 audit fix — "B-roll still never gets added": when rendering
+  // moved to the mini fleet, the music/B-roll picks stayed behind in the
+  // retired in-process branch (renderer key literally renamed to
+  // local_DISABLED_...), so enable_broll/enable_music in context_json were
+  // silently ignored. The picks now happen HERE (Vercel has the Pexels/R2
+  // keys) and ride to the fleet worker inside the slice spec.
+  const polishCtx = (run.context_json ?? {}) as Record<string, unknown>;
+  const polishVibe = (polishCtx.vibe as string) || 'real';
+  const polishLegacy = run.mode === 'affiliate' || run.mode === 'nonprofit';
+  const polishBrollFlag = typeof polishCtx.enable_broll === 'boolean' ? (polishCtx.enable_broll as boolean) : null;
+  const polishMusicFlag = typeof polishCtx.enable_music === 'boolean' ? (polishCtx.enable_music as boolean) : null;
+  const doPolishBroll = polishBrollFlag === null ? polishLegacy : polishBrollFlag;
+  const doPolishMusic = polishMusicFlag === null ? polishLegacy : polishMusicFlag;
+
   // Skip the timeline-build + row-staging when we're re-entering — those
   // arrays only matter for the INSERT path, which is gated on !alreadyAssembled.
   for (let i = 0; i < candidates.length && !alreadyAssembled; i++) {
@@ -552,9 +566,31 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
       package_status: 'pending',
     });
 
+    // Pick polish assets for THIS clip (transcript-matched B-roll, vibe music).
+    // Best-effort: a Pexels/R2 hiccup must never block the render itself.
+    const polishLen = Math.max(0.5, Number(cand.end_sec) - Number(cand.start_sec));
+    let polishMusic: { audio_url: string; volume_db: number } | null = null;
+    let polishBroll: Array<{ at_sec: number; duration_sec: number; video_url: string }> = [];
+    if (doPolishMusic) {
+      try {
+        polishMusic = await pickMusicForVibe({ vibe: polishVibe, clip_duration_sec: polishLen });
+      } catch (e) { console.warn('[ve-pipeline] music pick failed (fleet spec):', (e as Error).message); }
+    }
+    if (doPolishBroll) {
+      try {
+        polishBroll = await pickBrollForTranscript({
+          vibe: polishVibe,
+          transcript_text: String(cand.text || ''),
+          total_duration_sec: polishLen,
+          vertical: true,
+        });
+      } catch (e) { console.warn('[ve-pipeline] broll pick failed (fleet spec):', (e as Error).message); }
+    }
+
     // Slice spec consumed by the Mac-mini fleet worker
     // (scripts/render-node/slice-worker.mjs): it trims [start,end] from the
-    // source asset, polishes audio, uploads the clip, and marks the job done.
+    // source asset, polishes audio, composites B-roll/music when present,
+    // uploads the clip, and marks the job done.
     const sliceSpec = {
       kind: 'clip_render',
       source_bucket: asset.storage_bucket,
@@ -567,6 +603,8 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
       clip_id: renderedId,
       watermark: !!run.watermark,
       caption_style: (((run.context_json as Record<string, unknown> | null) ?? {}).caption_style as string) || 'bold_yellow',
+      music: polishMusic ? { audio_url: polishMusic.audio_url, volume_db: polishMusic.volume_db } : null,
+      broll: polishBroll.slice(0, 6).map((b) => ({ at_sec: b.at_sec, duration_sec: b.duration_sec, video_url: b.video_url })),
     };
 
     ffJobRows.push({

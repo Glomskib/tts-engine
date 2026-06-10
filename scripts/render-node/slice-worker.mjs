@@ -215,17 +215,96 @@ async function renderJob(job) {
       }
     } catch (e) { console.warn('[slice-worker] caption build failed (rendering without):', e?.message || e); }
 
+    // 2026-06-10 audit fix — "B-roll never gets added": the slice spec now
+    // carries music/broll picked by the Vercel pipeline (enable_broll /
+    // enable_music). Download them best-effort; a dead URL never blocks the
+    // render, it just ships without that overlay.
+    const brollFiles = [];
+    for (const [bi, b] of (Array.isArray(spec.broll) ? spec.broll.slice(0, 6) : []).entries()) {
+      if (!b || !b.video_url) continue;
+      const bp = path.join(os.tmpdir(), `ff-br-${work}-${bi}.mp4`);
+      try {
+        const r = await fetch(b.video_url);
+        if (!r.ok) throw new Error('http ' + r.status);
+        fs.writeFileSync(bp, Buffer.from(await r.arrayBuffer()));
+        brollFiles.push({ path: bp, at: Math.max(0, Number(b.at_sec) || 0), dur: Math.max(0.4, Number(b.duration_sec) || 0) });
+        cleanup.push(bp);
+      } catch (e) { console.warn(`[slice-worker] broll ${bi} download failed (skipping): ${e?.message || e}`); }
+    }
+    let musicFile = null;
+    if (spec.music && spec.music.audio_url) {
+      const mp = path.join(os.tmpdir(), `ff-mus-${work}.m4a`);
+      try {
+        const r = await fetch(spec.music.audio_url);
+        if (!r.ok) throw new Error('http ' + r.status);
+        fs.writeFileSync(mp, Buffer.from(await r.arrayBuffer()));
+        musicFile = mp;
+        cleanup.push(mp);
+      } catch (e) { console.warn('[slice-worker] music download failed (skipping):', e?.message || e); }
+    }
+
     const foDur = Math.min(0.3, Math.max(0, len - 0.3));
     const foStart = Math.max(0, len - foDur).toFixed(3);
     const vf = `scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black${assFilter},fade=t=in:st=0:d=0.2${foDur > 0 ? `,fade=t=out:st=${foStart}:d=${foDur.toFixed(3)}` : ''}`;
     const af = `loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=in:st=0:d=0.2${foDur > 0 ? `,afade=t=out:st=${foStart}:d=${foDur.toFixed(3)}` : ''}`;
-    await execFileAsync(FFMPEG, [
-      '-y', '-hide_banner', '-loglevel', 'error',
-      '-i', src, '-ss', start.toFixed(3), '-t', len.toFixed(3),
-      '-vf', vf, '-af', af,
-      '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
-      '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '128k', out,
-    ], { timeout: 240000, maxBuffer: 64 * 1024 * 1024, cwd: os.tmpdir() });
+
+    if (brollFiles.length === 0 && !musicFile) {
+      // Fast path — plain slice + captions + audio polish (unchanged).
+      await execFileAsync(FFMPEG, [
+        '-y', '-hide_banner', '-loglevel', 'error',
+        '-i', src, '-ss', start.toFixed(3), '-t', len.toFixed(3),
+        '-vf', vf, '-af', af,
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
+        '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '128k', out,
+      ], { timeout: 240000, maxBuffer: 64 * 1024 * 1024, cwd: os.tmpdir() });
+    } else {
+      // Composite path — trim INSIDE the filtergraph (setpts to 0) so caption
+      // timing, fades, and overlay enable-windows all share one clip-relative
+      // clock, then chain B-roll overlays and duck music under speech.
+      const args = ['-y', '-hide_banner', '-loglevel', 'error', '-i', src];
+      if (musicFile) args.push('-stream_loop', '-1', '-i', musicFile);
+      for (const b of brollFiles) args.push('-i', b.path);
+
+      const parts = [];
+      parts.push(`[0:v]trim=start=${start.toFixed(3)}:duration=${len.toFixed(3)},setpts=PTS-STARTPTS,${vf}[vbase]`);
+      parts.push(`[0:a]atrim=start=${start.toFixed(3)}:duration=${len.toFixed(3)},asetpts=PTS-STARTPTS,${af}[abase]`);
+
+      let curV = 'vbase';
+      const brollFirstIdx = musicFile ? 2 : 1;
+      let chained = 0;
+      for (let i = 0; i < brollFiles.length; i++) {
+        const b = brollFiles[i];
+        const at = Math.max(0, Math.min(b.at, len - 0.2));
+        const dur = Math.max(0.4, Math.min(b.dur, len - at));
+        if (dur <= 0.4) continue;
+        const inIdx = brollFirstIdx + i;
+        // Cover the 9:16 frame (scale up + center-crop) and shift so the
+        // b-roll's first frame lands at its scheduled at_sec.
+        parts.push(`[${inIdx}:v]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setpts=PTS-STARTPTS+${at.toFixed(3)}/TB[br${i}]`);
+        const nextV = `vmix${i}`;
+        parts.push(`[${curV}][br${i}]overlay=enable='between(t,${at.toFixed(3)},${(at + dur).toFixed(3)})':eof_action=pass[${nextV}]`);
+        curV = nextV;
+        chained++;
+      }
+      parts.push(`[${curV}]null[vout]`);
+
+      if (musicFile) {
+        const musicVol = Number.isFinite(Number(spec.music?.volume_db)) ? Number(spec.music.volume_db) : -16;
+        parts.push(`[1:a]volume=${musicVol}dB,atrim=duration=${len.toFixed(3)},asetpts=PTS-STARTPTS,afade=t=in:st=0:d=0.4,afade=t=out:st=${Math.max(0, len - 0.6).toFixed(3)}:d=0.6[mbg]`);
+        parts.push(`[abase][mbg]amix=inputs=2:duration=first:weights=1 0.6:normalize=0[aout]`);
+      } else {
+        parts.push(`[abase]anull[aout]`);
+      }
+
+      console.log(`[slice-worker] composite render: broll=${chained} music=${musicFile ? 'yes' : 'no'}`);
+      await execFileAsync(FFMPEG, [
+        ...args,
+        '-filter_complex', parts.join(';'),
+        '-map', '[vout]', '-map', '[aout]',
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
+        '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '128k', '-shortest', out,
+      ], { timeout: 300000, maxBuffer: 64 * 1024 * 1024, cwd: os.tmpdir() });
+    }
     if (!fs.existsSync(out) || fs.statSync(out).size < 1024) throw new Error('ffmpeg produced no/empty output');
     const bytes = fs.statSync(out).size;
     const key = `ve-renders/${spec.user_id}/${spec.clip_id}.mp4`;

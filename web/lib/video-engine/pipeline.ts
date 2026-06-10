@@ -307,7 +307,11 @@ async function stageAnalyze(run: RunRow): Promise<RunStatus> {
   console.log(`[ve-pipeline] analyze run=${run.id} source_duration=${sourceDuration?.toFixed(1) ?? 'unknown'}s segments=${segments.length} mode=${run.mode} target=${run.target_clip_count}`);
 
   const { selected } = generateCandidates(segments, run.mode, run.target_clip_count, sourceDuration);
-  if (!selected.length && run.mode === 'post') {
+  // /create jobs store legacy mode='affiliate' on the run row; the REAL UI
+  // mode ('post' | 'clip') lives in context_json.mode. Live test 2026-06-10
+  // caught every post-mode gate dead because of this.
+  const uiModeAnalyze = ((((run.context_json ?? {}) as Record<string, unknown>).mode as string) || run.mode);
+  if (!selected.length && uiModeAnalyze === 'post') {
     // 2026-06-10 — Brandon hit "couldn't find a strong shorter cut" on a
     // normal Post Maker take. Scoring rejects any window covering >80% of
     // the source (MAX_CANDIDATE_SOURCE_RATIO) — correct for Clip Picker
@@ -558,7 +562,10 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   //      jump cut reads as an intentional edit.
   // Opt-out: context_json.enable_jump_cuts === false.
   let postKeepRanges: Array<{ start_sec: number; end_sec: number }> | null = null;
-  if (run.mode === 'post' && !alreadyAssembled) {
+  // run.mode is the legacy 'affiliate' for /create jobs — the real UI mode
+  // ('post' | 'clip') is in context_json.mode (2026-06-10 live-test fix).
+  const uiModeAssemble = ((((run.context_json ?? {}) as Record<string, unknown>).mode as string) || run.mode);
+  if (uiModeAssemble === 'post' && !alreadyAssembled) {
     try {
       const jumpCutsOn = ((run.context_json ?? {}) as Record<string, unknown>).enable_jump_cuts !== false;
       const { data: takeChunks } = await supabaseAdmin

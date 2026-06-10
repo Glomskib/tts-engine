@@ -20,19 +20,27 @@ export async function GET(request: NextRequest) {
   const stageParam = p.get('stage');
   const stages = stageParam ? stageParam.split(',') as FootageStage[] : undefined;
 
-  const result = await listFootageItems({
-    workspace_id:   authCtx.isAdmin && p.get('workspace_id') ? p.get('workspace_id')! : authCtx.user.id,
-    stage:          stages,
-    source_type:    p.get('source_type') as FootageSourceType || undefined,
-    uploaded_by:    p.get('uploaded_by') as FootageUploadedBy || undefined,
-    content_item_id: p.get('content_item_id') || undefined,
-    search:         p.get('q') || undefined,
-    limit:          parseInt(p.get('limit') || '50', 10),
-    offset:         parseInt(p.get('offset') || '0', 10),
-    admin:          authCtx.isAdmin && p.get('all') === '1',
-  });
+  // 2026-06-10 audit fix: an unhandled throw here (e.g. footage_items table
+  // missing in prod) returned a BLANK 500 — the page showed nothing and
+  // uploads looked like they vanished. Always return structured JSON.
+  try {
+    const result = await listFootageItems({
+      workspace_id:   authCtx.isAdmin && p.get('workspace_id') ? p.get('workspace_id')! : authCtx.user.id,
+      stage:          stages,
+      source_type:    p.get('source_type') as FootageSourceType || undefined,
+      uploaded_by:    p.get('uploaded_by') as FootageUploadedBy || undefined,
+      content_item_id: p.get('content_item_id') || undefined,
+      search:         p.get('q') || undefined,
+      limit:          parseInt(p.get('limit') || '50', 10),
+      offset:         parseInt(p.get('offset') || '0', 10),
+      admin:          authCtx.isAdmin && p.get('all') === '1',
+    });
 
-  return NextResponse.json({ ok: true, data: result, correlation_id: correlationId });
+    return NextResponse.json({ ok: true, data: result, correlation_id: correlationId });
+  } catch (err) {
+    console.error('[footage GET]', err);
+    return createApiErrorResponse('INTERNAL', err instanceof Error ? err.message : 'Failed to list footage', 500, correlationId);
+  }
 }
 
 export async function POST(request: NextRequest) {

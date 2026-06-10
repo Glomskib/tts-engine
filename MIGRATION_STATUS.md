@@ -38,3 +38,16 @@ All tables referenced by admin page components have corresponding migrations:
 
 ## New Migrations (Created This Session)
 None yet. Will be saved to files as needed (not auto-applied).
+
+## Applied 2026-06-10 (full-app audit — Claude/cowork, via Supabase SQL editor)
+
+Root cause of "Library doesn't save / videos don't upload / transcriber can't save":
+these migrations existed in the repo but were NEVER applied to prod.
+
+| Change | Status |
+|--------|--------|
+| `20260402000000_footage_hub.sql` (footage_items, footage_events, enums, helpers, content_items.primary_footage_id, render_jobs footage cols) | ✅ Applied, RLS enabled (service-role access only) |
+| `20260419000000_v1_create_flow.sql` (v1_clip_sets, v1_generation_events + owner RLS policies) | ✅ Applied |
+| Ad-hoc: `concepts.product_id` DROP NOT NULL; `concepts.user_id uuid` added + index | ✅ Applied (save-to-studio inserts have no product) |
+
+Saved as file: `web/supabase/migrations/20260610000000_audit_prod_catchup.sql` (idempotent re-run-safe copy).

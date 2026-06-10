@@ -17,17 +17,18 @@ const NAV = [
 export default function V1Layout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { loading, authenticated, isAdmin } = useAuth();
+  const { loading, authenticated } = useAuth();
 
+  // 2026-06-10 audit fix: admins used to be bounced from EVERY (v1) page
+  // (including /library) to /admin/today — which made the Library unreachable
+  // for Brandon ("Library doesn't save"). Admins now see the creator surface
+  // like everyone else; the full admin app is still in the sidebar/nav.
   useEffect(() => {
     if (loading) return;
     if (!authenticated) {
       router.replace('/login?redirect=' + encodeURIComponent(pathname || '/create'));
-      return;
     }
-    // Admins skip the creator surface entirely — they land in the full app.
-    if (isAdmin) router.replace('/admin/today');
-  }, [loading, authenticated, isAdmin, pathname, router]);
+  }, [loading, authenticated, pathname, router]);
 
   if (loading) {
     return (
@@ -41,8 +42,6 @@ export default function V1Layout({ children }: { children: ReactNode }) {
   }
 
   if (!authenticated) return null;
-  // Admins are being redirected to /admin/today — don't flash the creator surface.
-  if (isAdmin) return null;
 
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100">

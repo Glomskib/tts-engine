@@ -42,10 +42,16 @@ export async function POST(request: Request) {
       ? `Rewrite of ${source_url.replace('https://www.tiktok.com/', '').slice(0, 60)}`
       : `AI Rewrite — ${persona_used || 'Custom'}`;
 
+    // 2026-06-10 audit fix: prod `concepts` requires concept_title (NOT NULL,
+    // no default) alongside title, and rows were failing to insert — the
+    // Transcriber's "Save to Content Studio" 500'd for everyone. Write both
+    // title columns. (product_id was relaxed to nullable + user_id added via
+    // migration the same day.)
     const { data: concept, error: conceptErr } = await supabaseAdmin
       .from('concepts')
       .insert({
         title: conceptTitle,
+        concept_title: conceptTitle,
         core_angle: `${persona_used || 'Custom'} × ${tone_used || 'Conversational'}`,
         source_url: source_url || null,
         notes: `Generated via Transcriber AI Rewrite. Persona: ${persona_used}, Tone: ${tone_used}`,

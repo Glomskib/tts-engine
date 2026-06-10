@@ -19,8 +19,10 @@ export async function GET() {
     .limit(200);
 
   if (error) {
+    // 2026-06-10 audit: surface the real DB error so a missing table /
+    // column shows up in the response instead of an opaque "fetch_failed".
     console.error('[clips/sets GET]', error);
-    return NextResponse.json({ error: 'fetch_failed' }, { status: 500 });
+    return NextResponse.json({ error: 'fetch_failed', detail: error.message }, { status: 500 });
   }
 
   return NextResponse.json({ ok: true, sets: data ?? [] });

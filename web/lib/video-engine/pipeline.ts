@@ -548,9 +548,19 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   // for post mode, we run the retake deduper (keep the LAST take — Brandon's
   // locked decision) over the whole take and ship keep_ranges to the fleet
   // worker, which cuts the flubs and stitches the rest together.
+  // 2026-06-10 (later) — Brandon: "no jump cuts or anything that 'edits' the
+  // view." Post Maker now builds REAL editing grammar, not just a trim:
+  //   1. Silence-gap JUMP CUTS — pauses >= 0.6s between speech chunks are cut
+  //      (0.15s breathing pad kept each side), so the clip moves like a
+  //      hand-edited TikTok instead of a raw take.
+  //   2. RETAKE removal — flubbed attempts cut, last take kept (earlier fix).
+  //   3. The worker alternates a subtle punch-in per kept segment, so every
+  //      jump cut reads as an intentional edit.
+  // Opt-out: context_json.enable_jump_cuts === false.
   let postKeepRanges: Array<{ start_sec: number; end_sec: number }> | null = null;
   if (run.mode === 'post' && !alreadyAssembled) {
     try {
+      const jumpCutsOn = ((run.context_json ?? {}) as Record<string, unknown>).enable_jump_cuts !== false;
       const { data: takeChunks } = await supabaseAdmin
         .from('ve_transcript_chunks')
         .select('start_sec,end_sec,text')
@@ -560,29 +570,52 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
         const words = takeChunks.map((c) => ({
           start: Number(c.start_sec), end: Number(c.end_sec), text: String(c.text || ''),
         }));
-        const cuts = dedupeTranscriptTakes(words);
-        if (cuts.length) {
-          const wStart = Math.max(0, words[0].start - 0.2);
-          const wEnd = words[words.length - 1].end + 0.3;
-          let cursor = wStart;
-          const keeps: Array<{ start_sec: number; end_sec: number }> = [];
-          for (const c of cuts.slice().sort((a, b) => a.start_sec - b.start_sec)) {
-            const cs = Math.max(wStart, c.start_sec);
-            const ce = Math.min(wEnd, c.end_sec);
-            if (ce <= cursor) continue;
+
+        // 1. Speech spans: merge chunks separated by < GAP, cut the rest.
+        const GAP = 0.6;       // pause length that becomes a jump cut
+        const PAD = 0.15;      // breathing room kept around speech
+        let spans: Array<{ start_sec: number; end_sec: number }> = [];
+        if (jumpCutsOn) {
+          let cur = { start_sec: Math.max(0, words[0].start - PAD), end_sec: words[0].end + PAD };
+          for (let wi = 1; wi < words.length; wi++) {
+            const w = words[wi];
+            if (w.start - words[wi - 1].end >= GAP) {
+              spans.push(cur);
+              cur = { start_sec: Math.max(0, w.start - PAD), end_sec: w.end + PAD };
+            } else {
+              cur.end_sec = w.end + PAD;
+            }
+          }
+          spans.push(cur);
+        } else {
+          spans = [{ start_sec: Math.max(0, words[0].start - 0.2), end_sec: words[words.length - 1].end + 0.3 }];
+        }
+
+        // 2. Subtract retake cuts (keep the LAST take) from the spans.
+        const cuts = dedupeTranscriptTakes(words).sort((a, b) => a.start_sec - b.start_sec);
+        const keeps: Array<{ start_sec: number; end_sec: number }> = [];
+        for (const span of spans) {
+          let cursor = span.start_sec;
+          for (const c of cuts) {
+            const cs = Math.max(span.start_sec, c.start_sec);
+            const ce = Math.min(span.end_sec, c.end_sec);
+            if (ce <= cursor || cs >= span.end_sec) continue;
             if (cs > cursor + 0.25) keeps.push({ start_sec: cursor, end_sec: cs });
             cursor = Math.max(cursor, ce);
           }
-          if (wEnd > cursor + 0.25) keeps.push({ start_sec: cursor, end_sec: wEnd });
-          if (keeps.length) {
-            postKeepRanges = keeps;
-            const kept = keeps.reduce((t, k) => t + (k.end_sec - k.start_sec), 0);
-            console.log(`[ve-pipeline] post retake-dedupe run=${run.id}: ${cuts.length} flubbed take(s) removed, ${keeps.length} keep range(s), ${kept.toFixed(1)}s kept`);
-          }
+          if (span.end_sec > cursor + 0.25) keeps.push({ start_sec: cursor, end_sec: span.end_sec });
+        }
+
+        const kept = keeps.reduce((t, k) => t + (k.end_sec - k.start_sec), 0);
+        // Only ship a multi-range edit when there's an actual edit to make
+        // (a cut happened) and enough material survives.
+        if (keeps.length && kept >= 2 && (keeps.length > 1 || cuts.length > 0)) {
+          postKeepRanges = keeps;
+          console.log(`[ve-pipeline] post edit-plan run=${run.id}: ${keeps.length} segment(s), ${cuts.length} retake cut(s), ${kept.toFixed(1)}s kept (jump_cuts=${jumpCutsOn})`);
         }
       }
     } catch (e) {
-      console.warn('[ve-pipeline] retake dedupe failed (rendering scored window):', (e as Error).message);
+      console.warn('[ve-pipeline] post edit-plan failed (rendering scored window):', (e as Error).message);
     }
   }
 
@@ -675,6 +708,11 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
       end_sec: postKeepRanges ? postKeepRanges[postKeepRanges.length - 1].end_sec : Number(cand.end_sec),
       // Multi-range edit: worker cuts the flubbed takes and stitches these.
       keep_ranges: postKeepRanges ?? undefined,
+      // Alternating subtle zoom per segment so each jump cut reads as an
+      // intentional edit. Opt-out: context_json.enable_punch_ins === false.
+      punch_in: postKeepRanges
+        ? (((run.context_json ?? {}) as Record<string, unknown>).enable_punch_ins !== false)
+        : undefined,
       user_id: run.user_id,
       run_id: run.id,
       clip_id: renderedId,

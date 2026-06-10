@@ -288,15 +288,24 @@ async function renderJob(job) {
 
       const parts = [];
       if (ranges) {
-        // Retake edit: cut each keep-range, stitch with concat, THEN style.
+        // Jump-cut / retake edit: cut each keep-range, alternate a subtle
+        // punch-in (1.08x on odd segments) so every cut reads as intentional,
+        // normalize each segment to 1080x1920, stitch with concat, THEN
+        // captions + fades on the stitched timeline.
+        const punch = spec.punch_in !== false && ranges.length >= 2;
+        const scalePad = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black';
+        const punchCrop = 'crop=iw/1.08:ih/1.08:(iw-iw/1.08)/2:(ih-ih/1.08)/2,';
         ranges.forEach((r, i) => {
-          parts.push(`[0:v]trim=start=${r.s.toFixed(3)}:duration=${(r.e - r.s).toFixed(3)},setpts=PTS-STARTPTS[kv${i}]`);
+          const zoom = punch && i % 2 === 1 ? punchCrop : '';
+          parts.push(`[0:v]trim=start=${r.s.toFixed(3)}:duration=${(r.e - r.s).toFixed(3)},setpts=PTS-STARTPTS,${zoom}${scalePad}[kv${i}]`);
           parts.push(`[0:a]atrim=start=${r.s.toFixed(3)}:duration=${(r.e - r.s).toFixed(3)},asetpts=PTS-STARTPTS[ka${i}]`);
         });
         parts.push(`${ranges.map((_, i) => `[kv${i}][ka${i}]`).join('')}concat=n=${ranges.length}:v=1:a=1[vcat][acat]`);
-        parts.push(`[vcat]${vf}[vbase]`);
+        // Captions + fades AFTER the stitch (timing already remapped above).
+        const postVf = `${assFilter ? assFilter.slice(1) + ',' : ''}fade=t=in:st=0:d=0.2${foDur > 0 ? `,fade=t=out:st=${foStart}:d=${foDur.toFixed(3)}` : ''}`;
+        parts.push(`[vcat]${postVf}[vbase]`);
         parts.push(`[acat]${af}[abase]`);
-        console.log(`[slice-worker] retake edit: stitching ${ranges.length} keep range(s), ${len.toFixed(1)}s total`);
+        console.log(`[slice-worker] edit: ${ranges.length} segment(s) stitched, punch_in=${punch}, ${len.toFixed(1)}s total`);
       } else {
         parts.push(`[0:v]trim=start=${start.toFixed(3)}:duration=${len.toFixed(3)},setpts=PTS-STARTPTS,${vf}[vbase]`);
         parts.push(`[0:a]atrim=start=${start.toFixed(3)}:duration=${len.toFixed(3)},asetpts=PTS-STARTPTS,${af}[abase]`);

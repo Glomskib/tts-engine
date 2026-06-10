@@ -21,7 +21,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
   Sparkles, Camera, Library, CreditCard, Menu, X, User,
-  PenLine, Mic,
+  PenLine, Mic, Clapperboard,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -37,6 +37,12 @@ type NavItem = { href: string; label: string; Icon: typeof Sparkles };
 // this refactor).
 const APP_LINKS: NavItem[] = [
   { href: '/create',   label: 'Create',   Icon: Sparkles },
+  // 2026-06-10 Brandon: "My Clips is too difficult for users to find."
+  // The finished-video library was only reachable from the admin sidebar
+  // (which creators never see) and the mobile bottom bar. It's the #1
+  // post-create destination — second slot in the main nav, right where a
+  // user looks after making something.
+  { href: '/clips',    label: 'My Clips', Icon: Clapperboard },
   { href: '/avatars',  label: 'Avatars',  Icon: User },
   { href: '/studio',   label: 'Studio',   Icon: Camera },
   { href: '/library',  label: 'Library',  Icon: Library },

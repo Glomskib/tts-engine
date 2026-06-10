@@ -157,6 +157,20 @@ function UploadZone({ onUploaded }: { onUploaded: () => void }) {
   const [uploading, setUploading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // 2026-06-10 Brandon: "The goal is to have footage auto edited and not need
+  // to edit when using that feature." Toggle (default ON, remembered) — every
+  // upload immediately queues an auto-edit job, so footage lands edited.
+  const [autoEdit, setAutoEdit] = useState(true);
+  useEffect(() => {
+    try { setAutoEdit(localStorage.getItem('ff-auto-edit-uploads') !== 'off'); } catch {}
+  }, []);
+  const toggleAutoEdit = () => {
+    setAutoEdit((v) => {
+      try { localStorage.setItem('ff-auto-edit-uploads', v ? 'off' : 'on'); } catch {}
+      return !v;
+    });
+  };
+
   const handleFiles = async (files: FileList) => {
     if (!files.length) return;
     setUploading(true);
@@ -181,6 +195,13 @@ function UploadZone({ onUploaded }: { onUploaded: () => void }) {
             headers: { 'Content-Type': fileArr[i].type || 'video/mp4' },
             body: fileArr[i],
           });
+          // Auto-edit ON → queue the edit the moment the bytes land.
+          // Server enforces plan eligibility; a 403 just leaves it raw.
+          if (autoEdit && u.footage_item_id) {
+            await fetch(`/api/footage/${u.footage_item_id}/auto-edit`, { method: 'POST' })
+              .then((r) => { if (!r.ok) console.warn('auto-edit queue skipped', r.status); })
+              .catch(() => {});
+          }
         })
       );
       onUploaded();
@@ -208,6 +229,22 @@ function UploadZone({ onUploaded }: { onUploaded: () => void }) {
       ) : (
         <><Upload className="w-6 h-6 text-zinc-600" /><p className="text-sm text-zinc-400">Drop clips here or click to upload</p><p className="text-xs text-zinc-600">Up to 6 files · mp4, mov, webm</p></>
       )}
+      {/* Auto-edit toggle — stopPropagation so tapping it doesn't open the file picker */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); toggleAutoEdit(); }}
+        aria-pressed={autoEdit}
+        className={`mt-1 flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition-colors ${
+          autoEdit
+            ? 'border-teal-500/60 bg-teal-500/10 text-teal-300'
+            : 'border-zinc-700 bg-zinc-900 text-zinc-400 hover:border-zinc-500'
+        }`}
+      >
+        <span className={`w-8 h-4.5 min-h-4 rounded-full flex items-center px-0.5 ${autoEdit ? 'bg-teal-500 justify-end' : 'bg-zinc-700 justify-start'}`}>
+          <span className="w-3.5 h-3.5 bg-white rounded-full shadow" />
+        </span>
+        {autoEdit ? 'Auto-edit ON — uploads come back edited' : 'Auto-edit OFF — uploads stay raw'}
+      </button>
     </div>
   );
 }

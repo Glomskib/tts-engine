@@ -687,7 +687,12 @@ export default function CreatePage() {
 
           {entry === 'record' && (
             <div className="bg-gray-900 border border-gray-700 rounded-lg p-4">
-              <video ref={videoPreviewRef} className="w-full aspect-[9/16] bg-black rounded mb-3" muted playsInline autoPlay />
+              {/* 2026-06-10 Brandon: "camera shows things backwards." The raw
+                  front-camera feed is un-mirrored, which feels reversed when
+                  you move. Mirror the PREVIEW only (like every selfie cam) —
+                  the recorded file stays un-flipped so on-screen text in the
+                  final video reads correctly. */}
+              <video ref={videoPreviewRef} className="w-full aspect-[9/16] bg-black rounded mb-3 -scale-x-100" muted playsInline autoPlay />
               {!recording ? (
                 <button
                   onClick={startRecording}

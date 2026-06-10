@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { PERSONAS } from '@/lib/personas';
 import { Copy, Check, Sparkles, ArrowRight, ChevronDown, Loader2, Bookmark, Zap } from 'lucide-react';
@@ -153,6 +153,24 @@ export default function ScriptGeneratorPage() {
   // FAQ state
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
+  // Brand voice (2026-06-10 — Brandon: "brands don't have a place on the
+  // script generator anymore"). Logged-in users with saved Brands get a
+  // picker; the API writes the script in that brand's voice + compliance.
+  const [brands, setBrands] = useState<Array<{ id: string; name: string }>>([]);
+  const [selectedBrand, setSelectedBrand] = useState<string>('');
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/brands', { credentials: 'include' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => {
+        if (alive && j?.ok && Array.isArray(j.data)) {
+          setBrands(j.data.map((b: { id: string; name: string }) => ({ id: b.id, name: b.name })));
+        }
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
   const resultRef = useRef<HTMLDivElement>(null);
 
   const personas = PERSONAS.filter((p) => FEATURED_PERSONAS.includes(p.id));
@@ -177,6 +195,7 @@ export default function ScriptGeneratorPage() {
           persona_id: selectedPersona || undefined,
           risk_tier: selectedTone,
           platform: selectedPlatform,
+          brand_id: selectedBrand || undefined,
         }),
       });
 
@@ -428,6 +447,29 @@ export default function ScriptGeneratorPage() {
                 Sign up free for all 20+ personas
               </Link>
             </p>
+
+            {/* Brand voice — only renders for logged-in users with saved Brands */}
+            {brands.length > 0 && (
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-zinc-300 mb-2">
+                  Write in a brand&apos;s voice
+                </label>
+                <select
+                  value={selectedBrand}
+                  onChange={(e) => setSelectedBrand(e.target.value)}
+                  className="w-full sm:w-80 bg-zinc-900/70 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-zinc-200 focus:border-violet-500/50 focus:outline-none"
+                >
+                  <option value="">No brand — just the persona</option>
+                  {brands.map((b) => (
+                    <option key={b.id} value={b.id}>{b.name}</option>
+                  ))}
+                </select>
+                <p className="text-xs text-zinc-600 mt-1.5">
+                  Uses the tone of voice, audience, and compliance rules you saved in{' '}
+                  <Link href="/admin/brands" className="text-violet-400 hover:text-violet-300">Brands</Link>.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* ================================================================ */}

@@ -180,6 +180,7 @@ export async function POST(request: Request) {
     persona_id?: string;
     risk_tier?: string;
     creator_style_id?: string;
+    brand_id?: string;
     platform?: string;
   };
   try {
@@ -295,6 +296,34 @@ export async function POST(request: Request) {
     if (ctx) intelligenceSection = '\n' + ctx;
   } catch { /* non-fatal */ }
 
+  // --- Brand voice (2026-06-10, Brandon: "brands don't have a place on the
+  // script generator anymore"). Logged-in users can pass brand_id; we load
+  // THEIR brand and write the script in that brand's voice, honoring
+  // compliance notes. Non-fatal: a missing/foreign brand just skips the block.
+  let brandSection = '';
+  if (userId && body.brand_id && typeof body.brand_id === 'string') {
+    try {
+      const { data: brand } = await supabaseAdmin
+        .from('brands')
+        .select('name, description, tone_of_voice, target_audience, guidelines, brand_profile_json')
+        .eq('id', body.brand_id)
+        .eq('user_id', userId)
+        .single();
+      if (brand) {
+        const bp = (brand.brand_profile_json ?? {}) as { key_angles?: string[]; claims_to_avoid?: string | null; compliance_notes?: string | null };
+        brandSection = `\nBRAND VOICE — this script represents the brand "${brand.name}". Stay strictly on-brand:` +
+          (brand.description ? `\n- About the brand: ${String(brand.description).slice(0, 600)}` : '') +
+          (brand.tone_of_voice ? `\n- Tone of voice: ${String(brand.tone_of_voice).slice(0, 600)}` : '') +
+          (brand.target_audience ? `\n- Target audience: ${String(brand.target_audience).slice(0, 400)}` : '') +
+          (brand.guidelines ? `\n- Brand guidelines: ${String(brand.guidelines).slice(0, 600)}` : '') +
+          (bp.key_angles?.length ? `\n- Proven angles to lean on: ${bp.key_angles.slice(0, 5).join('; ')}` : '') +
+          (bp.claims_to_avoid ? `\n- NEVER make these claims: ${String(bp.claims_to_avoid).slice(0, 400)}` : '') +
+          (bp.compliance_notes ? `\n- Compliance notes (hard rules): ${String(bp.compliance_notes).slice(0, 400)}` : '') +
+          `\n`;
+      }
+    } catch { /* non-fatal — generate without brand voice */ }
+  }
+
   // --- Build prompt ---
   const personaSection = persona
     ? `CREATOR VOICE: Write as a "${persona.name}" — ${persona.fullDescription}. Tone: ${persona.tone}. Style: ${persona.style}.`
@@ -320,7 +349,7 @@ PRODUCT / TOPIC: "${productName}"
 ${productDescription ? `DESCRIPTION: ${productDescription}` : ""}
 
 ${personaSection}
-${platformSection}
+${brandSection}${platformSection}
 SELECTED TONE FOR BODY/CTA: ${riskTier} — ${TIER_PROMPTS[riskTier]}
 ${creatorStyleSection}${intelligenceSection}
 CRITICAL RULES:

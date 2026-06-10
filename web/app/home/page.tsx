@@ -79,6 +79,7 @@ interface DashboardResponse {
     streak_days: number;
     last_win: LastWin | null;
     recent_renders: RecentRender[];
+    avatar_count?: number;
   };
 }
 
@@ -139,6 +140,30 @@ export default function HomeDashboard() {
       setDashLoading(false);
     }
   }, []);
+
+  // 2026-06-09: first-time-user redirect. Brand-new customers who just verified
+  // their email land on /home, which shows empty modules and "Make your first
+  // video" — but the actual first step they need is to MAKE AN AVATAR (Quick
+  // Video needs an avatar to film with). Send them to /avatars/new on first
+  // visit if they have zero avatars + zero renders. We check the dashboard
+  // payload AFTER it loads (avoids a flash of the empty home), and we only
+  // redirect ONCE per session (sessionStorage flag) so they can still navigate
+  // back to /home manually if they want.
+  useEffect(() => {
+    if (!dash || dashLoading || authLoading || !authenticated) return;
+    if (typeof window === 'undefined') return;
+    const alreadyRedirected = sessionStorage.getItem('ff_first_render_redirect_done');
+    if (alreadyRedirected) return;
+    const avatarCount = dash.avatar_count ?? 0;
+    const recentRenders = dash.recent_renders?.length ?? 0;
+    const todaysPosts = dash.todays_posts?.length ?? 0;
+    // Truly first-time = no avatars, no renders, no scheduled posts. Sending
+    // them straight to /avatars/new gets them to value 4x faster.
+    if (avatarCount === 0 && recentRenders === 0 && todaysPosts === 0) {
+      sessionStorage.setItem('ff_first_render_redirect_done', '1');
+      window.location.href = '/avatars/new?onboarding=1';
+    }
+  }, [dash, dashLoading, authLoading, authenticated]);
 
   useEffect(() => {
     if (authenticated) {

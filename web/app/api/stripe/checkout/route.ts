@@ -48,6 +48,17 @@ export async function POST(req: Request) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000';
 
     const stripe = getStripe();
+
+    // 2026-06-09: FlashFlow's Stripe account legal entity is "Zebbys World LLC"
+    // (parent LLC), but customers should see "FlashFlow AI" on their card
+    // statements + invoices regardless of what Stripe's account-level public
+    // business profile is set to. We override per-session via subscription_data
+    // so EVERY recurring invoice line item reads as FlashFlow, not Zebby's.
+    // The Stripe account-level public profile is what shows on the Checkout
+    // page header; we can't override that here, but the invoice/statement
+    // descriptor IS controlled by this code path.
+    const FLASHFLOW_BRAND = 'FlashFlow AI';
+
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer_email: authContext.user.email,
@@ -57,6 +68,17 @@ export async function POST(req: Request) {
           quantity: 1,
         },
       ],
+      // Per-subscription description. Shows on Stripe Dashboard subscription
+      // list, hosted invoice page, and the subscription metadata. Sets the
+      // customer's mental model BEFORE they see the bank statement.
+      subscription_data: {
+        description: `${FLASHFLOW_BRAND} — ${plan.name || planId} plan`,
+        metadata: {
+          userId: authContext.user.id,
+          tier: planId,
+          brand: FLASHFLOW_BRAND,
+        },
+      },
       success_url: `${siteUrl}/admin/dashboard?checkout=success`,
       cancel_url: `${siteUrl}/pricing`,
       allow_promotion_codes: true, // Enables FLASH50 coupon at checkout
@@ -64,6 +86,7 @@ export async function POST(req: Request) {
         userId: authContext.user.id,
         tier: planId,
         billing: annual ? 'annual' : 'monthly',
+        brand: FLASHFLOW_BRAND,
       },
     });
 

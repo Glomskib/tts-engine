@@ -105,6 +105,76 @@ export async function GET() {
       : 'STRIPE_WEBHOOK_SECRET_CREATE missing — webhook accepts unsigned events (forgery risk)',
   });
 
+  // HeyGen API credit balance check — 2026-06-09. Every avatar video render
+  // consumes HeyGen API credits. If the balance hits zero, the entire Quick
+  // Video pipeline silently fails for every user with a clear-but-too-late
+  // 'Insufficient credit. This operation requires "api" credits.' error.
+  //
+  // We check the balance and alarm if low so Brandon sees "HeyGen balance
+  // low" on /api/health BEFORE customers see a failure on /studio/oneprompt.
+  //
+  // HeyGen credits API: GET /v2/user/remaining_quota
+  //   { error: null, data: { remaining_quota: number /* in 1/1000 credits */ } }
+  // 1 quota unit = ~1 second of video. ~$0.30 per minute = ~$0.005/sec.
+  // Alert thresholds: <300 (~5min video left) = fail, <1500 (~25min) = warn.
+  if (process.env.HEYGEN_API_KEY) {
+    const heygenStart = Date.now();
+    try {
+      const r = await fetch('https://api.heygen.com/v2/user/remaining_quota', {
+        method: 'GET',
+        headers: { 'X-Api-Key': process.env.HEYGEN_API_KEY, 'Accept': 'application/json' },
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!r.ok) {
+        checks.push({
+          name: 'heygen_balance',
+          status: 'fail',
+          message: `HeyGen API returned ${r.status} — credit balance unknown, render pipeline at risk`,
+          responseTime: Date.now() - heygenStart,
+        });
+      } else {
+        const body = await r.json().catch(() => ({}));
+        const remaining = body?.data?.remaining_quota ?? body?.remaining_quota ?? null;
+        if (typeof remaining !== 'number') {
+          checks.push({
+            name: 'heygen_balance',
+            status: 'fail',
+            message: 'HeyGen API responded but balance field missing — schema may have changed',
+            responseTime: Date.now() - heygenStart,
+          });
+        } else {
+          // Estimate remaining video minutes for the message. HeyGen's
+          // remaining_quota field is in credit units; the conversion to
+          // seconds depends on plan, but ~60 credits = ~1 min is typical.
+          const estMinutes = Math.floor(remaining / 60);
+          let hgStatus: 'pass' | 'fail' = 'pass';
+          let hgMsg: string | undefined = `HeyGen balance: ${remaining} credits (~${estMinutes} min of video)`;
+          if (remaining < 300) {
+            hgStatus = 'fail';
+            hgMsg = `HeyGen balance LOW: ${remaining} credits (~${estMinutes} min). Top up at app.heygen.com/settings/subscription before customers hit a failure.`;
+          } else if (remaining < 1500) {
+            hgMsg = `HeyGen balance warning: ${remaining} credits (~${estMinutes} min). Top up soon at app.heygen.com/settings/subscription.`;
+          }
+          checks.push({
+            name: 'heygen_balance',
+            status: hgStatus,
+            message: hgMsg,
+            responseTime: Date.now() - heygenStart,
+          });
+        }
+      }
+    } catch (err) {
+      checks.push({
+        name: 'heygen_balance',
+        status: 'fail',
+        message: err instanceof Error
+          ? `HeyGen balance check failed: ${err.message}`
+          : 'HeyGen balance check failed',
+        responseTime: Date.now() - heygenStart,
+      });
+    }
+  }
+
   // Queue depth + oldest-pending age. 2026-05-31: now checks BOTH queue
   // systems (ve_runs + render_jobs). Before, this only checked ve_runs and
   // reported "worker offline" while the mini was actively processing

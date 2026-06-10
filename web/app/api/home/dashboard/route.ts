@@ -261,6 +261,21 @@ export async function GET(request: Request) {
     recentRenders = [];
   }
 
+  // 2026-06-09: avatar_count. Used by /home to detect a first-time user (zero
+  // avatars + zero renders + zero scheduled posts) and redirect them to
+  // /avatars/new instead of the empty dashboard. Cheap count-only query.
+  let avatarCount = 0;
+  try {
+    const { count } = await supabaseAdmin
+      .from('brand_profiles')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('is_avatar', true);
+    avatarCount = count ?? 0;
+  } catch {
+    avatarCount = 0;
+  }
+
   return NextResponse.json({
     ok: true,
     data: {
@@ -268,6 +283,7 @@ export async function GET(request: Request) {
       streak_days: streakDays,
       last_win: lastWin,
       recent_renders: recentRenders,
+      avatar_count: avatarCount,
     },
     correlation_id: correlationId,
   });

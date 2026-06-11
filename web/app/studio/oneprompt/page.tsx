@@ -99,7 +99,9 @@ export default function OnePromptPage() {
         const j = await r.json() as { ok: boolean; job?: Job };
         if (j.ok && j.job) {
           setJob(j.job);
-          if (['completed','failed'].includes(j.job.status)) clearInterval(id);
+          // The generation_jobs worker writes status 'complete' (not
+          // 'completed') — without it here the poll loop never stopped.
+          if (['complete','completed','failed'].includes(j.job.status)) clearInterval(id);
         }
       } catch {}
     }, 3500);
@@ -272,7 +274,8 @@ export default function OnePromptPage() {
               </div>
             )}
 
-            {job.status === 'completed' && !videoUrl && (
+            {/* Worker writes 'complete'; accept both spellings for old rows. */}
+            {['complete', 'completed'].includes(job.status) && !videoUrl && (
               <div className="text-sm text-zinc-400 text-center">Finished — find it in your Library.</div>
             )}
           </div>

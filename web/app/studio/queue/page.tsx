@@ -11,6 +11,10 @@ interface Row {
   completed_at?: string | null;
   target_clip_count?: number;
   context_json?: { progress?: number; final_url?: string; thumb_url?: string; describe?: string };
+  /** Rendered outputs from ve_rendered_clips — GET /api/create/jobs attaches
+   *  these. output_url is where the worker actually puts the playable video
+   *  (it never writes context_json.final_url). */
+  clips?: { output_url: string | null; status: string }[];
   error_message?: string | null;
 }
 
@@ -26,9 +30,11 @@ export default function StudioQueuePage() {
         const r = await fetch('/api/create/jobs', { cache: 'no-store' });
         if (r.status === 401) { setAuthErr(true); setLoading(false); return; }
         if (!r.ok) return;
-        const j = await r.json() as { rows?: Row[]; data?: Row[] };
+        // GET /api/create/jobs returns { ok, jobs } — `jobs` was missing here,
+        // so this page always rendered "No clips yet" even with finished runs.
+        const j = await r.json() as { jobs?: Row[]; rows?: Row[]; data?: Row[] };
         if (!alive) return;
-        setRows(j.rows || j.data || []);
+        setRows(j.jobs || j.rows || j.data || []);
       } finally {
         if (alive) setLoading(false);
       }
@@ -67,7 +73,9 @@ export default function StudioQueuePage() {
           {rows.map(it => {
             const ctx = it.context_json || {};
             const progress = ctx.progress || 0;
-            const finalUrl = ctx.final_url;
+            // ctx.final_url kept first for legacy rows; the render worker
+            // actually stores the video on ve_rendered_clips.output_url.
+            const finalUrl = ctx.final_url || it.clips?.find(c => c.output_url)?.output_url;
             const thumb = ctx.thumb_url;
             return (
               <div key={it.id} className="flex items-center gap-3 p-3 rounded-xl bg-zinc-900 border border-white/10">
@@ -102,7 +110,9 @@ export default function StudioQueuePage() {
   );
 }
 
-function isDone(s: string) { return ['ready', 'done', 'completed'].includes(s); }
+// 'complete' is the status web/scripts/render-worker.ts writes on success —
+// it was missing here, so finished runs spun at "Processing" forever.
+function isDone(s: string) { return ['complete', 'ready', 'done', 'completed'].includes(s); }
 function isFailed(s: string) { return ['failed', 'error'].includes(s); }
 function statusLabel(s: string, p: number) {
   if (isDone(s)) return 'Ready';

@@ -398,7 +398,17 @@ export default function StudioPage() {
       try {
         const r = await fetch('/api/create/jobs', { cache: 'no-store' });
         if (!r.ok) return;
-        const j = await r.json() as { ok: boolean; jobs?: { id: string; status: string; context_json?: { progress?: number; final_url?: string; thumb_url?: string }; error_message?: string }[]; rows?: typeof j.jobs; data?: typeof j.jobs };
+        // Shape matches GET /api/create/jobs: each job carries its rendered
+        // clips (ve_rendered_clips.output_url). The render worker never writes
+        // context_json.final_url — clips[].output_url is the real video URL.
+        type JobRow = {
+          id: string;
+          status: string;
+          context_json?: { progress?: number; final_url?: string; thumb_url?: string };
+          clips?: { output_url: string | null; status: string }[];
+          error_message?: string;
+        };
+        const j = await r.json() as { ok: boolean; jobs?: JobRow[]; rows?: JobRow[]; data?: JobRow[] };
         const rows = j.jobs || j.rows || j.data || [];
         setClips(prev => prev.map(p => {
           if (!p.run_id) return p;
@@ -406,9 +416,13 @@ export default function StudioPage() {
           if (!row) return p;
           const ctx = row.context_json || {};
           const progress = typeof ctx.progress === 'number' ? ctx.progress : p.progress;
-          const finalUrl = ctx.final_url;
+          // ctx.final_url kept first for any legacy rows; the worker actually
+          // delivers the URL via clips[].output_url.
+          const finalUrl = ctx.final_url || row.clips?.find(c => c.output_url)?.output_url || undefined;
           const thumbUrl = ctx.thumb_url;
-          if (['done', 'ready', 'completed'].includes(row.status)) {
+          // 'complete' is what web/scripts/render-worker.ts writes on success.
+          // It was missing here, so clips sat at "Polishing 100%" forever.
+          if (['complete', 'done', 'ready', 'completed'].includes(row.status)) {
             return { ...p, status: 'ready', progress: 100, final_url: finalUrl, thumb_url: thumbUrl };
           }
           if (['failed', 'error'].includes(row.status)) {

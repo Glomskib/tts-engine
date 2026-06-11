@@ -222,7 +222,9 @@ export const NAV_SECTIONS: NavSection[] = [
     subscriptionType: 'saas',
     items: [
       { name: 'Products', href: '/admin/products', icon: Package, subtitle: 'Catalog the products you promote so AI can write better scripts', featureKey: 'product_catalog', tourId: 'nav-products' },
-      { name: 'Brands', href: '/admin/brands', icon: Building, subtitle: 'Manage every brand workspace from a single FlashFlow login', minPlan: 'creator_pro' },
+      // 2026-06-10 Brandon: open to ALL plans — brand voice now powers the
+      // script generator, so every user needs a way to create a brand.
+      { name: 'Brands', href: '/admin/brands', icon: Building, subtitle: 'Manage every brand workspace from a single FlashFlow login' },
       { name: 'Brand Briefs', href: '/admin/briefs', icon: FileText, subtitle: 'Track what each brand has asked you to deliver and when its due', minPlan: 'creator_pro' },
       { name: 'Monthly Deals', href: '/admin/retainers', icon: Target, subtitle: 'See your recurring brand deals, what is owed, and renewal dates', minPlan: 'creator_pro', badge: 'Beta' },
       { name: 'Campaigns', href: '/admin/campaigns', icon: Rocket, subtitle: 'Plan and run bulk content campaigns across multiple posts' },

@@ -343,7 +343,9 @@ export const PLANS = {
     limits: {
       scriptsPerMonth: 5,
       products: 3,
-      brands: 0,
+      // 2026-06-10 Brandon: Brands open to all plans (brand voice powers the
+      // script generator). Free gets 1 brand.
+      brands: 1,
       personas: 0,          // built-in only
       scriptLibrary: false,
       scriptOfTheDay: false,
@@ -375,7 +377,8 @@ export const PLANS = {
     limits: {
       scriptsPerMonth: 50,
       products: 20,
-      brands: 0,
+      // 2026-06-10: Brands open to all plans — Lite gets 3.
+      brands: 3,
       personas: 0,          // built-in only
       scriptLibrary: true,
       scriptOfTheDay: false,

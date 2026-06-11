@@ -154,7 +154,10 @@ const MODE_DEFAULTS: Record<Mode, {
     vibe: 'real',
     maxSources: 5,
     minSources: 1,
-    promptPlaceholder: 'What\'s the post about? e.g. "review of my new gravel bike — focus on the climb at the end"',
+    // Instruction engine (2026-06-11): this text is parsed into the ACTUAL
+    // edit plan (cuts/zooms/captions/B-roll/music/length), so the placeholder
+    // promises exactly that — no more "describe it and we'll just rank by it".
+    promptPlaceholder: 'Tell the editor anything: "cut the rambling intro, no music, big captions, keep it under 30s, show kitchen b-roll"',
   },
   clip: {
     label: 'Clip Picker',
@@ -219,7 +222,9 @@ export default function CreatePage() {
     setClipCount(typeof d.clipCount === 'number' ? d.clipCount : MODE_DEFAULTS[m].clipCount);
     setAspectRatios(Array.isArray(d.aspectRatios) && d.aspectRatios.length ? d.aspectRatios as string[] : MODE_DEFAULTS[m].aspectRatios);
     setCaptionStyle(typeof d.captionStyle === 'string' && d.captionStyle ? d.captionStyle : MODE_DEFAULTS[m].captionStyle);
-    setVibe(typeof d.vibe === 'string' && d.vibe ? d.vibe : MODE_DEFAULTS[m].vibe);
+    // `as Vibe` — saved defaults round-trip through localStorage as plain
+    // strings; values only ever come from the VIBES list + 'custom'.
+    setVibe(typeof d.vibe === 'string' && d.vibe ? (d.vibe as Vibe) : MODE_DEFAULTS[m].vibe);
     if (typeof d.customVibe === 'string' && d.customVibe) setCustomVibe(d.customVibe);
     setEnableBroll(d.enableBroll === true);
     setEnableMusic(d.enableMusic === true);
@@ -853,6 +858,11 @@ export default function CreatePage() {
         {/* 2 · Describe */}
         <Section title="2 · What do you want?">
           <DescribeBox value={describe} onChange={setDescribe} placeholder={defaults.promptPlaceholder} />
+          {/* Post Maker only — the instruction engine runs in the post
+              edit-plan path, so only promise it where it's true. */}
+          {mode === 'post' && (
+            <p className="mt-2 text-xs text-teal-400/80">These instructions actually drive the edit.</p>
+          )}
         </Section>
 
         {/* 3 · Vibe */}
@@ -1344,6 +1354,10 @@ interface JobStatus {
     fillers_cut?: number;
     broll?: number;
     music?: boolean;
+    // Instruction engine (2026-06-11): which typed asks were executed,
+    // plus anything understood but not actionable.
+    instructions_applied?: string[];
+    instruction_notes?: string;
   } | null;
   error_message?: string | null;
 }
@@ -1565,6 +1579,18 @@ function JobProgress({ mode, jobId, onNewJob }: { mode: Mode; jobId: string; onN
               <div className="text-sm text-zinc-300 leading-snug">
                 {parts.length > 0 ? parts.join(' · ') : 'Clean take — edge trim + captions only'}
               </div>
+              {/* Instruction-engine receipt — proof the "What do you want?"
+                  text drove the edit. Only renders when instructions were
+                  parsed AND something was actually applied. */}
+              {r.instructions_applied && r.instructions_applied.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-gray-800">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-teal-400 mb-1.5">Your instructions, applied</div>
+                  <div className="text-sm text-zinc-300 leading-snug">{r.instructions_applied.join(' · ')}</div>
+                  {r.instruction_notes && (
+                    <div className="text-xs text-gray-500 mt-1.5 italic leading-snug">{r.instruction_notes}</div>
+                  )}
+                </div>
+              )}
             </div>
           );
         })()}

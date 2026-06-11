@@ -1034,6 +1034,11 @@ export default function CreatePage() {
               : `${clipCount} clip${clipCount === 1 ? '' : 's'} × ${aspectRatios.length} aspect${aspectRatios.length === 1 ? '' : 's'} · sources auto-delete after rendering`}
           </div>
         </div>
+
+        {/* Your videos — live queue so everyone knows where each video's at
+            without digging through /clips. Only shown on the form view; the
+            JobProgress view already tracks the active job in detail. */}
+        <RecentJobs />
       </div>
     </div>
   );
@@ -1180,6 +1185,147 @@ function DescribeBox({ value, onChange, placeholder }: { value: string; onChange
       >
         <Mic className="w-4 h-4" />
       </button>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────
+// Your videos — the live queue. Everyone knows where every video's at
+// without leaving /create or pinging Brandon "is it done yet?".
+// ──────────────────────────────────────────────────────────────────────
+
+interface QueueJob {
+  id: string;
+  status: string;
+  created_at: string;
+  error_message?: string | null;
+  mode?: string | null;
+  clips?: Array<{ output_url: string | null; status: string }>;
+}
+
+/** ve_runs.status → plain words. These are the statuses the pipeline actually
+ *  sets (created → transcribing → analyzing → assembling → rendering →
+ *  complete | failed); 'ingesting' kept defensively for link-sourced runs. */
+const QUEUE_STATUS: Record<string, { label: string; cls: string }> = {
+  created:      { label: 'Preparing',           cls: 'bg-zinc-800 text-zinc-300 border-zinc-700' },
+  ingesting:    { label: 'Preparing',           cls: 'bg-zinc-800 text-zinc-300 border-zinc-700' },
+  transcribing: { label: 'Listening',           cls: 'bg-teal-900/40 text-teal-300 border-teal-700/50' },
+  analyzing:    { label: 'Choosing the cut',    cls: 'bg-teal-900/40 text-teal-300 border-teal-700/50' },
+  assembling:   { label: 'Editing & rendering', cls: 'bg-teal-900/40 text-teal-300 border-teal-700/50' },
+  rendering:    { label: 'Editing & rendering', cls: 'bg-teal-900/40 text-teal-300 border-teal-700/50' },
+  complete:     { label: 'Done ✓',              cls: 'bg-green-900/40 text-green-300 border-green-700/50' },
+  failed:       { label: 'Failed',              cls: 'bg-red-900/40 text-red-300 border-red-700/50' },
+};
+
+function relativeTime(iso: string): string {
+  const sec = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 1000));
+  if (sec < 60) return 'just now';
+  const min = Math.floor(sec / 60);
+  if (min < 60) return `${min}m ago`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}h ago`;
+  return `${Math.floor(hr / 24)}d ago`;
+}
+
+function RecentJobs() {
+  const [jobs, setJobs] = useState<QueueJob[]>([]);
+  const [workerOnline, setWorkerOnline] = useState<boolean | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  const [retryingId, setRetryingId] = useState<string | null>(null);
+
+  // 8s poll — slow enough to be cheap, fast enough that a stage change shows
+  // up before the user wonders if the queue is frozen.
+  useEffect(() => {
+    let active = true;
+    const load = async () => {
+      try {
+        const r = await fetch('/api/create/jobs?limit=8', { cache: 'no-store' });
+        const j = await r.json();
+        if (!active || !j?.ok) return;
+        setJobs(Array.isArray(j.jobs) ? (j.jobs as QueueJob[]) : []);
+        if (typeof j.worker_online === 'boolean') setWorkerOnline(j.worker_online);
+        setLoaded(true);
+      } catch { /* transient network error — next poll recovers */ }
+    };
+    void load();
+    const t = setInterval(load, 8000);
+    return () => { active = false; clearInterval(t); };
+  }, []);
+
+  const retry = async (id: string) => {
+    setRetryingId(id);
+    try {
+      // Existing retry endpoint — resets the run to 'created' so the worker
+      // tick picks it back up. Optimistically flip the row so the user sees
+      // movement immediately; the next poll corrects if it didn't take.
+      const r = await fetch(`/api/create/jobs/${encodeURIComponent(id)}`, { method: 'POST' });
+      if (r.ok) {
+        setJobs((prev) => prev.map((j) => (j.id === id ? { ...j, status: 'created', error_message: null } : j)));
+      }
+    } catch { /* next poll shows the truth */ }
+    setRetryingId(null);
+  };
+
+  // Nothing to show until the first fetch lands AND there's history — a brand
+  // new user shouldn't see an empty "Your videos" shell.
+  if (!loaded || jobs.length === 0) return null;
+
+  return (
+    <div className="mt-8">
+      <h2 className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">Your videos</h2>
+
+      {workerOnline === false && (
+        <div className="mb-3 bg-amber-950/40 border border-amber-700/50 rounded-lg px-3 py-2 text-xs text-amber-200 flex items-start gap-2">
+          <AlertTriangle className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
+          <span>Renderer offline — videos will queue until it&apos;s back.</span>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {jobs.map((j) => {
+          const chip = QUEUE_STATUS[j.status] || QUEUE_STATUS.created;
+          const isWorking = !['complete', 'failed'].includes(j.status);
+          const doneClip = (j.clips || []).find((c) => c.status === 'complete' && c.output_url);
+          return (
+            <div key={j.id} className="flex items-center gap-3 bg-gray-900 border border-gray-800 rounded-lg px-3 py-2.5">
+              <span className={`flex-shrink-0 inline-flex items-center gap-1.5 text-[11px] font-medium px-2 py-0.5 rounded-full border ${chip.cls}`}>
+                {isWorking && <Loader2 className="w-3 h-3 animate-spin" />}
+                {chip.label}
+              </span>
+              <div className="flex-1 min-w-0 text-xs text-gray-400 truncate">
+                {j.mode === 'clip' ? 'Clip Picker' : 'Post Maker'} · {relativeTime(j.created_at)}
+                {j.status === 'failed' && j.error_message ? (
+                  <span className="text-red-400/80"> · {j.error_message.slice(0, 60)}</span>
+                ) : null}
+              </div>
+              {j.status === 'complete' && doneClip?.output_url && (
+                <a
+                  href={doneClip.output_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-shrink-0 text-xs font-medium text-teal-400 hover:text-teal-300 underline"
+                >
+                  Watch
+                </a>
+              )}
+              {j.status === 'complete' && (
+                <Link href="/clips" className="flex-shrink-0 text-xs font-medium text-gray-400 hover:text-white">
+                  My Clips
+                </Link>
+              )}
+              {j.status === 'failed' && (
+                <button
+                  onClick={() => void retry(j.id)}
+                  disabled={retryingId === j.id}
+                  className="flex-shrink-0 text-xs font-medium text-red-300 hover:text-red-200 underline disabled:opacity-50"
+                >
+                  {retryingId === j.id ? 'Retrying…' : 'Tap to retry'}
+                </button>
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

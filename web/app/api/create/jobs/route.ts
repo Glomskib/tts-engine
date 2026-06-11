@@ -21,6 +21,7 @@ import { getApiAuthContext } from '@/lib/supabase/api-auth';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import { enforceRateLimits, extractRateLimitContext } from '@/lib/rate-limit';
 import { generateCorrelationId } from '@/lib/api-errors';
+import { getOnlineWorkerCount } from '@/lib/rendering/dispatch';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -299,12 +300,26 @@ export async function GET(req: NextRequest) {
   const auth = await getApiAuthContext(req).catch(() => null);
   if (!auth?.user?.id) return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 });
 
+  // ?limit= lets /create's compact "Your videos" queue ask for 8 while
+  // /clips and /studio keep the historical 30. Capped at 50 — this endpoint
+  // fans out a second query per call, no reason to let it grow unbounded.
+  const limitParam = Number(new URL(req.url).searchParams.get('limit'));
+  const limit = Number.isFinite(limitParam) && limitParam > 0
+    ? Math.min(50, Math.floor(limitParam))
+    : 30;
+
+  // worker_online: is any Mac-mini render worker heartbeating? Surfaced so
+  // the UI can warn "renderer offline — videos will queue" instead of users
+  // staring at a job that never moves. Admin sees own runs only too — the
+  // user_id filter below applies to everyone.
+  const workerOnlinePromise = getOnlineWorkerCount().catch(() => 0);
+
   const { data: rows } = await supabaseAdmin
     .from('ve_runs')
     .select('id, status, created_at, completed_at, target_clip_count, context_json, error_message')
     .eq('user_id', auth.user.id)
     .order('created_at', { ascending: false })
-    .limit(30);
+    .limit(limit);
 
   // Pull rendered clips for any complete/rendering jobs so /clips can show
   // them inline (with play + download) instead of bouncing back to /create.
@@ -348,8 +363,16 @@ export async function GET(req: NextRequest) {
     }, {} as typeof clipsByRun);
   }
 
-  const enriched = jobs.map((j) => ({ ...j, clips: clipsByRun[j.id as string] || [] }));
-  return NextResponse.json({ ok: true, jobs: enriched });
+  const enriched = jobs.map((j) => ({
+    ...j,
+    // The /create UI mode ('post' | 'clip') lives in context_json — the row's
+    // mode column is the legacy 'affiliate'. Lift it out so clients don't
+    // have to know that quirk.
+    mode: (((j.context_json ?? {}) as Record<string, unknown>).mode as string | undefined) ?? null,
+    clips: clipsByRun[j.id as string] || [],
+  }));
+  const workerOnline = (await workerOnlinePromise) > 0;
+  return NextResponse.json({ ok: true, jobs: enriched, worker_online: workerOnline });
 }
 
 // ── helpers ────────────────────────────────────────────────────────────

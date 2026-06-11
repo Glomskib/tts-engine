@@ -111,6 +111,10 @@ export async function pickBrollForTranscript(opts: {
   transcript_text: string;
   total_duration_sec: number;
   vertical?: boolean;
+  /** Explicit search subject from the instruction engine ("show gym b-roll"
+   *  → "gym"). When present it REPLACES the vibe-keyword + transcript-term
+   *  query — the creator told us exactly what to show. */
+  query?: string;
 }): Promise<Array<{ at_sec: number; duration_sec: number; video_url: string; pexels_id: number }>> {
   const apiKey = process.env.PEXELS_API_KEY;
   if (!apiKey) {
@@ -128,7 +132,8 @@ export async function pickBrollForTranscript(opts: {
     .split(/\s+/)
     .filter((w) => w.length > 5 && !/^(about|because|something|whatever|actually)$/.test(w))
     .slice(0, 3);
-  const query = [...profile.keywords.slice(0, 2), ...transcriptTerms].join(' ');
+  const query = (opts.query || '').trim()
+    || [...profile.keywords.slice(0, 2), ...transcriptTerms].join(' ');
 
   const orientation = opts.vertical ? 'portrait' : 'landscape';
   const url = `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=${Math.min(targetCount * 2, 40)}&orientation=${orientation}`;

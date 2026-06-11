@@ -32,6 +32,7 @@ import { getCTAOrDefault } from './ctas';
 import { renderVideo as shotstackRenderVideo, getRenderStatus as shotstackGetStatus } from '@/lib/shotstack';
 import { renderClipLocal } from './render-local';
 import { pickMusicForVibe, pickBrollForTranscript } from './music-broll';
+import { parseEditInstructions, type ParsedEditInstructions } from './instruction-engine';
 import { deriveInsights } from './insights';
 import { detectIntent } from './intent';
 import { resolveVEPlan, WATERMARK_TEXT } from './limits';
@@ -544,8 +545,10 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   const polishLegacy = run.mode === 'affiliate' || run.mode === 'nonprofit';
   const polishBrollFlag = typeof polishCtx.enable_broll === 'boolean' ? (polishCtx.enable_broll as boolean) : null;
   const polishMusicFlag = typeof polishCtx.enable_music === 'boolean' ? (polishCtx.enable_music as boolean) : null;
-  const doPolishBroll = polishBrollFlag === null ? polishLegacy : polishBrollFlag;
-  const doPolishMusic = polishMusicFlag === null ? polishLegacy : polishMusicFlag;
+  // let (not const): the instruction engine below may flip these when the
+  // creator typed "no music" / "show gym b-roll" into the describe box.
+  let doPolishBroll = polishBrollFlag === null ? polishLegacy : polishBrollFlag;
+  let doPolishMusic = polishMusicFlag === null ? polishLegacy : polishMusicFlag;
 
   // 2026-06-10 audit fix — Brandon: "the auto editor cuts off/ends videos
   // instead of leaving in the 'fixed' sentences when I mess up and repeat."
@@ -564,6 +567,15 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   //      jump cut reads as an intentional edit.
   // Opt-out: context_json.enable_jump_cuts === false.
   let postKeepRanges: Array<{ start_sec: number; end_sec: number }> | null = null;
+  // ONE-PASS INSTRUCTION ENGINE (2026-06-11) — the /create "What do you
+  // want?" text used to only bias clip RANKING; the render ignored it (the
+  // lying-UI item from the 2026-06-10 audit). One Claude call inside the
+  // post edit-plan block below maps the creator's words onto the real edit
+  // knobs; these two carry the result + receipt lines out to the polish
+  // layer and sliceSpec. instructionsApplied feeds edit_receipt so the
+  // creator SEES their instructions were executed.
+  let instructionPlan: ParsedEditInstructions = {};
+  const instructionsApplied: string[] = [];
   // EDIT RECEIPT (2026-06-10) — counts of what the auto-editor actually cut,
   // persisted to context_json so the /create UI can show "what we edited"
   // instead of a black box. Trust win: creators stop wondering whether the
@@ -581,7 +593,8 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   const uiModeAssemble = getUiMode(run);
   if (uiModeAssemble === 'post' && !alreadyAssembled) {
     try {
-      const jumpCutsOn = ((run.context_json ?? {}) as Record<string, unknown>).enable_jump_cuts !== false;
+      // let (not const): the instruction engine may flip this ("keep it one take").
+      let jumpCutsOn = ((run.context_json ?? {}) as Record<string, unknown>).enable_jump_cuts !== false;
       const { data: takeChunks } = await supabaseAdmin
         .from('ve_transcript_chunks')
         .select('start_sec,end_sec,text')
@@ -591,6 +604,25 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
         const words = takeChunks.map((c) => ({
           start: Number(c.start_sec), end: Number(c.end_sec), text: String(c.text || ''),
         }));
+
+        // Instruction engine — ONE call per run (this block is already gated
+        // on !alreadyAssembled, so cron re-entries never re-bill the model).
+        // parseEditInstructions is non-fatal by contract: any failure returns
+        // {} and the smart-cut defaults below ship untouched.
+        const describeText = String(
+          polishCtx.instructions || polishCtx.describe || '',
+        ).trim();
+        if (describeText) {
+          instructionPlan = await parseEditInstructions({
+            instructions: describeText,
+            transcript_chunks: words.map((w) => ({ start: w.start, end: w.end, text: w.text })),
+            duration_sec: Number(asset.duration_sec ?? words[words.length - 1].end),
+          });
+          if (typeof instructionPlan.jump_cuts === 'boolean') {
+            jumpCutsOn = instructionPlan.jump_cuts;
+            instructionsApplied.push(instructionPlan.jump_cuts ? 'jump cuts on' : 'kept it one take');
+          }
+        }
 
         // 1. Speech spans: merge chunks separated by < GAP, cut the rest.
         const GAP = 0.6;       // pause length that becomes a jump cut
@@ -640,6 +672,18 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
             if (fillerCount) console.log(`[ve-pipeline] filler-word cuts run=${run.id}: ${fillerCount}`);
           } catch { /* non-fatal — no word data for this run */ }
         }
+        // 2c. Instruction cuts — "cut the intro", "remove the part about X".
+        // The engine located them in the transcript with timestamps; they
+        // merge into the SAME cuts list as retakes/fillers and ride the
+        // span-subtraction below — no separate code path to drift.
+        if (instructionPlan.cut_ranges?.length) {
+          for (const cr of instructionPlan.cut_ranges) {
+            cuts.push({ start_sec: cr.start_sec, end_sec: cr.end_sec, reason: `instruction: ${cr.reason}` });
+          }
+          const n = instructionPlan.cut_ranges.length;
+          instructionsApplied.push(`cut ${n} section${n === 1 ? '' : 's'} you asked for`);
+        }
+
         cuts.sort((a, b) => a.start_sec - b.start_sec);
         const keeps: Array<{ start_sec: number; end_sec: number }> = [];
         for (const span of spans) {
@@ -652,6 +696,31 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
             cursor = Math.max(cursor, ce);
           }
           if (span.end_sec > cursor + 0.25) keeps.push({ start_sec: cursor, end_sec: span.end_sec });
+        }
+
+        // Instruction max length ("keep it under 30s") — trim from the END:
+        // drop whole tail segments while the overage allows, then shorten the
+        // last surviving one by exactly the remainder. End-trimming (not
+        // proportional squeeze) keeps the hook intact — the opening is the
+        // part short-form lives or dies on.
+        let trimmedForMax = false;
+        const maxDur = instructionPlan.max_duration_sec;
+        if (typeof maxDur === 'number' && keeps.length) {
+          let total = keeps.reduce((t, k) => t + (k.end_sec - k.start_sec), 0);
+          while (total > maxDur && keeps.length > 0) {
+            trimmedForMax = true;
+            const last = keeps[keeps.length - 1];
+            const lastLen = last.end_sec - last.start_sec;
+            if (keeps.length > 1 && total - lastLen >= maxDur) {
+              keeps.pop();           // whole segment fits inside the overage
+              total -= lastLen;
+            } else {
+              // Shorten the tail by the exact overage (never below 0.5s).
+              last.end_sec = Math.max(last.start_sec + 0.5, last.end_sec - (total - maxDur));
+              break;
+            }
+          }
+          if (trimmedForMax) instructionsApplied.push(`kept it under ${Math.round(maxDur)}s`);
         }
 
         const kept = keeps.reduce((t, k) => t + (k.end_sec - k.start_sec), 0);
@@ -670,7 +739,9 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
 
         // Only ship a multi-range edit when there's an actual edit to make
         // (a cut happened) and enough material survives.
-        if (keeps.length && kept >= 2 && (keeps.length > 1 || cuts.length > 0)) {
+        // trimmedForMax counts as a real edit too — a max-duration trim with
+        // no other cuts still needs keep_ranges shipped to take effect.
+        if (keeps.length && kept >= 2 && (keeps.length > 1 || cuts.length > 0 || trimmedForMax)) {
           postKeepRanges = keeps;
           editReceipt = {
             segments: keeps.length,
@@ -689,6 +760,36 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
     } catch (e) {
       console.warn('[ve-pipeline] post edit-plan failed (rendering scored window):', (e as Error).message);
     }
+  }
+
+  // Instruction overrides for the polish layer — booleans flip the enable
+  // flags, broll_query/music_vibe steer the picks, caption_style restyles
+  // the burned captions. Absent keys leave the toggle defaults untouched.
+  if (typeof instructionPlan.broll === 'boolean') {
+    doPolishBroll = instructionPlan.broll;
+    instructionsApplied.push(instructionPlan.broll ? 'B-roll on' : 'no B-roll');
+  }
+  if (typeof instructionPlan.music === 'boolean') {
+    doPolishMusic = instructionPlan.music;
+    instructionsApplied.push(instructionPlan.music ? 'music on' : 'no music');
+  }
+  // Naming a B-roll subject / music vibe implies wanting it — turn the layer
+  // on unless they ALSO said "no b-roll"/"no music" (explicit false wins).
+  const instructionBrollQuery = instructionPlan.broll === false ? null : (instructionPlan.broll_query ?? null);
+  if (instructionBrollQuery) {
+    doPolishBroll = true;
+    instructionsApplied.push(`"${instructionBrollQuery}" B-roll`);
+  }
+  const instructionMusicVibe = instructionPlan.music === false ? null : (instructionPlan.music_vibe ?? null);
+  if (instructionMusicVibe) {
+    doPolishMusic = true;
+    instructionsApplied.push(`${instructionMusicVibe} music`);
+  }
+  if (typeof instructionPlan.punch_ins === 'boolean') {
+    instructionsApplied.push(instructionPlan.punch_ins ? 'punch-ins on' : 'no zooms');
+  }
+  if (instructionPlan.caption_style) {
+    instructionsApplied.push(`${instructionPlan.caption_style.replace(/_/g, ' ')} captions`);
   }
 
   // Receipt trackers for the polish layer — B-roll/music picks happen
@@ -759,7 +860,8 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
     let polishBroll: Array<{ at_sec: number; duration_sec: number; video_url: string }> = [];
     if (doPolishMusic) {
       try {
-        polishMusic = await pickMusicForVibe({ vibe: polishVibe, clip_duration_sec: polishLen });
+        // instructionMusicVibe wins — "chill music" beats the run's vibe pick.
+        polishMusic = await pickMusicForVibe({ vibe: instructionMusicVibe || polishVibe, clip_duration_sec: polishLen });
       } catch (e) { console.warn('[ve-pipeline] music pick failed (fleet spec):', (e as Error).message); }
     }
     if (doPolishBroll) {
@@ -769,6 +871,9 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
           transcript_text: String(cand.text || ''),
           total_duration_sec: polishLen,
           vertical: true,
+          // "show gym b-roll" — the creator's named subject replaces the
+          // vibe-keyword Pexels query entirely.
+          query: instructionBrollQuery ?? undefined,
         });
       } catch (e) { console.warn('[ve-pipeline] broll pick failed (fleet spec):', (e as Error).message); }
     }
@@ -793,13 +898,19 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
       // Alternating subtle zoom per segment so each jump cut reads as an
       // intentional edit. Opt-out: context_json.enable_punch_ins === false.
       punch_in: postKeepRanges
-        ? (((run.context_json ?? {}) as Record<string, unknown>).enable_punch_ins !== false)
+        ? (typeof instructionPlan.punch_ins === 'boolean'
+            ? instructionPlan.punch_ins // "no zooms" / "add zooms" beats the toggle
+            : (((run.context_json ?? {}) as Record<string, unknown>).enable_punch_ins !== false))
         : undefined,
       user_id: run.user_id,
       run_id: run.id,
       clip_id: renderedId,
       watermark: !!run.watermark,
-      caption_style: (((run.context_json as Record<string, unknown> | null) ?? {}).caption_style as string) || 'bold_yellow',
+      // Instruction caption style ("big captions" → mrbeast_big) beats the
+      // mode default the /create UI wrote into context_json.
+      caption_style: instructionPlan.caption_style
+        || (((run.context_json as Record<string, unknown> | null) ?? {}).caption_style as string)
+        || 'bold_yellow',
       music: polishMusic ? { audio_url: polishMusic.audio_url, volume_db: polishMusic.volume_db } : null,
       broll: polishBroll.slice(0, 6).map((b) => ({ at_sec: b.at_sec, duration_sec: b.duration_sec, video_url: b.video_url })),
     };
@@ -821,7 +932,16 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   // never block the render queue.
   if (editReceipt && !alreadyAssembled) {
     try {
-      const receipt = { ...editReceipt, broll: receiptBroll, music: receiptMusic };
+      const receipt = {
+        ...editReceipt,
+        broll: receiptBroll,
+        music: receiptMusic,
+        // Instruction-engine receipt — which of the creator's typed asks we
+        // actually executed (and anything understood but not actionable).
+        // Proof the describe box drives the edit, not just the ranking.
+        ...(instructionsApplied.length ? { instructions_applied: instructionsApplied } : {}),
+        ...(instructionPlan.notes ? { instruction_notes: instructionPlan.notes } : {}),
+      };
       const { error: receiptErr } = await supabaseAdmin
         .from('ve_runs')
         .update({ context_json: { ...(run.context_json ?? {}), edit_receipt: receipt } })

@@ -775,7 +775,19 @@ export default function CreatePage() {
 
           {entry === 'upload' && (
             <label className="block w-full">
-              <div className="border-2 border-dashed border-gray-700 hover:border-teal-500 rounded-lg p-8 text-center cursor-pointer transition-colors">
+              {/* 2026-06-10 Brandon: "drag and drop doesn't work" — the zone
+                  SAID "Drop video(s) here" but had no drag handlers at all.
+                  Click-to-choose was the only path. Now drops actually land. */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('border-teal-500', 'bg-teal-500/5'); }}
+                onDragLeave={(e) => { e.currentTarget.classList.remove('border-teal-500', 'bg-teal-500/5'); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.currentTarget.classList.remove('border-teal-500', 'bg-teal-500/5');
+                  if (e.dataTransfer.files?.length) void handleMultiFile(e.dataTransfer.files);
+                }}
+                className="border-2 border-dashed border-gray-700 hover:border-teal-500 rounded-lg p-8 text-center cursor-pointer transition-colors"
+              >
                 <Upload className="w-10 h-10 mx-auto text-gray-500 mb-2" />
                 <div className="text-sm font-medium">Drop video{defaults.maxSources > 1 ? '(s)' : ''} here or click to choose</div>
                 <div className="text-xs text-gray-500 mt-1">MP4, MOV, WEBM — up to 2GB each{mode === 'post' ? ` · max ${defaults.maxSources} takes` : ''}</div>

@@ -1190,6 +1190,15 @@ interface JobStatus {
   status?: string;
   progress_pct?: number;
   clips?: Array<{ id: string; output_url: string | null; hook_score: number | null; duration_sec: number | null; feel_diagnosis?: string | null }>;
+  edit_receipt?: {
+    segments?: number;
+    pauses_cut?: number;
+    pauses_cut_sec?: number;
+    retakes_cut?: number;
+    fillers_cut?: number;
+    broll?: number;
+    music?: boolean;
+  } | null;
   error_message?: string | null;
 }
 
@@ -1388,6 +1397,31 @@ function JobProgress({ mode, jobId, onNewJob }: { mode: Mode; jobId: string; onN
             </div>
           </div>
         )}
+
+        {/* Edit receipt — "what we edited", written by the pipeline's edit
+            plan. Trust win: creators see exactly what the AI cut instead of
+            wondering whether their take got mangled. Only nonzero parts show;
+            an all-zero receipt means we honestly say "clean take". */}
+        {isDone && (() => {
+          const r = job?.edit_receipt;
+          if (!r) return null;
+          const parts: string[] = [];
+          if (r.pauses_cut) {
+            parts.push(`✂ Cut ${r.pauses_cut} pause${r.pauses_cut === 1 ? '' : 's'}${r.pauses_cut_sec ? ` (${r.pauses_cut_sec.toFixed(1)}s)` : ''}`);
+          }
+          if (r.retakes_cut) parts.push(`${r.retakes_cut} retake${r.retakes_cut === 1 ? '' : 's'} removed`);
+          if (r.fillers_cut) parts.push(`${r.fillers_cut} filler word${r.fillers_cut === 1 ? '' : 's'}`);
+          if (r.broll) parts.push(`${r.broll} B-roll cutaway${r.broll === 1 ? '' : 's'}`);
+          if (r.music) parts.push('music');
+          return (
+            <div className="mb-6 bg-gray-900 border border-gray-800 rounded-xl p-4">
+              <div className="text-xs font-semibold uppercase tracking-wider text-teal-400 mb-1.5">What we edited</div>
+              <div className="text-sm text-zinc-300 leading-snug">
+                {parts.length > 0 ? parts.join(' · ') : 'Clean take — edge trim + captions only'}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Clips list */}
         {job?.clips && job.clips.length > 0 && (

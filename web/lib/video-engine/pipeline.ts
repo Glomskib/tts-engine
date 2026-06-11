@@ -562,6 +562,18 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   //      jump cut reads as an intentional edit.
   // Opt-out: context_json.enable_jump_cuts === false.
   let postKeepRanges: Array<{ start_sec: number; end_sec: number }> | null = null;
+  // EDIT RECEIPT (2026-06-10) — counts of what the auto-editor actually cut,
+  // persisted to context_json so the /create UI can show "what we edited"
+  // instead of a black box. Trust win: creators stop wondering whether the
+  // AI mangled their take. Built alongside the edit plan below; the polish
+  // fields (broll/music) get filled in after the per-candidate pick loop.
+  let editReceipt: {
+    segments: number;
+    pauses_cut: number;
+    pauses_cut_sec: number;
+    retakes_cut: number;
+    fillers_cut: number;
+  } | null = null;
   // run.mode is the legacy 'affiliate' for /create jobs — the real UI mode
   // ('post' | 'clip') is in context_json.mode (2026-06-10 live-test fix).
   const uiModeAssemble = ((((run.context_json ?? {}) as Record<string, unknown>).mode as string) || run.mode);
@@ -641,17 +653,47 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
         }
 
         const kept = keeps.reduce((t, k) => t + (k.end_sec - k.start_sec), 0);
+
+        // Receipt inputs — attribute each cut to its source so the UI can
+        // itemize the edit. Silence cuts are the gaps BETWEEN speech spans
+        // (spans-1 gaps when jump cuts are on); retake and filler cuts carry
+        // their reason string from dedupeTranscriptTakes / the filler pass.
+        const pausesCut = jumpCutsOn ? Math.max(0, spans.length - 1) : 0;
+        let pausesCutSec = 0;
+        for (let si = 1; si < spans.length; si++) {
+          pausesCutSec += Math.max(0, spans[si].start_sec - spans[si - 1].end_sec);
+        }
+        const retakesCut = cuts.filter((c) => c.reason.includes('repeat take')).length;
+        const fillersCut = cuts.filter((c) => c.reason === 'filler word').length;
+
         // Only ship a multi-range edit when there's an actual edit to make
         // (a cut happened) and enough material survives.
         if (keeps.length && kept >= 2 && (keeps.length > 1 || cuts.length > 0)) {
           postKeepRanges = keeps;
+          editReceipt = {
+            segments: keeps.length,
+            pauses_cut: pausesCut,
+            pauses_cut_sec: Math.round(pausesCutSec * 10) / 10,
+            retakes_cut: retakesCut,
+            fillers_cut: fillersCut,
+          };
           console.log(`[ve-pipeline] post edit-plan run=${run.id}: ${keeps.length} segment(s), ${cuts.length} retake cut(s), ${kept.toFixed(1)}s kept (jump_cuts=${jumpCutsOn})`);
+        } else {
+          // No multi-range edit shipped — record an all-zero receipt so the
+          // UI can honestly say "clean take" instead of showing nothing.
+          editReceipt = { segments: 1, pauses_cut: 0, pauses_cut_sec: 0, retakes_cut: 0, fillers_cut: 0 };
         }
       }
     } catch (e) {
       console.warn('[ve-pipeline] post edit-plan failed (rendering scored window):', (e as Error).message);
     }
   }
+
+  // Receipt trackers for the polish layer — B-roll/music picks happen
+  // per-candidate inside the loop below, but the receipt is per-run, so we
+  // record the FIRST candidate's picks (post mode renders one clip anyway).
+  let receiptBroll = 0;
+  let receiptMusic = false;
 
   // Skip the timeline-build + row-staging when we're re-entering — those
   // arrays only matter for the INSERT path, which is gated on !alreadyAssembled.
@@ -728,6 +770,10 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
         });
       } catch (e) { console.warn('[ve-pipeline] broll pick failed (fleet spec):', (e as Error).message); }
     }
+    if (i === 0) {
+      receiptBroll = Math.min(6, polishBroll.length); // mirror the slice(0,6) shipped to the worker
+      receiptMusic = !!polishMusic;
+    }
 
     // Slice spec consumed by the Mac-mini fleet worker
     // (scripts/render-node/slice-worker.mjs): it trims [start,end] from the
@@ -766,6 +812,22 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
       output_spec: { format: 'mp4', resolution: 'sd', aspectRatio: '9:16', fps: 30 },
       status: 'pending',
     });
+  }
+
+  // Persist the edit receipt ONCE per run (not per candidate). Non-fatal by
+  // design — a receipt is a nice-to-have for trust; its write failing must
+  // never block the render queue.
+  if (editReceipt && !alreadyAssembled) {
+    try {
+      const receipt = { ...editReceipt, broll: receiptBroll, music: receiptMusic };
+      const { error: receiptErr } = await supabaseAdmin
+        .from('ve_runs')
+        .update({ context_json: { ...(run.context_json ?? {}), edit_receipt: receipt } })
+        .eq('id', run.id);
+      if (receiptErr) console.warn('[ve-pipeline] edit receipt write failed (non-fatal):', receiptErr.message);
+    } catch (e) {
+      console.warn('[ve-pipeline] edit receipt write failed (non-fatal):', e instanceof Error ? e.message : e);
+    }
   }
 
   // Skip INSERT on re-entry — the row IDs in renderedRows/ffJobRows would

@@ -60,6 +60,11 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     status: (c.status as string) || 'rendering',
   }));
 
+  // Edit receipt — written by the pipeline's assemble stage into context_json.
+  // Surfaced so /create can show "what we edited" once the job completes.
+  const editReceipt =
+    (((run.context_json ?? {}) as Record<string, unknown>).edit_receipt as Record<string, unknown> | undefined) ?? null;
+
   return NextResponse.json({
     ok: true,
     id: run.id,
@@ -68,6 +73,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     progress_pct: PROGRESS_BY_STATUS[run.status] ?? 10,
     target_clip_count: run.target_clip_count,
     clips,
+    edit_receipt: editReceipt,
     created_at: run.created_at,
     completed_at: run.completed_at,
   });

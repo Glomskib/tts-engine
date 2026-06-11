@@ -70,14 +70,25 @@ interface JobRow {
 export default function ClipsPage() {
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [loading, setLoading] = useState(true);
+  // Signed-out (or expired-session) users get a 401 from the API. Without
+  // tracking it, the page lied with "Your video library is empty" — track it
+  // so we can show a sign-in path instead of a fake empty library.
+  const [needsAuth, setNeedsAuth] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
       try {
         const r = await fetch('/api/create/jobs', { cache: 'no-store' });
+        if (r.status === 401) {
+          if (!cancelled) setNeedsAuth(true);
+          return;
+        }
         const j = await r.json();
-        if (!cancelled && j?.ok) setJobs(j.jobs || []);
+        if (!cancelled && j?.ok) {
+          setNeedsAuth(false);
+          setJobs(j.jobs || []);
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -105,6 +116,21 @@ export default function ClipsPage() {
         {loading ? (
           <div className="flex items-center justify-center py-12 text-gray-500">
             <Loader2 className="w-6 h-6 animate-spin" />
+          </div>
+        ) : needsAuth ? (
+          // Signed out — say so. Previously this fell through to the empty
+          // state, which told logged-out users their library was empty.
+          <div className="text-center py-16 px-6 bg-gradient-to-b from-zinc-900 to-zinc-900/40 border border-zinc-800 rounded-2xl">
+            <h2 className="text-2xl font-bold text-white mb-2">Sign in to see your videos</h2>
+            <p className="text-zinc-400 mb-8 max-w-md mx-auto">
+              Your library is saved to your account. Sign in and it&apos;ll all be here.
+            </p>
+            <Link
+              href="/login?redirect=/clips"
+              className="inline-flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 rounded-xl font-semibold text-white shadow-lg shadow-teal-500/20 transition-all"
+            >
+              Sign in
+            </Link>
           </div>
         ) : jobs.length === 0 ? (
           // Empty state — give new users an obvious primary path AND a
@@ -153,7 +179,11 @@ function JobCard({ job }: { job: JobRow }) {
   const done = job.status === 'complete';
   const failed = job.status === 'failed';
   const inProgress = !done && !failed;
-  const ready = job.clips.filter((c) => c.output_url && c.status === 'complete');
+  // Playable = has a real output_url. The URL is the source of truth — we've
+  // been bitten repeatedly by status-string drift between workers and UIs
+  // ('done'/'completed' vs 'complete'), so status only excludes known
+  // failures instead of requiring an exact match.
+  const ready = (job.clips || []).filter((c) => c.output_url && c.status !== 'failed');
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
@@ -194,7 +224,13 @@ function JobCard({ job }: { job: JobRow }) {
         </div>
       )}
 
-      {done && ready.length > 0 && (
+      {/* Root-cause fix (2026-06-11 "can't click my videos"): the API returns
+          clips for runs in 'rendering' AND 'complete' — a run whose clips all
+          finished but whose run row never flipped to 'complete' (stalled tick;
+          the queue is browser-driven) used to show only a tiny "View progress"
+          link while its finished videos sat unrendered and unclickable. Gate
+          the players on clip readiness, not run status. */}
+      {ready.length > 0 && (
         <>
           {ready.length > 1 && (
             <div className="px-4 pb-2 flex items-center justify-between">
@@ -280,7 +316,9 @@ function RetryJobButton({
         disabled={busy || done}
         className="underline text-teal-400 hover:text-teal-300 disabled:opacity-50"
       >
-        {done ? 'Re-queued' : busy ? 'Retrying…' : 'Retrying'}
+        {/* Idle label said 'Retrying' — read like it was already in flight,
+            so it didn't look clickable. */}
+        {done ? 'Re-queued' : busy ? 'Retrying…' : 'Retry'}
       </button>
     );
   }

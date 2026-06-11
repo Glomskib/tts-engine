@@ -93,9 +93,16 @@ export async function POST(
   });
 
   // Count this as both a render (legacy) and an edit (Phase 3).
+  // Still non-fatal (the job is already queued — don't fail the request over
+  // bookkeeping), but it must be VISIBLE: a silent .catch(() => {}) here meant
+  // plan limits quietly stopped tracking whenever incrementUsage failed.
   await Promise.all([
-    incrementUsage(auth.user.id, 'renders').catch(() => {}),
-    incrementUsage(auth.user.id, 'edits').catch(() => {}),
+    incrementUsage(auth.user.id, 'renders').catch((e) =>
+      console.error(`[editor/start] incrementUsage(renders) failed job=${id}:`, e instanceof Error ? e.message : e),
+    ),
+    incrementUsage(auth.user.id, 'edits').catch((e) =>
+      console.error(`[editor/start] incrementUsage(edits) failed job=${id}:`, e instanceof Error ? e.message : e),
+    ),
   ]);
 
   return NextResponse.json({ ok: true, queued: true });

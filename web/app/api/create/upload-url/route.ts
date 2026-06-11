@@ -74,10 +74,14 @@ export async function POST(req: NextRequest) {
   // Ensure bucket exists (idempotent)
   const { data: buckets } = await supabaseAdmin.storage.listBuckets();
   if (!buckets?.some((b) => b.name === SUPA_BUCKET)) {
+    // Non-fatal (a racing request may have created it, and createSignedUploadUrl
+    // below fails loudly anyway) — but log it so a real failure isn't invisible.
     await supabaseAdmin.storage.createBucket(SUPA_BUCKET, {
       public: false,
       allowedMimeTypes: Array.from(ALLOWED_MIMES),
-    }).catch(() => {});
+    }).catch((e) =>
+      console.warn(`[upload-url] createBucket(${SUPA_BUCKET}) failed:`, e instanceof Error ? e.message : e),
+    );
   }
 
   const ts = Date.now();

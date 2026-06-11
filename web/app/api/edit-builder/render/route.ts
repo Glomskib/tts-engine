@@ -25,8 +25,10 @@ export async function POST(request: Request) {
   const auth = await getApiAuthContext(request);
   if (!auth.user) return NextResponse.json({ error: 'UNAUTHORIZED' }, { status: 401 });
 
+  // Malformed JSON is a client error — say so, like the sibling routes do,
+  // instead of silently parsing {} and returning a confusing INVALID_BODY.
   let raw: unknown = {};
-  try { raw = await request.json(); } catch {}
+  try { raw = await request.json(); } catch { return NextResponse.json({ ok: false, error: 'bad_json' }, { status: 400 }); }
   const parsed = BodySchema.safeParse(raw);
   if (!parsed.success) {
     return NextResponse.json({ error: 'INVALID_BODY', details: parsed.error.issues }, { status: 400 });

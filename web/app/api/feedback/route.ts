@@ -269,8 +269,14 @@ export async function POST(request: NextRequest) {
         },
         fingerprint,
       }).then((issue) => {
-        if (issue) logIssueAction(issue.id, "intake", { source: "feedback", feedback_id: saved.id }).catch(() => {});
-      }).catch(() => {});
+        // Fire-and-forget, but never silent — a swallowed failure here meant
+        // issues landed in intake with no audit trail and nobody knew.
+        if (issue) logIssueAction(issue.id, "intake", { source: "feedback", feedback_id: saved.id }).catch((e) =>
+          console.error(`[feedback] logIssueAction failed issue=${issue.id} feedback=${saved.id}:`, e instanceof Error ? e.message : e),
+        );
+      }).catch((e) =>
+        console.error(`[feedback] createIssue failed feedback=${saved.id}:`, e instanceof Error ? e.message : e),
+      );
     }
 
     return NextResponse.json({

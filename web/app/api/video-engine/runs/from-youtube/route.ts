@@ -184,7 +184,11 @@ export async function POST(request: NextRequest) {
   if (!runsRes.ok || !(runsJson as { ok?: boolean }).ok) {
     // Best-effort cleanup so we don't leave orphan storage objects when the
     // run-create rejects (plan limit, quota, etc).
-    supabaseAdmin.storage.from(BUCKET).remove([storagePath]).catch(() => {});
+    // Best-effort, but log it — silent failures here leak orphaned storage
+    // objects that quietly eat the bucket quota.
+    supabaseAdmin.storage.from(BUCKET).remove([storagePath]).catch((e) =>
+      console.warn(`[from-youtube] storage cleanup failed path=${storagePath}:`, e instanceof Error ? e.message : e),
+    );
     console.warn('[from-youtube] runs forward failed', { status: runsRes.status, body: runsJson });
     return NextResponse.json(runsJson, { status: runsRes.status });
   }

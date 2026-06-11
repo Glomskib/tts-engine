@@ -13,7 +13,8 @@ import { callAnthropicJSON } from '@/lib/ai/anthropic';
 import type { Mode } from './types';
 
 export interface ClipPackagingInput {
-  mode: Mode;
+  /** Canonical Mode OR a /create UI mode ('post' | 'clip') via getUiMode(run). */
+  mode: Mode | string;
   clipText: string;
   hookText: string | null;
   clipType: string;          // hook, product, benefit, cta, testimonial, mission, ...
@@ -49,6 +50,16 @@ const SYSTEM_PROMPT_NONPROFIT =
   `Your captions invite people in without guilt-tripping. Your hashtags are cause-relevant. ` +
   `Your titles emphasize impact, community, and "why this matters."`;
 
+// Post Maker ('post' UI mode): original talking-head posts. Personal voice —
+// no sales pitch unless the creator attached a product, no mission/donation asks.
+const SYSTEM_PROMPT_POST =
+  `You write natural, personal short-form social copy for creators posting original ` +
+  `talking-head videos on TikTok, Reels, and Shorts. You write like the creator talking ` +
+  `to their audience — conversational, specific, zero corporate polish. No sales pitch ` +
+  `unless a product is explicitly provided. Your captions pull people into the video and ` +
+  `invite replies. Your hashtags are platform-native (short, lowercase, on-trend). ` +
+  `Your titles work as YouTube Shorts titles too.`;
+
 const SYSTEM_PROMPT_CLIPPER =
   `You write scroll-stopping social copy for clippers — people cutting podcasts, streams, ` +
   `and long-form videos into viral short clips for TikTok, Reels, and YouTube Shorts. ` +
@@ -57,21 +68,27 @@ const SYSTEM_PROMPT_CLIPPER =
   `to watch the source. Your hashtags are clip-native (podcast, clips, mindset, interview, ` +
   `motivation — whatever fits the content). Your titles read like viral Shorts titles.`;
 
-function systemPromptFor(mode: Mode): string {
+// 'post'/'clip' below are the /create UI modes (run.mode is always the legacy
+// 'affiliate' for those jobs — getUiMode(run) surfaces the real one). Before
+// this, every Post Maker / Clip Picker clip got affiliate sales copy.
+function systemPromptFor(mode: Mode | string): string {
   if (mode === 'affiliate') return SYSTEM_PROMPT_AFFILIATE;
-  if (mode === 'clipper')   return SYSTEM_PROMPT_CLIPPER;
+  if (mode === 'clipper' || mode === 'clip') return SYSTEM_PROMPT_CLIPPER;
+  if (mode === 'post')      return SYSTEM_PROMPT_POST;
   return SYSTEM_PROMPT_NONPROFIT;
 }
 
-function captionObjectiveFor(mode: Mode): string {
+function captionObjectiveFor(mode: Mode | string): string {
   if (mode === 'affiliate') return 'TikTok/Reels conversion';
-  if (mode === 'clipper')   return 'viral reach and watch-through on Shorts/Reels/TikTok';
+  if (mode === 'clipper' || mode === 'clip') return 'viral reach and watch-through on Shorts/Reels/TikTok';
+  if (mode === 'post')      return 'engagement and watch-through on TikTok/Reels/Shorts';
   return 'community engagement and shares';
 }
 
-function ctaExampleFor(mode: Mode): string {
+function ctaExampleFor(mode: Mode | string): string {
   if (mode === 'affiliate') return 'E.g. "Tap the link", "Comment WANT".';
-  if (mode === 'clipper')   return 'E.g. "Watch the full pod", "Follow for more", or leave blank if the clip stands alone.';
+  if (mode === 'clipper' || mode === 'clip') return 'E.g. "Watch the full pod", "Follow for more", or leave blank if the clip stands alone.';
+  if (mode === 'post')      return 'E.g. "Follow for more", "Comment your take", or leave blank if the post stands alone.';
   return 'E.g. "Register today", "Donate now".';
 }
 
@@ -134,14 +151,20 @@ function fallbackPackaging(input: ClipPackagingInput): ClipPackaging {
   const hookOrFirst = (input.hookText ?? input.clipText).split(/(?<=[.!?])\s+/)[0] ?? input.clipText;
   const cleanHook = hookOrFirst.length > 180 ? hookOrFirst.slice(0, 177) + '…' : hookOrFirst;
 
+  // 'clip'/'post' are /create UI modes (via getUiMode) — without these arms
+  // they'd fall into the nonprofit defaults ("fundraiser", "Join us"), which
+  // is worse than the affiliate tags they historically got.
   const baseTags = input.mode === 'affiliate'
     ? ['affiliate', 'tiktokshop', 'amazonfinds', 'mustbuy', 'fyp', 'review', 'product']
-    : input.mode === 'clipper'
+    : input.mode === 'clipper' || input.mode === 'clip'
     ? ['clips', 'podcast', 'fyp', 'viral', 'shorts', 'mindset', 'motivation', 'interview']
+    : input.mode === 'post'
+    ? ['fyp', 'creator', 'shorts', 'reels', 'viral', 'storytime']
     : ['nonprofit', 'community', 'event', 'fundraiser', 'volunteer', 'mission', 'impact'];
 
   const fallbackCta = input.mode === 'affiliate' ? 'Tap to shop'
-    : input.mode === 'clipper'  ? 'Watch the full pod'
+    : input.mode === 'clipper' || input.mode === 'clip' ? 'Watch the full pod'
+    : input.mode === 'post'     ? 'Follow for more'
     :                             'Join us';
 
   return {

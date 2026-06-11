@@ -21,7 +21,7 @@
 
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
 import type { Mode, RunStatus, TranscriptSegment } from './types';
-import { isMode, getMode } from './modes';
+import { isMode, getMode, getUiMode } from './modes';
 import { transcribeStorageAsset } from './transcribe';
 import { transcribeWithFallback } from './transcribe-groq';
 import { rankClips, type RankedClip } from './hook-ranker';
@@ -304,14 +304,16 @@ async function stageAnalyze(run: RunRow): Promise<RunStatus> {
   }
 
   const sourceDuration = asset.duration_sec ? Number(asset.duration_sec) : undefined;
-  console.log(`[ve-pipeline] analyze run=${run.id} source_duration=${sourceDuration?.toFixed(1) ?? 'unknown'}s segments=${segments.length} mode=${run.mode} target=${run.target_clip_count}`);
+  // getUiMode: /create jobs store legacy mode='affiliate' on the run row; the
+  // REAL UI mode ('post' | 'clip') lives in context_json.mode. Live test
+  // 2026-06-10 caught every post-mode gate dead because of this. The helper is
+  // the single source of truth — scoring resolves 'clip'→clipper weights and
+  // routes post/clip to the right clip-type vocabulary.
+  const uiMode = getUiMode(run);
+  console.log(`[ve-pipeline] analyze run=${run.id} source_duration=${sourceDuration?.toFixed(1) ?? 'unknown'}s segments=${segments.length} mode=${uiMode} target=${run.target_clip_count}`);
 
-  const { selected } = generateCandidates(segments, run.mode, run.target_clip_count, sourceDuration);
-  // /create jobs store legacy mode='affiliate' on the run row; the REAL UI
-  // mode ('post' | 'clip') lives in context_json.mode. Live test 2026-06-10
-  // caught every post-mode gate dead because of this.
-  const uiModeAnalyze = ((((run.context_json ?? {}) as Record<string, unknown>).mode as string) || run.mode);
-  if (!selected.length && uiModeAnalyze === 'post') {
+  const { selected } = generateCandidates(segments, uiMode, run.target_clip_count, sourceDuration);
+  if (!selected.length && uiMode === 'post') {
     // 2026-06-10 — Brandon hit "couldn't find a strong shorter cut" on a
     // normal Post Maker take. Scoring rejects any window covering >80% of
     // the source (MAX_CANDIDATE_SOURCE_RATIO) — correct for Clip Picker
@@ -574,9 +576,9 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
     retakes_cut: number;
     fillers_cut: number;
   } | null = null;
-  // run.mode is the legacy 'affiliate' for /create jobs — the real UI mode
-  // ('post' | 'clip') is in context_json.mode (2026-06-10 live-test fix).
-  const uiModeAssemble = ((((run.context_json ?? {}) as Record<string, unknown>).mode as string) || run.mode);
+  // getUiMode: run.mode is the legacy 'affiliate' for /create jobs — the real
+  // UI mode ('post' | 'clip') is in context_json.mode (2026-06-10 live-test fix).
+  const uiModeAssemble = getUiMode(run);
   if (uiModeAssemble === 'post' && !alreadyAssembled) {
     try {
       const jumpCutsOn = ((run.context_json ?? {}) as Record<string, unknown>).enable_jump_cuts !== false;
@@ -1055,7 +1057,10 @@ async function packagePendingClips(run: RunRow): Promise<void> {
       if (run.coupon_code)      mergedContext.coupon_code      = run.coupon_code;
 
       const pkg = await packageClip({
-        mode: run.mode,
+        // getUiMode, not run.mode: /create runs carry the legacy 'affiliate'
+        // on the row, which gave every Post Maker / Clip Picker clip sales-y
+        // affiliate copy. Legacy runs (no context_json.mode) are unchanged.
+        mode: getUiMode(run),
         clipText: cand.text,
         hookText: cand.hook_text,
         clipType: cand.clip_type,

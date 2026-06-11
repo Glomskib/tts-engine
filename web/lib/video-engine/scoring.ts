@@ -20,7 +20,7 @@ import type {
   Mode,
   TranscriptSegment,
 } from './types';
-import { getMode } from './modes';
+import { getMode, resolveModeKey } from './modes';
 
 // ---------------------------------------------------------------------------
 // Vocabulary banks
@@ -173,8 +173,11 @@ const SHORT_MAX_BY_MODE: Partial<Record<Mode, number>> = {
   nonprofit: 30,
   clipper: 25,
 };
-export function getShortMaxSec(mode: Mode): number {
-  return SHORT_MAX_BY_MODE[mode] ?? SHORT_MAX_SEC;
+// Accepts UI modes too ('post' | 'clip' from /create) — resolveModeKey maps
+// them onto the registry keys so Clip Picker gets the clipper cap instead of
+// silently falling through to the 30s default.
+export function getShortMaxSec(mode: Mode | string): number {
+  return SHORT_MAX_BY_MODE[resolveModeKey(mode)] ?? SHORT_MAX_SEC;
 }
 
 /**
@@ -185,8 +188,8 @@ export function getShortMaxSec(mode: Mode): number {
 const SHORT_MIN_BY_MODE: Partial<Record<Mode, number>> = {
   clipper: 8,
 };
-export function getShortMinSec(mode: Mode): number {
-  return SHORT_MIN_BY_MODE[mode] ?? TARGET_MIN_SEC;
+export function getShortMinSec(mode: Mode | string): number {
+  return SHORT_MIN_BY_MODE[resolveModeKey(mode)] ?? TARGET_MIN_SEC;
 }
 
 /**
@@ -273,7 +276,7 @@ export function buildChunks(segments: TranscriptSegment[]): ChunkInput[] {
 // Scoring + selection
 // ---------------------------------------------------------------------------
 
-function classifyClipType(features: ChunkFeatures, mode: Mode): string {
+function classifyClipType(features: ChunkFeatures, mode: Mode | string): string {
   // Pick the highest-signal feature relevant to the mode and use it as a label.
   const candidates: Array<[string, number]> = [];
 
@@ -285,7 +288,11 @@ function classifyClipType(features: ChunkFeatures, mode: Mode): string {
       ['cta', features.ctaLikelihood],
       ['testimonial', features.testimonialPhrase],
     );
-  } else if (mode === 'clipper') {
+  } else if (mode === 'clipper' || mode === 'clip' || mode === 'post') {
+    // 'clip'/'post' are the /create UI modes (via getUiMode). Clip Picker is
+    // literally the clipper surface, and Post Maker takes are personal content
+    // — both want the neutral "moment" vocabulary below, NOT the affiliate
+    // product/cta labels they used to get when run.mode was always 'affiliate'.
     // Clipper vocabulary: moments, not product/donation signals. The labels
     // downstream (insights.assignClipperLabels) map these into user-facing
     // "Best hook / Most engaging / Fast highlight" tags.
@@ -389,8 +396,11 @@ interface ScoredChunk extends ChunkInput {
   clipType: string;
 }
 
-export function scoreChunks(chunks: ChunkInput[], mode: Mode): ScoredChunk[] {
-  const cfg = getMode(mode);
+export function scoreChunks(chunks: ChunkInput[], mode: Mode | string): ScoredChunk[] {
+  // resolveModeKey: UI modes ('post' | 'clip') aren't registry keys — getMode
+  // would throw. Weights come from the resolved engine config; classifyClipType
+  // below still sees the raw UI mode so post/clip get the right vocabulary.
+  const cfg = getMode(resolveModeKey(mode));
   const weights = cfg.scoreWeights;
 
   return chunks.map((chunk) => {
@@ -515,7 +525,9 @@ function clampCandidateToShort<T extends { start: number; end: number }>(
 
 export function generateCandidates(
   segments: TranscriptSegment[],
-  mode: Mode,
+  // Mode | string: callers pass getUiMode(run), which may be a /create UI
+  // mode ('post' | 'clip') rather than a canonical registry Mode.
+  mode: Mode | string,
   targetCount: number,
   sourceDurationSec?: number,
 ): {

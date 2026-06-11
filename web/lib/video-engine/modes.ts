@@ -144,3 +144,31 @@ export function listModes(): ModeConfig[] {
 export function isMode(value: unknown): value is Mode {
   return value === 'affiliate' || value === 'nonprofit' || value === 'clipper' || value === 'zebby';
 }
+
+/**
+ * The mode the user ACTUALLY picked — single source of truth.
+ *
+ * ve_runs.mode is hardcoded 'affiliate' for every /create job (legacy column,
+ * see app/api/create/jobs/route.ts); the real UI mode ('post' | 'clip') lives
+ * in context_json.mode. Branching on run.mode alone left every post/clip gate
+ * dead (caught live 2026-06-10). Anything that branches on a run's mode must
+ * read it through this helper. Legacy runs (no context_json.mode) fall back
+ * to run.mode, so true affiliate/nonprofit/clipper/zebby runs are unchanged.
+ */
+export function getUiMode(run: { mode: string; context_json?: unknown }): string {
+  return (((run.context_json ?? {}) as Record<string, unknown>).mode as string) || run.mode;
+}
+
+/**
+ * Map a UI mode onto the registry key the engine configs are stored under.
+ * Clip Picker ('clip') IS the long-form clipper surface, so it gets clipper
+ * weights/caps. Post Maker ('post') keeps the affiliate config it has always
+ * effectively run with (post runs mostly bypass selection via the full-take
+ * fallback in pipeline.ts). Canonical modes pass through untouched, keeping
+ * legacy behavior identical.
+ */
+export function resolveModeKey(mode: string): Mode {
+  if (isMode(mode)) return mode;
+  if (mode === 'clip') return 'clipper';
+  return 'affiliate';
+}

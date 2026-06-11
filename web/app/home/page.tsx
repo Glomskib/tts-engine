@@ -454,8 +454,13 @@ export default function HomeDashboard() {
           </div>
 
           {/* Last win tile */}
+          {/* There is no /clips/[id] route — linking there 404'd (2026-06-10
+              audit). thumb_url actually carries content_items.final_video_url
+              (an MP4), so link straight to the video when we have it; fall
+              back to the My Clips list otherwise. */}
           <Link
-            href={lastWin ? `/clips/${lastWin.id}` : '/clips'}
+            href={lastWin?.thumb_url || '/clips'}
+            target={lastWin?.thumb_url ? '_blank' : undefined}
             className="group rounded-2xl border border-zinc-800 bg-gradient-to-br from-emerald-500/10 to-teal-500/5 p-4 sm:p-5 flex items-center gap-4 hover:border-emerald-500/30 transition-colors"
           >
             <div className="w-12 h-12 rounded-xl overflow-hidden bg-zinc-950 border border-zinc-800 shrink-0 flex items-center justify-center">
@@ -575,9 +580,14 @@ export default function HomeDashboard() {
                     ? AlertCircle
                     : Loader2;
                 return (
+                  // No /clips/[id] route exists — the old per-id href 404'd
+                  // (2026-06-10 audit). thumb_url is really final_video_url
+                  // (the rendered MP4): open it directly when the render is
+                  // done, otherwise send them to the My Clips list.
                   <Link
                     key={clip.id}
-                    href={`/clips/${clip.id}`}
+                    href={clip.thumb_url || '/clips'}
+                    target={clip.thumb_url ? '_blank' : undefined}
                     className="group rounded-2xl overflow-hidden border border-zinc-800 bg-zinc-900/40 hover:border-zinc-600 transition-colors"
                   >
                     <div className="aspect-[9/16] bg-zinc-950 relative">

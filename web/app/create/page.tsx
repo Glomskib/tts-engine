@@ -637,7 +637,7 @@ export default function CreatePage() {
           Drop footage. Get a finished short.
         </h1>
         <p className="text-zinc-400 text-sm sm:text-base max-w-2xl">
-          We trim silences, beat-sync the cuts, write captions, detect retakes, and polish your hook — automatically.
+          We cut the dead air, remove retakes and filler words, add punch-in zooms, and burn in captions — automatically.
         </p>
         <div className="mt-4 flex flex-wrap gap-2 text-xs">
           {[

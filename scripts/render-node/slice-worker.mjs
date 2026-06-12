@@ -34,6 +34,15 @@ function ffmpegPath() {
 }
 const FFMPEG = ffmpegPath();
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+// Head+tail truncation for error columns. execFile errors start with the
+// giant ffmpeg command line, so a plain .slice(0, N) burns the whole budget
+// on the command and the actual stderr (which ffmpeg prints LAST) never
+// reaches the DB. Keep a little head for context + the tail where the
+// real error lives.
+function trimErr(msg, head, tail) {
+  const s = String(msg == null ? '' : msg);
+  return s.length <= head + tail + 3 ? s : `${s.slice(0, head)} … ${s.slice(-tail)}`;
+}
 
 // ─── Captions ────────────────────────────────────────────────────────────────
 function captionStyle(name) {
@@ -247,7 +256,14 @@ async function renderJob(job) {
       }
       if (events.length) {
         fs.writeFileSync(ass, buildAss(events, st));
-        assFilter = `,subtitles=${assName}`; // libass; relative name + cwd=tmpdir
+        // Explicit option name + single-quoted value. The bare positional form
+        // (subtitles=ffcap-x.ass) relies on ffmpeg's shorthand option parsing,
+        // which some builds reject inside filtergraphs with "No option name
+        // near 'ffcap-…'" — that one-line parse error killed every captioned
+        // render on 2026-06-11. filename='…' is parsed identically by every
+        // ffmpeg (4.x–8.x) in -vf AND -filter_complex. assName is [a-z0-9-]
+        // + ".ass" so no further escaping is needed inside the quotes.
+        assFilter = `,subtitles=filename='${assName}'`; // libass; relative name + cwd=tmpdir
         console.log(`[slice-worker] captions: ${events.length} cues, style=${spec.caption_style}`);
       } else {
         console.log('[slice-worker] no caption events (no transcript chunks in window)');
@@ -312,7 +328,11 @@ async function renderJob(job) {
         // normalize each segment to 1080x1920, stitch with concat, THEN
         // captions + fades on the stitched timeline.
         const punch = spec.punch_in !== false && ranges.length >= 2;
-        const scalePad = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black';
+        // setsar=1 is required: scale preserves DAR by tweaking SAR, so the
+        // punch-in (cropped) segments can come out with SAR 71003:71010-style
+        // values while clean segments are 1:1 — and concat refuses to link
+        // pads whose SARs differ ("Input link parameters do not match").
+        const scalePad = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,setsar=1';
         const punchCrop = 'crop=iw/1.08:ih/1.08:(iw-iw/1.08)/2:(ih-ih/1.08)/2,';
         ranges.forEach((r, i) => {
           const zoom = punch && i % 2 === 1 ? punchCrop : '';
@@ -379,8 +399,8 @@ async function renderJob(job) {
   } catch (e) {
     const msg = (e && e.message) ? e.message : String(e);
     console.error(`[slice-worker] FAIL job=${job.id}: ${msg}`);
-    await sb.from('ff_render_jobs').update({ status: 'failed', error: msg.slice(0, 1000), updated_at: new Date().toISOString() }).eq('id', job.id);
-    await sb.from('ve_rendered_clips').update({ status: 'failed', error_message: msg.slice(0, 500) }).eq('ff_render_job_id', job.id);
+    await sb.from('ff_render_jobs').update({ status: 'failed', error: trimErr(msg, 200, 700), updated_at: new Date().toISOString() }).eq('id', job.id);
+    await sb.from('ve_rendered_clips').update({ status: 'failed', error_message: trimErr(msg, 100, 350) }).eq('ff_render_job_id', job.id);
   } finally {
     for (const f of cleanup) { try { fs.existsSync(f) && fs.unlinkSync(f); } catch {} }
   }

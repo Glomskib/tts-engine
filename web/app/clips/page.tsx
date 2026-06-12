@@ -46,6 +46,8 @@ interface Clip {
   output_url: string | null;
   duration_sec: number | null;
   status: string;
+  /** Why this clip's render failed (from ve_rendered_clips). null when fine. */
+  error_message?: string | null;
   /** AI-packaged caption (Anthropic via packaging.ts). null when missing. */
   caption_text?: string | null;
   /** AI-packaged hashtags (lowercase, no #). Empty array when missing. */
@@ -62,7 +64,14 @@ interface JobRow {
   created_at: string;
   completed_at: string | null;
   target_clip_count: number;
-  context_json: { describe?: string; vibe?: string };
+  context_json: {
+    describe?: string;
+    vibe?: string;
+    /** Post Maker multi-take uploads beyond the primary. v1 renders take 1
+     *  only — these are saved for the upcoming take picker, so the UI must
+     *  say so instead of implying every upload becomes a video. */
+    additional_sources?: Array<{ filename?: string }>;
+  };
   error_message: string | null;
   clips: Clip[];
 }
@@ -184,6 +193,10 @@ function JobCard({ job }: { job: JobRow }) {
   // ('done'/'completed' vs 'complete'), so status only excludes known
   // failures instead of requiring an exact match.
   const ready = (job.clips || []).filter((c) => c.output_url && c.status !== 'failed');
+  // Multi-take uploads (Post Maker): only take 1 renders in v1 — the rest are
+  // saved for the take picker. Surface that honestly so "I uploaded 3 videos,
+  // where are the other 2?" has an answer on the page.
+  const extraTakes = job.context_json?.additional_sources?.length ?? 0;
 
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden">
@@ -248,11 +261,55 @@ function JobCard({ job }: { job: JobRow }) {
         </>
       )}
 
-      {done && ready.length === 0 && (
-        <div className="px-4 pb-4 text-sm text-gray-400">
-          Job completed but no clip URLs returned — this is rare. Try re-creating.
+      {/* Multi-take honesty: N uploads → ONE rendered video in v1. Without
+          this line a 3-take upload looks like 2 videos silently vanished. */}
+      {extraTakes > 0 && (
+        <div className="px-4 pb-4 text-xs text-zinc-500">
+          Take 1 is the one we render — your other {extraTakes} take{extraTakes === 1 ? '' : 's'} {extraTakes === 1 ? 'is' : 'are'} saved for the take picker (coming soon).
         </div>
       )}
+
+      {done && ready.length === 0 && <NoVideosExplainer job={job} />}
+    </div>
+  );
+}
+
+/**
+ * Run says 'complete' but there's nothing to play. The old copy here was
+ * "no clip URLs returned — this is rare. Try re-creating." — a dead end that
+ * hid the real reason and made the user re-spend credits. Now we distinguish
+ * the two real states and give a retry that actually re-queues the renders:
+ *   - clips exist but no output_url yet → renders still uploading (the run
+ *     row flipped early); the page polls every 6s so it self-resolves.
+ *   - clips failed (or none exist) → show the render's error_message and a
+ *     Retry button (POST /api/create/jobs/[id] re-queues failed renders).
+ */
+function NoVideosExplainer({ job }: { job: JobRow }) {
+  const clips = job.clips || [];
+  const stillBaking = clips.filter((c) => !c.output_url && c.status !== 'failed');
+  if (stillBaking.length > 0) {
+    return (
+      <div className="px-4 pb-4 text-sm text-gray-400 flex items-center gap-2">
+        <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-400" />
+        Almost done — {stillBaking.length} video{stillBaking.length === 1 ? ' is' : 's are'} still finishing. This page refreshes automatically.
+      </div>
+    );
+  }
+  // No pending clips → every render failed (or none were created). Be honest
+  // about why, using the clip's real error first, then the run's.
+  const reason =
+    clips.find((c) => c.error_message)?.error_message
+    || job.error_message
+    || 'The renders didn’t finish — likely a worker hiccup.';
+  return (
+    <div className="mx-4 mb-4 bg-amber-950/30 border border-amber-800/60 rounded-lg px-3 py-2 text-sm text-amber-100">
+      <div className="flex items-start gap-2 mb-2">
+        <AlertTriangle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+        <div className="leading-snug">
+          The videos for this job didn&apos;t come out. {reason}
+        </div>
+      </div>
+      <RetryJobButton jobId={job.id} />
     </div>
   );
 }

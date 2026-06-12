@@ -104,8 +104,46 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (run.user_id !== auth.user.id && !auth.isAdmin) {
     return NextResponse.json({ ok: false, error: 'forbidden' }, { status: 403 });
   }
+  // Pull this run's clip rows once — used both for the complete-guard below
+  // and for re-queueing failed renders.
+  const { data: clipRows } = await supabaseAdmin
+    .from('ve_rendered_clips')
+    .select('id, ff_render_job_id, status, output_url')
+    .eq('run_id', id);
   if (run.status === 'complete') {
-    return NextResponse.json({ ok: false, error: 'already_complete' }, { status: 409 });
+    // Only block retry when the run actually HAS a playable clip. Runs that
+    // slipped to 'complete' with zero output_urls (the pre-fix stageRendering
+    // bug — all render jobs failed/reaped but the run still completed) must
+    // stay retryable, otherwise the user is stuck with a green "Done" job
+    // that has nothing to watch and no way out.
+    const hasPlayable = (clipRows || []).some((c) => !!c.output_url && c.status !== 'failed');
+    if (hasPlayable) {
+      return NextResponse.json({ ok: false, error: 'already_complete' }, { status: 409 });
+    }
+  }
+
+  // Re-queue failed renders BEFORE resetting the run. Without this, a retry
+  // of a render-stage failure just replays the pipeline against the same
+  // dead ff_render_jobs rows (stageAssemble's idempotency guard reuses them)
+  // and fails again instantly — the retry button was a no-op for exactly the
+  // runs that needed it most.
+  const failedClips = (clipRows || []).filter((c) => c.status === 'failed' || !c.output_url);
+  const failedJobIds = failedClips.map((c) => c.ff_render_job_id).filter(Boolean) as string[];
+  if (failedJobIds.length > 0) {
+    // attempts: 0 so the reaper's attempts>=max_attempts check doesn't
+    // instantly re-fail jobs that already burned their tries.
+    await supabaseAdmin
+      .from('ff_render_jobs')
+      .update({ status: 'pending', attempts: 0, claimed_by: null, claimed_at: null, error: null })
+      .in('id', failedJobIds)
+      .eq('status', 'failed');
+  }
+  if (failedClips.length > 0) {
+    await supabaseAdmin
+      .from('ve_rendered_clips')
+      .update({ status: 'queued', error_message: null })
+      .in('id', failedClips.map((c) => c.id))
+      .eq('status', 'failed');
   }
 
   // Reset the run so the worker tick claims it again.

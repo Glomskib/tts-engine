@@ -1274,7 +1274,6 @@ async function stageRendering(run: RunRow): Promise<RunStatus> {
   const jobMap = new Map(jobs.map((j) => [j.id, j]));
 
   let allDone = true;
-  let anyFailed = false;
 
   for (const rc of rendered) {
     const j = jobMap.get(rc.ff_render_job_id ?? '');
@@ -1295,7 +1294,6 @@ async function stageRendering(run: RunRow): Promise<RunStatus> {
         .from('ve_rendered_clips')
         .update({ status: 'failed', error_message: j.error ?? 'render failed' })
         .eq('id', rc.id);
-      anyFailed = true;
     } else if (j.status === 'claimed' || j.status === 'rendering' || j.status === 'uploading') {
       if (rc.status === 'queued') {
         await supabaseAdmin.from('ve_rendered_clips').update({ status: 'rendering' }).eq('id', rc.id);
@@ -1313,9 +1311,29 @@ async function stageRendering(run: RunRow): Promise<RunStatus> {
   // captions opportunistically; if it fails the run still completes with the
   // downloadable clip.
   if (allDone) {
-    return anyFailed && rendered.every((r) => jobMap.get(r.ff_render_job_id ?? '')?.status === 'failed')
-      ? 'failed'
-      : 'complete';
+    // 'complete' must mean "there is at least one video to watch". The old
+    // check keyed off an anyFailed flag that was only set when THIS tick
+    // transitioned a clip to failed — so a run whose render jobs had all
+    // failed in an EARLIER tick (or were failed by ff_reap_stale_render_jobs
+    // between ticks, e.g. while the pipeline cron was 401ing) sailed through
+    // here as 'complete' with zero playable clips, and /clips dead-ended on
+    // "no clip URLs returned — this is rare". Gate completion on actual
+    // playable output, not on transition bookkeeping.
+    const playable = rendered.filter((rc) => {
+      const j = jobMap.get(rc.ff_render_job_id ?? '');
+      return j?.status === 'done' && !!j.output_url;
+    });
+    if (playable.length > 0) return 'complete';
+    // Every render job is terminal and none produced a video — that's a
+    // failed run. Throw so fail() records the REAL reason in error_message
+    // (the /clips and /create UIs show it verbatim with a retry button)
+    // instead of tickRun's generic "Pipeline failed at rendering stage".
+    const firstError = jobs.find((j) => j.status === 'failed' && j.error)?.error;
+    throw new Error(
+      firstError
+        ? `All ${rendered.length} clip render(s) failed: ${String(firstError).slice(0, 300)}`
+        : `Rendering finished but none of the ${rendered.length} render job(s) produced a video. Retry to re-render.`,
+    );
   }
   return 'rendering';
 }

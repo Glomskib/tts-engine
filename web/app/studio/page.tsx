@@ -192,6 +192,14 @@ export default function StudioPage() {
   const zoomHudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Digital-zoom recording pipeline (desktop / no caps.zoom): video → canvas crop → captureStream.
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // Portrait-fix (2026-06-12 "camera is sideways / video half the screen"):
+  // set when the camera hands us a LANDSCAPE track (w>h) even though we asked
+  // for 1080x1920 — common on Android Chrome where the sensor-native
+  // landscape mode wins. The preview looks fine (object-cover crops it), but
+  // recording that raw track ships a sideways file the renderer letterboxes.
+  // When set, startRecording routes through the canvas pipeline, which
+  // center-crops every frame to real 9:16 so the FILE matches the preview.
+  const portraitFixRef = useRef(false);
   const canvasStreamRef = useRef<MediaStream | null>(null);
   const canvasRafRef = useRef<number | null>(null);
   const canvasDrawingRef = useRef(false);
@@ -312,12 +320,19 @@ export default function StudioPage() {
   }, []);
 
   /**
-   * Digital-zoom recording pipeline for devices with no caps.zoom (desktops,
-   * Firefox). Draws the live video center-cropped by the CURRENT zoom factor
-   * into a canvas and records canvas.captureStream + the original audio, so
-   * what you see is exactly what lands in the file — even if you zoom
-   * mid-take. Returns null when unsupported so the caller can fall back to
-   * recording the raw stream (zoom then preview-only, but never a crash).
+   * Canvas recording pipeline. Two jobs, same plumbing:
+   *   1. Digital zoom for devices with no caps.zoom (desktops, Firefox) —
+   *      draws the live video center-cropped by the CURRENT zoom factor.
+   *   2. Portrait-fix for Android tracks that arrive LANDSCAPE — the canvas
+   *      becomes the 9:16 center cut of the frame so the recorded FILE is
+   *      upright, exactly matching the object-cover preview. Browsers apply
+   *      rotation metadata before frames hit the <video> element, so if
+   *      videoWidth > videoHeight the pixels really are landscape — a center
+   *      CROP (not a rotate) is the correct move.
+   * Records canvas.captureStream + the original audio, so what you see is
+   * exactly what lands in the file — even if you zoom mid-take. Returns null
+   * when unsupported so the caller can fall back to recording the raw stream
+   * (degraded, but never a crash).
    */
   const startCanvasPipeline = useCallback((raw: MediaStream): MediaStream | null => {
     const videoEl = videoRef.current;
@@ -326,20 +341,28 @@ export default function StudioPage() {
     const w = videoEl.videoWidth;
     const h = videoEl.videoHeight;
     if (!w || !h) return null;
-    canvas.width = w;
-    canvas.height = h;
+    // Landscape track → portrait canvas (9:16 of the frame height). Even-dim
+    // rounding keeps yuv420 encoders happy. Otherwise canvas = native dims.
+    const portraitFix = portraitFixRef.current && w > h;
+    const cw = portraitFix ? Math.floor((h * 9 / 16) / 2) * 2 : w;
+    const ch = h;
+    canvas.width = cw;
+    canvas.height = ch;
     const ctx = canvas.getContext('2d');
     if (!ctx) return null;
     canvasDrawingRef.current = true;
     const draw = () => {
       if (!canvasDrawingRef.current) return;
-      const z = Math.max(1, zoomRef.current);
-      const sw = w / z;
-      const sh = h / z;
+      // Native caps.zoom is already baked into the raw frames by the camera
+      // driver — only the digital path applies zoomRef here, otherwise zoom
+      // would double-apply when portrait-fix rides on a native-zoom camera.
+      const z = zoomCapsRef.current ? 1 : Math.max(1, zoomRef.current);
+      const sw = cw / z;
+      const sh = ch / z;
       // Draw the RAW video element — for the front camera the mirror is
       // preview-only CSS, so the canvas (and the recording) stays unflipped,
       // matching the /create convention.
-      ctx.drawImage(videoEl, (w - sw) / 2, (h - sh) / 2, sw, sh, 0, 0, w, h);
+      ctx.drawImage(videoEl, (w - sw) / 2, (h - sh) / 2, sw, sh, 0, 0, cw, ch);
       canvasRafRef.current = requestAnimationFrame(draw);
     };
     draw();
@@ -363,6 +386,11 @@ export default function StudioPage() {
       const baseVideo: MediaTrackConstraints = {
         width: { ideal: 1080 },
         height: { ideal: 1920 },
+        // Belt-and-braces portrait ask: some Android camera HALs ignore the
+        // w/h hint but honor aspectRatio. `ideal` keeps it a preference, so
+        // browsers/devices that can't do 9:16 still return a track instead
+        // of throwing OverconstrainedError.
+        aspectRatio: { ideal: 9 / 16 },
         frameRate: { ideal: 30 },
       };
       let stream: MediaStream;
@@ -413,6 +441,18 @@ export default function StudioPage() {
       setZoomCaps(zc);
       setTorchSupported(caps?.torch === true);
       setTorchOn(false); // torch resets whenever the track restarts
+
+      // WYSIWYG orientation guard: if the track came back LANDSCAPE despite
+      // the portrait ask, flag it so recording goes through the canvas crop.
+      // Breadcrumb stays in the console so a "sideways video" report can be
+      // confirmed from a remote-debug session in seconds.
+      let trackSettings: MediaTrackSettings | undefined;
+      try { trackSettings = typeof vTrack?.getSettings === 'function' ? vTrack.getSettings() : undefined; } catch { trackSettings = undefined; }
+      const landscapeTrack = !!(trackSettings?.width && trackSettings?.height && trackSettings.width > trackSettings.height);
+      portraitFixRef.current = landscapeTrack;
+      if (landscapeTrack) {
+        console.warn(`[studio] camera delivered a landscape track ${trackSettings?.width}x${trackSettings?.height} — recordings will be canvas-cropped to upright 9:16`);
+      }
 
       // Fresh lens = fresh zoom. If a lens switch queued a zoom (e.g. tapped
       // 2x while on the ultra-wide device), apply it now that caps are known.
@@ -488,13 +528,20 @@ export default function StudioPage() {
         : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
           ? 'video/webm;codecs=vp9,opus'
           : 'video/webm';
-      // WYSIWYG zoom: with native caps.zoom the camera driver already bakes
-      // the zoom into the raw stream. Without it (desktop/Firefox) we record
-      // the canvas-crop pipeline instead, so digital zoom lands in the file
-      // too. Null fallback = raw stream, zoom preview-only, never a crash.
+      // WYSIWYG zoom + orientation: with native caps.zoom the camera driver
+      // already bakes zoom into the raw stream, so we can record it directly —
+      // UNLESS the track came back landscape (portraitFixRef), in which case
+      // the canvas pipeline crops every frame to upright 9:16 so the file
+      // matches the portrait preview instead of rendering as a sideways
+      // letterboxed strip. Without native zoom (desktop/Firefox) the canvas
+      // path also bakes in digital zoom. Null fallback = raw stream, never a
+      // crash — just log it so a bad upload can be explained.
       let recStream: MediaStream = streamRef.current;
-      if (!zoomCapsRef.current) {
+      if (!zoomCapsRef.current || portraitFixRef.current) {
         recStream = startCanvasPipeline(streamRef.current) ?? streamRef.current;
+        if (portraitFixRef.current && recStream === streamRef.current) {
+          console.warn('[studio] portrait-fix canvas unavailable — recording the raw landscape track');
+        }
       }
       const rec = new MediaRecorder(recStream, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
       chunksRef.current = [];

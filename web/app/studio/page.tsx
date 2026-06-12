@@ -19,7 +19,7 @@ import Link from 'next/link';
 import {
   Mic, MicOff, Settings, X, Check, AlertTriangle, Loader2, SwitchCamera,
   ChevronUp, ChevronDown, Bluetooth, Volume2, RefreshCw, Trash2, Play,
-  Zap, ZapOff,
+  Zap, ZapOff, Pause,
 } from 'lucide-react';
 import PWAInstaller from '@/components/pwa/PWAInstaller';
 
@@ -145,6 +145,11 @@ export default function StudioPage() {
   const [mediaError, setMediaError] = useState<string | null>(null);
   const [permState, setPermState] = useState<'idle' | 'requesting' | 'granted' | 'denied'>('idle');
   const [recording, setRecording] = useState(false);
+  // Pause/resume: 'paused' only ever true while recording. pauseSupported is
+  // feature-detected per-recorder (MediaRecorder.pause exists in all modern
+  // browsers, but hide the button rather than crash on an odd UA).
+  const [paused, setPaused] = useState(false);
+  const [pauseSupported, setPauseSupported] = useState(false);
   const [recElapsed, setRecElapsed] = useState(0);
   const [audioLevel, setAudioLevel] = useState(0);
   const [mics, setMics] = useState<MicDevice[]>([]);
@@ -165,6 +170,11 @@ export default function StudioPage() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const recStartRef = useRef<number>(0);
+  // Paused-time bookkeeping so the timer (and clip duration) count RECORDED
+  // time, not wall-clock time: pausedAccumRef = total ms of finished pauses
+  // this take; pauseStartRef = when the current pause began (null = live).
+  const pausedAccumRef = useRef(0);
+  const pauseStartRef = useRef<number | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -495,7 +505,11 @@ export default function StudioPage() {
         stopCanvasPipeline();
         const blob = new Blob(chunksRef.current, { type: mime });
         const blobUrl = URL.createObjectURL(blob);
-        const duration = (Date.now() - recStartRef.current) / 1000;
+        // Recorded duration excludes paused stretches — recorder.pause()
+        // stops capturing, so wall-clock would overstate the clip length.
+        // stopRecording() finalizes pausedAccumRef before stop(), so any
+        // in-flight pause is already folded in by the time onstop fires.
+        const duration = (Date.now() - recStartRef.current - pausedAccumRef.current) / 1000;
         const localId = `c_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
         const clip: Clip = {
           local_id: localId,
@@ -514,9 +528,19 @@ export default function StudioPage() {
       };
       recorderRef.current = rec;
       recStartRef.current = Date.now();
+      pausedAccumRef.current = 0;
+      pauseStartRef.current = null;
+      setPaused(false);
+      // Feature-detect pause/resume per-recorder so the pause button only
+      // renders when the UA can actually honor it.
+      setPauseSupported(typeof rec.pause === 'function' && typeof rec.resume === 'function');
       setRecElapsed(0);
       tickRef.current = setInterval(() => {
-        setRecElapsed(Math.floor((Date.now() - recStartRef.current) / 1000));
+        // Recorded-time timer: subtract finished pauses plus the live one.
+        // While paused, (now - pauseStart) grows at the same rate as now, so
+        // the displayed elapsed freezes instead of creeping.
+        const livePause = pauseStartRef.current != null ? Date.now() - pauseStartRef.current : 0;
+        setRecElapsed(Math.max(0, Math.floor((Date.now() - recStartRef.current - pausedAccumRef.current - livePause) / 1000)));
       }, 250);
       rec.start();
       setRecording(true);
@@ -529,11 +553,52 @@ export default function StudioPage() {
 
   const stopRecording = useCallback(() => {
     if (!recording || !recorderRef.current) return;
+    // Stopping from PAUSED is fine — MediaRecorder.stop() finalizes from
+    // either state. Fold any in-flight pause into the accumulator FIRST so
+    // onstop's duration math sees the complete paused total.
+    if (pauseStartRef.current != null) {
+      pausedAccumRef.current += Date.now() - pauseStartRef.current;
+      pauseStartRef.current = null;
+    }
     try { recorderRef.current.stop(); } catch {}
     if (tickRef.current) clearInterval(tickRef.current);
     tickRef.current = null;
     setRecording(false);
+    setPaused(false);
   }, [recording]);
+
+  /**
+   * Pause/resume via the native MediaRecorder API.
+   *
+   * Camera-feature interplay (same rules as while actively recording):
+   *   - Lens/device switches and flips stay LOCKED — the recorder still holds
+   *     the track, and swapping it kills the recording (the `recording` state
+   *     stays true through a pause, so every existing guard keeps working).
+   *   - Zoom keeps working: native zoom constraints apply to the held track,
+   *     and on the digital path the canvas rAF draw loop keeps running while
+   *     paused (recorder.pause() just stops consuming frames), so resume picks
+   *     up live frames with zero frozen-frame gap.
+   */
+  const pauseRecording = useCallback(() => {
+    const rec = recorderRef.current;
+    if (!recording || paused || !rec || typeof rec.pause !== 'function') return;
+    // Guard the call: some UAs throw InvalidStateError if state already moved
+    // (e.g. stop raced in) — bail without flipping UI state in that case.
+    try { rec.pause(); } catch { return; }
+    pauseStartRef.current = Date.now();
+    setPaused(true);
+  }, [recording, paused]);
+
+  const resumeRecording = useCallback(() => {
+    const rec = recorderRef.current;
+    if (!recording || !paused || !rec || typeof rec.resume !== 'function') return;
+    try { rec.resume(); } catch { return; }
+    if (pauseStartRef.current != null) {
+      pausedAccumRef.current += Date.now() - pauseStartRef.current;
+      pauseStartRef.current = null;
+    }
+    setPaused(false);
+  }, [recording, paused]);
 
   /**
    * Capability-driven lens pills. Only render what THIS device can do:
@@ -819,11 +884,20 @@ export default function StudioPage() {
         </div>
       </div>
 
+      {/* Recording state pill — amber + pulsing while paused so it's obvious
+          at a glance that frames are NOT being captured right now. */}
       {recording && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 rounded-full bg-red-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg">
-          <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-          REC {fmtElapsed(recElapsed)}
-        </div>
+        paused ? (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 rounded-full bg-amber-500 text-black font-bold text-sm flex items-center gap-2 shadow-lg animate-pulse">
+            <Pause className="w-3.5 h-3.5 fill-current" />
+            Paused {fmtElapsed(recElapsed)}
+          </div>
+        ) : (
+          <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 px-4 py-1.5 rounded-full bg-red-600 text-white font-bold text-sm flex items-center gap-2 shadow-lg">
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+            REC {fmtElapsed(recElapsed)}
+          </div>
+        )
       )}
 
       {mediaError && (
@@ -940,7 +1014,21 @@ export default function StudioPage() {
 
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 flex justify-start">
-            <VibePill vibe={prefs.vibe} onClick={() => setShowSettings(true)} />
+            {/* Mid-take the vibe pill gives way to pause/resume — same slot
+                keeps the record button centered, and changing vibe mid-take
+                wouldn't affect this clip's job anyway. Hidden entirely when
+                the UA's MediaRecorder lacks pause(). */}
+            {recording && pauseSupported ? (
+              <button
+                onClick={paused ? resumeRecording : pauseRecording}
+                aria-label={paused ? 'Resume recording' : 'Pause recording'}
+                className={`p-3 rounded-full bg-black/40 backdrop-blur border transition-colors active:scale-95 ${paused ? 'border-amber-400/70 text-amber-300' : 'border-white/10 text-white'}`}
+              >
+                {paused ? <Play className="w-5 h-5 fill-current" /> : <Pause className="w-5 h-5 fill-current" />}
+              </button>
+            ) : !recording ? (
+              <VibePill vibe={prefs.vibe} onClick={() => setShowSettings(true)} />
+            ) : null}
           </div>
           <button
             onClick={recording ? stopRecording : startRecording}
@@ -971,7 +1059,11 @@ export default function StudioPage() {
         </div>
 
         <div className="text-center text-[11px] text-zinc-400 mt-3">
-          {recording ? 'Tap stop. Next take queues automatically.' : 'Record. Stop. Record again. Polish happens in the background.'}
+          {recording
+            ? (paused
+              ? 'Paused. Tap ▶ to keep going, or stop to finish the take.'
+              : 'Tap stop. Next take queues automatically.')
+            : 'Record. Stop. Record again. Polish happens in the background.'}
         </div>
       </div>
 

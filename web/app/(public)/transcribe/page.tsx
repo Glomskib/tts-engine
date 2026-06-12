@@ -28,9 +28,9 @@ export default function TranscribePage() {
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs text-teal-400 mb-4">
           100% free — no signup required
         </div>
-        <h1 className="text-4xl font-bold mb-4 text-white">Free TikTok &amp; Instagram Reels Transcriber + Script Analyzer</h1>
+        <h1 className="text-4xl font-bold mb-4 text-white">Free TikTok, Facebook &amp; Instagram Reels Transcriber + Script Analyzer</h1>
         <p className="text-lg text-gray-300 mb-8">
-          Paste any TikTok or Instagram Reels link to get the full transcript, hook breakdown, and content notes. No signup required. (For YouTube, use our <Link href="/youtube-transcribe" className="text-teal-400 hover:text-teal-300 underline">YouTube transcriber</Link>.)
+          Paste any TikTok, Facebook, or Instagram Reels link (Instagram is beta) to get the full transcript, hook breakdown, and content notes. No signup required. (For YouTube, use our <Link href="/youtube-transcribe" className="text-teal-400 hover:text-teal-300 underline">YouTube transcriber</Link>.)
         </p>
       </div>
 
@@ -50,7 +50,7 @@ export default function TranscribePage() {
             <div className="p-4 bg-gray-800/50 rounded-lg">
               <div className="text-3xl font-bold text-teal-500 mb-2">1</div>
               <h3 className="text-lg font-semibold text-white mb-2">Paste a Link</h3>
-              <p className="text-gray-300">Drop any public TikTok or Instagram Reels URL in the box above. Works with vm.tiktok.com, tiktok.com/@user/video/..., and instagram.com/reel/...</p>
+              <p className="text-gray-300">Drop any public TikTok, Facebook, or Instagram Reels URL in the box above. Works with vm.tiktok.com, tiktok.com/@user/video/..., facebook.com video and reel links, fb.watch, and instagram.com/reel/... (Instagram is beta — if Meta blocks one, upload the file instead.)</p>
             </div>
             <div className="p-4 bg-gray-800/50 rounded-lg">
               <div className="text-3xl font-bold text-teal-500 mb-2">2</div>

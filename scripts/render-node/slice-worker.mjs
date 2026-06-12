@@ -96,8 +96,20 @@ function ytdlpPath() {
   try { const p = execSync('command -v yt-dlp', { encoding: 'utf8' }).trim(); if (p) return p; } catch {}
   return 'yt-dlp';
 }
-// Download link-source videos (TikTok/YouTube/etc) into clip-sources so the
-// pipeline can transcribe + clip them. Vercel can't run yt-dlp; the mini can.
+// Instagram (and occasionally Facebook) login-wall anonymous downloads. yt-dlp
+// can ride a real session if a Netscape-format cookies file is present — drop
+// one at ~/.flashflow/yt-dlp-cookies.txt on the mini (export with a "Get
+// cookies.txt" browser extension while logged into instagram.com), or point
+// YTDLP_COOKIES at a custom path. No file = anonymous best-effort, which is
+// the approved support level for Instagram (FB public videos work without it).
+function ytdlpCookieArgs() {
+  const cookieFile = process.env.YTDLP_COOKIES || path.join(os.homedir(), '.flashflow', 'yt-dlp-cookies.txt');
+  return fs.existsSync(cookieFile) ? ['--cookies', cookieFile] : [];
+}
+// Download link-source videos (TikTok/YouTube/Facebook/Instagram/etc) into
+// clip-sources so the pipeline can transcribe + clip them. Vercel can't run
+// yt-dlp; the mini can. yt-dlp's extractors handle the per-platform parsing,
+// so no URL whitelist here — the web app gates what links it accepts.
 async function ingestLinks() {
   const { data: assets } = await sb.from('ve_assets')
     .select('id,run_id,user_id,storage_path,metadata')
@@ -113,9 +125,11 @@ async function ingestLinks() {
   console.log(`[slice-worker] ingesting link run=${a.run_id} ${url}`);
   try {
     const YTDLP = ytdlpPath();
+    // Args stay platform-generic: mp4-first format ladder, 600M cap (plenty
+    // for FB/IG reels — those are typically <100M even in HD), 3 retries.
     await execFileAsync(YTDLP, [
       '-f', 'b[ext=mp4]/bv*[ext=mp4]+ba/b', '--no-playlist', '--no-warnings',
-      '--max-filesize', '600M', '--retries', '3', '-o', tmp, url,
+      '--max-filesize', '600M', '--retries', '3', ...ytdlpCookieArgs(), '-o', tmp, url,
     ], { timeout: 300000, maxBuffer: 64 * 1024 * 1024 });
     if (!fs.existsSync(tmp) || fs.statSync(tmp).size < 1024) throw new Error('yt-dlp produced no file');
     const key = `ve-ingest/${a.user_id}/${a.run_id}.mp4`;
@@ -130,8 +144,13 @@ async function ingestLinks() {
   } catch (e) {
     const msg = (e && e.message) ? e.message : String(e);
     console.error(`[slice-worker] link ingest FAIL run=${a.run_id}: ${msg}`);
+    // Instagram is best-effort beta — Meta blocks anonymous yt-dlp often, so
+    // surface the honest "upload it instead" copy instead of a raw yt-dlp error.
+    const friendly = /instagram\.com|instagr\.am/i.test(String(url))
+      ? 'Instagram blocked this one — it happens. Download the video and upload it directly instead.'
+      : ('Could not download that link: ' + msg).slice(0, 200);
     await sb.from('ve_assets').update({ metadata: { ...a.metadata, ingested: true, ingesting: false, ingest_error: msg.slice(0, 300) } }).eq('id', a.id);
-    await sb.from('ve_runs').update({ status: 'failed', error_message: ('Could not download that link: ' + msg).slice(0, 200) }).eq('id', a.run_id);
+    await sb.from('ve_runs').update({ status: 'failed', error_message: friendly }).eq('id', a.run_id);
   } finally { try { fs.existsSync(tmp) && fs.unlinkSync(tmp); } catch {} }
 }
 
@@ -375,6 +394,11 @@ async function main() {
   while (true) {
     try {
       await sb.from('ff_render_workers').update({ last_heartbeat_at: new Date().toISOString(), status: 'online' }).eq('id', workerId);
+      // Link ingest piggybacks on the render loop — it was previously defined
+      // but never called, which is why /create link jobs sat in 'created'
+      // forever ("awaiting link ingest" gate in pipeline.ts). One cheap select
+      // per tick when nothing is pending; errors never kill the loop.
+      try { await ingestLinks(); } catch (e) { console.error('[slice-worker] ingestLinks error:', e?.message || e); }
       const { data: pend } = await sb.from('ff_render_jobs')
         .select('id').eq('status', 'pending').eq('kind', 'clip_render')
         .order('priority', { ascending: true }).order('created_at', { ascending: true }).limit(1);

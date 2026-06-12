@@ -7,8 +7,10 @@ import TranscriberHeader from '@/components/TranscriberHeader';
 import Link from 'next/link';
 
 /**
- * Universal transcriber — paste ANY video URL (TikTok, YouTube, Shorts, youtu.be).
- * Backend auto-detects platform and routes to the right API.
+ * Universal transcriber — paste ANY video URL (TikTok, YouTube, Shorts,
+ * youtu.be, Facebook, fb.watch, Instagram). Backend auto-detects platform
+ * and routes to the right API. Instagram is best-effort beta — Meta blocks
+ * anonymous downloads sometimes, so copy hedges with "(beta)".
  *
  * Lead-magnet positioning: this is the entry point. Once the user sees the
  * analysis quality, the post-result CTAs sell them up to clipper / scripts.
@@ -29,11 +31,11 @@ export default function TranscribeAnythingPage() {
       {/* SEO Content Section */}
       <div className="max-w-4xl mx-auto px-4 py-8">
         <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-teal-500/10 border border-teal-500/20 text-xs text-teal-400 mb-4">
-          100% free — paste any TikTok or YouTube URL
+          100% free — paste any TikTok, YouTube, Facebook, or Instagram URL
         </div>
         <h1 className="text-4xl font-bold mb-4 text-white">Free Universal Video Transcriber</h1>
         <p className="text-lg text-gray-300 mb-8">
-          Paste any TikTok or YouTube link. We auto-detect the platform, extract the transcript, analyze the hook, and show you why it works. Works with Shorts, youtu.be, and vm.tiktok.com.
+          Paste any TikTok, YouTube, Facebook, or Instagram link. We auto-detect the platform, extract the transcript, analyze the hook, and show you why it works. Works with Shorts, youtu.be, vm.tiktok.com, fb.watch, and Instagram Reels (beta).
         </p>
       </div>
 

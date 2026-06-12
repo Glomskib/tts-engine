@@ -83,13 +83,17 @@ async function checkRateLimit(
 }
 
 // ============================================================================
-// TikTok download (resilient fallback chain)
+// Download (resilient fallback chains per platform)
 // ============================================================================
 import { downloadTikTokVideo } from '@/lib/tiktok-downloader';
+import { downloadMetaVideo, detectMetaPlatform } from '@/lib/meta-downloader';
 import { aiRouteGuard } from '@/lib/ai-route-guard';
 
 // ============================================================================
-// TikTok URL validation
+// URL validation — TikTok (original), plus Facebook/Instagram (2026-06-11).
+// Facebook public videos/reels = full support; Instagram = best-effort beta
+// (Meta login-walls anonymous access often enough that we fail friendly —
+// see the platform-specific error mapping in the catch block below).
 // ============================================================================
 
 function isValidTikTokUrl(url: string): boolean {
@@ -103,7 +107,15 @@ function isValidTikTokUrl(url: string): boolean {
   }
 }
 
-// Download logic moved to lib/tiktok-downloader.ts (5-service fallback chain)
+type SupportedPlatform = 'tiktok' | 'facebook' | 'instagram';
+
+function detectSupportedPlatform(url: string): SupportedPlatform | null {
+  if (isValidTikTokUrl(url)) return 'tiktok';
+  return detectMetaPlatform(url); // 'facebook' | 'instagram' | null
+}
+
+// Download logic lives in lib/tiktok-downloader.ts (5-service fallback chain)
+// and lib/meta-downloader.ts (cobalt + page-scrape chain for FB/IG)
 
 // ============================================================================
 // Prepare audio file for Whisper
@@ -184,9 +196,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'URL is required.' }, { status: 400 });
   }
 
-  if (!isValidTikTokUrl(url)) {
+  const platform = detectSupportedPlatform(url);
+  if (!platform) {
     return NextResponse.json(
-      { error: 'Please provide a valid TikTok URL (e.g. https://www.tiktok.com/@user/video/...)' },
+      { error: 'Please provide a valid TikTok, Facebook, or Instagram URL (e.g. https://www.tiktok.com/@user/video/...)' },
       { status: 400 }
     );
   }
@@ -199,13 +212,16 @@ export async function POST(request: Request) {
 
   const anthropicKey = process.env.ANTHROPIC_API_KEY;
   const id = randomUUID();
-  const videoPath = join(tmpdir(), `tiktok-${id}.mp4`);
+  const videoPath = join(tmpdir(), `${platform}-${id}.mp4`);
   const filesToClean: string[] = [videoPath];
 
   try {
-    // Step 1: Download video
-    console.log('[transcribe] Downloading video from:', url);
-    const videoBuffer = await downloadTikTokVideo(url);
+    // Step 1: Download video — platform-specific fallback chain. Everything
+    // after this point (Whisper, analysis, usage logging) is platform-agnostic.
+    console.log(`[transcribe] Downloading ${platform} video from:`, url);
+    const videoBuffer = platform === 'tiktok'
+      ? await downloadTikTokVideo(url)
+      : await downloadMetaVideo(url);
     await writeFile(videoPath, videoBuffer);
     console.log('[transcribe] Downloaded:', (videoBuffer.length / 1024 / 1024).toFixed(1), 'MB');
 
@@ -354,6 +370,23 @@ CRITICAL:
       return NextResponse.json(
         { error: 'The download timed out. The video may be too long or the connection is slow.' },
         { status: 504 }
+      );
+    }
+
+    // Instagram is best-effort beta: Meta blocks anonymous downloads
+    // unpredictably, so any download failure gets the honest, friendly
+    // message (Brandon-approved copy) instead of a scary generic 500.
+    if (platform === 'instagram' && (message.includes('All download services failed') || message.includes('instagram scrape'))) {
+      return NextResponse.json(
+        { error: 'Instagram blocked this one — it happens. Download the video and upload it directly instead.' },
+        { status: 422 }
+      );
+    }
+
+    if (platform === 'facebook' && message.includes('All download services failed')) {
+      return NextResponse.json(
+        { error: 'Could not access this Facebook video. It may be private, friends-only, or deleted. Public videos and reels work best.' },
+        { status: 422 }
       );
     }
 

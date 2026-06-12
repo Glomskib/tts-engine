@@ -141,12 +141,16 @@ export interface TranscriberCoreProps {
 
 // Auto-detect platform from any pasted URL.
 // Lets users paste anything from any field — backend dispatches correctly.
-export function detectPlatform(url: string): 'youtube' | 'tiktok' | 'unknown' {
+// Facebook + Instagram both ride /api/transcribe (extended 2026-06-11):
+// FB public videos/reels = full support, IG = best-effort beta.
+export function detectPlatform(url: string): 'youtube' | 'tiktok' | 'facebook' | 'instagram' | 'unknown' {
   if (!url) return 'unknown';
   const u = url.toLowerCase().trim();
   if (u.includes('youtube.com') || u.includes('youtu.be')) return 'youtube';
   if (u.includes('tiktok.com') || u.includes('vm.tiktok.com')) return 'tiktok';
-  // Future: instagram.com/reel, twitch.tv, vimeo, dailymotion, podcasts (RSS)
+  if (u.includes('facebook.com') || u.includes('fb.watch') || u.includes('fb.com')) return 'facebook';
+  if (u.includes('instagram.com') || u.includes('instagr.am')) return 'instagram';
+  // Future: twitch.tv, vimeo, dailymotion, podcasts (RSS)
   return 'unknown';
 }
 
@@ -170,11 +174,13 @@ const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   tiktok: {
     apiEndpoint: '/api/transcribe',
     name: 'TikTok',
-    placeholder: 'https://www.tiktok.com/@user/video/...',
+    // /api/transcribe also takes Facebook + Instagram links (2026-06-11), so
+    // the "short videos" page honestly covers all three short-form platforms.
+    placeholder: 'Paste a TikTok, Facebook, or Instagram link...',
     heroTitle: 'Free TikTok Video',
-    heroDescription: 'Paste any TikTok URL — break down why it works, analyze the hook, and build your own version.',
-    socialProof: 'Works with any public TikTok video. No watermarks, no downloads, no tracking.',
-    howItWorksStep1: 'Copy any public TikTok video link and paste it above.',
+    heroDescription: 'Paste any TikTok, Facebook, or Instagram URL — break down why it works, analyze the hook, and build your own version.',
+    socialProof: 'Works with public TikTok and Facebook videos, plus Instagram Reels (beta). No watermarks, no downloads, no tracking.',
+    howItWorksStep1: 'Copy any public TikTok, Facebook, or Instagram video link and paste it above.',
     productSearchUrl: (q: string) => `https://www.tiktok.com/shop/search?q=${encodeURIComponent(q)}`,
     productSearchLabel: 'Find Products',
   },
@@ -192,11 +198,11 @@ const PLATFORM_CONFIG: Record<string, PlatformConfig> = {
   auto: {
     apiEndpoint: '/api/youtube-transcribe', // overridden at runtime based on detected platform
     name: 'Any video',
-    placeholder: 'Paste any TikTok or YouTube URL — we figure out the rest...',
+    placeholder: 'Paste a TikTok, YouTube, Facebook, or Instagram link — we figure out the rest...',
     heroTitle: 'Free Video',
-    heroDescription: 'Paste any TikTok or YouTube link. We auto-detect the platform, extract the transcript, analyze the hook, and show you why it works.',
-    socialProof: 'Works with TikTok, YouTube, YouTube Shorts, and youtu.be links. No signup, no watermarks, no tracking.',
-    howItWorksStep1: 'Paste any video link from TikTok or YouTube.',
+    heroDescription: 'Paste any TikTok, YouTube, Facebook, or Instagram link. We auto-detect the platform, extract the transcript, analyze the hook, and show you why it works.',
+    socialProof: 'Works with TikTok, YouTube, Shorts, Facebook videos and reels, and Instagram (beta). No signup, no watermarks, no tracking.',
+    howItWorksStep1: 'Paste any video link from TikTok, YouTube, Facebook, or Instagram (beta).',
     productSearchUrl: (q: string) => `https://www.google.com/search?q=${encodeURIComponent(q)}`,
     productSearchLabel: 'Search Products',
   },
@@ -474,14 +480,16 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
 
     try {
       // When platform is 'auto', dispatch to the right API based on the URL.
-      // Lets a single field accept anything — TikTok, YouTube, youtu.be, Shorts.
+      // Lets a single field accept anything — TikTok, YouTube, Facebook, Instagram.
+      // FB/IG share the TikTok endpoint: /api/transcribe downloads + Whispers
+      // any short-form video; only the download chain differs per platform.
       let endpoint = config.apiEndpoint;
       if (platform === 'auto') {
         const detected = detectPlatform(url);
         if (detected === 'youtube') endpoint = '/api/youtube-transcribe';
-        else if (detected === 'tiktok') endpoint = '/api/transcribe';
+        else if (detected === 'tiktok' || detected === 'facebook' || detected === 'instagram') endpoint = '/api/transcribe';
         else {
-          setError("That doesn't look like a TikTok or YouTube URL. Paste a full link starting with https://");
+          setError("That doesn't look like a TikTok, YouTube, Facebook, or Instagram URL. Paste a full link starting with https://");
           setLoading(false);
           return;
         }
@@ -2406,7 +2414,7 @@ export default function TranscriberCore({ isPortal, isLoggedIn: initialLoggedIn,
           <div className="max-w-4xl">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
-                { icon: Clipboard, title: 'Paste a URL', desc: 'Any public TikTok or YouTube video' },
+                { icon: Clipboard, title: 'Paste a URL', desc: 'Public TikTok, YouTube, or Facebook video — Instagram in beta' },
                 { icon: Target, title: 'AI analyzes it', desc: 'Hook, pacing, triggers & structure' },
                 { icon: Sparkles, title: 'Get insights', desc: 'Rewrite it in any persona or tone' },
               ].map((item) => (

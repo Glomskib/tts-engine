@@ -734,17 +734,18 @@ export default function CreatePage() {
 
         {/* 1 · SOURCES */}
         <Section title={mode === 'post' ? `1 · Your take${defaults.maxSources > 1 ? 's' : ''} (up to ${defaults.maxSources})` : '1 · Source'}>
-          <div className="grid grid-cols-2 gap-2 mb-4">
+          <div className="grid grid-cols-3 gap-2 mb-4">
             <EntryTab active={entry === 'record'} onClick={() => setEntry('record')} icon={<Video className="w-4 h-4" />} label="Record" />
             <EntryTab active={entry === 'upload'} onClick={() => setEntry('upload')} icon={<Upload className="w-4 h-4" />} label="Upload" />
-            {/* Link + Drive hidden for launch (2026-06-08): no reliable video
-                downloader ingests the source yet, so link/drive jobs fail at
-                transcribe ("Failed to download asset"). Re-enable once the
-                yt-dlp-on-mini ingest ships. Kept in JSX so imports stay valid. */}
-            {false && (<>
+            {/* Link re-enabled 2026-06-11: the yt-dlp-on-mini ingest now runs
+                (slice-worker.mjs calls ingestLinks() every tick), so link jobs
+                download on the mini instead of dying at transcribe. */}
             <EntryTab active={entry === 'link'}   onClick={() => setEntry('link')}   icon={<LinkIcon className="w-4 h-4" />} label="Link" />
+            {/* Drive still hidden for launch: folder watcher isn't built.
+                Kept in JSX so imports stay valid. */}
+            {false && (
             <EntryTab active={entry === 'drive'}  onClick={() => setEntry('drive')}  icon={<Sparkles className="w-4 h-4" />} label="Drive" />
-            </>)}
+            )}
           </div>
 
           {entry === 'record' && (
@@ -813,13 +814,20 @@ export default function CreatePage() {
           )}
 
           {entry === 'link' && (
-            <input
-              type="url"
-              value={linkValue}
-              onChange={(e) => setLinkValue(e.target.value)}
-              placeholder="Paste a YouTube, Vimeo, TikTok, or direct video URL"
-              className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:border-teal-500 outline-none"
-            />
+            <div>
+              <input
+                type="url"
+                value={linkValue}
+                onChange={(e) => setLinkValue(e.target.value)}
+                placeholder="Paste a TikTok, YouTube, Facebook, or Instagram link"
+                className="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg focus:border-teal-500 outline-none"
+              />
+              {/* yt-dlp on the mini handles extraction, so most video URLs work.
+                  IG is the flaky one — Meta blocks anonymous downloads sometimes. */}
+              <p className="mt-2 text-xs text-gray-500">
+                Instagram is beta — if a reel won&apos;t download, upload the file instead.
+              </p>
+            </div>
           )}
 
           {entry === 'drive' && (

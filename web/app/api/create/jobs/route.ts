@@ -8,7 +8,7 @@
  *
  * Body:
  *   source_url?: string         // signed URL from /api/create/upload-url
- *   source_link?: string        // YouTube/Vimeo/TikTok URL
+ *   source_link?: string        // TikTok/YouTube/Facebook/Instagram/Vimeo URL — mini's yt-dlp ingests it
  *   describe: string            // the user's natural-language prompt
  *   vibe: string                // hype | calm | real | funny | sad | <custom>
  *   brand_profile_id?: string
@@ -333,6 +333,7 @@ export async function GET(req: NextRequest) {
     output_url: string | null;
     duration_sec: number | null;
     status: string;
+    error_message: string | null;
     caption_text: string | null;
     hashtags: string[];
     suggested_title: string | null;
@@ -342,9 +343,11 @@ export async function GET(req: NextRequest) {
     // Surface the AI-packaged metadata (caption_text, hashtags, suggested_title,
     // cta_suggestion) so /clips can show a one-click "Copy Caption" with the
     // model-generated text instead of a heuristic fallback.
+    // error_message rides along so /clips can say WHY a clip has no video
+    // instead of the old "no clip URLs returned — this is rare" dead end.
     const { data: clips } = await supabaseAdmin
       .from('ve_rendered_clips')
-      .select('id, run_id, output_url, duration_sec, status, caption_text, hashtags, suggested_title, cta_suggestion')
+      .select('id, run_id, output_url, duration_sec, status, error_message, caption_text, hashtags, suggested_title, cta_suggestion')
       .in('run_id', interestingIds);
     clipsByRun = (clips || []).reduce((acc, c) => {
       const runId = c.run_id as string;
@@ -354,6 +357,7 @@ export async function GET(req: NextRequest) {
         output_url: c.output_url as string | null,
         duration_sec: (c.duration_sec as number | null) ?? null,
         status: c.status as string,
+        error_message: (c.error_message as string | null) ?? null,
         caption_text: (c.caption_text as string | null) ?? null,
         hashtags: Array.isArray(c.hashtags) ? (c.hashtags as string[]) : [],
         suggested_title: (c.suggested_title as string | null) ?? null,

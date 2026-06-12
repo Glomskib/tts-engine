@@ -13,6 +13,11 @@
  *      Default: 30 min after completion for Post Maker mode, 4 hours for
  *      Clip Picker (configurable via context_json.source_retention_minutes).
  *      At 10K-user scale this avoids ~500TB/yr of unnecessary storage.
+ *      GATED on render success (incident 2026-06-12): a source is only
+ *      deleted once its run has >=1 ve_rendered_clips row with
+ *      status='complete' AND output_url set, so a failed run can always
+ *      be retried from the original upload. Hard ceiling:
+ *      SOURCE_HARD_CEILING_DAYS, after which we delete regardless.
  *   3. Rendered clip retention — for runs older than the user's tier's
  *      storage_days (from ff_plans), delete the rendered clip storage
  *      objects. DB rows stay.
@@ -29,6 +34,12 @@ export const maxDuration = 300;
 const TIMEOUT_MINUTES = 20;
 const DEFAULT_RENDER_RETENTION_DAYS = 30;
 const DEFAULT_SOURCE_RETENTION_MIN = 30;
+// Hard safety ceiling for the render-success gate below. A run with no
+// successful render keeps its source past normal retention so it stays
+// recoverable, but we never hold a source forever — after this many days
+// it gets deleted regardless. Generous on purpose: storage cost of a few
+// stragglers is nothing next to an unrecoverable user upload.
+const SOURCE_HARD_CEILING_DAYS = 7;
 
 function authorized(req: NextRequest): boolean {
   if (req.headers.get('x-vercel-cron')) return true;
@@ -63,6 +74,8 @@ export async function GET(req: NextRequest) {
   const stats = {
     stuck_failed: 0,
     sources_deleted: 0,
+    sources_deferred: 0,
+    sources_force_deleted: 0,
     renders_deleted: 0,
     errors: [] as string[],
   };
@@ -87,13 +100,54 @@ export async function GET(req: NextRequest) {
     .lt('updated_at', new Date(Date.now() - DEFAULT_SOURCE_RETENTION_MIN * 60 * 1000).toISOString())
     .limit(200);
 
-  const runIdsToCleanSource: string[] = [];
+  const sourceCandidates: { id: string; ageMs: number }[] = [];
   for (const run of completedRuns || []) {
     const ctx = (run.context_json || {}) as { source_retention_minutes?: number };
     const retentionMin = ctx.source_retention_minutes ?? DEFAULT_SOURCE_RETENTION_MIN;
     const ageMs = Date.now() - new Date(run.completed_at || run.updated_at).getTime();
     if (ageMs >= retentionMin * 60 * 1000) {
-      runIdsToCleanSource.push(run.id);
+      sourceCandidates.push({ id: run.id, ageMs });
+    }
+  }
+
+  // ── Render-success gate (incident 2026-06-12) ───────────────────────
+  // A user's Post Maker runs sat in `failed` (worker bug) past the 30-min
+  // retention window; this cron deleted her sources, so once the worker
+  // was fixed the runs were permanently unrecoverable ("source download
+  // failed: Bucket not found"). Sources are the only copy of the user's
+  // upload — we may NOT delete one until the run has at least one
+  // successfully rendered clip (status='complete' AND output_url set).
+  // Failed / in-flight runs are skipped, which effectively pauses the
+  // retention clock; they're rechecked on every cleanup pass. The hard
+  // ceiling above is the only override.
+  const runIdsToCleanSource: string[] = [];
+  if (sourceCandidates.length > 0) {
+    const { data: successfulClips } = await supabaseAdmin
+      .from('ve_rendered_clips')
+      .select('run_id')
+      .in('run_id', sourceCandidates.map((c) => c.id))
+      .eq('status', 'complete')
+      .not('output_url', 'is', null);
+    const runsWithSuccessfulRender = new Set((successfulClips || []).map((c) => c.run_id as string));
+    const ceilingMs = SOURCE_HARD_CEILING_DAYS * 24 * 60 * 60 * 1000;
+
+    for (const cand of sourceCandidates) {
+      if (runsWithSuccessfulRender.has(cand.id)) {
+        runIdsToCleanSource.push(cand.id);
+        continue;
+      }
+      if (cand.ageMs >= ceilingMs) {
+        // Past the hard ceiling with still no successful render — by now
+        // a retry was either done or abandoned, so reclaim the storage.
+        console.warn(
+          `[ve-cleanup] retention ceiling (${SOURCE_HARD_CEILING_DAYS}d) hit with no successful render — force-deleting source run=${cand.id}`
+        );
+        stats.sources_force_deleted++;
+        runIdsToCleanSource.push(cand.id);
+        continue;
+      }
+      console.log(`[ve-cleanup] retention deferred — no successful render yet run=${cand.id}`);
+      stats.sources_deferred++;
     }
   }
 

@@ -14,11 +14,12 @@
  * inherit credits, rate limits, and the existing render fleet for free.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   Mic, MicOff, Settings, X, Check, AlertTriangle, Loader2, SwitchCamera,
   ChevronUp, ChevronDown, Bluetooth, Volume2, RefreshCw, Trash2, Play,
+  Zap, ZapOff,
 } from 'lucide-react';
 import PWAInstaller from '@/components/pwa/PWAInstaller';
 
@@ -99,6 +100,36 @@ function savePrefs(p: Prefs) {
   try { localStorage.setItem(PREF_KEY, JSON.stringify(p)); } catch {}
 }
 
+/**
+ * zoom / torch are real on phone Chrome + iOS Safari but missing from TS's
+ * MediaTrackCapabilities/ConstraintSet types — extend locally and
+ * feature-detect at runtime so browsers without getCapabilities (Firefox)
+ * never crash.
+ */
+interface ZoomRange { min: number; max: number; step?: number }
+type CameraCapabilities = MediaTrackCapabilities & { zoom?: ZoomRange; torch?: boolean };
+type CameraConstraintSet = MediaTrackConstraintSet & { zoom?: number; torch?: boolean };
+
+// Canvas-crop fallback cap — past 3x a digital crop turns to mush.
+const DIGITAL_ZOOM_MAX = 3;
+
+interface LensPill {
+  label: string;
+  value: number;
+  /** 'zoom' = constraint on the current track; 'ultrawide-device' = swap to the iOS ultra-wide videoinput. */
+  kind: 'zoom' | 'ultrawide-device';
+}
+
+/** iOS Safari exposes the back ultra-wide as a SEPARATE videoinput, not zoom<1. */
+function isUltraWideLabel(label: string): boolean {
+  return /ultra[- ]?wide|0\.5/i.test(label) && !/front/i.test(label);
+}
+
+/** Distance between the first two touches — pinch gesture math. */
+function touchDist(t: React.TouchList): number {
+  return Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+}
+
 /** Heuristic: does this device label look like a Bluetooth or wireless mic? */
 function classifyMic(label: string): { isBluetooth: boolean; isWireless: boolean } {
   const l = label.toLowerCase();
@@ -119,6 +150,16 @@ export default function StudioPage() {
   const [mics, setMics] = useState<MicDevice[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
 
+  // --- Real-camera controls: zoom / lens / torch ---
+  const [zoom, setZoom] = useState(1);
+  const [zoomCaps, setZoomCaps] = useState<ZoomRange | null>(null);
+  const [zoomHudVisible, setZoomHudVisible] = useState(false);
+  const [torchSupported, setTorchSupported] = useState(false);
+  const [torchOn, setTorchOn] = useState(false);
+  const [ultraWideId, setUltraWideId] = useState<string | null>(null);
+  const [usingUltraWide, setUsingUltraWide] = useState(false);
+  const [hasMultipleCameras, setHasMultipleCameras] = useState(true);
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
@@ -130,12 +171,40 @@ export default function StudioPage() {
   const meterRafRef = useRef<number | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Zoom plumbing. Refs mirror state so MediaRecorder callbacks and the canvas
+  // draw loop always see the live value without re-subscribing.
+  const zoomRef = useRef(1);
+  const zoomCapsRef = useRef<ZoomRange | null>(null);
+  const pendingZoomRef = useRef<number | null>(null);   // zoom to apply right after a lens switch
+  const videoDeviceIdRef = useRef<string | null>(null); // set = pin to a specific videoinput (iOS ultra-wide)
+  const nativeZoomTargetRef = useRef<number | null>(null);
+  const nativeZoomBusyRef = useRef(false);
+  const zoomHudTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Digital-zoom recording pipeline (desktop / no caps.zoom): video → canvas crop → captureStream.
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasStreamRef = useRef<MediaStream | null>(null);
+  const canvasRafRef = useRef<number | null>(null);
+  const canvasDrawingRef = useRef(false);
+  // Pinch / double-tap gesture state.
+  const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
+  const pinchActiveRef = useRef(false);
+  const lastTapRef = useRef(0);
+
   useEffect(() => { setPrefs(loadPrefs()); }, []);
   useEffect(() => { savePrefs(prefs); }, [prefs]);
 
   const refreshMics = useCallback(async () => {
     try {
       const all = await navigator.mediaDevices.enumerateDevices();
+
+      // Cameras too (labels are only populated after permission, which is why
+      // this runs from startCamera): flip button needs >1 videoinput, and iOS
+      // lists the back ultra-wide as its own device — that IS the 0.5x lens.
+      const cams = all.filter(d => d.kind === 'videoinput');
+      setHasMultipleCameras(cams.length > 1);
+      const uw = cams.find(d => isUltraWideLabel(d.label || ''));
+      setUltraWideId(uw ? uw.deviceId : null);
+
       const ins: MicDevice[] = all.filter(d => d.kind === 'audioinput').map(d => {
         const c = classifyMic(d.label || '');
         return {
@@ -171,6 +240,106 @@ export default function StudioPage() {
     setAudioLevel(0);
   }, []);
 
+  /** Flash the "1.7x" HUD, then fade it out after a moment of no interaction. */
+  const bumpZoomHud = useCallback(() => {
+    setZoomHudVisible(true);
+    if (zoomHudTimerRef.current) clearTimeout(zoomHudTimerRef.current);
+    zoomHudTimerRef.current = setTimeout(() => setZoomHudVisible(false), 1500);
+  }, []);
+
+  /**
+   * Native zoom with backpressure: pinch fires ~60 events/sec but some Android
+   * camera HALs choke on queued applyConstraints. Keep at most one in flight;
+   * latecomers just overwrite the target and get applied when it settles.
+   */
+  const applyNativeZoom = useCallback((value: number) => {
+    nativeZoomTargetRef.current = value;
+    if (nativeZoomBusyRef.current) return;
+    const run = () => {
+      const track = streamRef.current?.getVideoTracks()[0];
+      const target = nativeZoomTargetRef.current;
+      nativeZoomTargetRef.current = null;
+      if (!track || target == null) { nativeZoomBusyRef.current = false; return; }
+      nativeZoomBusyRef.current = true;
+      track.applyConstraints({ advanced: [{ zoom: target } as CameraConstraintSet] })
+        .catch(() => {}) // unsupported value mid-range: ignore, preview just stays put
+        .finally(() => {
+          nativeZoomBusyRef.current = false;
+          if (nativeZoomTargetRef.current != null) run();
+        });
+    };
+    run();
+  }, []);
+
+  /**
+   * THE zoom entry point (pills, pinch, slider, double-tap all land here).
+   * Native path bakes into the recording via the camera driver; digital path
+   * is read live by the canvas draw loop, so both are WYSIWYG and both are
+   * safe to change while recording.
+   */
+  const setZoomLevel = useCallback((target: number) => {
+    const caps = zoomCapsRef.current;
+    let next: number;
+    if (caps) {
+      next = Math.min(caps.max, Math.max(caps.min, target));
+      applyNativeZoom(next);
+    } else {
+      // Digital fallback can only crop in (no 0.5x) and quality-caps at 3x.
+      next = Math.min(DIGITAL_ZOOM_MAX, Math.max(1, target));
+    }
+    next = Math.round(next * 100) / 100;
+    zoomRef.current = next;
+    setZoom(next);
+    bumpZoomHud();
+  }, [applyNativeZoom, bumpZoomHud]);
+
+  const stopCanvasPipeline = useCallback(() => {
+    canvasDrawingRef.current = false;
+    if (canvasRafRef.current) cancelAnimationFrame(canvasRafRef.current);
+    canvasRafRef.current = null;
+    canvasStreamRef.current?.getTracks().forEach(t => t.stop());
+    canvasStreamRef.current = null;
+  }, []);
+
+  /**
+   * Digital-zoom recording pipeline for devices with no caps.zoom (desktops,
+   * Firefox). Draws the live video center-cropped by the CURRENT zoom factor
+   * into a canvas and records canvas.captureStream + the original audio, so
+   * what you see is exactly what lands in the file — even if you zoom
+   * mid-take. Returns null when unsupported so the caller can fall back to
+   * recording the raw stream (zoom then preview-only, but never a crash).
+   */
+  const startCanvasPipeline = useCallback((raw: MediaStream): MediaStream | null => {
+    const videoEl = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!videoEl || !canvas || typeof canvas.captureStream !== 'function') return null;
+    const w = videoEl.videoWidth;
+    const h = videoEl.videoHeight;
+    if (!w || !h) return null;
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    canvasDrawingRef.current = true;
+    const draw = () => {
+      if (!canvasDrawingRef.current) return;
+      const z = Math.max(1, zoomRef.current);
+      const sw = w / z;
+      const sh = h / z;
+      // Draw the RAW video element — for the front camera the mirror is
+      // preview-only CSS, so the canvas (and the recording) stays unflipped,
+      // matching the /create convention.
+      ctx.drawImage(videoEl, (w - sw) / 2, (h - sh) / 2, sw, sh, 0, 0, w, h);
+      canvasRafRef.current = requestAnimationFrame(draw);
+    };
+    draw();
+    const cs = canvas.captureStream(30);
+    canvasStreamRef.current = cs;
+    const vTrack = cs.getVideoTracks()[0];
+    if (!vTrack) { stopCanvasPipeline(); return null; }
+    return new MediaStream([vTrack, ...raw.getAudioTracks()]);
+  }, [stopCanvasPipeline]);
+
   const startCamera = useCallback(async () => {
     setPermState('requesting');
     setMediaError(null);
@@ -179,15 +348,34 @@ export default function StudioPage() {
         ? { deviceId: { exact: prefs.micDeviceId }, echoCancellation: true, noiseSuppression: true, autoGainControl: false }
         : { echoCancellation: true, noiseSuppression: true, autoGainControl: false };
 
-      const stream = await navigator.mediaDevices.getUserMedia({
-        audio: audioConstraints,
-        video: {
-          facingMode: prefs.facingMode,
-          width: { ideal: 1080 },
-          height: { ideal: 1920 },
-          frameRate: { ideal: 30 },
-        },
-      });
+      // videoDeviceIdRef pins a specific videoinput (iOS ultra-wide = the 0.5x
+      // lens, which Safari exposes as a separate device instead of zoom < 1).
+      const baseVideo: MediaTrackConstraints = {
+        width: { ideal: 1080 },
+        height: { ideal: 1920 },
+        frameRate: { ideal: 30 },
+      };
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: videoDeviceIdRef.current
+            ? { ...baseVideo, deviceId: { exact: videoDeviceIdRef.current } }
+            : { ...baseVideo, facingMode: prefs.facingMode },
+        });
+      } catch (pinnedErr) {
+        // Pinned ultra-wide grab failed (device busy / gone after an OS
+        // update): fall back to the regular facingMode lens instead of
+        // dead-ending the whole camera.
+        if (!videoDeviceIdRef.current) throw pinnedErr;
+        videoDeviceIdRef.current = null;
+        pendingZoomRef.current = null;
+        setUsingUltraWide(false);
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: audioConstraints,
+          video: { ...baseVideo, facingMode: prefs.facingMode },
+        });
+      }
 
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       streamRef.current = stream;
@@ -195,6 +383,35 @@ export default function StudioPage() {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
       }
+
+      // Probe what this lens can actually do. getCapabilities is missing on
+      // Firefox and older Safari, so every camera control is gated off this.
+      const vTrack = stream.getVideoTracks()[0];
+      let caps: CameraCapabilities | undefined;
+      try {
+        caps = typeof vTrack?.getCapabilities === 'function'
+          ? vTrack.getCapabilities() as CameraCapabilities
+          : undefined;
+      } catch { caps = undefined; }
+      const zc = caps?.zoom
+        && typeof caps.zoom.min === 'number'
+        && typeof caps.zoom.max === 'number'
+        && caps.zoom.max > caps.zoom.min
+        ? { min: caps.zoom.min, max: caps.zoom.max, step: caps.zoom.step }
+        : null;
+      zoomCapsRef.current = zc;
+      setZoomCaps(zc);
+      setTorchSupported(caps?.torch === true);
+      setTorchOn(false); // torch resets whenever the track restarts
+
+      // Fresh lens = fresh zoom. If a lens switch queued a zoom (e.g. tapped
+      // 2x while on the ultra-wide device), apply it now that caps are known.
+      zoomRef.current = 1;
+      setZoom(1);
+      const queued = pendingZoomRef.current;
+      pendingZoomRef.current = null;
+      if (queued && queued !== 1) setZoomLevel(queued);
+
       setPermState('granted');
       await refreshMics();
 
@@ -233,15 +450,17 @@ export default function StudioPage() {
         setMediaError(e?.message || 'Could not access camera.');
       }
     }
-  }, [prefs.micDeviceId, prefs.facingMode, refreshMics, stopMeter]);
+  }, [prefs.micDeviceId, prefs.facingMode, refreshMics, stopMeter, setZoomLevel]);
 
   useEffect(() => {
     startCamera();
     return () => {
       if (streamRef.current) streamRef.current.getTracks().forEach(t => t.stop());
       stopMeter();
+      stopCanvasPipeline();
       if (tickRef.current) clearInterval(tickRef.current);
       if (pollRef.current) clearInterval(pollRef.current);
+      if (zoomHudTimerRef.current) clearTimeout(zoomHudTimerRef.current);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -259,10 +478,21 @@ export default function StudioPage() {
         : MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus')
           ? 'video/webm;codecs=vp9,opus'
           : 'video/webm';
-      const rec = new MediaRecorder(streamRef.current, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
+      // WYSIWYG zoom: with native caps.zoom the camera driver already bakes
+      // the zoom into the raw stream. Without it (desktop/Firefox) we record
+      // the canvas-crop pipeline instead, so digital zoom lands in the file
+      // too. Null fallback = raw stream, zoom preview-only, never a crash.
+      let recStream: MediaStream = streamRef.current;
+      if (!zoomCapsRef.current) {
+        recStream = startCanvasPipeline(streamRef.current) ?? streamRef.current;
+      }
+      const rec = new MediaRecorder(recStream, { mimeType: mime, videoBitsPerSecond: 6_000_000 });
       chunksRef.current = [];
       rec.ondataavailable = (e) => { if (e.data && e.data.size > 0) chunksRef.current.push(e.data); };
       rec.onstop = () => {
+        // Tear down the canvas pipeline AFTER the final dataavailable so the
+        // last frames make it into the blob.
+        stopCanvasPipeline();
         const blob = new Blob(chunksRef.current, { type: mime });
         const blobUrl = URL.createObjectURL(blob);
         const duration = (Date.now() - recStartRef.current) / 1000;
@@ -292,9 +522,10 @@ export default function StudioPage() {
       setRecording(true);
     } catch (e: unknown) {
       const err = e as { message?: string };
+      stopCanvasPipeline();
       setMediaError(err?.message || 'Recording failed to start.');
     }
-  }, [recording]);
+  }, [recording, startCanvasPipeline, stopCanvasPipeline]);
 
   const stopRecording = useCallback(() => {
     if (!recording || !recorderRef.current) return;
@@ -303,6 +534,98 @@ export default function StudioPage() {
     tickRef.current = null;
     setRecording(false);
   }, [recording]);
+
+  /**
+   * Capability-driven lens pills. Only render what THIS device can do:
+   *   - 0.5x: native when the zoom range dips below 1 (many Androids expose
+   *     min 0.5 — that IS the .5 setting), else the iOS ultra-wide device.
+   *   - 1x/2x/3x: native zoom clamped to caps range, or digital up to 3x.
+   */
+  const lensPills = useMemo<LensPill[]>(() => {
+    const pills: LensPill[] = [];
+    if (zoomCaps && zoomCaps.min < 1) {
+      pills.push({ label: '.5', value: Math.max(zoomCaps.min, 0.5), kind: 'zoom' });
+    } else if (ultraWideId && prefs.facingMode === 'environment') {
+      pills.push({ label: '.5', value: 0.5, kind: 'ultrawide-device' });
+    }
+    const maxZoom = zoomCaps ? zoomCaps.max : DIGITAL_ZOOM_MAX;
+    for (const v of [1, 2, 3]) {
+      if (v <= maxZoom) pills.push({ label: String(v), value: v, kind: 'zoom' });
+    }
+    return pills;
+  }, [zoomCaps, ultraWideId, prefs.facingMode]);
+
+  // Any pill that requires swapping the videoinput (vs just a constraint)?
+  // Those are locked while recording — MediaRecorder dies on track swaps.
+  const hasDeviceSwitchPill = usingUltraWide || lensPills.some(p => p.kind === 'ultrawide-device');
+
+  const selectLens = useCallback((pill: LensPill) => {
+    // On the ultra-wide DEVICE, even "1x" means switching back to the main
+    // lens — so everything is a device switch until we leave ultra-wide.
+    const switchesDevice = pill.kind === 'ultrawide-device' || usingUltraWide;
+    if (switchesDevice) {
+      if (recording) return; // locked mid-take; UI shows the hint
+      if (pill.kind === 'ultrawide-device') {
+        videoDeviceIdRef.current = ultraWideId;
+        setUsingUltraWide(true);
+      } else {
+        videoDeviceIdRef.current = null;
+        setUsingUltraWide(false);
+        pendingZoomRef.current = pill.value; // applied once the main lens is live
+      }
+      startCamera();
+      return;
+    }
+    setZoomLevel(pill.value);
+  }, [usingUltraWide, recording, ultraWideId, startCamera, setZoomLevel]);
+
+  const toggleTorch = useCallback(async () => {
+    const track = streamRef.current?.getVideoTracks()[0];
+    if (!track) return;
+    const next = !torchOn;
+    try {
+      await track.applyConstraints({ advanced: [{ torch: next } as CameraConstraintSet] });
+      setTorchOn(next);
+    } catch { /* some devices report torch but reject while another app holds it */ }
+  }, [torchOn]);
+
+  const flipCamera = useCallback(() => {
+    if (recording) return; // track swap kills the active MediaRecorder
+    videoDeviceIdRef.current = null; // flipping always leaves ultra-wide mode
+    setUsingUltraWide(false);
+    setPrefs(p => ({ ...p, facingMode: p.facingMode === 'user' ? 'environment' : 'user' }));
+  }, [recording]);
+
+  // --- Pinch-to-zoom + double-tap-to-reset on the preview ---
+  const onPreviewTouchStart = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      pinchActiveRef.current = true;
+      pinchRef.current = { startDist: touchDist(e.touches), startZoom: zoomRef.current };
+    }
+  }, []);
+
+  const onPreviewTouchMove = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length === 2 && pinchRef.current && pinchRef.current.startDist > 0) {
+      setZoomLevel(pinchRef.current.startZoom * (touchDist(e.touches) / pinchRef.current.startDist));
+    }
+  }, [setZoomLevel]);
+
+  const onPreviewTouchEnd = useCallback((e: React.TouchEvent) => {
+    if (e.touches.length < 2) pinchRef.current = null;
+    if (e.touches.length === 0) {
+      // Double-tap resets to 1x — but never count a pinch release as a tap.
+      if (!pinchActiveRef.current) {
+        const now = Date.now();
+        if (now - lastTapRef.current < 300) {
+          setZoomLevel(1);
+          lastTapRef.current = 0;
+        } else {
+          lastTapRef.current = now;
+        }
+      }
+      pinchActiveRef.current = false;
+    }
+  }, [setZoomLevel]);
 
   /**
    * Upload the recorded blob to storage, then POST a polish job. We follow
@@ -441,6 +764,13 @@ export default function StudioPage() {
   const pendingCount = clips.filter(c => c.status !== 'ready' && c.status !== 'failed').length;
   const selectedMic = mics.find(m => m.deviceId === prefs.micDeviceId);
 
+  // "0.5x" when riding the iOS ultra-wide device at rest, else live zoom.
+  const zoomLabel = usingUltraWide && zoom === 1
+    ? '0.5x'
+    : `${(Math.round(zoom * 10) / 10).toFixed(1).replace(/\.0$/, '')}x`;
+  const sliderMin = zoomCaps ? zoomCaps.min : 1;
+  const sliderMax = zoomCaps ? zoomCaps.max : DIGITAL_ZOOM_MAX;
+
   return (
     <div className="fixed inset-0 bg-black text-white overflow-hidden">
       <PWAInstaller />
@@ -451,7 +781,29 @@ export default function StudioPage() {
         muted
         autoPlay
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: prefs.facingMode === 'user' ? 'scaleX(-1)' : 'none' }}
+        style={{
+          // Same convention as /create: front-camera PREVIEW is mirrored,
+          // the recording stays unflipped. Digital zoom (no caps.zoom) also
+          // scales the preview here to match the canvas crop the recorder sees.
+          transform: [
+            prefs.facingMode === 'user' ? 'scaleX(-1)' : '',
+            !zoomCaps && zoom > 1 ? `scale(${zoom})` : '',
+          ].filter(Boolean).join(' ') || 'none',
+        }}
+      />
+
+      {/* Recorder source for digital zoom — never visible. */}
+      <canvas ref={canvasRef} className="hidden" aria-hidden />
+
+      {/* Pinch-to-zoom / double-tap-reset surface. z-10 keeps it under the
+          control layers (z-20) so buttons stay tappable; touch-action none
+          stops iOS from page-zooming instead of camera-zooming. */}
+      <div
+        className="absolute inset-0 z-10"
+        style={{ touchAction: 'none' }}
+        onTouchStart={onPreviewTouchStart}
+        onTouchMove={onPreviewTouchMove}
+        onTouchEnd={onPreviewTouchEnd}
       />
 
       {/* Top bar */}
@@ -520,6 +872,72 @@ export default function StudioPage() {
           </button>
         )}
 
+        {/* Lens / zoom cluster — bottom-center so it's thumb-reachable and
+            stays off the subject's face. Everything here is capability-gated:
+            no zoom caps + no ultra-wide + no torch → nothing renders. */}
+        {permState === 'granted' && (
+          <div className="mb-4 flex flex-col items-center gap-2">
+            <div
+              aria-live="polite"
+              className={`px-2.5 py-1 rounded-full bg-black/50 backdrop-blur border border-white/10 text-xs font-semibold tabular-nums transition-opacity duration-500 ${zoomHudVisible ? 'opacity-100' : 'opacity-0'}`}
+            >
+              {zoomLabel}
+            </div>
+            {(zoom !== 1 || zoomHudVisible) && sliderMax > sliderMin && (
+              <input
+                type="range"
+                min={sliderMin}
+                max={sliderMax}
+                step={0.1}
+                value={zoom}
+                onChange={(e) => setZoomLevel(parseFloat(e.target.value))}
+                aria-label="Fine zoom"
+                className="w-44 accent-teal-400"
+              />
+            )}
+            {(lensPills.length > 1 || torchSupported) && (
+              <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-full bg-black/40 backdrop-blur border border-white/10">
+                {lensPills.length > 1 && (() => {
+                  // Active pill = camera-app style: the ultra-wide pill while
+                  // pinned to that device, else the largest zoom pill not
+                  // above the current zoom.
+                  const activePill = usingUltraWide
+                    ? lensPills.find(p => p.kind === 'ultrawide-device')
+                    : lensPills.filter(p => p.kind === 'zoom' && p.value <= zoom + 0.001).slice(-1)[0]
+                      ?? lensPills.find(p => p.kind === 'zoom');
+                  return lensPills.map((p) => {
+                  const active = p === activePill;
+                  const locked = recording && (p.kind === 'ultrawide-device' || usingUltraWide) && !active;
+                  return (
+                    <button
+                      key={`${p.kind}-${p.label}`}
+                      onClick={() => selectLens(p)}
+                      disabled={locked}
+                      aria-label={`${p.label}x lens`}
+                      className={`w-9 h-9 rounded-full text-[11px] font-bold transition-colors ${active ? 'bg-white text-black' : 'text-white/90 hover:bg-white/10'} ${locked ? 'opacity-40' : ''}`}
+                    >
+                      {active ? zoomLabel : p.label}
+                    </button>
+                  );
+                  });
+                })()}
+                {torchSupported && (
+                  <button
+                    onClick={toggleTorch}
+                    aria-label={torchOn ? 'Turn torch off' : 'Turn torch on'}
+                    className={`w-9 h-9 rounded-full flex items-center justify-center transition-colors ${torchOn ? 'bg-amber-400 text-black' : 'text-white/90 hover:bg-white/10'}`}
+                  >
+                    {torchOn ? <Zap className="w-4 h-4" /> : <ZapOff className="w-4 h-4" />}
+                  </button>
+                )}
+              </div>
+            )}
+            {recording && hasDeviceSwitchPill && (
+              <div className="text-[10px] text-zinc-300/80">finish take to switch lens</div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 flex justify-start">
             <VibePill vibe={prefs.vibe} onClick={() => setShowSettings(true)} />
@@ -538,13 +956,17 @@ export default function StudioPage() {
             )}
           </button>
           <div className="flex-1 flex justify-end">
-            <button
-              onClick={() => setPrefs(p => ({ ...p, facingMode: p.facingMode === 'user' ? 'environment' : 'user' }))}
-              className="p-3 rounded-full bg-black/40 backdrop-blur border border-white/10"
-              aria-label="Flip camera"
-            >
-              <SwitchCamera className="w-5 h-5" />
-            </button>
+            {hasMultipleCameras && (
+              <button
+                onClick={flipCamera}
+                disabled={recording}
+                className="p-3 rounded-full bg-black/40 backdrop-blur border border-white/10 disabled:opacity-40"
+                aria-label="Flip camera"
+                title={recording ? 'Finish take to flip camera' : 'Flip camera'}
+              >
+                <SwitchCamera className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
 

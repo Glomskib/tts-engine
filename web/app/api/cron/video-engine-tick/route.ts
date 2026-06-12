@@ -34,12 +34,50 @@ export const maxDuration = 300;
 // abandoned. Sweeps on the next cron tick (every minute).
 const ZOMBIE_AGE_HOURS = 6;
 
-function authorized(request: NextRequest): boolean {
-  if (request.headers.get('x-vercel-cron')) return true;
-  const secret = process.env.CRON_SECRET;
+/**
+ * 2026-06-11 — root-cause fix for "cron 401s every minute" (the bug that made
+ * the whole pipeline browser-driven via QueueTicker, so short uploads never
+ * advanced past 'created' once the tab closed).
+ *
+ * What Vercel ACTUALLY sends with a cron invocation:
+ *   - `authorization: Bearer <CRON_SECRET>` — only when the CRON_SECRET env
+ *     var exists in the Production environment at deploy time
+ *   - user-agent `vercel-cron/1.0`
+ * It does NOT send an `x-vercel-cron` header — the old first-line check here
+ * never matched, so auth fell through to a strict, untrimmed string compare.
+ * A CRON_SECRET pasted with a trailing newline/space (or missing entirely)
+ * meant every invocation 401'd.
+ */
+
+/** Strict secret auth — required for privileged params like ?force_id. */
+function authorizedBySecret(request: NextRequest): boolean {
+  // trim(): env vars pasted into the Vercel dashboard routinely pick up a
+  // trailing newline; an exact compare then fails forever and silently.
+  const secret = (process.env.CRON_SECRET ?? '').trim();
   if (!secret) return process.env.NODE_ENV === 'development'; // only allow unauthenticated in local dev
-  const auth = request.headers.get('authorization');
-  return auth === `Bearer ${secret}`;
+  const auth = (request.headers.get('authorization') ?? '').trim();
+  if (auth === `Bearer ${secret}`) return true; // Vercel cron's automatic form
+  // Back-compat manual forms (curl from the mini fleet / Brandon's scripts).
+  if ((request.headers.get('x-cron-secret') ?? '').trim() === secret) return true;
+  const qsSecret = new URL(request.url).searchParams.get('secret');
+  if (qsSecret && qsSecret.trim() === secret) return true;
+  return false;
+}
+
+/**
+ * Looks like a Vercel cron invocation. The UA is spoofable, so this only
+ * unlocks the NON-privileged tick path: ticking is idempotent (claim-window
+ * guarded) and the identical work is already triggerable by any logged-in
+ * user via /api/worker/tick — worst case an attacker burns a few DB queries.
+ * This keeps the queue moving even if the CRON_SECRET binding breaks again.
+ */
+function isVercelCron(request: NextRequest): boolean {
+  if (request.headers.get('x-vercel-cron')) return true; // kept in case Vercel adds/sends it
+  return (request.headers.get('user-agent') ?? '').startsWith('vercel-cron/');
+}
+
+function authorized(request: NextRequest): boolean {
+  return authorizedBySecret(request) || isVercelCron(request);
 }
 
 /**
@@ -117,7 +155,7 @@ export async function GET(request: NextRequest) {
   // duplicate status transitions, stale errors). Skip any remote-triggered
   // tick when either flag is set. Direct manual calls from the dev machine
   // (no x-vercel-cron header) still work.
-  const isRemoteCron = !!request.headers.get('x-vercel-cron');
+  const isRemoteCron = isVercelCron(request);
   const disableRemote = process.env.DISABLE_REMOTE_TICKS === 'true';
   const isDevEnv = process.env.NODE_ENV === 'development';
   if (isRemoteCron && (disableRemote || isDevEnv)) {
@@ -141,6 +179,11 @@ export async function GET(request: NextRequest) {
   // CRON_SECRET). Use sparingly — bypasses concurrency safety.
   const forceId = url.searchParams.get('force_id');
   if (forceId) {
+    // force_id bypasses the claim model — privileged. The UA-based cron
+    // fallback above must NOT unlock it; require the real secret.
+    if (!authorizedBySecret(request)) {
+      return NextResponse.json({ ok: false, error: 'force_id requires CRON_SECRET auth' }, { status: 401 });
+    }
     try {
       const result = await tickRun(forceId);
       return NextResponse.json({ ok: true, forced: true, runId: forceId, result });

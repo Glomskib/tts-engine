@@ -590,7 +590,25 @@ export function generateCandidates(
 
   // Enforce per-mode floor BEFORE slicing to target — clipper needs ≥8s of
   // runway for a real hook + payoff, shorter cuts read as noise.
-  const minSec = getShortMinSec(mode);
+  //
+  // 2026-06-11 short-source fix: for short uploads the fixed floor can sit
+  // ABOVE the guard ceiling (80%-of-source ratio + 3s trim delta), making
+  // every candidate mathematically impossible — e.g. a 10s clip-mode take
+  // needs ≥8s (floor) but <8s (ratio), so the run always failed with
+  // "couldn't find a strong shorter cut". Clamp the floor just under the
+  // ceiling so short sources can still ship their best legal cut.
+  let minSec = getShortMinSec(mode);
+  if (sourceDurationSec && sourceDurationSec > 0) {
+    const guardCeiling = Math.min(
+      sourceDurationSec * MAX_CANDIDATE_SOURCE_RATIO,
+      sourceDurationSec - MIN_TRIM_DELTA_SEC,
+    );
+    if (minSec >= guardCeiling) {
+      const clamped = Math.max(2, guardCeiling - 0.5);
+      console.log(`[scoring] ${mode}: short source (${sourceDurationSec.toFixed(1)}s) — min floor ${minSec}s exceeds guard ceiling ${guardCeiling.toFixed(1)}s, clamping floor to ${clamped.toFixed(1)}s`);
+      minSec = clamped;
+    }
+  }
   if (minSec > TARGET_MIN_SEC) {
     const before = picked.length;
     picked = picked.filter((c) => (c.end - c.start) >= minSec);

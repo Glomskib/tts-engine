@@ -5,8 +5,10 @@
  * by one step (same work that /api/cron/video-engine-tick would do on a cron
  * schedule). Client-side polling on /studio, /create, /clips replaces the cron.
  *
- * Why: Vercel's CRON_SECRET binding is broken — every cron worker returns 401.
- * Rather than wait on Vercel support, we drive the queue from the user side.
+ * 2026-06-11: the cron's auth bug is fixed (see /api/cron/video-engine-tick)
+ * so the cron is the primary engine again. This endpoint stays as a latency
+ * accelerator — an open tab advances the queue every ~3s instead of waiting
+ * up to a minute for the next cron tick.
  *
  * Safety:
  *   - Requires authenticated user (via getApiAuthContext)

@@ -1,10 +1,13 @@
 /**
  * QueueTicker — client-side poller that drives the worker queue.
  *
- * Why: Vercel cron is broken (CRON_SECRET binding 401s every minute). Until
- * that's fixed, we drive the queue from logged-in user sessions. Each user's
- * open tab pings /api/worker/tick on a slow interval; the server advances the
- * ve_runs queue, HeyGen/Runway polling, and email notifies one step at a time.
+ * 2026-06-11: this is now an ACCELERATOR, not the engine. The Vercel cron
+ * (/api/cron/video-engine-tick, every minute) is the engine again — its auth
+ * was fixed (it expected an `x-vercel-cron` header Vercel never sends, and
+ * did an untrimmed CRON_SECRET compare, so it 401'd every minute and runs
+ * only advanced while someone had a tab open — short uploads "never
+ * rendered" once the tab closed). Keep this ticker: it gives logged-in users
+ * ~3s latency instead of waiting up to a minute for the next cron tick.
  *
  * Idempotent: tickActiveRuns has a built-in claim window — concurrent pollers
  * don't double-process the same run. Server-side per-user rate limit caps

@@ -8,6 +8,7 @@ import QueueTicker from '@/components/QueueTicker';
 import { SiteFooter } from '@/components/SiteFooter';
 import CreatorBottomNav from '@/components/CreatorBottomNav';
 import PWAInstallPrompt from '@/components/PWAInstallPrompt';
+import SWRegister from '@/components/pwa/SWRegister';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -127,8 +128,11 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="icon" href="/logo.png" type="image/png" />
-        <link rel="manifest" href="/manifest.json" />
-        <link rel="apple-touch-icon" href="/logo.png" />
+        {/* manifest link comes from metadata.manifest above — a second manual
+            <link rel="manifest"> here would emit a duplicate tag. */}
+        {/* 180x180 full-bleed icon — iOS ignores the manifest and uses this
+            for the home-screen tile (it applies its own corner rounding). */}
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
         <meta name="apple-mobile-web-app-title" content="FlashFlow" />
@@ -178,6 +182,10 @@ export default function RootLayout({
           {/* "Install FlashFlow" PWA banner — appears on 2nd+ visit only,
               dismissible, suppressed if already installed. */}
           <PWAInstallPrompt />
+          {/* Registers /sw.js site-wide (was studio-only) so Android Chrome's
+              install criteria are met on every page, not just /studio. The SW
+              is a network-first shell with an offline page — no app caching. */}
+          <SWRegister />
         </Providers>
               <SiteFooter />
       </body>

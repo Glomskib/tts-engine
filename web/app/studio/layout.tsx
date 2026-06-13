@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import SWRegister from '@/components/pwa/SWRegister';
 
 export const metadata: Metadata = {
   title: 'FlashFlow Studio',
@@ -16,10 +15,8 @@ export const viewport: Viewport = {
 };
 
 export default function StudioLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <>
-      <SWRegister />
-      {children}
-    </>
-  );
+  // SWRegister moved to the root layout (2026-06-12) so the service worker —
+  // and therefore Android installability — covers the whole app, not just
+  // /studio. Mounting it here too would double-register the same scope.
+  return <>{children}</>;
 }

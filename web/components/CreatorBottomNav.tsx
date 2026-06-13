@@ -17,11 +17,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Sparkles, Home, Film, User, Camera } from 'lucide-react';
+import { Sparkles, Home, Film, User, Camera, PenLine } from 'lucide-react';
 
+// 2026-06-12: Scripts added (6 tabs). It sits before Studio because the
+// creator loop is script → camera: write it on /script-generator, beam it to
+// the /studio teleprompter, record. 6 thumb-size tabs still fit a 320px
+// viewport at this label size (10px), so nothing was evicted.
 const TABS = [
   { href: '/home',    label: 'Home',    Icon: Home },
   { href: '/create',  label: 'Create',  Icon: Sparkles },
+  { href: '/script-generator', label: 'Scripts', Icon: PenLine },
   { href: '/studio',  label: 'Studio',  Icon: Camera },
   { href: '/clips',   label: 'Clips',   Icon: Film },
   { href: '/account', label: 'Account', Icon: User },
@@ -33,10 +38,13 @@ const TABS = [
 // 2026-06-05: added public marketing/free-tool pages — bottom dock on
 // /script-generator etc. ate vertical space + cluttered the page on
 // mobile when the user is logged-out trying out the free tool.
+// 2026-06-12: /script-generator REMOVED from the hide list — it's now a
+// first-class tab (Scripts), and a tab whose destination hides the dock
+// would strand mobile users with no way back.
 const HIDE_PREFIXES = [
   '/admin', '/mission-control',
   '/transcribe', '/youtube-transcribe', '/transcribe-anything',
-  '/script-generator', '/free-scripts', '/blog',
+  '/free-scripts', '/blog',
   '/pricing', '/about', '/privacy', '/terms', '/refund',
   '/lp', '/tools', '/trend-radar', '/remix', '/roadmap',
 ];

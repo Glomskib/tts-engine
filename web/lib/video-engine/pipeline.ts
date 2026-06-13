@@ -937,10 +937,19 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
   // never block the render queue.
   if (editReceipt && !alreadyAssembled) {
     try {
+      // takes_combined: when the mini pre-concatted multiple takes (combine
+      // mode), say so in the receipt — "all 3 takes combined" is the single
+      // most important fact about that edit. Count = primary + additionals,
+      // mirroring what combineTakes() stitched.
+      const receiptCtx = (run.context_json ?? {}) as Record<string, unknown>;
+      const receiptExtra = Array.isArray(receiptCtx.additional_sources) ? receiptCtx.additional_sources.length : 0;
       const receipt = {
         ...editReceipt,
         broll: receiptBroll,
         music: receiptMusic,
+        ...(receiptCtx.combine_takes === true && receiptExtra > 0
+          ? { takes_combined: receiptExtra + 1 }
+          : {}),
         // Instruction-engine receipt — which of the creator's typed asks we
         // actually executed (and anything understood but not actionable).
         // Proof the describe box drives the edit, not just the ranking.
@@ -1374,6 +1383,16 @@ export async function tickRun(runId: string): Promise<TickResult> {
     const isLink = meta.source_kind === 'link' || (gateAsset?.storage_path ?? '').startsWith('link/');
     if (isLink && !meta.ingested) {
       return { runId, fromStatus: 'created', toStatus: 'created', message: 'awaiting link ingest' };
+    }
+    // Multi-take combine gate (2026-06-12) — same shape as the link gate
+    // above: combineTakes() on the Mac mini concats all takes into one
+    // source and flips metadata.combined; transcribing before that would
+    // run the whole edit over take 1 only (the exact bug combine fixes).
+    // The mini fails the run itself if the combine genuinely can't happen.
+    const gateCtx = (run.context_json ?? {}) as Record<string, unknown>;
+    const extraTakes = Array.isArray(gateCtx.additional_sources) ? gateCtx.additional_sources.length : 0;
+    if (gateCtx.combine_takes === true && extraTakes > 0 && !meta.combined) {
+      return { runId, fromStatus: 'created', toStatus: 'created', message: 'awaiting take combine' };
     }
   }
 

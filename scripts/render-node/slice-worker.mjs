@@ -163,6 +163,150 @@ async function ingestLinks() {
   } finally { try { fs.existsSync(tmp) && fs.unlinkSync(tmp); } catch {} }
 }
 
+// ─── Multi-take combine (Post Maker "combine all takes") ────────────────────
+// /create accepts up to 5 takes but the pipeline only ever edited take 1
+// (additional_sources sat unused in context_json). Combine mode fixes that by
+// PRE-CONCATting all takes into one source video BEFORE transcription — so
+// the entire existing edit engine (jump cuts, retake removal, fillers,
+// captions, B-roll) runs over the combined footage with zero changes.
+// pipeline.ts holds these runs in 'created' (same gate as link ingest) until
+// the asset's metadata.combined flips true here.
+
+/** Fetch one source to a local path. Prefers the presigned URL (works for R2,
+ *  which is NOT a Supabase bucket), falls back to the Supabase SDK. */
+async function fetchSourceTo(dest, { url, bucket, path: sbPath }) {
+  if (url) {
+    try {
+      const r = await fetch(url);
+      if (r.ok) { fs.writeFileSync(dest, Buffer.from(await r.arrayBuffer())); return; }
+      console.warn(`[slice-worker] combine: presigned fetch ${r.status} for ${dest} — trying supabase fallback`);
+    } catch (e) { console.warn('[slice-worker] combine: presigned fetch failed:', e?.message || e); }
+  }
+  if (bucket && sbPath) {
+    const { data, error } = await sb.storage.from(bucket).download(sbPath);
+    if (!error && data) { fs.writeFileSync(dest, Buffer.from(await data.arrayBuffer())); return; }
+    throw new Error(`combine source download failed: ${error?.message || 'no data'}`);
+  }
+  throw new Error('combine source has no usable URL (presigned link expired?) — re-upload and try again');
+}
+
+async function combineTakes() {
+  // Runs that opted in live in ve_runs.context_json (the asset row doesn't
+  // carry the flag), so start from ve_runs and join the asset per run.
+  // status 'created' only: once the pipeline starts transcribing, the source
+  // is locked in — swapping it mid-flight would desync the transcript.
+  const { data: runs } = await sb.from('ve_runs')
+    .select('id,user_id,context_json')
+    .eq('status', 'created')
+    .eq('context_json->>combine_takes', 'true')
+    .limit(5);
+  if (!runs || !runs.length) return;
+
+  let target = null;
+  for (const r of runs) {
+    const extra = Array.isArray(r?.context_json?.additional_sources) ? r.context_json.additional_sources : [];
+    if (!extra.length) continue;
+    const { data: asset } = await sb.from('ve_assets')
+      .select('id,run_id,user_id,storage_bucket,storage_path,storage_url,metadata')
+      .eq('run_id', r.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (!asset) continue;
+    const m = asset.metadata || {};
+    if (m.combined || m.combining) continue; // done or another worker owns it
+    target = { run: r, asset, extra };
+    break;
+  }
+  if (!target) return;
+
+  const { run, asset, extra } = target;
+  const meta = asset.metadata || {};
+  // Optimistic lock — same pattern as ingestLinks so two workers never
+  // double-combine (the second sees combining=true and skips).
+  await sb.from('ve_assets').update({ metadata: { ...meta, combining: true } }).eq('id', asset.id);
+  console.log(`[slice-worker] combining ${extra.length + 1} takes for run=${run.id}`);
+
+  const work = crypto.randomUUID();
+  const cleanup = [];
+  try {
+    // 1. Download primary + each additional take.
+    const raws = [];
+    {
+      const p = path.join(os.tmpdir(), `ff-cmb-${work}-raw0`);
+      await fetchSourceTo(p, { url: asset.storage_url, bucket: asset.storage_bucket, path: asset.storage_path });
+      raws.push(p); cleanup.push(p);
+    }
+    for (const [i, s] of extra.entries()) {
+      const p = path.join(os.tmpdir(), `ff-cmb-${work}-raw${i + 1}`);
+      await fetchSourceTo(p, {
+        url: s?.read_url,
+        // Only Supabase paths have an SDK fallback; R2 needs the presigned URL.
+        bucket: s?.backend === 'supabase' ? 'clip-sources' : null,
+        path: s?.storage_path,
+      });
+      raws.push(p); cleanup.push(p);
+    }
+
+    // 2. Normalize every take to identical params (1080x1920 cover-crop /
+    //    30fps / h264 yuv420p / aac 48k stereo). Takes can arrive as webm,
+    //    landscape mp4, different fps — the concat demuxer with -c copy
+    //    requires matching streams, and normalizing first is far more robust
+    //    than a giant N-input concat filtergraph.
+    const norms = [];
+    for (const [i, raw] of raws.entries()) {
+      const n = path.join(os.tmpdir(), `ff-cmb-${work}-n${i}.mp4`);
+      await execFileAsync(FFMPEG, [
+        '-y', '-hide_banner', '-loglevel', 'error', '-i', raw,
+        '-vf', 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1,fps=30',
+        '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '21', '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-b:a', '128k', '-ar', '48000', '-ac', '2',
+        '-movflags', '+faststart', n,
+      ], { timeout: 300000, maxBuffer: 64 * 1024 * 1024 });
+      if (!fs.existsSync(n) || fs.statSync(n).size < 1024) throw new Error(`normalize produced no output for take ${i + 1}`);
+      norms.push(n); cleanup.push(n);
+    }
+
+    // 3. Stream-copy concat (file-list demuxer) — instant since step 2
+    //    already re-encoded everything to matching params.
+    const list = path.join(os.tmpdir(), `ff-cmb-${work}-list.txt`);
+    fs.writeFileSync(list, norms.map((n) => `file '${n}'`).join('\n') + '\n');
+    cleanup.push(list);
+    const out = path.join(os.tmpdir(), `ff-cmb-${work}-out.mp4`);
+    cleanup.push(out);
+    await execFileAsync(FFMPEG, [
+      '-y', '-hide_banner', '-loglevel', 'error',
+      '-f', 'concat', '-safe', '0', '-i', list,
+      '-c', 'copy', '-movflags', '+faststart', out,
+    ], { timeout: 120000, maxBuffer: 64 * 1024 * 1024 });
+    if (!fs.existsSync(out) || fs.statSync(out).size < 1024) throw new Error('concat produced no output');
+
+    // 4. Upload to clip-sources + repoint the asset, mirroring ingestLinks —
+    //    from here the pipeline sees one ordinary uploaded source.
+    const key = `ve-combined/${run.user_id}/${run.id}.mp4`;
+    const up = await sb.storage.from('clip-sources').upload(key, fs.readFileSync(out), { contentType: 'video/mp4', upsert: true });
+    if (up.error) throw new Error('combine upload: ' + up.error.message);
+    const { data: signed } = await sb.storage.from('clip-sources').createSignedUrl(key, 60 * 60 * 24);
+    await sb.from('ve_assets').update({
+      storage_bucket: 'clip-sources', storage_path: key, storage_url: signed?.signedUrl || null,
+      metadata: { ...meta, combined: true, combining: false, takes_combined: raws.length },
+    }).eq('id', asset.id);
+    console.log(`[slice-worker] combined ${raws.length} takes run=${run.id} -> ${key} (${fs.statSync(out).size}B)`);
+  } catch (e) {
+    const msg = (e && e.message) ? e.message : String(e);
+    console.error(`[slice-worker] combine FAIL run=${run.id}: ${msg}`);
+    // Unlock + record the error; fail the run so the user gets a retry button
+    // instead of a job parked in 'created' forever behind the combine gate.
+    await sb.from('ve_assets').update({ metadata: { ...meta, combining: false, combine_error: trimErr(msg, 100, 200) } }).eq('id', asset.id);
+    await sb.from('ve_runs').update({
+      status: 'failed',
+      error_message: ('Could not combine your takes: ' + msg).slice(0, 200),
+    }).eq('id', run.id);
+  } finally {
+    for (const f of cleanup) { try { fs.existsSync(f) && fs.unlinkSync(f); } catch {} }
+  }
+}
+
 // ─── Worker ──────────────────────────────────────────────────────────────────
 async function registerWorker() {
   const hostname = `${os.hostname()}-slice`;
@@ -437,6 +581,10 @@ async function main() {
       // forever ("awaiting link ingest" gate in pipeline.ts). One cheap select
       // per tick when nothing is pending; errors never kill the loop.
       try { await ingestLinks(); } catch (e) { console.error('[slice-worker] ingestLinks error:', e?.message || e); }
+      // Multi-take combine piggybacks the same way — runs opted into
+      // combine_takes sit gated in 'created' until this flips
+      // metadata.combined. Errors never kill the render loop.
+      try { await combineTakes(); } catch (e) { console.error('[slice-worker] combineTakes error:', e?.message || e); }
       const { data: pend } = await sb.from('ff_render_jobs')
         .select('id').eq('status', 'pending').eq('kind', 'clip_render')
         .order('priority', { ascending: true }).order('created_at', { ascending: true }).limit(1);

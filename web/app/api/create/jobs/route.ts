@@ -55,6 +55,10 @@ interface CreateBody {
   /** For Post Maker multi-take: additional uploaded sources beyond the primary.
    *  Pipeline can use these later to pick the best take. */
   additional_sources?: AdditionalSource[];
+  /** COMBINE mode (2026-06-12): concat ALL takes (primary + additional) into
+   *  one source on the mini BEFORE transcription, so the entire edit engine
+   *  runs over the combined video. Only meaningful with additional_sources. */
+  combine_takes?: boolean;
   /** Opt-in polish. Both default false at the UI; pipeline reads context_json
    *  and only layers B-roll / music when explicitly enabled. */
   enable_broll?: boolean;
@@ -177,6 +181,14 @@ export async function POST(req: NextRequest) {
     source_kind: sourceUrl ? 'upload' : 'link',
     source_link: sourceLink || null,
     additional_sources: body.additional_sources || [],
+    // COMBINE gate flag. Validated server-side: only true when there are
+    // actually extra takes to combine AND the primary is an upload (link
+    // primaries go through the yt-dlp ingest path instead) — otherwise the
+    // pipeline would gate on a combine that the mini will never perform.
+    combine_takes: body.combine_takes === true
+      && Array.isArray(body.additional_sources)
+      && body.additional_sources.length > 0
+      && !!sourceUrl,
     // Polish flags from the /create UI. Pipeline gates B-roll/music on these.
     // Defaults match the UI defaults (OFF) so legacy callers without the
     // fields keep historical behavior elsewhere via the mode-based check.

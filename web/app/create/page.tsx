@@ -206,6 +206,13 @@ export default function CreatePage() {
   // Smart cuts (jump cuts on pauses + alternating punch-ins) — default ON
   // per Brandon 2026-06-10: the edit is the product. One toggle controls both.
   const [enableSmartCuts, setEnableSmartCuts] = useState(true);
+  // COMBINE MODE (2026-06-12, "the entire thing becomes one video"): with 2+
+  // takes uploaded, the mini concats them into ONE source before transcription
+  // so the whole edit engine (jump cuts, retakes, fillers, captions, B-roll)
+  // runs over the combined footage. Default ON — someone who uploads 5 takes
+  // expects all 5 in the video; "first take only" is the opt-out, never the
+  // silent surprise (renders used to quietly drop takes 2-5).
+  const [combineTakes, setCombineTakes] = useState(true);
 
   const recorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
@@ -587,6 +594,10 @@ export default function CreatePage() {
         additional_sources: readySources.slice(1).map((s) => ({
           read_url: s.readUrl, storage_path: s.storagePath, backend: s.backend, filename: s.filename,
         })),
+        // COMBINE mode: only meaningful with 2+ ready sources — the mini
+        // pre-concats every take into one video before transcription, so the
+        // full edit engine runs across all of them.
+        combine_takes: combineTakes && readySources.length >= 2,
         describe,
         vibe: vibe === 'custom' ? customVibe : vibe,
         brand_profile_id: brandId,
@@ -624,7 +635,7 @@ export default function CreatePage() {
     } finally {
       setCreating(false);
     }
-  }, [sources, linkValue, mode, describe, vibe, customVibe, brandId, captionStyle, clipCount, aspectRatios, enableBroll, enableMusic, enableSmartCuts, defaults]);
+  }, [sources, linkValue, mode, describe, vibe, customVibe, brandId, captionStyle, clipCount, aspectRatios, enableBroll, enableMusic, enableSmartCuts, combineTakes, defaults]);
 
   // ── UI ─────────────────────────────────────────────────────────────────
   if (jobId) {
@@ -859,6 +870,39 @@ export default function CreatePage() {
                   </button>
                 </div>
               ))}
+            </div>
+          )}
+
+          {/* COMBINE control — only when 2+ takes are READY (uploading ones
+              don't count; the choice only matters once a second take lands).
+              Segmented two-option control, not a toggle: "combine" vs "first
+              take only" are both legitimate intents, neither is an "off". */}
+          {sources.filter((s) => s.done).length >= 2 && (
+            <div className="mt-3">
+              <div className="grid grid-cols-2 gap-1 p-1 bg-gray-900 border border-gray-700 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setCombineTakes(true)}
+                  aria-pressed={combineTakes}
+                  className={`px-3 py-2 rounded-md text-xs font-medium text-left transition-colors ${
+                    combineTakes ? 'bg-teal-600/30 border border-teal-500 text-white' : 'border border-transparent text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <div className="font-semibold">Combine all takes</div>
+                  <div className="text-[11px] opacity-80 leading-snug">One video, every take stitched in order</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCombineTakes(false)}
+                  aria-pressed={!combineTakes}
+                  className={`px-3 py-2 rounded-md text-xs font-medium text-left transition-colors ${
+                    !combineTakes ? 'bg-teal-600/30 border border-teal-500 text-white' : 'border border-transparent text-gray-400 hover:text-white'
+                  }`}
+                >
+                  <div className="font-semibold">First take only</div>
+                  <div className="text-[11px] opacity-80 leading-snug">Edit just take 1, ignore the rest</div>
+                </button>
+              </div>
             </div>
           )}
         </Section>
@@ -1362,6 +1406,8 @@ interface JobStatus {
     fillers_cut?: number;
     broll?: number;
     music?: boolean;
+    /** Combine mode: how many takes were pre-concatted into this video. */
+    takes_combined?: number;
     // Instruction engine (2026-06-11): which typed asks were executed,
     // plus anything understood but not actionable.
     instructions_applied?: string[];
@@ -1574,6 +1620,9 @@ function JobProgress({ mode, jobId, onNewJob }: { mode: Mode; jobId: string; onN
           const r = job?.edit_receipt;
           if (!r) return null;
           const parts: string[] = [];
+          // Combine mode leads the receipt — "all your takes are in there"
+          // is the first thing a multi-take uploader wants confirmed.
+          if (r.takes_combined && r.takes_combined > 1) parts.push(`${r.takes_combined} takes combined into one video`);
           if (r.pauses_cut) {
             parts.push(`✂ Cut ${r.pauses_cut} pause${r.pauses_cut === 1 ? '' : 's'}${r.pauses_cut_sec ? ` (${r.pauses_cut_sec.toFixed(1)}s)` : ''}`);
           }

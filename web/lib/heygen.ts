@@ -46,6 +46,14 @@ export async function generateVideo(
   dimension?: { width: number; height: number },
   personaId?: string,
   trackingOptions?: { correlationId?: string; agentId?: string },
+  /**
+   * The environment the avatar is rendered into. Pass a resolved HeyGen
+   * background (see lib/avatar-environments.ts → resolveHeyGenBackground).
+   * Omit for a clean neutral studio backdrop. NOTE: the old hardcoded
+   * '#00FF00' green is gone — it was never chroma-keyed downstream, so it
+   * just shipped avatars on a green/blank screen ("not in any environment").
+   */
+  background?: Record<string, unknown>,
 ): Promise<{ video_id: string }> {
   const config = getHeyGenConfig();
   const persona = getPersona(personaId);
@@ -69,10 +77,9 @@ export async function generateVideo(
           type: 'audio',
           audio_url: audioUrl,
         },
-        background: {
-          type: 'color',
-          value: '#00FF00',
-        },
+        // Neutral studio default instead of raw green; callers pass a real
+        // environment (image/video) via the `background` param.
+        background: background ?? { type: 'color', value: '#202A33' },
       },
     ],
     // 9:16 vertical — matches TikTok/Reels/Shorts format

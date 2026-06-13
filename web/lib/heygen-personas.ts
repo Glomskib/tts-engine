@@ -42,7 +42,11 @@ function fromDelivery(
     label,
     avatarId: delivery.heygen_avatar,
     avatarStyle: 'normal',
-    talkingStyle: 'expressive',
+    // 2026-06-13 Brandon: "motion needs to be normal." 'expressive' drives
+    // exaggerated head/hand motion that reads as uncanny; 'stable' is the
+    // natural baseline. Personas that are MEANT to be animated (Hype Man)
+    // opt back into 'expressive' via overrides below.
+    talkingStyle: 'stable',
     expression: isMale ? 'default' : 'happy',
     voiceId: delivery.elevenlabs_voice,
     voiceStability: delivery.voice_settings.stability,
@@ -77,7 +81,8 @@ const EDUCATOR = fromDelivery('educator', 'The Educator', PERSONA_DELIVERY['The 
 });
 
 const HYPE_MAN = fromDelivery('hype_man', 'The Hype Man', PERSONA_DELIVERY['The Hype Man'], {
-  expression: 'happy', // Excited, animated
+  expression: 'happy',       // Excited, animated
+  talkingStyle: 'expressive', // The one persona that SHOULD move a lot.
 });
 
 const RELATABLE_FRIEND = fromDelivery('relatable_friend', 'The Relatable Friend', PERSONA_DELIVERY['The Relatable Friend']);

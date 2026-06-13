@@ -73,6 +73,18 @@ const PREF_KEY = 'studio.prefs.v1';
 // nukes the user's reading preferences.
 const TELEPROMPTER_KEY = 'ff-teleprompter';
 const TELEPROMPTER_PREFS_KEY = 'ff-teleprompter-prefs';
+// Remembers the last saved-script the user loaded in the picker (id + title)
+// so re-opening the picker can mark it, and so a returning session knows which
+// of his scripts was on the prompter. Separate from the SCRIPT TEXT in
+// TELEPROMPTER_KEY — clearing/editing the text never forgets the choice.
+const TELEPROMPTER_LAST_KEY = 'ff-teleprompter-last';
+
+// Shape returned by GET /api/teleprompter/scripts — the picker contract.
+interface SavedScript {
+  id: string;
+  title: string;
+  text: string;
+}
 
 interface Prefs {
   vibe: Vibe;
@@ -1431,6 +1443,15 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
   const [showPaste, setShowPaste] = useState(false);
   const [draft, setDraft] = useState('');
 
+  // --- Saved-script picker ---
+  // The in-studio path: pull the user's saved scripts and tap one to load it,
+  // instead of copy/pasting. 'auth' fetchState means we got a 401 (logged out)
+  // — picker then shows the paste fallback + a sign-in nudge.
+  const [showPicker, setShowPicker] = useState(false);
+  const [savedScripts, setSavedScripts] = useState<SavedScript[]>([]);
+  const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'ready' | 'auth' | 'error'>('idle');
+  const [lastScriptId, setLastScriptId] = useState<string | null>(null);
+
   const scrollerRef = useRef<HTMLDivElement>(null);
   // Float scroll position — scrollTop is integer-truncated on read, so
   // accumulating into it directly would stall at low speeds (sub-pixel per
@@ -1468,6 +1489,15 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
           setFontSizeState(p.fontSize);
           fontSizeRef.current = p.fontSize;
         }
+      }
+    } catch {}
+    // Restore which saved script was last loaded (for the picker's "current"
+    // marker). Text itself still comes from TELEPROMPTER_KEY above.
+    try {
+      const raw = localStorage.getItem(TELEPROMPTER_LAST_KEY);
+      if (raw) {
+        const p = JSON.parse(raw) as { id?: string };
+        if (typeof p.id === 'string') setLastScriptId(p.id);
       }
     } catch {}
   }, []);
@@ -1542,27 +1572,71 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
     setPlaying(!paused);
   }, [paused, recording, script, open]);
 
-  const savePasted = useCallback(() => {
-    const text = draft.trim();
-    if (!text) return;
+  // Shared loader: drop any text onto the prompter, reset scroll, persist it as
+  // the active script. Used by both the paste box and the saved-script picker.
+  const loadOntoPrompter = useCallback((text: string) => {
     setScript(text);
     setOpen(true);
     setShowPaste(false);
+    setShowPicker(false);
     posRef.current = 0;
     if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
     setPlaying(false);
     try { localStorage.setItem(TELEPROMPTER_KEY, JSON.stringify({ script: text, ts: Date.now() })); } catch {}
-  }, [draft]);
+  }, []);
+
+  const savePasted = useCallback(() => {
+    const text = draft.trim();
+    if (!text) return;
+    // Pasting is "my own text" — forget any previously-picked saved script so
+    // the picker doesn't mis-mark a row as current.
+    setLastScriptId(null);
+    try { localStorage.removeItem(TELEPROMPTER_LAST_KEY); } catch {}
+    loadOntoPrompter(text);
+  }, [draft, loadOntoPrompter]);
+
+  // Load a saved script from the picker. Remembers the choice so re-opening
+  // the picker marks it as current.
+  const loadSavedScript = useCallback((s: SavedScript) => {
+    setLastScriptId(s.id);
+    try { localStorage.setItem(TELEPROMPTER_LAST_KEY, JSON.stringify({ id: s.id, title: s.title })); } catch {}
+    loadOntoPrompter(s.text);
+  }, [loadOntoPrompter]);
+
+  // Fetch the user's saved scripts. 401 → 'auth' (paste-only + sign-in nudge);
+  // any other failure → 'error' (paste fallback). Re-runnable so the picker's
+  // "Try again" works.
+  const fetchSavedScripts = useCallback(async () => {
+    setFetchState('loading');
+    try {
+      const r = await fetch('/api/teleprompter/scripts', { cache: 'no-store' });
+      if (r.status === 401) { setFetchState('auth'); return; }
+      if (!r.ok) { setFetchState('error'); return; }
+      const j = await r.json() as { ok?: boolean; data?: SavedScript[] };
+      setSavedScripts(Array.isArray(j.data) ? j.data : []);
+      setFetchState('ready');
+    } catch {
+      setFetchState('error');
+    }
+  }, []);
+
+  // Open the picker sheet, fetching on first open (or after a failure) so a
+  // logged-in user sees their scripts without re-mounting.
+  const openPicker = useCallback(() => {
+    setShowPicker(true);
+    if (fetchState === 'idle' || fetchState === 'error') fetchSavedScripts();
+  }, [fetchState, fetchSavedScripts]);
 
   // Sits just below the top bar (back link / mic badge / settings ≈ 48px tall).
   const belowTopBar = 'calc(env(safe-area-inset-top) + 60px)';
 
   return (
     <>
-      {/* Collapsed pill — opens the panel, or the paste box when no script. */}
-      {!open && !showPaste && (
+      {/* Collapsed pill — opens the panel when a script is loaded, otherwise
+          the saved-script PICKER (the in-studio path: load, don't paste). */}
+      {!open && !showPaste && !showPicker && (
         <button
-          onClick={() => { if (script) { setOpen(true); } else { setDraft(''); setShowPaste(true); } }}
+          onClick={() => { if (script) { setOpen(true); } else { openPicker(); } }}
           className="absolute left-3 z-20 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur border border-white/10 text-xs font-medium flex items-center gap-1.5"
           style={{ top: belowTopBar }}
           aria-label="Open teleprompter"
@@ -1627,6 +1701,13 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
               <button onClick={() => setFontSize(2)} aria-label="Bigger text" className="px-2 py-1.5 text-sm font-bold text-white/90 hover:bg-white/10 rounded-r-full">A+</button>
             </div>
             <button
+              onClick={openPicker}
+              aria-label="Load a saved script"
+              className="p-2 rounded-full bg-black/40 backdrop-blur border border-white/10 text-white/90 hover:bg-white/10"
+            >
+              <ScrollText className="w-4 h-4" />
+            </button>
+            <button
               onClick={() => { setDraft(script); setShowPaste(true); }}
               aria-label="Edit script"
               className="p-2 rounded-full bg-black/40 backdrop-blur border border-white/10 text-white/90 hover:bg-white/10"
@@ -1639,6 +1720,88 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
               className="p-2 rounded-full bg-black/40 backdrop-blur border border-white/10 text-white/90 hover:bg-white/10"
             >
               <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Saved-script picker sheet — the in-studio path: tap a saved script to
+          load it (no copy/paste). Same bg/blur language as the paste sheet.
+          Handles loading / empty / logged-out / error, each falling back to a
+          "paste your own" secondary action so the user is never stuck. */}
+      {showPicker && (
+        <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur flex items-end sm:items-center justify-center" onClick={() => setShowPicker(false)}>
+          <div className="w-full max-w-md bg-zinc-950 border-t sm:border border-white/10 sm:rounded-2xl rounded-t-2xl p-5 max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-base font-semibold flex items-center gap-2">
+                <ScrollText className="w-4 h-4 text-teal-300" /> Load a script
+              </div>
+              <button onClick={() => setShowPicker(false)} className="p-1.5 rounded-full hover:bg-white/10" aria-label="Close"><X className="w-4 h-4" /></button>
+            </div>
+
+            {/* Loading */}
+            {fetchState === 'loading' && (
+              <div className="py-8 flex items-center justify-center text-sm text-zinc-400">
+                <Loader2 className="w-4 h-4 animate-spin mr-2" /> Loading your scripts…
+              </div>
+            )}
+
+            {/* Logged out — paste only + sign-in nudge. */}
+            {fetchState === 'auth' && (
+              <div className="py-2 text-sm text-zinc-400">
+                <Link href="/login" className="text-teal-300 underline">Sign in</Link> to load your saved scripts.
+              </div>
+            )}
+
+            {/* Error — honest message, retry, and the paste fallback below. */}
+            {fetchState === 'error' && (
+              <div className="py-2 text-sm text-zinc-400 flex items-center justify-between gap-2">
+                <span>Couldn’t load your scripts.</span>
+                <button onClick={fetchSavedScripts} className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/15 text-xs font-medium flex items-center gap-1">
+                  <RefreshCw className="w-3 h-3" /> Try again
+                </button>
+              </div>
+            )}
+
+            {/* Ready + empty — nudge to the generator, paste still available. */}
+            {fetchState === 'ready' && savedScripts.length === 0 && (
+              <div className="py-3 text-sm text-zinc-400">
+                No saved scripts yet — make one in the{' '}
+                <Link href="/script-generator" className="text-teal-300 underline">Script Generator</Link>.
+              </div>
+            )}
+
+            {/* Ready + list — newest first, tap to load. The currently-loaded
+                script is marked so the user can tell what's already up. */}
+            {fetchState === 'ready' && savedScripts.length > 0 && (
+              <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-1.5">
+                {savedScripts.map((s) => {
+                  const current = s.id === lastScriptId;
+                  // First-line preview keeps the row short for long scripts.
+                  const preview = s.text.split('\n')[0].slice(0, 80);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => loadSavedScript(s)}
+                      className={`w-full text-left px-3 py-2.5 rounded-xl border transition-colors ${current ? 'bg-teal-500/15 border-teal-400/50' : 'bg-zinc-900 border-white/10 hover:bg-zinc-800'}`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-medium truncate flex-1">{s.title}</div>
+                        {current && <Check className="w-3.5 h-3.5 text-teal-300 shrink-0" />}
+                      </div>
+                      {preview && <div className="text-[11px] text-zinc-400 truncate mt-0.5">{preview}</div>}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Secondary path — paste your own, always available. */}
+            <button
+              onClick={() => { setShowPicker(false); setDraft(script || ''); setShowPaste(true); }}
+              className="mt-3 w-full py-2.5 rounded-xl border border-white/10 bg-black/40 hover:bg-white/5 text-sm font-medium flex items-center justify-center gap-2"
+            >
+              <PenLine className="w-4 h-4" /> or paste your own
             </button>
           </div>
         </div>

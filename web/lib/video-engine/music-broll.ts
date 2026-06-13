@@ -132,38 +132,63 @@ export async function pickBrollForTranscript(opts: {
     .split(/\s+/)
     .filter((w) => w.length > 5 && !/^(about|because|something|whatever|actually)$/.test(w))
     .slice(0, 3);
-  const query = (opts.query || '').trim()
-    || [...profile.keywords.slice(0, 2), ...transcriptTerms].join(' ');
+
+  // QUERY LADDER (2026-06-12 — Brandon: "no B-roll from the studio version,
+  // one had it, one didn't"): the combined vibe+transcript query is specific
+  // enough that Pexels' PORTRAIT index frequently 0-matches it, and the old
+  // single-shot code returned [] silently — so whether a take got B-roll
+  // depended on which 3 long words happened to lead the transcript. Fall back
+  // to progressively broader queries before giving up: the user toggled
+  // B-roll ON, so vibe-matched generic footage beats none at all. An explicit
+  // instruction query ("show gym b-roll") stays first in line; if Pexels has
+  // nothing for it we still fall back rather than ship a bare clip.
+  const explicit = (opts.query || '').trim();
+  const ladder = [
+    ...(explicit ? [explicit] : []),
+    [...profile.keywords.slice(0, 2), ...transcriptTerms].join(' '),
+    profile.keywords.slice(0, 2).join(' '),
+    profile.keywords[0],
+  ].filter((q, i, arr) => !!q && arr.indexOf(q) === i);
 
   const orientation = opts.vertical ? 'portrait' : 'landscape';
-  const url = `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=${Math.min(targetCount * 2, 40)}&orientation=${orientation}`;
 
   try {
-    const resp = await fetch(url, { headers: { Authorization: apiKey } });
-    if (!resp.ok) return [];
-    const data = await resp.json() as PexelsResponse;
-    if (!data.videos?.length) return [];
+    for (const query of ladder) {
+      const url = `https://api.pexels.com/videos/search?query=${encodeURIComponent(query)}&per_page=${Math.min(targetCount * 2, 40)}&orientation=${orientation}`;
+      const resp = await fetch(url, { headers: { Authorization: apiKey } });
+      if (!resp.ok) {
+        console.warn(`[music-broll] Pexels ${resp.status} for "${query}" — trying broader query`);
+        continue;
+      }
+      const data = await resp.json() as PexelsResponse;
 
-    // Pick `targetCount` clips, prefer ones at least 4 sec long with HD quality
-    const usable = data.videos
-      .filter((v) => v.duration >= 3)
-      .map((v) => {
-        const hd = v.video_files.find((f) => /hd/i.test(f.quality) && /video/i.test(f.file_type))
-                || v.video_files.find((f) => /video/i.test(f.file_type))
-                || v.video_files[0];
-        return { id: v.id, duration: v.duration, link: hd?.link };
-      })
-      .filter((v) => v.link)
-      .slice(0, targetCount);
+      // Pick `targetCount` clips, prefer ones at least 4 sec long with HD quality
+      const usable = (data.videos || [])
+        .filter((v) => v.duration >= 3)
+        .map((v) => {
+          const hd = v.video_files.find((f) => /hd/i.test(f.quality) && /video/i.test(f.file_type))
+                  || v.video_files.find((f) => /video/i.test(f.file_type))
+                  || v.video_files[0];
+          return { id: v.id, duration: v.duration, link: hd?.link };
+        })
+        .filter((v) => v.link)
+        .slice(0, targetCount);
+      if (!usable.length) {
+        console.warn(`[music-broll] 0 usable Pexels results for "${query}" — trying broader query`);
+        continue;
+      }
 
-    // Spread cut points evenly across the timeline
-    const spacing = opts.total_duration_sec / (usable.length + 1);
-    return usable.map((v, idx) => ({
-      at_sec: spacing * (idx + 1),
-      duration_sec: Math.min(profile.durationSec, v.duration),
-      video_url: v.link!,
-      pexels_id: v.id,
-    }));
+      // Spread cut points evenly across the timeline
+      const spacing = opts.total_duration_sec / (usable.length + 1);
+      return usable.map((v, idx) => ({
+        at_sec: spacing * (idx + 1),
+        duration_sec: Math.min(profile.durationSec, v.duration),
+        video_url: v.link!,
+        pexels_id: v.id,
+      }));
+    }
+    console.warn(`[music-broll] no B-roll after ${ladder.length} fallback queries (vibe=${opts.vibe})`);
+    return [];
   } catch (err) {
     console.warn('[music-broll] Pexels fetch failed:', err);
     return [];

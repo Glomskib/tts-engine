@@ -876,6 +876,11 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
           query: instructionBrollQuery ?? undefined,
         });
       } catch (e) { console.warn('[ve-pipeline] broll pick failed (fleet spec):', (e as Error).message); }
+      // Loud breadcrumb when B-roll was requested but nothing made the spec —
+      // this is exactly the "toggle on, no cutaways, no explanation" case.
+      if (polishBroll.length === 0) {
+        console.warn(`[ve-pipeline] B-roll requested but 0 picks for run=${run.id} cand=${cand.id} — clip ships without cutaways (check PEXELS_API_KEY / query ladder logs)`);
+      }
     }
     if (i === 0) {
       receiptBroll = Math.min(6, polishBroll.length); // mirror the slice(0,6) shipped to the worker

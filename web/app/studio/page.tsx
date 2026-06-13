@@ -756,9 +756,11 @@ export default function StudioPage() {
       pills.push({ label: v.toFixed(1).replace(/^0/, '').replace(/\.0$/, ''), value: v, kind: 'zoom' });
     } else if (ultraWideId && prefs.facingMode === 'environment') {
       pills.push({ label: '.5', value: 0.5, kind: 'ultrawide-device' });
-    } else if (zoomCaps && prefs.facingMode === 'environment') {
-      pills.push({ label: '.5', value: 0.5, kind: 'unavailable' });
     }
+    // NOTE: we deliberately DON'T show a disabled ".5" when the phone exposes
+    // neither a sub-1 zoom nor an ultra-wide device — that was a button that
+    // could never work (browser hides the ultra-wide lens on many Androids),
+    // and it just teased users. Real 0.5x comes from the native capture build.
     const maxZoom = zoomCaps ? zoomCaps.max : DIGITAL_ZOOM_MAX;
     for (const v of [1, 2, 3]) {
       if (v <= maxZoom) pills.push({ label: String(v), value: v, kind: 'zoom' });

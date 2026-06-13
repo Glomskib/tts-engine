@@ -300,7 +300,16 @@ async function renderJob(job) {
 
     const foDur = Math.min(0.3, Math.max(0, len - 0.3));
     const foStart = Math.max(0, len - foDur).toFixed(3);
-    const vf = `scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black${assFilter},fade=t=in:st=0:d=0.2${foDur > 0 ? `,fade=t=out:st=${foStart}:d=${foDur.toFixed(3)}` : ''}`;
+    // COVER, not letterbox (2026-06-12 Brandon: "video taking up half the
+    // screen and text is the other half"). The old ...decrease,pad=...black
+    // squeezed any non-9:16 source (Android studio takes can arrive as a
+    // landscape track) into a small strip with black bars, and the caption
+    // marginV landed on the bar instead of the video. increase + center crop
+    // fills the 1080x1920 frame so captions burn ON the video. ffmpeg honors
+    // rotation metadata by default (no -noautorotate anywhere), so upright
+    // phone footage stays upright; true-landscape sources lose their sides
+    // instead of getting black halves — correct for a 9:16 target.
+    const vf = `scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1${assFilter},fade=t=in:st=0:d=0.2${foDur > 0 ? `,fade=t=out:st=${foStart}:d=${foDur.toFixed(3)}` : ''}`;
     const af = `loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=in:st=0:d=0.2${foDur > 0 ? `,afade=t=out:st=${foStart}:d=${foDur.toFixed(3)}` : ''}`;
 
     if (brollFiles.length === 0 && !musicFile && !ranges) {
@@ -328,15 +337,17 @@ async function renderJob(job) {
         // normalize each segment to 1080x1920, stitch with concat, THEN
         // captions + fades on the stitched timeline.
         const punch = spec.punch_in !== false && ranges.length >= 2;
+        // Cover + center-crop — same 2026-06-12 fix as `vf` above: the old
+        // decrease+pad letterboxed non-9:16 segments onto black halves.
         // setsar=1 is required: scale preserves DAR by tweaking SAR, so the
         // punch-in (cropped) segments can come out with SAR 71003:71010-style
         // values while clean segments are 1:1 — and concat refuses to link
         // pads whose SARs differ ("Input link parameters do not match").
-        const scalePad = 'scale=1080:1920:force_original_aspect_ratio=decrease,pad=1080:1920:(ow-iw)/2:(oh-ih)/2:black,setsar=1';
+        const scaleCover = 'scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,setsar=1';
         const punchCrop = 'crop=iw/1.08:ih/1.08:(iw-iw/1.08)/2:(ih-ih/1.08)/2,';
         ranges.forEach((r, i) => {
           const zoom = punch && i % 2 === 1 ? punchCrop : '';
-          parts.push(`[0:v]trim=start=${r.s.toFixed(3)}:duration=${(r.e - r.s).toFixed(3)},setpts=PTS-STARTPTS,${zoom}${scalePad}[kv${i}]`);
+          parts.push(`[0:v]trim=start=${r.s.toFixed(3)}:duration=${(r.e - r.s).toFixed(3)},setpts=PTS-STARTPTS,${zoom}${scaleCover}[kv${i}]`);
           parts.push(`[0:a]atrim=start=${r.s.toFixed(3)}:duration=${(r.e - r.s).toFixed(3)},asetpts=PTS-STARTPTS[ka${i}]`);
         });
         parts.push(`${ranges.map((_, i) => `[kv${i}][ka${i}]`).join('')}concat=n=${ranges.length}:v=1:a=1[vcat][acat]`);
@@ -383,7 +394,14 @@ async function renderJob(job) {
         '-filter_complex', parts.join(';'),
         '-map', '[vout]', '-map', '[aout]',
         '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23', '-pix_fmt', 'yuv420p',
-        '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '128k', '-shortest', out,
+        '-movflags', '+faststart', '-c:a', 'aac', '-b:a', '128k',
+        // Explicit -t instead of -shortest (2026-06-12 "cuts off the video
+        // sooner" with B-roll on): MediaRecorder sources (studio takes) often
+        // carry an audio stream a hair shorter than the video, and -shortest
+        // let that — or any short polish input — truncate the whole clip.
+        // The filtergraph already trims everything to `len`; pin the output
+        // to exactly that so duration never depends on b-roll/music lengths.
+        '-t', len.toFixed(3), out,
       ], { timeout: 300000, maxBuffer: 64 * 1024 * 1024, cwd: os.tmpdir() });
     }
     if (!fs.existsSync(out) || fs.statSync(out).size < 1024) throw new Error('ffmpeg produced no/empty output');

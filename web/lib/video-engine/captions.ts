@@ -240,6 +240,7 @@ export function buildAssSubtitles(opts: CaptionBuildOptions): string {
   return [
     '[Script Info]',
     'ScriptType: v4.00+',
+    'WrapStyle: 0', // smart auto-wrap so long lines never run off the frame
     `PlayResX: ${opts.output_width}`,
     `PlayResY: ${opts.output_height}`,
     'ScaledBorderAndShadow: yes',

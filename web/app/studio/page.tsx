@@ -1921,9 +1921,10 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
             )}
           </div>
 
-          {/* Control row — same bg-black/40 backdrop-blur language as every
-              other studio control so it reads as one surface. */}
-          <div className="pointer-events-auto px-3 pb-2 flex items-center justify-center gap-2">
+          {/* Control row — flex-wrap so the full cluster (play, speed, size,
+              reset, load, edit, hide) always fits on narrow phones instead of
+              the rightmost icons running off-screen. */}
+          <div className="pointer-events-auto px-3 pb-2 flex flex-wrap items-center justify-center gap-1.5">
             <button
               onClick={() => setPlaying(p => !p)}
               aria-label={playing ? 'Pause teleprompter' : 'Play teleprompter'}
@@ -1942,7 +1943,7 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
                 value={speed}
                 onChange={(e) => setSpeed(parseFloat(e.target.value))}
                 aria-label="Teleprompter speed"
-                className="w-24 accent-teal-400"
+                className="w-20 accent-teal-400"
               />
               <span className={`text-[10px] font-semibold tabular-nums w-7 text-right ${speed !== 1 ? 'text-teal-200' : ''}`}>{speed.toFixed(1)}x</span>
             </div>

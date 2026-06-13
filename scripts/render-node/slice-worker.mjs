@@ -85,12 +85,12 @@ function buildAss(events, st) {
 ScriptType: v4.00+
 PlayResX: 1080
 PlayResY: 1920
-WrapStyle: 2
+WrapStyle: 0
 ScaledBorderAndShadow: yes
 
 [V4+ Styles]
 Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
-Style: Cap,${st.font},${st.size},${st.primary},&H000000FF,${st.outline},&H64000000,${st.bold},0,0,0,100,100,0,0,1,${st.outlineW},${st.shadow},2,70,70,${st.marginV},1
+Style: Cap,${st.font},${st.size},${st.primary},&H000000FF,${st.outline},&H64000000,${st.bold},0,0,0,100,100,0,0,1,${st.outlineW},${st.shadow},2,100,100,${st.marginV},1
 
 [Events]
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text

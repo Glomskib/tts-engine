@@ -467,7 +467,15 @@ export default function StudioPage() {
         // of throwing OverconstrainedError.
         aspectRatio: { ideal: 9 / 16 },
         frameRate: { ideal: 30 },
-      };
+        // 2026-06-13 Brandon: "too close even at 1x, can't zoom out." Several
+        // phones satisfy a high portrait resolution by CENTER-CROPPING the
+        // sensor (a zoomed-in slice) instead of using the full field of view.
+        // resizeMode 'none' tells the browser to hand back the camera's NATIVE
+        // uncropped frames — the widest view the lens actually sees — and the
+        // preview (object-cover) + canvas already frame it to 9:16. Not in the
+        // stock TS type, so widen the constraint shape.
+        resizeMode: 'none',
+      } as MediaTrackConstraints & { resizeMode?: string };
       let stream: MediaStream;
       try {
         stream = await navigator.mediaDevices.getUserMedia({

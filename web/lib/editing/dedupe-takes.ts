@@ -118,6 +118,67 @@ export function dedupeTranscriptTakes(
   return mergeRanges(cuts);
 }
 
+/**
+ * Sentence-level repeat removal — robust to real-world flub-and-redo.
+ *
+ * dedupeTranscriptTakes groups WORDS into pseudo-sentences by pauses and needs
+ * a near-identical first-4-content-word stem. Real repeats are rarely word-
+ * identical, and a quick self-correction often has NO clean pause, so they slip
+ * through (this was why repeats survived in real videos). This works on the
+ * actual transcript SENTENCES (Whisper segments / ve_transcript_chunks) and
+ * matches by token CONTAINMENT, so a flubbed fragment that's re-said more fully
+ * ("...I was draggin—" → "...I was dragging through my days") is caught. Keeps
+ * the LAST take, cuts the earlier one(s). Only compares sentences close in time
+ * (default 15s) so a deliberate callback later in the video is never cut.
+ */
+export function dedupeSentences(
+  segments: Array<{ start_sec: number; end_sec: number; text: string }>,
+  opts: { simThreshold?: number; windowSec?: number; minContentWords?: number } = {},
+): DedupeCutRange[] {
+  const simThreshold = opts.simThreshold ?? 0.7;
+  const windowSec = opts.windowSec ?? 15;
+  const minWords = opts.minContentWords ?? 3;
+
+  const segs = segments
+    .map((s) => ({ start: s.start_sec, end: s.end_sec, tokens: contentTokenSet(s.text), raw: s.text }))
+    .filter((s) => s.tokens.size >= minWords)
+    .sort((a, b) => a.start - b.start);
+
+  const cut: DedupeCutRange[] = [];
+  const cutFlags = new Array(segs.length).fill(false);
+  for (let i = 0; i < segs.length; i++) {
+    if (cutFlags[i]) continue;
+    for (let j = i + 1; j < segs.length; j++) {
+      if (segs[j].start - segs[i].end > windowSec) break;
+      if (cutFlags[j]) continue;
+      if (containment(segs[i].tokens, segs[j].tokens) >= simThreshold) {
+        cutFlags[i] = true; // keep the LATER take, cut this earlier one
+        cut.push({
+          start_sec: Math.max(0, segs[i].start - 0.05),
+          end_sec: segs[i].end + 0.1,
+          reason: `repeat take "${segs[i].raw.slice(0, 40)}"`,
+        });
+        break;
+      }
+    }
+  }
+  return mergeRanges(cut);
+}
+
+function contentTokenSet(text: string): Set<string> {
+  return new Set(normalize(text).split(' ').filter((w) => w && !STOPWORDS.has(w)));
+}
+
+/** Containment similarity: shared tokens / smaller set — catches a short flub
+ *  that's fully re-said in a longer, cleaner take. */
+function containment(a: Set<string>, b: Set<string>): number {
+  if (a.size === 0 || b.size === 0) return 0;
+  const [small, large] = a.size <= b.size ? [a, b] : [b, a];
+  let inter = 0;
+  for (const t of small) if (large.has(t)) inter++;
+  return inter / small.size;
+}
+
 // ---- Helpers ----
 
 interface SentenceSpan {

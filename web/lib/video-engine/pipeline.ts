@@ -26,7 +26,7 @@ import { transcribeStorageAsset } from './transcribe';
 import { transcribeWithFallback } from './transcribe-groq';
 import { rankClips, type RankedClip } from './hook-ranker';
 import { generateCandidates } from './scoring';
-import { dedupeTranscriptTakes } from '@/lib/editing/dedupe-takes';
+import { dedupeTranscriptTakes, dedupeSentences } from '@/lib/editing/dedupe-takes';
 import { resolveRenderTemplateKeys, getTemplateOrDefault } from './templates';
 import { getCTAOrDefault } from './ctas';
 import { renderVideo as shotstackRenderVideo, getRenderStatus as shotstackGetStatus } from '@/lib/shotstack';
@@ -673,10 +673,23 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
           spans = [{ start_sec: Math.max(0, basis[0].start - 0.2), end_sec: basis[basis.length - 1].end + 0.3 }];
         }
 
-        // 2. Subtract retake cuts (keep the LAST take). Word-level basis makes
-        // dedupeTranscriptTakes' sentence grouping accurate — chunk input was
-        // why repeated sentences survived.
+        // 2. Subtract retake cuts (keep the LAST take). Two passes:
+        //   (a) word-stem matcher — catches near-identical repeats.
+        //   (b) sentence-containment matcher over the REAL transcript sentences
+        //       (takeChunks) — catches real flub-and-redo that isn't word-
+        //       identical and has no clean pause (the case that survived before).
         const cuts = dedupeTranscriptTakes(basis);
+        const sentenceCuts = dedupeSentences(
+          takeChunks.map((c) => ({
+            start_sec: Number(c.start_sec),
+            end_sec: Number(c.end_sec),
+            text: String(c.text || ''),
+          })),
+        );
+        for (const sc of sentenceCuts) cuts.push(sc);
+        if (sentenceCuts.length) {
+          console.log(`[ve-pipeline] sentence-dedupe run=${run.id}: ${sentenceCuts.length} repeat sentence cut(s) — ${sentenceCuts.map((c) => c.reason).join(' | ')}`);
+        }
 
         // 2b. Filler-word cuts — "um/uh" disappear like a hand edit. Reuses the
         // word data fetched above (no second query); older runs just skip it.

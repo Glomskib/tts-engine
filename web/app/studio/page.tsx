@@ -91,6 +91,23 @@ interface SavedScript {
   text: string;
 }
 
+type Beauty = 'off' | 'soft' | 'smooth';
+
+// Snapchat/TikTok-style "minor filter": a soft-focus beauty pass that evens
+// skin tone and softens minor imperfections. Implemented as a CSS/canvas
+// filter (no ML) so it's real-time AND bakes identically into the recording
+// via the canvas pipeline — what you see in preview is what records.
+const BEAUTY_FILTERS: Record<Beauty, string> = {
+  off: '',
+  soft: 'brightness(1.04) saturate(1.06) contrast(0.99) blur(0.5px)',
+  smooth: 'brightness(1.06) saturate(1.09) contrast(0.98) blur(1px)',
+};
+const BEAUTY_OPTS: { key: Beauty; label: string; hint: string }[] = [
+  { key: 'off', label: 'Off', hint: 'No filter' },
+  { key: 'soft', label: 'Soft', hint: 'Subtle smoothing' },
+  { key: 'smooth', label: 'Smooth', hint: 'Stronger glow' },
+];
+
 interface Prefs {
   vibe: Vibe;
   captionStyle: string;
@@ -99,6 +116,7 @@ interface Prefs {
   facingMode: 'user' | 'environment';
   micDeviceId: string | null;
   describe: string;
+  beauty: Beauty;
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -109,6 +127,7 @@ const DEFAULT_PREFS: Prefs = {
   facingMode: 'user',
   micDeviceId: null,
   describe: '',
+  beauty: 'off',
 };
 
 function loadPrefs(): Prefs {
@@ -241,6 +260,11 @@ export default function StudioPage() {
   const pinchRef = useRef<{ startDist: number; startZoom: number } | null>(null);
   const pinchActiveRef = useRef(false);
   const lastTapRef = useRef(0);
+
+  // Beauty filter string mirrored into a ref so the canvas draw loop (and the
+  // record-pipeline gate) read the live value without re-subscribing.
+  const beautyFilterRef = useRef('');
+  useEffect(() => { beautyFilterRef.current = BEAUTY_FILTERS[prefs.beauty] || ''; }, [prefs.beauty]);
 
   useEffect(() => { setPrefs(loadPrefs()); }, []);
   useEffect(() => { savePrefs(prefs); }, [prefs]);
@@ -393,10 +417,14 @@ export default function StudioPage() {
       const z = zoomCapsRef.current ? 1 : Math.max(1, zoomRef.current);
       const sw = cw / z;
       const sh = ch / z;
+      // Beauty filter: bake the same soft-focus pass the preview shows so the
+      // recorded FILE matches WYSIWYG. 'none' when off (no perf cost).
+      ctx.filter = beautyFilterRef.current || 'none';
       // Draw the RAW video element — for the front camera the mirror is
       // preview-only CSS, so the canvas (and the recording) stays unflipped,
       // matching the /create convention.
       ctx.drawImage(videoEl, (w - sw) / 2, (h - sh) / 2, sw, sh, 0, 0, cw, ch);
+      ctx.filter = 'none';
       canvasRafRef.current = requestAnimationFrame(draw);
     };
     draw();
@@ -579,7 +607,7 @@ export default function StudioPage() {
       // path also bakes in digital zoom. Null fallback = raw stream, never a
       // crash — just log it so a bad upload can be explained.
       let recStream: MediaStream = streamRef.current;
-      if (!zoomCapsRef.current || portraitFixRef.current) {
+      if (!zoomCapsRef.current || portraitFixRef.current || beautyFilterRef.current) {
         recStream = startCanvasPipeline(streamRef.current) ?? streamRef.current;
         if (portraitFixRef.current && recStream === streamRef.current) {
           console.warn('[studio] portrait-fix canvas unavailable — recording the raw landscape track');
@@ -952,6 +980,9 @@ export default function StudioPage() {
             prefs.facingMode === 'user' ? 'scaleX(-1)' : '',
             !zoomCaps && zoom > 1 ? `scale(${zoom})` : '',
           ].filter(Boolean).join(' ') || 'none',
+          // Beauty filter on the live preview — matched by the canvas pipeline
+          // so the recording looks identical.
+          filter: BEAUTY_FILTERS[prefs.beauty] || 'none',
         }}
       />
 
@@ -1268,6 +1299,25 @@ function SettingsSheet({
                 );
               })}
             </div>
+          </Section>
+
+          <Section title="Beauty filter">
+            <div className="grid grid-cols-3 gap-2">
+              {BEAUTY_OPTS.map(b => {
+                const sel = prefs.beauty === b.key;
+                return (
+                  <button
+                    key={b.key}
+                    onClick={() => setPrefs(p => ({ ...p, beauty: b.key }))}
+                    className={`px-3 py-2 rounded-lg text-sm border text-center ${sel ? 'bg-teal-600/20 border-teal-500' : 'bg-zinc-900 border-white/10'}`}
+                  >
+                    <div className="font-medium">{b.label}</div>
+                    <div className="text-[10px] text-zinc-400 mt-0.5">{b.hint}</div>
+                  </button>
+                );
+              })}
+            </div>
+            <div className="text-[11px] text-zinc-500 mt-2">Smooths skin + minor imperfections. Bakes into the recording.</div>
           </Section>
 
           <Section title="Vibe">

@@ -12,7 +12,8 @@
  *   describe: string            // the user's natural-language prompt
  *   vibe: string                // hype | calm | real | funny | sad | <custom>
  *   brand_profile_id?: string
- *   caption_style: string       // bold_yellow | subtle_white | mr_beast | karaoke | newscast | slow_reader
+ *   caption_style: string       // UI sends: bold_yellow|subtle_white|mr_beast|karaoke|newscast|slow_reader
+ *                               // normalized to worker keys (mr_beast→mrbeast_big, newscast→two_line_news)
  *   clip_count: number          // 1..8
  *   aspect_ratios: string[]     // ['9:16', '1:1', ...]
  */
@@ -100,6 +101,35 @@ function parseSourceLocation(sourceUrl: string, storagePathHint?: string, backen
   return { bucket: SUPA_SOURCE_BUCKET, path: storagePathHint || 'unknown' };
 }
 
+/**
+ * Normalize the UI's caption_style to the keys the render worker
+ * (scripts/render-node/slice-worker.mjs → captionStyle()) actually switches on.
+ *
+ * 2026-06-13 (integration pass): the /create + /studio pickers offer
+ * 'mr_beast' and 'newscast' labels, but the worker only recognizes
+ * 'mrbeast_big' and 'two_line_news' (and 'slow_reader'/'subtle_white'/
+ * 'bold_yellow'/'karaoke'). Unmapped values silently fell through to the
+ * bold_yellow default, so a user picking "MrBeast Big" or "Two-Line News"
+ * got plain captions instead. Map the UI aliases here — the single chokepoint
+ * BOTH surfaces POST through — so the stored context_json.caption_style is
+ * already worker-canonical (and so is the value the pipeline reads back).
+ */
+const CAPTION_STYLE_ALIASES: Record<string, string> = {
+  mr_beast: 'mrbeast_big',
+  mrbeast: 'mrbeast_big',
+  newscast: 'two_line_news',
+  two_line_news: 'two_line_news',
+};
+const CANONICAL_CAPTION_STYLES = new Set([
+  'bold_yellow', 'subtle_white', 'mrbeast_big', 'slow_reader', 'karaoke', 'two_line_news',
+]);
+function normalizeCaptionStyle(raw: string | undefined): string {
+  const v = String(raw || '').trim().toLowerCase();
+  if (CAPTION_STYLE_ALIASES[v]) return CAPTION_STYLE_ALIASES[v];
+  if (CANONICAL_CAPTION_STYLES.has(v)) return v;
+  return 'bold_yellow';
+}
+
 function vibeToContext(vibe: string): Record<string, string> {
   // Translate the user's vibe to the engine's scoring weights / context hints.
   const map: Record<string, string> = {
@@ -143,7 +173,9 @@ export async function POST(req: NextRequest) {
     ? body.aspect_ratios.filter((x) => ['9:16', '1:1', '4:5', '16:9'].includes(x))
     : ['9:16'];
   const vibe = (body.vibe || 'real').toLowerCase().slice(0, 80);
-  const captionStyle = body.caption_style || 'bold_yellow';
+  // Map UI aliases (mr_beast/newscast) to the worker's real keys so the
+  // user's caption choice actually applies — see normalizeCaptionStyle above.
+  const captionStyle = normalizeCaptionStyle(body.caption_style);
   const describe = (body.describe || '').slice(0, 2000);
 
   // Credit cost preview (1 credit per clip × number of aspect ratios)

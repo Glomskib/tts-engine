@@ -743,7 +743,27 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
           if (trimmedForMax) instructionsApplied.push(`kept it under ${Math.round(maxDur)}s`);
         }
 
+        // Tighten the tail to the last word (Brandon: "get real close to the
+        // last thing said"). The final keep ends at lastWord.end + PAD; clamp
+        // it so trailing dead air / Whisper end-slack never rides along, and
+        // never run past the actual source duration.
+        const srcDur = Number(asset.duration_sec) || (basis[basis.length - 1]?.end ?? 0);
+        if (keeps.length) {
+          const lastWordEnd = basis[basis.length - 1]?.end ?? keeps[keeps.length - 1].end_sec;
+          const tail = keeps[keeps.length - 1];
+          tail.end_sec = Math.min(tail.end_sec, lastWordEnd + 0.12, srcDur || tail.end_sec);
+        }
+
         const kept = keeps.reduce((t, k) => t + (k.end_sec - k.start_sec), 0);
+
+        // Leading/trailing dead air. Even a CLEAN single take (one segment, no
+        // interior cuts) should end close to the last word — if we're topping
+        // or tailing the clip past the speech, that's a real edit worth
+        // shipping on its own, which the old gate (cuts/multi-segment only)
+        // missed, leaving trailing silence in the render.
+        const headTrim = keeps.length ? keeps[0].start_sec : 0;
+        const tailTrim = keeps.length ? Math.max(0, srcDur - keeps[keeps.length - 1].end_sec) : 0;
+        const trimsDeadAir = headTrim > 0.3 || tailTrim > 0.3;
 
         // Receipt inputs — attribute each cut to its source so the UI can
         // itemize the edit. Silence cuts are the gaps BETWEEN speech spans
@@ -761,7 +781,7 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
         // (a cut happened) and enough material survives.
         // trimmedForMax counts as a real edit too — a max-duration trim with
         // no other cuts still needs keep_ranges shipped to take effect.
-        if (keeps.length && kept >= 2 && (keeps.length > 1 || cuts.length > 0 || trimmedForMax)) {
+        if (keeps.length && kept >= 2 && (keeps.length > 1 || cuts.length > 0 || trimmedForMax || trimsDeadAir)) {
           postKeepRanges = keeps;
           editReceipt = {
             segments: keeps.length,

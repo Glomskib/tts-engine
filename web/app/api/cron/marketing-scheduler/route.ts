@@ -37,6 +37,7 @@ import { withErrorCapture } from '@/lib/errors/withErrorCapture';
 import { captureRouteError } from '@/lib/errorTracking';
 import { markCaptured } from '@/lib/errors/withErrorCapture';
 import type { PlatformTarget, MediaItem } from '@/lib/marketing/types';
+import { authorizedCron } from '@/lib/cron-auth';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -115,9 +116,11 @@ async function createPostWithRetry(
 
 // ── Main handler ─────────────────────────────────────────────────
 export const GET = withErrorCapture(async (request: Request) => {
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  // 2026-06: normalized to the shared cron-auth helper (see web/lib/cron-auth.ts)
+  // — same trimmed CRON_SECRET check + vercel-cron UA fallback as
+  // video-engine-tick. Prevents the untrimmed-compare flavor of the 401 incident
+  // that killed the daily HHH/MMM draft cron.
+  if (!authorizedCron(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

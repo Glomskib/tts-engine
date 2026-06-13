@@ -19,6 +19,7 @@ import { notifyPendingRuns } from '@/lib/video-engine/notify';
 import { processDistributionJobs } from '@/lib/video-engine/distribution';
 import { tickGenerationJobs } from '@/lib/generation-jobs/worker';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { authorizedBySecret, isVercelCron, authorizedCron } from '@/lib/cron-auth';
 
 export const runtime = 'nodejs';
 export const maxDuration = 300;
@@ -43,41 +44,16 @@ const ZOMBIE_AGE_HOURS = 6;
  *   - `authorization: Bearer <CRON_SECRET>` — only when the CRON_SECRET env
  *     var exists in the Production environment at deploy time
  *   - user-agent `vercel-cron/1.0`
- * It does NOT send an `x-vercel-cron` header — the old first-line check here
- * never matched, so auth fell through to a strict, untrimmed string compare.
- * A CRON_SECRET pasted with a trailing newline/space (or missing entirely)
- * meant every invocation 401'd.
+ * It does NOT send an `x-vercel-cron` header.
+ *
+ * 2026-06 — the auth check that lived inline here was extracted to
+ * web/lib/cron-auth.ts so the publishing crons (hhh-daily-content et al, which
+ * had diverged onto a header Vercel never sends and 401'd every morning) share
+ * ONE source of truth and can't silently drift again. `authorized` keeps the
+ * same semantics: real secret OR Vercel-cron-shaped request.
  */
-
-/** Strict secret auth — required for privileged params like ?force_id. */
-function authorizedBySecret(request: NextRequest): boolean {
-  // trim(): env vars pasted into the Vercel dashboard routinely pick up a
-  // trailing newline; an exact compare then fails forever and silently.
-  const secret = (process.env.CRON_SECRET ?? '').trim();
-  if (!secret) return process.env.NODE_ENV === 'development'; // only allow unauthenticated in local dev
-  const auth = (request.headers.get('authorization') ?? '').trim();
-  if (auth === `Bearer ${secret}`) return true; // Vercel cron's automatic form
-  // Back-compat manual forms (curl from the mini fleet / Brandon's scripts).
-  if ((request.headers.get('x-cron-secret') ?? '').trim() === secret) return true;
-  const qsSecret = new URL(request.url).searchParams.get('secret');
-  if (qsSecret && qsSecret.trim() === secret) return true;
-  return false;
-}
-
-/**
- * Looks like a Vercel cron invocation. The UA is spoofable, so this only
- * unlocks the NON-privileged tick path: ticking is idempotent (claim-window
- * guarded) and the identical work is already triggerable by any logged-in
- * user via /api/worker/tick — worst case an attacker burns a few DB queries.
- * This keeps the queue moving even if the CRON_SECRET binding breaks again.
- */
-function isVercelCron(request: NextRequest): boolean {
-  if (request.headers.get('x-vercel-cron')) return true; // kept in case Vercel adds/sends it
-  return (request.headers.get('user-agent') ?? '').startsWith('vercel-cron/');
-}
-
 function authorized(request: NextRequest): boolean {
-  return authorizedBySecret(request) || isVercelCron(request);
+  return authorizedCron(request);
 }
 
 /**

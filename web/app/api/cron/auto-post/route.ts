@@ -14,6 +14,7 @@ import { getTikTokContentClient } from '@/lib/tiktok-content';
 import { sendTelegramLog } from '@/lib/telegram';
 import { logSessionValidity } from '@/lib/session-logger';
 import { logUploadStep } from '@/lib/uploader-status';
+import { authorizedCron } from '@/lib/cron-auth';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -22,10 +23,12 @@ const STALE_TIMEOUT_MS = 2 * 60 * 60 * 1000; // 2 hours
 const MAX_NEW_POSTS_PER_RUN = 5;
 
 export async function GET(request: Request) {
-  // Verify cron secret
-  const authHeader = request.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  // 2026-06: normalized to the shared cron-auth helper (see web/lib/cron-auth.ts)
+  // so this publishing cron matches video-engine-tick — accepts CRON_SECRET via
+  // header/x-cron-secret/query with trim() + a vercel-cron UA fallback. The old
+  // untrimmed exact compare was a sibling of the 401 incident that silently
+  // killed hhh-daily-content.
+  if (!authorizedCron(request)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

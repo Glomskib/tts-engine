@@ -15,6 +15,7 @@
 import { NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import { supabaseAdmin } from '@/lib/supabaseAdmin';
+import { authorizedCron } from '@/lib/cron-auth';
 
 export const runtime = 'nodejs';
 export const maxDuration = 90;
@@ -126,11 +127,15 @@ ${HHH_BRIEF}`;
 }
 
 export async function GET(req: Request) {
-  // Vercel cron auth — checks for x-vercel-cron header OR allows MISSION_CONTROL_TOKEN
-  const cronAuth = req.headers.get('x-vercel-cron') === '1';
-  const tokenAuth = req.headers.get('authorization') === `Bearer ${process.env.MISSION_CONTROL_TOKEN || ''}`;
-  if (!cronAuth && !tokenAuth) {
-    return NextResponse.json({ error: 'Unauthorized — Vercel cron only' }, { status: 401 });
+  // 2026-06 401 INCIDENT FIX:
+  // This route used to gate on `x-vercel-cron === '1'` — a header Vercel does
+  // NOT send — so it returned 401 EVERY morning and the daily HHH/MMM Facebook
+  // draft was never written. Vercel actually sends `authorization: Bearer
+  // <CRON_SECRET>` + UA `vercel-cron/`. Normalized to the shared helper that
+  // video-engine-tick uses (accepts CRON_SECRET via header/x-cron-secret/query
+  // with trim(), plus a UA fallback). See web/lib/cron-auth.ts.
+  if (!authorizedCron(req)) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   if (!process.env.ANTHROPIC_API_KEY) {

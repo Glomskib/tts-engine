@@ -207,6 +207,15 @@ export default function StudioPage() {
   const [audioLevel, setAudioLevel] = useState(0);
   const [mics, setMics] = useState<MicDevice[]>([]);
   const [clips, setClips] = useState<Clip[]>([]);
+  // Camera diagnostics for the .5/lens issue — visible only at /studio?debug=1.
+  // Lets us SEE exactly what lenses a given phone exposes to the browser
+  // (Android often hides the ultra-wide from getUserMedia) so .5 can be wired
+  // to the real device instead of guessing by label.
+  const [camList, setCamList] = useState<string[]>([]);
+  const [debug, setDebug] = useState(false);
+  useEffect(() => {
+    try { setDebug(new URLSearchParams(window.location.search).get('debug') === '1'); } catch {}
+  }, []);
 
   // --- Real-camera controls: zoom / lens / torch ---
   const [zoom, setZoom] = useState(1);
@@ -280,6 +289,10 @@ export default function StudioPage() {
       setHasMultipleCameras(cams.length > 1);
       const uw = cams.find(d => isUltraWideLabel(d.label || ''));
       setUltraWideId(uw ? uw.deviceId : null);
+      // Diagnostic: every videoinput label the browser exposes. On phones that
+      // hide the ultra-wide this is how we learn what's actually selectable.
+      setCamList(cams.map((c, i) => `${i}: ${c.label || '(no label — perm?)'}`));
+      console.log('[studio] videoinputs', cams.map(c => c.label || '(no label)'));
 
       const ins: MicDevice[] = all.filter(d => d.kind === 'audioinput').map(d => {
         const c = classifyMic(d.label || '');
@@ -988,6 +1001,17 @@ export default function StudioPage() {
 
       {/* Recorder source for digital zoom — never visible. */}
       <canvas ref={canvasRef} className="hidden" aria-hidden />
+
+      {/* Lens diagnostics — /studio?debug=1 only. Screenshot this to wire .5. */}
+      {debug && (
+        <div className="absolute top-24 left-2 z-30 max-w-[92%] p-2 rounded-lg bg-black/80 border border-teal-400/40 text-[10px] leading-snug font-mono text-teal-100 pointer-events-none">
+          <div>facing: {prefs.facingMode}</div>
+          <div>zoomCaps: {zoomCaps ? `min ${zoomCaps.min} / max ${zoomCaps.max}` : 'NONE (no native zoom)'}</div>
+          <div>ultraWide detected: {ultraWideId ? 'YES' : 'no'} · usingUW: {usingUltraWide ? 'yes' : 'no'}</div>
+          <div>cameras ({camList.length}):</div>
+          {camList.map((c, i) => <div key={i} className="truncate">· {c}</div>)}
+        </div>
+      )}
 
       {/* Pinch-to-zoom / double-tap-reset surface. z-10 keeps it under the
           control layers (z-20) so buttons stay tappable; touch-action none

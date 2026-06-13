@@ -53,7 +53,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   let body: Record<string, unknown>;
   try { body = await req.json(); }
   catch { return createApiErrorResponse('BAD_REQUEST', 'Invalid JSON', 400, correlationId); }
-  const allowed = ['name','avatar_display_name','niche','personality','target_audience','avatar_appearance','avatar_visual_recipe','avatar_visual_reference_url','heygen_custom_avatar_id','voice_provider','voice_clone_id','tone_descriptor','prohibited_phrases','preferred_phrases','knowledge_bank','setup_status','test_render_url','avatar_video_style'];
+  const allowed = ['name','avatar_display_name','niche','personality','target_audience','avatar_appearance','avatar_visual_recipe','avatar_visual_reference_url','heygen_custom_avatar_id','voice_provider','voice_clone_id','tone_descriptor','prohibited_phrases','preferred_phrases','knowledge_bank','setup_status','test_render_url','avatar_video_style','avatar_environment_json'];
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
   for (const k of allowed) if (k in body) updates[k] = body[k];
   const newRefUrl = typeof body.avatar_visual_reference_url === 'string' ? body.avatar_visual_reference_url : null;

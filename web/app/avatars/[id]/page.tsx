@@ -1,16 +1,18 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, FileText, Calendar, Play, Loader2, User, AlertCircle, RefreshCw, Trash2, Mic } from 'lucide-react';
+import { ArrowLeft, Sparkles, FileText, Calendar, Play, Loader2, User, AlertCircle, RefreshCw, Trash2, Mic, Image, Check, Upload } from 'lucide-react';
 import VoicePicker from '@/components/VoicePicker';
+import type { EnvironmentPreset, EnvironmentSelection } from '@/lib/avatar-environments';
 
 interface Avatar {
   id: string; name: string; avatar_display_name?: string; niche?: string;
   personality?: string; target_audience?: string;
   avatar_visual_reference_url?: string; heygen_custom_avatar_id?: string;
   voice_clone_id?: string; test_render_url?: string; setup_status?: string;
+  avatar_environment_json?: EnvironmentSelection | null;
 }
 interface Script {
   id: string; script_type: string; hook?: string; status: string;
@@ -20,6 +22,212 @@ interface Campaign {
   id: string; name: string; product_name?: string; goal?: string;
   duration_days?: number; status: string; created_at: string;
 }
+
+// ─── Environment Picker ───────────────────────────────────────────────────────
+
+interface EnvPresetWithImage extends EnvironmentPreset {
+  image_url: string | null;
+}
+
+function EnvironmentPicker({
+  avatarId,
+  currentEnv,
+  onSaved,
+}: {
+  avatarId: string;
+  currentEnv?: EnvironmentSelection | null;
+  onSaved: (sel: EnvironmentSelection) => void;
+}) {
+  const [presets, setPresets] = useState<EnvPresetWithImage[]>([]);
+  const [selected, setSelected] = useState<string>(currentEnv?.preset_id || 'studio');
+  const [generating, setGenerating] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [uploadUrl, setUploadUrl] = useState<string>('');
+  const [uploadIsVideo, setUploadIsVideo] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    fetch('/api/avatars/environments')
+      .then((r) => r.json())
+      .then((j: { ok: boolean; presets?: EnvPresetWithImage[] }) => {
+        if (j.ok) setPresets(j.presets || []);
+      })
+      .catch(() => {});
+  }, []);
+
+  async function handleSelect(presetId: string) {
+    setSelected(presetId);
+    const preset = presets.find((p) => p.id === presetId);
+    // Plain preset: no image needed
+    if (!preset?.prompt) return;
+    // If image already cached, nothing to generate
+    if (preset.image_url) return;
+    // Generate on demand
+    setGenerating(presetId);
+    try {
+      const r = await fetch('/api/avatars/environments', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ preset_id: presetId }),
+      });
+      const j = await r.json() as { ok: boolean; preset_id: string; image_url: string | null };
+      if (j.ok && j.image_url) {
+        setPresets((prev) =>
+          prev.map((p) => (p.id === j.preset_id ? { ...p, image_url: j.image_url } : p)),
+        );
+      }
+    } catch { /* best-effort */ }
+    finally { setGenerating(null); }
+  }
+
+  function handleUploadFile(_e: React.ChangeEvent<HTMLInputElement>) {
+    // File picking is a convenience hint — the actual asset_url comes from the text input below.
+    alert('For "Upload your own", paste a public URL to your image or short video in the field below.');
+  }
+
+  async function save() {
+    setSaving(true);
+    try {
+      const preset = presets.find((p) => p.id === selected);
+      let sel: EnvironmentSelection;
+      if (selected === 'upload') {
+        sel = {
+          preset_id: 'upload',
+          source: 'upload',
+          asset_url: uploadUrl || null,
+          is_video: uploadIsVideo,
+        };
+      } else if (!preset?.prompt) {
+        sel = { preset_id: selected, source: 'color', color: preset?.fallbackColor };
+      } else {
+        sel = {
+          preset_id: selected,
+          source: 'ai',
+          asset_url: preset?.image_url || null,
+        };
+      }
+      const r = await fetch(`/api/avatars/${avatarId}`, {
+        method: 'PATCH',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ avatar_environment_json: sel }),
+      });
+      const j = await r.json() as { ok: boolean };
+      if (j.ok) onSaved(sel);
+      else throw new Error('Save failed');
+    } catch (e) {
+      alert('Could not save environment: ' + (e instanceof Error ? e.message : String(e)));
+    } finally { setSaving(false); }
+  }
+
+  const activePresetId = currentEnv?.preset_id;
+
+  return (
+    <div>
+      <div className="grid grid-cols-3 gap-2 mb-3">
+        {presets.map((p) => {
+          const isSelected = selected === p.id;
+          const isActive = activePresetId === p.id;
+          const isLoading = generating === p.id;
+          return (
+            <button
+              key={p.id}
+              onClick={() => handleSelect(p.id)}
+              className={`relative rounded-lg overflow-hidden border-2 transition-all text-left ${
+                isSelected
+                  ? 'border-teal-400 ring-1 ring-teal-400/40'
+                  : 'border-white/10 hover:border-white/30'
+              }`}
+            >
+              <div className="aspect-[9/16] relative bg-zinc-800">
+                {p.image_url ? (
+                  <img src={p.image_url} alt={p.label} className="w-full h-full object-cover" />
+                ) : p.prompt ? (
+                  <div
+                    className="w-full h-full flex items-center justify-center"
+                    style={{ backgroundColor: p.fallbackColor }}
+                  >
+                    {isLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin text-white/60" />
+                    ) : (
+                      <Image className="w-4 h-4 text-white/30" />
+                    )}
+                  </div>
+                ) : (
+                  <div className="w-full h-full" style={{ backgroundColor: p.fallbackColor }} />
+                )}
+                {isSelected && (
+                  <div className="absolute top-1 right-1 rounded-full bg-teal-400 p-0.5">
+                    <Check className="w-2.5 h-2.5 text-zinc-900" />
+                  </div>
+                )}
+                {isActive && !isSelected && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-teal-500/80 text-[9px] text-center text-white py-0.5 font-semibold">
+                    ACTIVE
+                  </div>
+                )}
+              </div>
+              <div className="px-1.5 py-1 bg-zinc-900">
+                <div className="text-[11px] font-medium text-white truncate">{p.label}</div>
+                <div className="text-[9px] text-zinc-500 truncate">{p.hint}</div>
+              </div>
+            </button>
+          );
+        })}
+
+        {/* Upload your own card */}
+        <button
+          onClick={() => setSelected('upload')}
+          className={`relative rounded-lg overflow-hidden border-2 transition-all text-left ${
+            selected === 'upload'
+              ? 'border-teal-400 ring-1 ring-teal-400/40'
+              : 'border-white/10 hover:border-white/30'
+          }`}
+        >
+          <div className="aspect-[9/16] bg-zinc-800 flex items-center justify-center">
+            <Upload className="w-4 h-4 text-white/30" />
+          </div>
+          <div className="px-1.5 py-1 bg-zinc-900">
+            <div className="text-[11px] font-medium text-white">Upload</div>
+            <div className="text-[9px] text-zinc-500">Your own</div>
+          </div>
+        </button>
+      </div>
+
+      {selected === 'upload' && (
+        <div className="mb-3 space-y-2">
+          <input
+            type="text"
+            placeholder="Paste public image or video URL..."
+            value={uploadUrl}
+            onChange={(e) => setUploadUrl(e.target.value)}
+            className="w-full px-3 py-2 rounded-lg bg-zinc-800 border border-white/10 text-sm text-white placeholder:text-zinc-500 focus:outline-none focus:border-teal-500"
+          />
+          <label className="flex items-center gap-2 text-xs text-zinc-400 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={uploadIsVideo}
+              onChange={(e) => setUploadIsVideo(e.target.checked)}
+              className="rounded"
+            />
+            This is a looping video (not a still image)
+          </label>
+          <input ref={fileInputRef} type="file" accept="image/*,video/*" className="hidden" onChange={handleUploadFile} />
+        </div>
+      )}
+
+      <button
+        onClick={save}
+        disabled={saving}
+        className="w-full px-3 py-2 rounded-lg bg-teal-500 hover:bg-teal-600 disabled:opacity-50 text-sm font-semibold flex items-center justify-center gap-1.5"
+      >
+        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+        Save environment
+      </button>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function AvatarDetailPage() {
   const params = useParams<{ id: string }>();
@@ -169,6 +377,28 @@ export default function AvatarDetailPage() {
             avatarId={id}
             currentVoiceId={avatar.voice_clone_id}
             onSaved={refetchAvatar}
+          />
+        </div>
+
+        {/* Environment section */}
+        <div id="environment" className="rounded-xl border border-white/10 bg-zinc-900/40 p-4 mt-4 scroll-mt-6">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold flex items-center gap-1.5">
+              <Image className="w-4 h-4 text-zinc-400" /> Environment
+            </h3>
+            {avatar.avatar_environment_json && (
+              <span className="text-[10px] text-teal-400 font-medium">
+                {avatar.avatar_environment_json.preset_id}
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-zinc-500 mb-3">
+            Choose the background your avatar is rendered into. The image is composited by HeyGen — no green-screen needed.
+          </p>
+          <EnvironmentPicker
+            avatarId={id}
+            currentEnv={avatar.avatar_environment_json}
+            onSaved={(sel) => setAvatar((prev) => prev ? { ...prev, avatar_environment_json: sel } : prev)}
           />
         </div>
 

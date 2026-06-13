@@ -51,6 +51,8 @@ import {
 } from '@/lib/api-errors';
 import { captureRouteException } from '@/lib/errorTracking';
 import { requireCredits, useCredit } from '@/lib/credits';
+import { resolveHeyGenBackground } from '@/lib/avatar-environments';
+import type { EnvironmentSelection } from '@/lib/avatar-environments';
 
 export const runtime = 'nodejs';
 // We don't poll — submission only. 60s is plenty for the HeyGen POST.
@@ -90,6 +92,7 @@ interface AvatarRow {
   name: string | null;
   heygen_custom_avatar_id: string | null;
   voice_clone_id: string | null;
+  avatar_environment_json?: EnvironmentSelection | null;
 }
 
 /** Map a friendly aspect_ratio to HeyGen dimensions (vertical/horizontal/square). */
@@ -185,7 +188,7 @@ export async function POST(req: NextRequest) {
   const avatarIds = [...new Set(segmentsIn.map((s) => s.avatar_id!))];
   const { data: avatarRows, error: avatarErr } = await supabaseAdmin
     .from('brand_profiles')
-    .select('id, user_id, avatar_display_name, name, heygen_custom_avatar_id, voice_clone_id')
+    .select('id, user_id, avatar_display_name, name, heygen_custom_avatar_id, voice_clone_id, avatar_environment_json')
     .in('id', avatarIds)
     .eq('user_id', userId);
 
@@ -241,7 +244,9 @@ export async function POST(req: NextRequest) {
         input_text: seg.text,
         voice_id: seg.voice_id,
       },
-      background: { type: 'color' as const, value: '#ffffff' },
+      background: resolveHeyGenBackground(
+        avatarsById.get(seg.avatar_id)?.avatar_environment_json,
+      ),
     })),
     dimension: dim,
   };

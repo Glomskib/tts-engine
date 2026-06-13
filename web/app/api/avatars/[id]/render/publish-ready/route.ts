@@ -32,6 +32,8 @@ import {
 } from '@/lib/api-errors';
 import { pollUntilComplete } from '@/lib/heygen';
 import { captureRouteException } from '@/lib/errorTracking';
+import { resolveHeyGenBackground } from '@/lib/avatar-environments';
+import type { EnvironmentSelection } from '@/lib/avatar-environments';
 
 export const runtime = 'nodejs';
 // HeyGen renders can take a couple of minutes; give the route headroom.
@@ -50,6 +52,7 @@ interface AvatarRow {
   heygen_custom_avatar_id: string | null;
   voice_clone_id: string | null;
   voice_provider: string | null;
+  avatar_environment_json?: EnvironmentSelection | null;
 }
 
 interface ScriptRow {
@@ -138,7 +141,7 @@ export async function POST(
   const { data: avatarRaw, error: avatarErr } = await supabaseAdmin
     .from('brand_profiles')
     .select(
-      'id, user_id, avatar_display_name, name, heygen_custom_avatar_id, voice_clone_id, voice_provider',
+      'id, user_id, avatar_display_name, name, heygen_custom_avatar_id, voice_clone_id, voice_provider, avatar_environment_json',
     )
     .eq('id', avatarId)
     .eq('user_id', userId)
@@ -198,6 +201,7 @@ export async function POST(
   const spokenText = spokenSegments.join(' ').slice(0, 1500);
 
   // ─── kick off HeyGen render (same shape as /render/test) ──────────
+  const background = resolveHeyGenBackground(avatar.avatar_environment_json);
   let heygenVideoId: string;
   try {
     const r = await fetch('https://api.heygen.com/v2/video/generate', {
@@ -215,7 +219,7 @@ export async function POST(
               input_text: spokenText,
               voice_id: avatar.voice_clone_id || HEYGEN_DEFAULT_VOICE_ID,
             },
-            background: { type: 'color', value: '#ffffff' },
+            background,
           },
         ],
         dimension: { width: 720, height: 1280 },

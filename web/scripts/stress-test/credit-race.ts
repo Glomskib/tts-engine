@@ -18,7 +18,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://qqyrwwvtxzrwbyqegpme.supabase.co';
-const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxeXJ3d3Z0eHpyd2J5cWVncG1lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3ODAyNDIsImV4cCI6MjA4NDM1NjI0Mn0.gEsqqcVb6eJBRDkIAAIPdkaGTgxXh9AvhrLciK8qbuE';
+// SECURITY (2026-06): hardcoded anon-key fallback removed — must come from env.
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:3000';

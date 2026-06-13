@@ -15,10 +15,25 @@ import * as path from 'path';
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
-const SUPABASE_URL = 'https://qqyrwwvtxzrwbyqegpme.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxeXJ3d3Z0eHpyd2J5cWVncG1lIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg3ODAyNDIsImV4cCI6MjA4NDM1NjI0Mn0.gEsqqcVb6eJBRDkIAAIPdkaGTgxXh9AvhrLciK8qbuE';
-const SERVICE_ROLE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxeXJ3d3Z0eHpyd2J5cWVncG1lIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODc4MDI0MiwiZXhwIjoyMDg0MzU2MjQyfQ.kV8aS-K0W49heqLgxvKUroXx6OVvX7jMgEFyPzdPh3k';
-const ADMIN_EMAIL = 'brandon@communitycorewholesale.com';
+// SECURITY (2026-06): the service-role key (and anon key) were hardcoded here —
+// removed so they can't re-enter git. Now read from env; the script aborts with
+// a clear message if the service-role key is missing (it can't authenticate
+// without it). Run as: SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/mobile-audit.ts
+const SUPABASE_URL =
+  process.env.NEXT_PUBLIC_SUPABASE_URL ||
+  process.env.SUPABASE_URL ||
+  'https://qqyrwwvtxzrwbyqegpme.supabase.co';
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+const ADMIN_EMAIL = process.env.MOBILE_AUDIT_ADMIN_EMAIL || 'brandon@communitycorewholesale.com';
+
+if (!SERVICE_ROLE_KEY) {
+  console.error(
+    'ERROR: SUPABASE_SERVICE_ROLE_KEY env var is required (used to mint an admin\n' +
+      'magic-link session for authenticated page crawls). Export it and re-run:\n' +
+      '  SUPABASE_SERVICE_ROLE_KEY=... npx tsx scripts/mobile-audit.ts',
+  );
+  process.exit(1);
+}
 
 const SCREENSHOT_DIR = path.resolve(__dirname, '..', 'screenshots', 'mobile-audit');
 

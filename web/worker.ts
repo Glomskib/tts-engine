@@ -18,9 +18,17 @@ import * as path from 'path';
 import { createLogger } from './lib/logger.js';
 
 // Config
-const SUPABASE_URL = 'https://qqyrwwvtxzrwbyqegpme.supabase.co';
-const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxeXJ3d3Z0eHpyd2J5cWVncG1lIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2ODc4MDI0MiwiZXhwIjoyMDg0MzU2MjQyfQ.kV8aS-K0W49heqLgxvKUroXx6OVvX7jMgEFyPzdPh3k';
+// SECURITY (2026-06): the service-role key was hardcoded as a fallback here —
+// removed so a privileged secret can't re-enter git. Must come from env now.
+const SUPABASE_URL = process.env.SUPABASE_URL || 'https://qqyrwwvtxzrwbyqegpme.supabase.co';
+const SUPABASE_SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || '';
+if (!SUPABASE_SERVICE_KEY) {
+  console.error(
+    '[worker] Missing SUPABASE_SERVICE_ROLE_KEY env var. ' +
+      'Export it before starting the worker (see WORKER_SETUP.md). Exiting.',
+  );
+  process.exit(1);
+}
 
 const TERMINAL_ID = process.env.TERMINAL_ID || `T${Math.floor(Math.random() * 8) + 1}`;
 const REPO_PATH = '/Volumes/WorkSSD/01_ACTIVE/FlashFlow';

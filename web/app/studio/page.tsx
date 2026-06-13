@@ -22,6 +22,7 @@ import {
   Zap, ZapOff, Pause, ScrollText, PenLine,
 } from 'lucide-react';
 import PWAInstaller from '@/components/pwa/PWAInstaller';
+import { AR_EFFECTS, arEnabled, type ArController } from './deepar';
 
 type Vibe = 'hype' | 'calm' | 'real' | 'funny' | 'sad';
 type ClipStatus = 'uploading' | 'queued' | 'processing' | 'ready' | 'failed';
@@ -117,6 +118,11 @@ interface Prefs {
   micDeviceId: string | null;
   describe: string;
   beauty: Beauty;
+  // Real AR/beauty filter (DeepAR). 'none' = legacy pipeline untouched; any
+  // other id = a hosted .deepar effect (see app/studio/deepar.ts AR_EFFECTS).
+  // DeepAR, when active, SUPERSEDES the CSS `beauty` filter (we never
+  // double-apply); CSS beauty stays the fallback when DeepAR isn't loaded.
+  arFilter: string;
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -128,6 +134,7 @@ const DEFAULT_PREFS: Prefs = {
   micDeviceId: null,
   describe: '',
   beauty: 'off',
+  arFilter: 'none',
 };
 
 function loadPrefs(): Prefs {
@@ -274,6 +281,105 @@ export default function StudioPage() {
   // record-pipeline gate) read the live value without re-subscribing.
   const beautyFilterRef = useRef('');
   useEffect(() => { beautyFilterRef.current = BEAUTY_FILTERS[prefs.beauty] || ''; }, [prefs.beauty]);
+
+  // --- DeepAR AR filters (optional, lazy) ---
+  // arOn: license key present → the picker renders. arCtrlRef holds the single
+  // lazily-initialized DeepAR controller (heavy WASM, dynamic-imported only
+  // when a non-'none' filter is first picked). arActive flips true once DeepAR
+  // is initialized AND showing a real effect — that's the gate that swaps the
+  // preview to DeepAR's canvas and routes recording through it. arPreviewRef is
+  // the host <div> DeepAR's render canvas is mounted into for the live preview.
+  const arOn = useMemo(() => arEnabled(), []);
+  const arCtrlRef = useRef<ArController | null>(null);
+  const arActiveRef = useRef(false);
+  const arPreviewRef = useRef<HTMLDivElement>(null);
+  const [arActive, setArActive] = useState(false);
+  const [arBusy, setArBusy] = useState(false);   // switching/initializing
+  const [arError, setArError] = useState(false); // SDK failed → fall back, show CSS beauty
+  useEffect(() => { arActiveRef.current = arActive; }, [arActive]);
+
+  /**
+   * Mount DeepAR's render canvas into the preview host so the AR output is what
+   * the creator sees live. Sized object-cover over the host (which sits over
+   * the raw <video>); front-camera mirror is applied here too so AR preview
+   * matches the unfiltered preview's mirror convention.
+   */
+  const mountArCanvas = useCallback(() => {
+    const host = arPreviewRef.current;
+    const ctrl = arCtrlRef.current;
+    if (!host || !ctrl) return;
+    const canvas = ctrl.getCanvas();
+    if (!canvas) return;
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.objectFit = 'cover';
+    canvas.style.transform = prefs.facingMode === 'user' ? 'scaleX(-1)' : 'none';
+    if (canvas.parentElement !== host) {
+      host.innerHTML = '';
+      host.appendChild(canvas);
+    }
+  }, [prefs.facingMode]);
+
+  /**
+   * React to arFilter pref changes. 'none' → tear down nothing heavy, just stop
+   * showing DeepAR (legacy pipeline resumes exactly as before). Any effect id →
+   * lazily init DeepAR (first time only), feed it the live camera, switch to
+   * the effect, and flip arActive so preview + recording use DeepAR's canvas.
+   * Any failure (no WebGL/WASM, bad key) sets arError and falls back silently.
+   */
+  useEffect(() => {
+    let cancelled = false;
+    const target = prefs.arFilter || 'none';
+
+    if (!arOn) return; // no key → AR disabled entirely
+
+    if (target === 'none') {
+      // Park DeepAR but keep the instance warm for a quick re-enable.
+      if (arCtrlRef.current?.ready) { arCtrlRef.current.switchTo('none').catch(() => {}); }
+      setArActive(false);
+      return;
+    }
+
+    (async () => {
+      setArBusy(true);
+      setArError(false);
+      try {
+        const video = videoRef.current;
+        if (!video) throw new Error('no video element');
+        if (!arCtrlRef.current) {
+          const mod = await import('./deepar');
+          arCtrlRef.current = new mod.ArController();
+        }
+        await arCtrlRef.current.init(video);
+        if (cancelled) return;
+        await arCtrlRef.current.switchTo(target);
+        if (cancelled) return;
+        mountArCanvas();
+        setArActive(true);
+      } catch (e) {
+        console.error('[studio] DeepAR init/switch failed — falling back to CSS pipeline', e);
+        if (!cancelled) { setArError(true); setArActive(false); }
+      } finally {
+        if (!cancelled) setArBusy(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs.arFilter, arOn]);
+
+  // Keep DeepAR's mirror in sync with facingMode, and re-feed it the current
+  // camera stream whenever startCamera swaps the track (flip / lens change).
+  useEffect(() => {
+    if (arActive && arCtrlRef.current?.ready) {
+      mountArCanvas();
+      if (videoRef.current) arCtrlRef.current.setVideo(videoRef.current);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [prefs.facingMode, arActive]);
+
+  // Tear down DeepAR on unmount (release WASM/GL).
+  useEffect(() => () => { arCtrlRef.current?.destroy(); arCtrlRef.current = null; }, []);
 
   useEffect(() => { setPrefs(loadPrefs()); }, []);
   useEffect(() => { savePrefs(prefs); }, [prefs]);
@@ -503,6 +609,11 @@ export default function StudioPage() {
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         await videoRef.current.play().catch(() => {});
+        // If DeepAR is running, re-point it at the (new) camera video so a
+        // flip / lens swap keeps feeding the filter.
+        if (arActiveRef.current && arCtrlRef.current?.ready) {
+          arCtrlRef.current.setVideo(videoRef.current);
+        }
       }
 
       // Probe what this lens can actually do. getCapabilities is missing on
@@ -628,7 +739,20 @@ export default function StudioPage() {
       // path also bakes in digital zoom. Null fallback = raw stream, never a
       // crash — just log it so a bad upload can be explained.
       let recStream: MediaStream = streamRef.current;
-      if (!zoomCapsRef.current || portraitFixRef.current || beautyFilterRef.current) {
+      // DeepAR path takes precedence: when an AR filter is live, record its
+      // render canvas (the filter is baked into every frame — WYSIWYG) plus the
+      // ORIGINAL audio tracks. This supersedes both the CSS-beauty canvas and
+      // the digital-zoom canvas; never double-apply. Null fallback = legacy.
+      const arStream = arActiveRef.current && arCtrlRef.current?.ready
+        ? arCtrlRef.current.captureStream(30)
+        : null;
+      if (arStream) {
+        const vTrack = arStream.getVideoTracks()[0];
+        recStream = vTrack
+          ? new MediaStream([vTrack, ...streamRef.current.getAudioTracks()])
+          : streamRef.current;
+        if (!vTrack) console.warn('[studio] DeepAR captureStream had no video track — recording raw stream');
+      } else if (!zoomCapsRef.current || portraitFixRef.current || beautyFilterRef.current) {
         recStream = startCanvasPipeline(streamRef.current) ?? streamRef.current;
         if (portraitFixRef.current && recStream === streamRef.current) {
           console.warn('[studio] portrait-fix canvas unavailable — recording the raw landscape track');
@@ -1004,9 +1128,21 @@ export default function StudioPage() {
             !zoomCaps && zoom > 1 ? `scale(${zoom})` : '',
           ].filter(Boolean).join(' ') || 'none',
           // Beauty filter on the live preview — matched by the canvas pipeline
-          // so the recording looks identical.
-          filter: BEAUTY_FILTERS[prefs.beauty] || 'none',
+          // so the recording looks identical. Suppressed when DeepAR is active
+          // (it renders its own filtered output over this <video>), so we never
+          // double-apply CSS beauty + an AR filter.
+          filter: arActive ? 'none' : (BEAUTY_FILTERS[prefs.beauty] || 'none'),
         }}
+      />
+
+      {/* DeepAR live-preview host. When an AR filter is active, DeepAR's render
+          canvas is mounted here ON TOP of the raw <video>, so the creator sees
+          the filtered output. When AR is off this is empty + invisible and the
+          raw <video> shows through exactly as before. */}
+      <div
+        ref={arPreviewRef}
+        className={`absolute inset-0 w-full h-full overflow-hidden ${arActive ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+        aria-hidden={!arActive}
       />
 
       {/* Recorder source for digital zoom — never visible. */}
@@ -1112,6 +1248,44 @@ export default function StudioPage() {
             </div>
             <ChevronUp className="w-4 h-4 text-zinc-400" />
           </button>
+        )}
+
+        {/* AR / beauty filter picker — horizontal, thumb-reachable row right on
+            the record screen. Only renders when a DeepAR license key exists
+            (arOn). Tapping persists prefs.arFilter; 'none' restores the legacy
+            pipeline. Locked mid-take (swapping the recorded canvas mid-record
+            would corrupt the file), same rule as lens swaps. */}
+        {permState === 'granted' && arOn && (
+          <div className="mb-3 -mx-4 px-4 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            <div className="flex items-center gap-1.5 w-max mx-auto">
+              {AR_EFFECTS.map(eff => {
+                const sel = (prefs.arFilter || 'none') === eff.id;
+                const locked = recording && !sel;
+                const showSpin = arBusy && sel && eff.id !== 'none';
+                return (
+                  <button
+                    key={eff.id}
+                    onClick={() => { if (!locked) setPrefs(p => ({ ...p, arFilter: eff.id })); }}
+                    disabled={locked}
+                    aria-label={`${eff.label} filter`}
+                    aria-pressed={sel}
+                    title={locked ? 'Finish take to change filter' : eff.hint}
+                    className={`shrink-0 px-3.5 py-1.5 rounded-full text-xs font-semibold border transition-colors flex items-center gap-1.5 ${
+                      sel ? 'bg-white text-black border-white' : 'bg-black/40 backdrop-blur text-white/90 border-white/10 hover:bg-white/10'
+                    } ${locked ? 'opacity-40' : ''}`}
+                  >
+                    {showSpin && <Loader2 className="w-3 h-3 animate-spin" />}
+                    {eff.label}
+                  </button>
+                );
+              })}
+            </div>
+            {arError && (
+              <div className="text-center text-[10px] text-amber-300/90 mt-1">
+                AR filters unavailable on this device — using basic beauty.
+              </div>
+            )}
+          </div>
         )}
 
         {/* Lens / zoom cluster — bottom-center so it's thumb-reachable and

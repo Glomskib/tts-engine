@@ -19,7 +19,7 @@ import Link from 'next/link';
 import {
   Mic, MicOff, Settings, X, Check, AlertTriangle, Loader2, SwitchCamera,
   ChevronUp, ChevronDown, Bluetooth, Volume2, RefreshCw, Trash2, Play,
-  Zap, ZapOff, Pause,
+  Zap, ZapOff, Pause, ScrollText, PenLine,
 } from 'lucide-react';
 import PWAInstaller from '@/components/pwa/PWAInstaller';
 
@@ -65,6 +65,14 @@ const CAPTION_STYLES = [
 ];
 
 const PREF_KEY = 'studio.prefs.v1';
+
+// Teleprompter handoff + prefs. 'ff-teleprompter' is WRITTEN by
+// /script-generator's "Send to teleprompter" button ({ script, ts }) and
+// READ here — localStorage so the bridge works with zero backend and even
+// logged-out. Speed/size live in a separate key so clearing a script never
+// nukes the user's reading preferences.
+const TELEPROMPTER_KEY = 'ff-teleprompter';
+const TELEPROMPTER_PREFS_KEY = 'ff-teleprompter-prefs';
 
 interface Prefs {
   vibe: Vibe;
@@ -944,6 +952,11 @@ export default function StudioPage() {
         onTouchEnd={onPreviewTouchEnd}
       />
 
+      {/* Teleprompter — z-[15] keeps it above the pinch surface (z-10) so
+          taps reach the scroller, but below every control cluster (z-20).
+          Recording/paused are passed so the scroll follows the take. */}
+      <TeleprompterOverlay recording={recording} paused={paused} />
+
       {/* Top bar */}
       <div className="absolute top-0 inset-x-0 z-20 p-3 flex items-center justify-between" style={{ paddingTop: 'calc(env(safe-area-inset-top) + 12px)' }}>
         <Link href="/" className="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur text-xs font-medium border border-white/10">
@@ -1384,5 +1397,281 @@ function QueueSheet({ clips, onClose, onDiscard }: { clips: Clip[]; onClose: () 
         </Link>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Teleprompter (2026-06-12, Brandon-locked: auto-scroll + speed control)
+// ---------------------------------------------------------------------------
+
+/**
+ * Auto-scrolling teleprompter over the TOP ~40% of the camera preview.
+ *
+ * Why the top 40%: the creator frames their face center/lower-third, so the
+ * script floats near the lens (closest to eye contact) and the gradient fades
+ * to transparent before it reaches the face area. Why a gradient instead of a
+ * solid panel: the creator still needs to see their framing underneath.
+ *
+ * Behavior contract:
+ *   - Script arrives via localStorage 'ff-teleprompter' (written by
+ *     /script-generator's "Send to teleprompter"); no script = a small pill
+ *     that opens a paste box, so studio-first users aren't locked out.
+ *   - Starts PAUSED. Tap the text to toggle. Auto-plays from the top when
+ *     recording starts (fresh take = read from the top), pauses with the
+ *     recording's pause button, resumes on resume, stops when the take stops.
+ *   - Speed (0.5x–3x) + font size persist in 'ff-teleprompter-prefs' so the
+ *     creator dials in a reading pace once, ever.
+ */
+function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused: boolean }) {
+  const [script, setScript] = useState<string | null>(null);
+  const [open, setOpen] = useState(false);
+  const [playing, setPlaying] = useState(false);
+  const [speed, setSpeedState] = useState(1);       // 0.5x – 3x
+  const [fontSize, setFontSizeState] = useState(22); // px, 14–34
+  const [showPaste, setShowPaste] = useState(false);
+  const [draft, setDraft] = useState('');
+
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  // Float scroll position — scrollTop is integer-truncated on read, so
+  // accumulating into it directly would stall at low speeds (sub-pixel per
+  // frame adds to < 1 and truncates back to where it started).
+  const posRef = useRef(0);
+  const rafRef = useRef<number | null>(null);
+  const lastTsRef = useRef<number | null>(null);
+  // Refs mirror state so the rAF loop reads live values without restarting.
+  const playingRef = useRef(false);
+  const speedRef = useRef(1);
+  const fontSizeRef = useRef(22);
+  const prevRecordingRef = useRef(false);
+
+  // Load script + saved prefs once on mount.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(TELEPROMPTER_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as { script?: string; ts?: number };
+        if (parsed && typeof parsed.script === 'string' && parsed.script.trim()) {
+          setScript(parsed.script);
+          setOpen(true); // arrived from /script-generator — show it immediately
+        }
+      }
+    } catch {}
+    try {
+      const raw = localStorage.getItem(TELEPROMPTER_PREFS_KEY);
+      if (raw) {
+        const p = JSON.parse(raw) as { speed?: number; fontSize?: number };
+        if (typeof p.speed === 'number' && p.speed >= 0.5 && p.speed <= 3) {
+          setSpeedState(p.speed);
+          speedRef.current = p.speed;
+        }
+        if (typeof p.fontSize === 'number' && p.fontSize >= 14 && p.fontSize <= 34) {
+          setFontSizeState(p.fontSize);
+          fontSizeRef.current = p.fontSize;
+        }
+      }
+    } catch {}
+  }, []);
+
+  const setSpeed = useCallback((v: number) => {
+    const next = Math.min(3, Math.max(0.5, Math.round(v * 10) / 10));
+    speedRef.current = next;
+    setSpeedState(next);
+    try { localStorage.setItem(TELEPROMPTER_PREFS_KEY, JSON.stringify({ speed: next, fontSize: fontSizeRef.current })); } catch {}
+  }, []);
+
+  const setFontSize = useCallback((delta: number) => {
+    const next = Math.min(34, Math.max(14, fontSizeRef.current + delta));
+    fontSizeRef.current = next;
+    setFontSizeState(next);
+    try { localStorage.setItem(TELEPROMPTER_PREFS_KEY, JSON.stringify({ speed: speedRef.current, fontSize: next })); } catch {}
+  }, []);
+
+  // The scroll engine. One rAF loop per play session; dt-based so speed is
+  // framerate-independent. Base rate ≈ 0.55 lines/sec at 1x — calibrated to
+  // a normal ~150wpm read with this column width — and scales with font size
+  // so bigger text doesn't read as "slower".
+  useEffect(() => {
+    playingRef.current = playing;
+    if (!playing) {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+      lastTsRef.current = null;
+      return;
+    }
+    const step = (ts: number) => {
+      if (!playingRef.current) return;
+      const el = scrollerRef.current;
+      if (el) {
+        const dt = lastTsRef.current != null ? Math.min(0.2, (ts - lastTsRef.current) / 1000) : 0;
+        lastTsRef.current = ts;
+        const lineHeight = fontSizeRef.current * 1.5;
+        const max = Math.max(0, el.scrollHeight - el.clientHeight);
+        posRef.current = Math.min(max, posRef.current + lineHeight * 0.55 * speedRef.current * dt);
+        el.scrollTop = posRef.current;
+        if (posRef.current >= max && max > 0) {
+          // End of script: stop instead of spinning the loop forever.
+          setPlaying(false);
+          return;
+        }
+      }
+      rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [playing]);
+
+  // Recording sync. New take = read from the top (take 2 shouldn't start
+  // mid-script where take 1 died). Stop of the take parks the prompter.
+  useEffect(() => {
+    const was = prevRecordingRef.current;
+    prevRecordingRef.current = recording;
+    if (!script || !open) return;
+    if (recording && !was) {
+      posRef.current = 0;
+      if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
+      setPlaying(true);
+    } else if (!recording && was) {
+      setPlaying(false);
+    }
+  }, [recording, script, open]);
+
+  // Pause button on the recorder pauses the read too (and resume resumes) —
+  // the whole point of pausing a take is to stop talking.
+  useEffect(() => {
+    if (!recording || !script || !open) return;
+    setPlaying(!paused);
+  }, [paused, recording, script, open]);
+
+  const savePasted = useCallback(() => {
+    const text = draft.trim();
+    if (!text) return;
+    setScript(text);
+    setOpen(true);
+    setShowPaste(false);
+    posRef.current = 0;
+    if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
+    setPlaying(false);
+    try { localStorage.setItem(TELEPROMPTER_KEY, JSON.stringify({ script: text, ts: Date.now() })); } catch {}
+  }, [draft]);
+
+  // Sits just below the top bar (back link / mic badge / settings ≈ 48px tall).
+  const belowTopBar = 'calc(env(safe-area-inset-top) + 60px)';
+
+  return (
+    <>
+      {/* Collapsed pill — opens the panel, or the paste box when no script. */}
+      {!open && !showPaste && (
+        <button
+          onClick={() => { if (script) { setOpen(true); } else { setDraft(''); setShowPaste(true); } }}
+          className="absolute left-3 z-20 px-3 py-1.5 rounded-full bg-black/40 backdrop-blur border border-white/10 text-xs font-medium flex items-center gap-1.5"
+          style={{ top: belowTopBar }}
+          aria-label="Open teleprompter"
+        >
+          <ScrollText className="w-3.5 h-3.5 text-teal-300" /> Teleprompter
+        </button>
+      )}
+
+      {open && script && (
+        // pointer-events-none on the container so the lower (transparent)
+        // part of the gradient never eats pinch-zoom/double-tap gestures;
+        // only the scroller + control row re-enable pointer events.
+        <div className="absolute top-0 inset-x-0 z-[15] h-[40%] flex flex-col pointer-events-none bg-gradient-to-b from-black/85 via-black/55 to-transparent">
+          <div
+            ref={scrollerRef}
+            onClick={() => setPlaying(p => !p)}
+            className="flex-1 overflow-hidden px-6 pointer-events-auto cursor-pointer select-none"
+            style={{ marginTop: belowTopBar }}
+            aria-label={playing ? 'Teleprompter scrolling — tap to pause' : 'Teleprompter paused — tap to scroll'}
+          >
+            <div
+              className="text-white/95 font-semibold text-center whitespace-pre-wrap mx-auto max-w-md"
+              style={{ fontSize: `${fontSize}px`, lineHeight: 1.5, textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}
+            >
+              {script}
+            </div>
+            {/* Trailing space so the last line can scroll up into reading
+                position instead of dying pinned to the bottom edge. */}
+            <div className="h-40" />
+            {!playing && (
+              <div className="sticky bottom-1 text-center text-[10px] text-zinc-300/80 pointer-events-none">
+                tap text to {posRef.current > 0 ? 'resume' : 'start'} · auto-starts with recording
+              </div>
+            )}
+          </div>
+
+          {/* Control row — same bg-black/40 backdrop-blur language as every
+              other studio control so it reads as one surface. */}
+          <div className="pointer-events-auto px-3 pb-2 flex items-center justify-center gap-2">
+            <button
+              onClick={() => setPlaying(p => !p)}
+              aria-label={playing ? 'Pause teleprompter' : 'Play teleprompter'}
+              className={`p-2 rounded-full bg-black/40 backdrop-blur border transition-colors ${playing ? 'border-teal-400/70 text-teal-300' : 'border-white/10 text-white'}`}
+            >
+              {playing ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
+            </button>
+            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/40 backdrop-blur border border-white/10">
+              <input
+                type="range"
+                min={0.5}
+                max={3}
+                step={0.1}
+                value={speed}
+                onChange={(e) => setSpeed(parseFloat(e.target.value))}
+                aria-label="Teleprompter speed"
+                className="w-24 accent-teal-400"
+              />
+              <span className="text-[10px] font-semibold tabular-nums w-7 text-right">{speed.toFixed(1)}x</span>
+            </div>
+            <div className="flex items-center rounded-full bg-black/40 backdrop-blur border border-white/10">
+              <button onClick={() => setFontSize(-2)} aria-label="Smaller text" className="px-2 py-1.5 text-xs font-bold text-white/90 hover:bg-white/10 rounded-l-full">A−</button>
+              <button onClick={() => setFontSize(2)} aria-label="Bigger text" className="px-2 py-1.5 text-sm font-bold text-white/90 hover:bg-white/10 rounded-r-full">A+</button>
+            </div>
+            <button
+              onClick={() => { setDraft(script); setShowPaste(true); }}
+              aria-label="Edit script"
+              className="p-2 rounded-full bg-black/40 backdrop-blur border border-white/10 text-white/90 hover:bg-white/10"
+            >
+              <PenLine className="w-4 h-4" />
+            </button>
+            <button
+              onClick={() => { setOpen(false); setPlaying(false); }}
+              aria-label="Hide teleprompter"
+              className="p-2 rounded-full bg-black/40 backdrop-blur border border-white/10 text-white/90 hover:bg-white/10"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Paste/edit sheet — for studio-first users with no script handed off. */}
+      {showPaste && (
+        <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur flex items-end sm:items-center justify-center" onClick={() => setShowPaste(false)}>
+          <div className="w-full max-w-md bg-zinc-950 border-t sm:border border-white/10 sm:rounded-2xl rounded-t-2xl p-5" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-base font-semibold flex items-center gap-2">
+                <ScrollText className="w-4 h-4 text-teal-300" /> Teleprompter script
+              </div>
+              <button onClick={() => setShowPaste(false)} className="p-1.5 rounded-full hover:bg-white/10" aria-label="Close"><X className="w-4 h-4" /></button>
+            </div>
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              placeholder="Paste your script here — or write one on the Scripts tab and tap “Send to teleprompter”."
+              rows={8}
+              autoFocus
+              className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-white/10 text-sm focus:border-teal-500 outline-none resize-none"
+            />
+            <button
+              onClick={savePasted}
+              disabled={!draft.trim()}
+              className="mt-3 w-full py-3 rounded-xl bg-teal-500 hover:bg-teal-600 disabled:opacity-40 font-semibold"
+            >
+              Load onto teleprompter
+            </button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

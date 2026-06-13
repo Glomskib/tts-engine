@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { PERSONAS } from '@/lib/personas';
-import { Copy, Check, Sparkles, ArrowRight, ChevronDown, Loader2, Bookmark, Zap } from 'lucide-react';
+import { Copy, Check, Sparkles, ArrowRight, ChevronDown, Loader2, Bookmark, Zap, Clapperboard } from 'lucide-react';
 
 // ============================================================================
 // SEO Metadata (exported from a separate metadata file since this is 'use client')
@@ -172,6 +173,7 @@ export default function ScriptGeneratorPage() {
   }, []);
 
   const resultRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
 
   const personas = PERSONAS.filter((p) => FEATURED_PERSONAS.includes(p.id));
 
@@ -278,6 +280,38 @@ export default function ScriptGeneratorPage() {
     navigator.clipboard.writeText(lines.join('\n'));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  /**
+   * Send to teleprompter — bridges script-writing to the /studio camera.
+   * Unlike copyScript (which keeps stage directions for reading off-screen),
+   * this strips down to ONLY the words the creator actually SPEAKS — hook
+   * spoken line, beat dialogue, CTA — because a teleprompter showing
+   * "[0-3s] hold product up to camera" mid-take reads like a flub.
+   * Handoff is localStorage (no backend round-trip; works logged-out too):
+   * /studio reads 'ff-teleprompter' on mount.
+   */
+  const sendToTeleprompter = () => {
+    if (!result) return;
+    const featured = result.hook_variants?.find((v) => v.tier === featuredTier)
+      || result.hook_variants?.[0];
+    const spoken: string[] = [];
+    const hookLine = featured?.spoken || result.hook_line;
+    if (hookLine) spoken.push(hookLine);
+    for (const beat of result.beats) {
+      if (beat.dialogue) spoken.push(beat.dialogue);
+    }
+    if (result.cta_line) spoken.push(result.cta_line);
+    try {
+      localStorage.setItem('ff-teleprompter', JSON.stringify({
+        script: spoken.join('\n\n'),
+        ts: Date.now(),
+      }));
+    } catch {
+      // Storage full/blocked (private mode): still go to studio — the user
+      // can paste the script into the teleprompter there.
+    }
+    router.push('/studio');
   };
 
   const scoreColor =
@@ -620,6 +654,16 @@ export default function ScriptGeneratorPage() {
                 >
                   {copied ? <Check size={14} className="text-emerald-400" /> : <Copy size={14} />}
                   {copied ? 'Copied!' : 'Copy'}
+                </button>
+                <button
+                  type="button"
+                  onClick={sendToTeleprompter}
+                  title="Open /studio with this script on the teleprompter"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-teal-500/10 border border-teal-500/20 text-sm text-teal-300 hover:bg-teal-500/20 transition-colors"
+                >
+                  <Clapperboard size={14} />
+                  <span className="hidden sm:inline">Send to teleprompter</span>
+                  <span className="sm:hidden">Teleprompter</span>
                 </button>
               </div>
             </div>

@@ -116,13 +116,22 @@ const DIGITAL_ZOOM_MAX = 3;
 interface LensPill {
   label: string;
   value: number;
-  /** 'zoom' = constraint on the current track; 'ultrawide-device' = swap to the iOS ultra-wide videoinput. */
-  kind: 'zoom' | 'ultrawide-device';
+  /** 'zoom' = constraint on the current track; 'ultrawide-device' = swap to
+   *  the separate ultra-wide videoinput; 'unavailable' = honest disabled .5
+   *  pill — this camera has neither native zoom<1 nor a wider lens device. */
+  kind: 'zoom' | 'ultrawide-device' | 'unavailable';
 }
 
-/** iOS Safari exposes the back ultra-wide as a SEPARATE videoinput, not zoom<1. */
+/**
+ * The 0.5x back lens is often a SEPARATE videoinput rather than zoom<1 —
+ * iOS Safari always does this ("Back Ultra Wide Camera"), and several
+ * Androids (Samsung/Pixel on Chrome) expose it the same way once camera
+ * permission is granted. Match on label across ALL platforms (was iOS-only
+ * thinking — Brandon's Android had no .5 pill because of it); exclude
+ * front/selfie lenses so a front-facing wide never hijacks the pill.
+ */
 function isUltraWideLabel(label: string): boolean {
-  return /ultra[- ]?wide|0\.5/i.test(label) && !/front/i.test(label);
+  return /ultra[- ]?wide|0\.5|wide angle/i.test(label) && !/front|user|selfie/i.test(label);
 }
 
 /** Distance between the first two touches — pinch gesture math. */
@@ -453,6 +462,14 @@ export default function StudioPage() {
       if (landscapeTrack) {
         console.warn(`[studio] camera delivered a landscape track ${trackSettings?.width}x${trackSettings?.height} — recordings will be canvas-cropped to upright 9:16`);
       }
+      // Zoom breadcrumb (Brandon: "needs a .5 setting") — one line tells us
+      // whether THIS lens reports zoom<1 natively, what range it has, and
+      // what resolution the track actually settled on.
+      console.log('[studio] lens caps', {
+        zoom: zc,
+        torch: caps?.torch === true,
+        track: trackSettings?.width ? `${trackSettings.width}x${trackSettings.height}` : 'unknown',
+      });
 
       // Fresh lens = fresh zoom. If a lens switch queued a zoom (e.g. tapped
       // 2x while on the ultra-wide device), apply it now that caps are known.
@@ -650,15 +667,23 @@ export default function StudioPage() {
   /**
    * Capability-driven lens pills. Only render what THIS device can do:
    *   - 0.5x: native when the zoom range dips below 1 (many Androids expose
-   *     min 0.5 — that IS the .5 setting), else the iOS ultra-wide device.
+   *     min 0.5 — that IS the .5 setting), else the separate ultra-wide
+   *     videoinput (iOS always, some Androids).
+   *   - Back camera with zoom caps but NEITHER of the above: a disabled .5
+   *     pill with a tooltip, so the honest answer is "this phone can't"
+   *     instead of users hunting for a hidden setting.
    *   - 1x/2x/3x: native zoom clamped to caps range, or digital up to 3x.
    */
   const lensPills = useMemo<LensPill[]>(() => {
     const pills: LensPill[] = [];
     if (zoomCaps && zoomCaps.min < 1) {
-      pills.push({ label: '.5', value: Math.max(zoomCaps.min, 0.5), kind: 'zoom' });
+      // Label with the REAL min so a 0.6x camera doesn't claim ".5".
+      const v = Math.max(zoomCaps.min, 0.5);
+      pills.push({ label: v.toFixed(1).replace(/^0/, '').replace(/\.0$/, ''), value: v, kind: 'zoom' });
     } else if (ultraWideId && prefs.facingMode === 'environment') {
       pills.push({ label: '.5', value: 0.5, kind: 'ultrawide-device' });
+    } else if (zoomCaps && prefs.facingMode === 'environment') {
+      pills.push({ label: '.5', value: 0.5, kind: 'unavailable' });
     }
     const maxZoom = zoomCaps ? zoomCaps.max : DIGITAL_ZOOM_MAX;
     for (const v of [1, 2, 3]) {
@@ -672,6 +697,7 @@ export default function StudioPage() {
   const hasDeviceSwitchPill = usingUltraWide || lensPills.some(p => p.kind === 'ultrawide-device');
 
   const selectLens = useCallback((pill: LensPill) => {
+    if (pill.kind === 'unavailable') return; // disabled pill — nothing to select
     // On the ultra-wide DEVICE, even "1x" means switching back to the main
     // lens — so everything is a device switch until we leave ultra-wide.
     const switchesDevice = pill.kind === 'ultrawide-device' || usingUltraWide;
@@ -1029,13 +1055,17 @@ export default function StudioPage() {
                   return lensPills.map((p) => {
                   const active = p === activePill;
                   const locked = recording && (p.kind === 'ultrawide-device' || usingUltraWide) && !active;
+                  // 'unavailable' = honest dead-end: rendered but disabled,
+                  // tooltip explains why instead of the pill just missing.
+                  const unavailable = p.kind === 'unavailable';
                   return (
                     <button
                       key={`${p.kind}-${p.label}`}
                       onClick={() => selectLens(p)}
-                      disabled={locked}
-                      aria-label={`${p.label}x lens`}
-                      className={`w-9 h-9 rounded-full text-[11px] font-bold transition-colors ${active ? 'bg-white text-black' : 'text-white/90 hover:bg-white/10'} ${locked ? 'opacity-40' : ''}`}
+                      disabled={locked || unavailable}
+                      aria-label={unavailable ? 'No wider lens on this camera' : `${p.label}x lens`}
+                      title={unavailable ? 'This camera has no wider lens' : undefined}
+                      className={`w-9 h-9 rounded-full text-[11px] font-bold transition-colors ${active ? 'bg-white text-black' : 'text-white/90 hover:bg-white/10'} ${locked || unavailable ? 'opacity-40' : ''}`}
                     >
                       {active ? zoomLabel : p.label}
                     </button>

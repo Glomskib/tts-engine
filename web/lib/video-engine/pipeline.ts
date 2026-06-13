@@ -624,15 +624,44 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
           }
         }
 
-        // 1. Speech spans: merge chunks separated by < GAP, cut the rest.
+        // Word-level transcript is the basis for BOTH silence cuts and retake
+        // dedupe. ve_transcript_chunks are coarse — a single chunk can span a
+        // long phrase with pauses and even a flub-and-repeat INSIDE it, so
+        // chunk-level editing left dead air and repeated sentences in the cut.
+        // raw_json.words gives a timestamp per word, so every pause and every
+        // retake is visible. Older runs with no word data fall back to chunks
+        // (prior behavior — no regression for them).
+        let rawWords: Array<{ start: number; end: number; text: string }> = [];
+        try {
+          const { data: tRow } = await supabaseAdmin
+            .from('ve_transcripts')
+            .select('raw_json')
+            .eq('run_id', run.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .single();
+          const raw = (tRow?.raw_json as { words?: Array<{ start: number; end: number; text: string }> } | null)?.words ?? [];
+          rawWords = raw
+            .map((x) => ({ start: Number(x.start), end: Number(x.end), text: String(x.text || '') }))
+            .filter((x) => Number.isFinite(x.start) && Number.isFinite(x.end) && x.end > x.start);
+        } catch { /* non-fatal — no word data for this run */ }
+
+        // Prefer word-level; fall back to chunk-level for legacy runs.
+        const useWords = rawWords.length >= 8;
+        const basis = useWords ? rawWords : words;
+        console.log(`[ve-pipeline] edit basis run=${run.id}: ${useWords ? 'word-level' : 'chunk-level'} (${basis.length} tokens)`);
+
+        // 1. Speech spans: merge tokens separated by < GAP, cut the rest. On the
+        // word basis this catches pauses INSIDE a sentence, not just between
+        // transcript chunks — that's the dead-air fix.
         const GAP = 0.6;       // pause length that becomes a jump cut
         const PAD = 0.15;      // breathing room kept around speech
         let spans: Array<{ start_sec: number; end_sec: number }> = [];
         if (jumpCutsOn) {
-          let cur = { start_sec: Math.max(0, words[0].start - PAD), end_sec: words[0].end + PAD };
-          for (let wi = 1; wi < words.length; wi++) {
-            const w = words[wi];
-            if (w.start - words[wi - 1].end >= GAP) {
+          let cur = { start_sec: Math.max(0, basis[0].start - PAD), end_sec: basis[0].end + PAD };
+          for (let wi = 1; wi < basis.length; wi++) {
+            const w = basis[wi];
+            if (w.start - basis[wi - 1].end >= GAP) {
               spans.push(cur);
               cur = { start_sec: Math.max(0, w.start - PAD), end_sec: w.end + PAD };
             } else {
@@ -641,36 +670,27 @@ async function stageAssemble(run: RunRow): Promise<RunStatus> {
           }
           spans.push(cur);
         } else {
-          spans = [{ start_sec: Math.max(0, words[0].start - 0.2), end_sec: words[words.length - 1].end + 0.3 }];
+          spans = [{ start_sec: Math.max(0, basis[0].start - 0.2), end_sec: basis[basis.length - 1].end + 0.3 }];
         }
 
-        // 2. Subtract retake cuts (keep the LAST take) from the spans.
-        const cuts = dedupeTranscriptTakes(words);
+        // 2. Subtract retake cuts (keep the LAST take). Word-level basis makes
+        // dedupeTranscriptTakes' sentence grouping accurate — chunk input was
+        // why repeated sentences survived.
+        const cuts = dedupeTranscriptTakes(basis);
 
-        // 2b. Filler-word cuts (2026-06-10) — word-level timestamps are
-        // stored for runs transcribed from today on; "um/uh" disappear like
-        // a hand edit. Older runs without words just skip this.
-        if (jumpCutsOn) {
-          try {
-            const { data: tRow } = await supabaseAdmin
-              .from('ve_transcripts')
-              .select('raw_json')
-              .eq('run_id', run.id)
-              .order('created_at', { ascending: false })
-              .limit(1)
-              .single();
-            const rawWords = (tRow?.raw_json as { words?: Array<{ start: number; end: number; text: string }> } | null)?.words ?? [];
-            const FILLER = /^(um+|uh+|uhm+|erm+|mmm+|hmm+)$/i;
-            let fillerCount = 0;
-            for (const w of rawWords) {
-              const t = String(w.text || '').replace(/[^a-z]/gi, '');
-              if (t && FILLER.test(t) && w.end - w.start >= 0.12) {
-                cuts.push({ start_sec: Math.max(0, w.start - 0.03), end_sec: w.end + 0.03, reason: 'filler word' });
-                fillerCount++;
-              }
+        // 2b. Filler-word cuts — "um/uh" disappear like a hand edit. Reuses the
+        // word data fetched above (no second query); older runs just skip it.
+        if (jumpCutsOn && rawWords.length) {
+          const FILLER = /^(um+|uh+|uhm+|erm+|mmm+|hmm+)$/i;
+          let fillerCount = 0;
+          for (const w of rawWords) {
+            const t = String(w.text || '').replace(/[^a-z]/gi, '');
+            if (t && FILLER.test(t) && w.end - w.start >= 0.12) {
+              cuts.push({ start_sec: Math.max(0, w.start - 0.03), end_sec: w.end + 0.03, reason: 'filler word' });
+              fillerCount++;
             }
-            if (fillerCount) console.log(`[ve-pipeline] filler-word cuts run=${run.id}: ${fillerCount}`);
-          } catch { /* non-fatal — no word data for this run */ }
+          }
+          if (fillerCount) console.log(`[ve-pipeline] filler-word cuts run=${run.id}: ${fillerCount}`);
         }
         // 2c. Instruction cuts — "cut the intro", "remove the part about X".
         // The engine located them in the transcript with timestamps; they

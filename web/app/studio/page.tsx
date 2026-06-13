@@ -78,6 +78,11 @@ const TELEPROMPTER_PREFS_KEY = 'ff-teleprompter-prefs';
 // of his scripts was on the prompter. Separate from the SCRIPT TEXT in
 // TELEPROMPTER_KEY — clearing/editing the text never forgets the choice.
 const TELEPROMPTER_LAST_KEY = 'ff-teleprompter-last';
+// The "flow" lineup: an ordered list of scripts the creator queues up. After
+// each take finishes, the prompter auto-advances to the next one so they can
+// just keep hitting record. Persisted so a returning session keeps the lineup.
+// Shape: { items: SavedScript[]; index: number }.
+const TELEPROMPTER_QUEUE_KEY = 'ff-teleprompter-queue';
 
 // Shape returned by GET /api/teleprompter/scripts — the picker contract.
 interface SavedScript {
@@ -1452,7 +1457,23 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
   const [fetchState, setFetchState] = useState<'idle' | 'loading' | 'ready' | 'auth' | 'error'>('idle');
   const [lastScriptId, setLastScriptId] = useState<string | null>(null);
 
+  // --- Lineup / "flow" queue ---
+  // queue is the ordered lineup of scripts; queueIndex is which one is live on
+  // the prompter. A single loaded script is just a queue of length 1, so the
+  // header/next/prev only show when there are 2+. autoAdvanced flips true right
+  // after a take bumps the index, so the UI can flash a "Next up" cue.
+  const [queue, setQueue] = useState<SavedScript[]>([]);
+  const [queueIndex, setQueueIndex] = useState(0);
+  const [justAdvanced, setJustAdvanced] = useState(false);
+  // Build-a-lineup selection inside the picker (script ids, in tap order).
+  const [pickIds, setPickIds] = useState<string[]>([]);
+
   const scrollerRef = useRef<HTMLDivElement>(null);
+  // True for exactly one scroll event after the rAF loop writes scrollTop, so
+  // the onScroll handler can tell auto-scroll apart from a finger drag and only
+  // capture the position when the USER moved it.
+  const queueRef = useRef<SavedScript[]>([]);
+  const queueIndexRef = useRef(0);
   // Float scroll position — scrollTop is integer-truncated on read, so
   // accumulating into it directly would stall at low speeds (sub-pixel per
   // frame adds to < 1 and truncates back to where it started).
@@ -1464,6 +1485,10 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
   const speedRef = useRef(1);
   const fontSizeRef = useRef(22);
   const prevRecordingRef = useRef(false);
+  // Tap-vs-drag detector for the scroller: a still, quick press toggles
+  // play/pause; a press that moves (finger drag / scrollbar) is a manual
+  // scroll and must NOT toggle. Stores where/when the press began.
+  const tapStartRef = useRef<{ y: number; top: number; t: number } | null>(null);
 
   // Load script + saved prefs once on mount.
   useEffect(() => {
@@ -1500,7 +1525,56 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
         if (typeof p.id === 'string') setLastScriptId(p.id);
       }
     } catch {}
+    // Restore a lineup if one was queued before. The live script still comes
+    // from TELEPROMPTER_KEY; the queue just tracks what's after it.
+    try {
+      const raw = localStorage.getItem(TELEPROMPTER_QUEUE_KEY);
+      if (raw) {
+        const p = JSON.parse(raw) as { items?: SavedScript[]; index?: number };
+        if (Array.isArray(p.items) && p.items.length > 0) {
+          setQueue(p.items);
+          queueRef.current = p.items;
+          const idx = typeof p.index === 'number' ? Math.min(Math.max(0, p.index), p.items.length - 1) : 0;
+          setQueueIndex(idx);
+          queueIndexRef.current = idx;
+        }
+      }
+    } catch {}
   }, []);
+
+  // Persist the lineup whenever it changes.
+  const persistQueue = useCallback((items: SavedScript[], index: number) => {
+    try {
+      if (items.length === 0) localStorage.removeItem(TELEPROMPTER_QUEUE_KEY);
+      else localStorage.setItem(TELEPROMPTER_QUEUE_KEY, JSON.stringify({ items, index }));
+    } catch {}
+  }, []);
+
+  // --- Lineup navigation ---
+  // Jump the prompter to a given script in the lineup. Resets scroll to the top
+  // and parks (doesn't auto-play) — recording is what starts the read. Declared
+  // up here because the recording-sync effect below references it.
+  const goToQueueIndex = useCallback((idx: number) => {
+    const items = queueRef.current;
+    if (idx < 0 || idx >= items.length) return;
+    queueIndexRef.current = idx;
+    setQueueIndex(idx);
+    persistQueue(items, idx);
+    const s = items[idx];
+    setScript(s.text);
+    setOpen(true);
+    setLastScriptId(s.id);
+    posRef.current = 0;
+    if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
+    setPlaying(false);
+    try {
+      localStorage.setItem(TELEPROMPTER_KEY, JSON.stringify({ script: s.text, ts: Date.now() }));
+      localStorage.setItem(TELEPROMPTER_LAST_KEY, JSON.stringify({ id: s.id, title: s.title }));
+    } catch {}
+  }, [persistQueue]);
+
+  const nextInQueue = useCallback(() => { goToQueueIndex(queueIndexRef.current + 1); }, [goToQueueIndex]);
+  const prevInQueue = useCallback(() => { goToQueueIndex(queueIndexRef.current - 1); }, [goToQueueIndex]);
 
   const setSpeed = useCallback((v: number) => {
     const next = Math.min(3, Math.max(0.5, Math.round(v * 10) / 10));
@@ -1562,8 +1636,15 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
       setPlaying(true);
     } else if (!recording && was) {
       setPlaying(false);
+      // "Flow": a finished take advances the lineup so the next script is
+      // already up when the creator hits record again. Flash a "Next up" cue.
+      if (queueRef.current.length > 1 && queueIndexRef.current < queueRef.current.length - 1) {
+        goToQueueIndex(queueIndexRef.current + 1);
+        setJustAdvanced(true);
+        setTimeout(() => setJustAdvanced(false), 4000);
+      }
     }
-  }, [recording, script, open]);
+  }, [recording, script, open, goToQueueIndex]);
 
   // Pause button on the recorder pauses the read too (and resume resumes) —
   // the whole point of pausing a take is to stop talking.
@@ -1585,6 +1666,69 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
     try { localStorage.setItem(TELEPROMPTER_KEY, JSON.stringify({ script: text, ts: Date.now() })); } catch {}
   }, []);
 
+  // --- Manual scroll ---
+  // The scroller is now overflow-y-auto so the creator can drag to any line.
+  // Auto-scroll writes posRef THEN el.scrollTop = posRef, so a programmatic
+  // scroll event lands with scrollTop ≈ posRef. A finger drag moves scrollTop
+  // away from posRef — that's the only case we capture, and we feed the new
+  // position back into posRef so auto-scroll resumes from where they parked it.
+  const onScrollerScroll = useCallback(() => {
+    const el = scrollerRef.current;
+    if (!el) return;
+    if (Math.abs(el.scrollTop - posRef.current) < 1.5) return;
+    posRef.current = el.scrollTop;
+  }, []);
+
+  // Tap toggles play/pause, but only a TAP — a press that travels (a scroll
+  // drag) is ignored so manual scrolling never accidentally starts/stops.
+  const onScrollerPointerDown = useCallback((e: React.PointerEvent) => {
+    const el = scrollerRef.current;
+    tapStartRef.current = { y: e.clientY, top: el ? el.scrollTop : 0, t: Date.now() };
+  }, []);
+  const onScrollerPointerUp = useCallback((e: React.PointerEvent) => {
+    const start = tapStartRef.current;
+    tapStartRef.current = null;
+    if (!start) return;
+    const el = scrollerRef.current;
+    const movedFinger = Math.abs(e.clientY - start.y) > 8;
+    const movedScroll = el ? Math.abs(el.scrollTop - start.top) > 2 : false;
+    const quick = Date.now() - start.t < 400;
+    if (!movedFinger && !movedScroll && quick) setPlaying(p => !p);
+  }, []);
+
+  // Start a whole lineup from the picker's multi-select. Loads the first script
+  // and stashes the rest so each finished take advances automatically.
+  const startLineup = useCallback((items: SavedScript[]) => {
+    if (items.length === 0) return;
+    setQueue(items);
+    queueRef.current = items;
+    queueIndexRef.current = 0;
+    setQueueIndex(0);
+    persistQueue(items, 0);
+    setPickIds([]);
+    setShowPicker(false);
+    const s = items[0];
+    setScript(s.text);
+    setOpen(true);
+    setShowPaste(false);
+    setLastScriptId(s.id);
+    posRef.current = 0;
+    if (scrollerRef.current) scrollerRef.current.scrollTop = 0;
+    setPlaying(false);
+    try {
+      localStorage.setItem(TELEPROMPTER_KEY, JSON.stringify({ script: s.text, ts: Date.now() }));
+      localStorage.setItem(TELEPROMPTER_LAST_KEY, JSON.stringify({ id: s.id, title: s.title }));
+    } catch {}
+  }, [persistQueue]);
+
+  const clearLineup = useCallback(() => {
+    setQueue([]);
+    queueRef.current = [];
+    queueIndexRef.current = 0;
+    setQueueIndex(0);
+    persistQueue([], 0);
+  }, [persistQueue]);
+
   const savePasted = useCallback(() => {
     const text = draft.trim();
     if (!text) return;
@@ -1602,6 +1746,28 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
     try { localStorage.setItem(TELEPROMPTER_LAST_KEY, JSON.stringify({ id: s.id, title: s.title })); } catch {}
     loadOntoPrompter(s.text);
   }, [loadOntoPrompter]);
+
+  // Toggle a script in the build-a-lineup selection (order = tap order).
+  const togglePick = useCallback((id: string) => {
+    setPickIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  }, []);
+
+  // Turn the current selection into action: 1 picked → load it solo (and clear
+  // any old lineup); 2+ → start the lineup in tap order.
+  const confirmPicks = useCallback(() => {
+    const chosen = pickIds
+      .map(id => savedScripts.find(s => s.id === id))
+      .filter((s): s is SavedScript => !!s);
+    if (chosen.length === 0) return;
+    if (chosen.length === 1) {
+      clearLineup();
+      loadSavedScript(chosen[0]);
+      setShowPicker(false);
+      setPickIds([]);
+      return;
+    }
+    startLineup(chosen);
+  }, [pickIds, savedScripts, clearLineup, loadSavedScript, startLineup]);
 
   // Fetch the user's saved scripts. 401 → 'auth' (paste-only + sign-in nudge);
   // any other failure → 'error' (paste fallback). Re-runnable so the picker's
@@ -1650,12 +1816,44 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
         // part of the gradient never eats pinch-zoom/double-tap gestures;
         // only the scroller + control row re-enable pointer events.
         <div className="absolute top-0 inset-x-0 z-[15] h-[40%] flex flex-col pointer-events-none bg-gradient-to-b from-black/85 via-black/55 to-transparent">
+          {/* Lineup header — only when 2+ scripts are queued. Shows position,
+              the title, and prev/next so the creator can move through the
+              "flow" by hand as well as on auto-advance. */}
+          {queue.length > 1 && (
+            <div
+              className="pointer-events-auto px-3 flex items-center justify-center gap-2"
+              style={{ marginTop: belowTopBar }}
+            >
+              <button
+                onClick={prevInQueue}
+                disabled={queueIndex === 0}
+                aria-label="Previous script"
+                className="p-1.5 rounded-full bg-black/40 backdrop-blur border border-white/10 disabled:opacity-30"
+              >
+                <ChevronUp className="w-3.5 h-3.5 -rotate-90" />
+              </button>
+              <div className={`px-3 py-1 rounded-full backdrop-blur border text-[11px] font-semibold flex items-center gap-1.5 max-w-[60%] ${justAdvanced ? 'bg-teal-500 text-black border-teal-300 animate-pulse' : 'bg-black/50 text-white border-white/10'}`}>
+                <span className="tabular-nums shrink-0">{justAdvanced ? 'Next up' : `${queueIndex + 1}/${queue.length}`}</span>
+                <span className="truncate opacity-90">{queue[queueIndex]?.title}</span>
+              </div>
+              <button
+                onClick={nextInQueue}
+                disabled={queueIndex >= queue.length - 1}
+                aria-label="Next script"
+                className="p-1.5 rounded-full bg-black/40 backdrop-blur border border-white/10 disabled:opacity-30"
+              >
+                <ChevronDown className="w-3.5 h-3.5 -rotate-90" />
+              </button>
+            </div>
+          )}
           <div
             ref={scrollerRef}
-            onClick={() => setPlaying(p => !p)}
-            className="flex-1 overflow-hidden px-6 pointer-events-auto cursor-pointer select-none"
-            style={{ marginTop: belowTopBar }}
-            aria-label={playing ? 'Teleprompter scrolling — tap to pause' : 'Teleprompter paused — tap to scroll'}
+            onScroll={onScrollerScroll}
+            onPointerDown={onScrollerPointerDown}
+            onPointerUp={onScrollerPointerUp}
+            className="flex-1 overflow-y-auto px-6 pointer-events-auto cursor-pointer select-none [scrollbar-width:none] [&::-webkit-scrollbar]:hidden overscroll-contain"
+            style={{ marginTop: queue.length > 1 ? '8px' : belowTopBar, touchAction: 'pan-y' }}
+            aria-label={playing ? 'Teleprompter scrolling — tap to pause, drag to scroll' : 'Teleprompter paused — tap to play, drag to scroll'}
           >
             <div
               className="text-white/95 font-semibold text-center whitespace-pre-wrap mx-auto max-w-md"
@@ -1668,7 +1866,7 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
             <div className="h-40" />
             {!playing && (
               <div className="sticky bottom-1 text-center text-[10px] text-zinc-300/80 pointer-events-none">
-                tap text to {posRef.current > 0 ? 'resume' : 'start'} · auto-starts with recording
+                tap to play · drag to scroll · auto-starts recording
               </div>
             )}
           </div>
@@ -1683,7 +1881,9 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
             >
               {playing ? <Pause className="w-4 h-4 fill-current" /> : <Play className="w-4 h-4 fill-current" />}
             </button>
-            <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-black/40 backdrop-blur border border-white/10">
+            {/* Speed — badge turns teal when off the 1.0x default so a custom
+                setting is obvious at a glance. */}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full backdrop-blur border ${speed !== 1 ? 'bg-teal-500/20 border-teal-400/60' : 'bg-black/40 border-white/10'}`}>
               <input
                 type="range"
                 min={0.5}
@@ -1694,12 +1894,27 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
                 aria-label="Teleprompter speed"
                 className="w-24 accent-teal-400"
               />
-              <span className="text-[10px] font-semibold tabular-nums w-7 text-right">{speed.toFixed(1)}x</span>
+              <span className={`text-[10px] font-semibold tabular-nums w-7 text-right ${speed !== 1 ? 'text-teal-200' : ''}`}>{speed.toFixed(1)}x</span>
             </div>
-            <div className="flex items-center rounded-full bg-black/40 backdrop-blur border border-white/10">
+            {/* Text size — shows the actual px value between the A buttons, and
+                tints teal when it's off the 22px default. */}
+            <div className={`flex items-center rounded-full backdrop-blur border ${fontSize !== 22 ? 'bg-teal-500/20 border-teal-400/60' : 'bg-black/40 border-white/10'}`}>
               <button onClick={() => setFontSize(-2)} aria-label="Smaller text" className="px-2 py-1.5 text-xs font-bold text-white/90 hover:bg-white/10 rounded-l-full">A−</button>
+              <span className={`text-[10px] font-semibold tabular-nums w-6 text-center ${fontSize !== 22 ? 'text-teal-200' : 'text-white/70'}`}>{fontSize}</span>
               <button onClick={() => setFontSize(2)} aria-label="Bigger text" className="px-2 py-1.5 text-sm font-bold text-white/90 hover:bg-white/10 rounded-r-full">A+</button>
             </div>
+            {/* Reset appears only when something is customized — so the creator
+                can both SEE a custom setting and clear it in one tap. */}
+            {(speed !== 1 || fontSize !== 22) && (
+              <button
+                onClick={() => { setSpeed(1); setFontSize(22 - fontSizeRef.current); }}
+                aria-label="Reset speed and text size"
+                className="p-2 rounded-full bg-black/40 backdrop-blur border border-white/10 text-white/80 hover:bg-white/10"
+                title="Reset speed + size"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               onClick={openPicker}
               aria-label="Load a saved script"
@@ -1771,35 +1986,60 @@ function TeleprompterOverlay({ recording, paused }: { recording: boolean; paused
               </div>
             )}
 
-            {/* Ready + list — newest first, tap to load. The currently-loaded
-                script is marked so the user can tell what's already up. */}
+            {/* Ready + list — tap to add to a lineup (order number shows the
+                sequence). One pick loads solo; multiple becomes a flow that
+                auto-advances after each take. The currently-loaded script is
+                marked so the user can tell what's already up. */}
             {fetchState === 'ready' && savedScripts.length > 0 && (
-              <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-1.5">
-                {savedScripts.map((s) => {
-                  const current = s.id === lastScriptId;
-                  // First-line preview keeps the row short for long scripts.
-                  const preview = s.text.split('\n')[0].slice(0, 80);
-                  return (
-                    <button
-                      key={s.id}
-                      onClick={() => loadSavedScript(s)}
-                      className={`w-full text-left px-3 py-2.5 rounded-xl border transition-colors ${current ? 'bg-teal-500/15 border-teal-400/50' : 'bg-zinc-900 border-white/10 hover:bg-zinc-800'}`}
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className="text-sm font-medium truncate flex-1">{s.title}</div>
-                        {current && <Check className="w-3.5 h-3.5 text-teal-300 shrink-0" />}
-                      </div>
-                      {preview && <div className="text-[11px] text-zinc-400 truncate mt-0.5">{preview}</div>}
-                    </button>
-                  );
-                })}
-              </div>
+              <>
+                <div className="text-[11px] text-zinc-400 mb-2">
+                  Tap to build a lineup — record one, the next loads automatically.
+                </div>
+                <div className="flex-1 overflow-y-auto -mx-1 px-1 space-y-1.5">
+                  {savedScripts.map((s) => {
+                    const order = pickIds.indexOf(s.id); // -1 if not picked
+                    const picked = order >= 0;
+                    const current = !picked && s.id === lastScriptId;
+                    // First-line preview keeps the row short for long scripts.
+                    const preview = s.text.split('\n')[0].slice(0, 80);
+                    return (
+                      <button
+                        key={s.id}
+                        onClick={() => togglePick(s.id)}
+                        className={`w-full text-left px-3 py-2.5 rounded-xl border transition-colors flex items-center gap-2.5 ${picked ? 'bg-teal-500/15 border-teal-400/60' : current ? 'bg-teal-500/10 border-teal-400/40' : 'bg-zinc-900 border-white/10 hover:bg-zinc-800'}`}
+                      >
+                        <div className={`w-6 h-6 shrink-0 rounded-full flex items-center justify-center text-[11px] font-bold border ${picked ? 'bg-teal-400 text-black border-teal-300' : 'border-white/20 text-white/40'}`}>
+                          {picked ? order + 1 : ''}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2">
+                            <div className="text-sm font-medium truncate flex-1">{s.title}</div>
+                            {current && <span className="text-[10px] text-teal-300 shrink-0">on prompter</span>}
+                          </div>
+                          {preview && <div className="text-[11px] text-zinc-400 truncate mt-0.5">{preview}</div>}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {/* Primary action — load the pick(s). Label adapts to count. */}
+            {pickIds.length > 0 && (
+              <button
+                onClick={confirmPicks}
+                className="mt-3 w-full py-3 rounded-xl bg-teal-500 hover:bg-teal-600 font-semibold flex items-center justify-center gap-2"
+              >
+                <Play className="w-4 h-4 fill-current" />
+                {pickIds.length === 1 ? 'Load script' : `Start lineup (${pickIds.length})`}
+              </button>
             )}
 
             {/* Secondary path — paste your own, always available. */}
             <button
               onClick={() => { setShowPicker(false); setDraft(script || ''); setShowPaste(true); }}
-              className="mt-3 w-full py-2.5 rounded-xl border border-white/10 bg-black/40 hover:bg-white/5 text-sm font-medium flex items-center justify-center gap-2"
+              className="mt-2 w-full py-2.5 rounded-xl border border-white/10 bg-black/40 hover:bg-white/5 text-sm font-medium flex items-center justify-center gap-2"
             >
               <PenLine className="w-4 h-4" /> or paste your own
             </button>

@@ -62,9 +62,23 @@ export const AR_EFFECTS: ArEffect[] = [
 export const AR_EFFECT_BY_ID: Record<string, ArEffect> =
   Object.fromEntries(AR_EFFECTS.map(e => [e.id, e]));
 
+// DeepAR WEB license key for the flashflowai.com domain. DeepAR web keys are
+// domain-LOCKED and ship in client JS by design (not a secret), so embedding it
+// is safe and avoids depending on a build-time env var being set to the exact
+// right value (a mismatched env-var key was the "license not valid" bug on
+// 2026-06-14). The env var, if set, still overrides — but the hardcoded key is
+// the source of truth. Rotate in the DeepAR console + update here when needed.
+const DEEPAR_WEB_KEY = 'e112b3a593fea41bae429217d8bc9120caf30a96f4141bda1a38bd82f6249f2b995f724fdf577d67';
+
+/** The active web license key — hardcoded flashflowai.com key wins; env var is
+ *  an optional override for other domains/deployments. */
+export function deeparWebKey(): string {
+  return DEEPAR_WEB_KEY || (process.env.NEXT_PUBLIC_DEEPAR_WEB_KEY ?? '');
+}
+
 /** Is the AR feature even available? No license key → hide the whole row. */
 export function arEnabled(): boolean {
-  return !!process.env.NEXT_PUBLIC_DEEPAR_WEB_KEY;
+  return !!deeparWebKey();
 }
 
 const SLOT = 'studio';
@@ -93,8 +107,8 @@ export class ArController {
     if (this.deepar) { this.setVideo(video); return; }
     if (this.initializing) { await this.initializing; this.setVideo(video); return; }
 
-    const licenseKey = process.env.NEXT_PUBLIC_DEEPAR_WEB_KEY;
-    if (!licenseKey) throw new Error('NEXT_PUBLIC_DEEPAR_WEB_KEY missing');
+    const licenseKey = deeparWebKey();
+    if (!licenseKey) throw new Error('DeepAR web license key missing');
 
     this.initializing = (async () => {
       // Dynamic import — THIS is the line that pulls the heavy WASM, and only

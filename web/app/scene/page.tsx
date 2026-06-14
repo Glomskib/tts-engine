@@ -18,7 +18,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Loader2, Film, Sparkles, AlertTriangle, ArrowLeft } from 'lucide-react';
 
-type Phase = 'idle' | 'queuing' | 'rendering' | 'done' | 'error';
+type Phase = 'idle' | 'enhancing' | 'queuing' | 'rendering' | 'done' | 'error';
 
 const MODELS = [
   { value: 'gen4.5', label: 'Runway Gen-4.5 (best motion)' },
@@ -37,6 +37,8 @@ export default function ScenePage() {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [progress, setProgress] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [autoEnhance, setAutoEnhance] = useState(true);
+  const [enhanced, setEnhanced] = useState<string | null>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const stopPoll = useCallback(() => {
@@ -46,18 +48,39 @@ export default function ScenePage() {
 
   const generate = useCallback(async () => {
     setError(null);
-    if (!prompt.trim()) { setError('Describe the scene you want the avatar to act out.'); return; }
+    if (!prompt.trim()) { setError('Describe the scene you want generated.'); return; }
     if (!imageUrl.trim()) { setError('A reference image URL is required — Runway needs it to generate a clean scene.'); return; }
-    setPhase('queuing');
     setVideoUrl(null);
     setProgress(null);
+    setEnhanced(null);
+
+    // Step 1 — turn the casual idea into a cinematic, photoreal prompt. This is
+    // the single biggest lever on how real the result looks. Best-effort: if it
+    // fails, fall back to the raw prompt rather than blocking the render.
+    let finalPrompt = prompt.trim();
+    if (autoEnhance) {
+      setPhase('enhancing');
+      try {
+        const er = await fetch('/api/scene/enhance', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ prompt: prompt.trim() }),
+        });
+        const ej = await er.json().catch(() => ({}));
+        if (er.ok && ej.ok && ej.enhanced) { finalPrompt = String(ej.enhanced); setEnhanced(finalPrompt); }
+      } catch { /* fall back to raw prompt */ }
+    }
+
+    // Step 2 — render the scene.
+    setPhase('queuing');
     try {
       const r = await fetch('/api/render/runway', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          promptText: prompt.trim(),
+          promptText: finalPrompt,
           promptImageUrl: imageUrl.trim(),
           model,
           duration,
@@ -74,7 +97,7 @@ export default function ScenePage() {
       setPhase('error');
       setError(e instanceof Error ? e.message : 'Could not start the scene render.');
     }
-  }, [prompt, imageUrl, model, duration]);
+  }, [prompt, imageUrl, model, duration, autoEnhance]);
 
   // Poll for the finished scene.
   useEffect(() => {
@@ -98,7 +121,7 @@ export default function ScenePage() {
     return () => stopPoll();
   }, [phase, taskId, stopPoll]);
 
-  const busy = phase === 'queuing' || phase === 'rendering';
+  const busy = phase === 'enhancing' || phase === 'queuing' || phase === 'rendering';
 
   return (
     <div className="min-h-screen bg-zinc-950 text-white">
@@ -153,6 +176,11 @@ export default function ScenePage() {
           </div>
         </div>
 
+        <label className="flex items-center gap-2 mt-3 text-xs text-zinc-300 cursor-pointer select-none">
+          <input type="checkbox" checked={autoEnhance} onChange={(e) => setAutoEnhance(e.target.checked)} className="accent-teal-400 w-4 h-4" />
+          <span><span className="font-semibold text-teal-300">Cinematic mode</span> — auto-upgrade my prompt for photoreal results <span className="text-zinc-500">(strongly recommended)</span></span>
+        </label>
+
         {error && (
           <div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-100 flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0 text-amber-300" /> {error}
@@ -165,10 +193,18 @@ export default function ScenePage() {
           className="mt-4 w-full py-3 rounded-xl bg-teal-500 hover:bg-teal-600 disabled:opacity-60 font-semibold flex items-center justify-center gap-2"
         >
           {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-          {phase === 'queuing' ? 'Sending to Runway…'
+          {phase === 'enhancing' ? 'Making it cinematic…'
+            : phase === 'queuing' ? 'Sending to Runway…'
             : phase === 'rendering' ? `Rendering the scene${progress != null ? ` ${progress}%` : '…'}`
             : 'Generate the scene'}
         </button>
+
+        {enhanced && (
+          <div className="mt-3 rounded-lg border border-teal-400/30 bg-teal-500/5 p-3">
+            <div className="text-[11px] font-semibold text-teal-300 mb-1">Cinematic prompt sent to the model:</div>
+            <div className="text-xs text-zinc-300 leading-relaxed">{enhanced}</div>
+          </div>
+        )}
 
         {phase === 'rendering' && (
           <p className="text-[11px] text-zinc-500 mt-2 text-center">Scene generation takes ~1–3 minutes. Keep this tab open.</p>

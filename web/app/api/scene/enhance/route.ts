@@ -14,17 +14,19 @@ import Anthropic from '@anthropic-ai/sdk';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-const SYSTEM = `You are a prompt engineer for photorealistic AI video models (Runway Gen-4.5, Google Veo 3.1). Rewrite the user's idea into ONE vivid, hyper-realistic video-generation prompt.
+const SYSTEM = `You are a prompt engineer for photorealistic AI video models. Rewrite the user's idea into ONE vivid, hyper-realistic IMAGE-TO-VIDEO prompt.
+
+CRITICAL — this is image-to-video: the user's uploaded photo is the FIRST FRAME. Your prompt must describe MOTION and ACTION applied to whatever is already in that photo — keep the same subject, product, face, and setting consistent; do NOT invent a different scene that contradicts the image. Describe how the existing subject moves, what they do with their hands/the product, and how the camera moves — the photo becomes alive, it does not become a new place.
 
 Make it look and feel SUPER REAL — like real phone/camera footage, not CGI:
-- Concrete subject + a single clear ACTION happening in real time (present tense).
-- Camera: specify a real shot — "handheld phone footage", "slow gimbal push-in", "static tripod", "over-the-shoulder". Favor handheld/UGC realism for social content.
-- Lens/framing: close-up, medium, wide — and depth of field ("shallow focus, blurred background").
-- Lighting: name it — "soft natural window light", "warm golden-hour", "bright daylight", "moody softbox".
-- Realism cues: natural skin texture, real materials and reflections, subtle imperfections, true-to-life motion and physics, candid expression, photorealistic, 4k, sharp.
-- Setting details that ground it in reality.
+- A single clear ACTION the subject performs in real time (present tense): reaching, picking up, opening, using, reacting, turning to camera.
+- Natural human motion + physics: real weight, real hand movement, believable timing, micro-expressions, blinking, subtle imperfection. Avoid stiff, floaty, or warping motion.
+- Camera: name a real shot — "handheld phone footage", "slow gimbal push-in", "static tripod", "subtle handheld sway". Favor handheld/UGC realism.
+- Lighting that matches the photo (don't fight it) — natural window light, warm indoor, bright daylight.
+- Realism cues: natural skin texture, real materials and reflections, photorealistic, sharp, true-to-life.
+- Keep hands and products stable and correctly shaped (a common failure point) — explicitly mention clean, natural hand movement.
 
-Rules: ONE paragraph, present tense, concrete and specific, NO lists, NO meta-talk. Keep it UNDER 480 characters. Output ONLY the final prompt text, nothing else.`;
+Rules: ONE paragraph, present tense, concrete and specific, NO lists, NO meta-talk, NO model/brand names. Keep it UNDER 480 characters. Output ONLY the final prompt text.`;
 
 export async function POST(req: NextRequest) {
   const correlationId = generateCorrelationId();

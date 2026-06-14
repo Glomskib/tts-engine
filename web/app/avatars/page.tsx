@@ -64,7 +64,18 @@ export default function AvatarsPage() {
         setFetchError(msg);
         return;
       }
-      const j = await r.json() as { avatars?: Avatar[]; ok?: boolean; error?: string };
+      // Read as TEXT then parse, so a malformed body is captured + shown
+      // instead of throwing an opaque "non-whitespace after JSON" error we
+      // can't reproduce server-side (diagnostic 2026-06-14).
+      const rawText = await r.text();
+      let j: { avatars?: Avatar[]; ok?: boolean; error?: string };
+      try {
+        j = JSON.parse(rawText);
+      } catch {
+        console.error('[avatars] /api/avatars non-JSON body', { len: rawText.length, head: rawText.slice(0, 300), tail: rawText.slice(-160) });
+        setFetchError(`The avatar list came back as invalid data (${rawText.length} chars). Start: «${rawText.slice(0, 140)}» End: «${rawText.slice(-80)}»`);
+        return;
+      }
       if (j.error) {
         setFetchError(j.error);
         return;

@@ -20,10 +20,12 @@ import { Loader2, Film, Sparkles, AlertTriangle, ArrowLeft, Image as ImageIcon }
 
 type Phase = 'idle' | 'enhancing' | 'queuing' | 'rendering' | 'done' | 'error';
 
+// White-labeled quality tiers — we never expose the underlying providers
+// (that's our secret sauce). Values still map to the real models server-side.
 const MODELS = [
-  { value: 'gen4.5', label: 'Runway Gen-4.5 (best motion)' },
-  { value: 'veo3.1', label: 'Google Veo 3.1 (4K + audio)' },
-  { value: 'veo3.1_fast', label: 'Veo 3.1 Fast (cheaper)' },
+  { value: 'gen4.5', label: 'Standard — best motion' },
+  { value: 'veo3.1', label: 'Cinematic 4K — highest quality' },
+  { value: 'veo3.1_fast', label: 'Quick — faster + cheaper' },
 ];
 
 export default function ScenePage() {
@@ -160,8 +162,8 @@ export default function ScenePage() {
           <h1 className="text-2xl font-bold">Scene Generator</h1>
         </div>
         <p className="text-sm text-zinc-400 mb-5">
-          Describe a moment and it gets <span className="text-teal-300">acted out</span> as real video —
-          powered by Runway / Veo. Not a talking head: an actual scene with motion.
+          Describe a moment and FlashFlow <span className="text-teal-300">acts it out</span> as real video —
+          an actual scene with motion, not a talking head.
         </p>
 
         <label className="block text-xs font-semibold text-zinc-300 mb-1">What happens in the scene?</label>

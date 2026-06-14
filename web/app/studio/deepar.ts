@@ -49,14 +49,15 @@ export interface ArEffect {
  * 'beauty' (MakeupLook) is first after None — it's the tasteful skin/makeup
  * look most creators want; the rest are fun "looks".
  */
+// TikTok-creator-friendly set only. The gimmick demo effects (viking helmet,
+// devil horns, galaxy, hearts, split-view) were DeepAR's free SAMPLES used to
+// prove the integration — they're not what a creator filming a product ad
+// wants, so they're pulled from the picker. To add a filter: drop its
+// .deepar file in web/public/deepar/effects and add a row here. Keep it to
+// flattering, subtle looks (skin smoothing / soft glam / clean).
 export const AR_EFFECTS: ArEffect[] = [
-  { id: 'none',    label: 'None',   hint: 'No AR filter',                file: '' },
-  { id: 'beauty',  label: 'Beauty', hint: 'Smooth skin + soft makeup',   file: '/deepar/effects/MakeupLook.deepar' },
-  { id: 'split',   label: 'Glow',   hint: 'Split-view beauty look',      file: '/deepar/effects/Split_View_Look.deepar' },
-  { id: 'galaxy',  label: 'Galaxy', hint: 'Galaxy background',           file: '/deepar/effects/galaxy_background_web.deepar' },
-  { id: 'hearts',  label: 'Hearts', hint: 'Pixel hearts',                file: '/deepar/effects/Pixel_Hearts.deepar' },
-  { id: 'devil',   label: 'Devil',  hint: 'Neon devil horns',            file: '/deepar/effects/Neon_Devil_Horns.deepar' },
-  { id: 'viking',  label: 'Viking', hint: 'Viking helmet',               file: '/deepar/effects/viking_helmet.deepar' },
+  { id: 'none',   label: 'None',   hint: 'No filter',                 file: '' },
+  { id: 'beauty', label: 'Beauty', hint: 'Smooth skin + soft glam',   file: '/deepar/effects/MakeupLook.deepar' },
 ];
 
 export const AR_EFFECT_BY_ID: Record<string, ArEffect> =

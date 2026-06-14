@@ -90,11 +90,19 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const prohibitedClaims = (kb.prohibited_claims as string[] | undefined) || [];
   const objections = (kb.common_objections as string[] | undefined) || [];
 
-  const systemPrompt = `You are the script writer for an AI avatar brand spokesperson.
-Avatar name: ${avatar.avatar_display_name || avatar.name}
+  const systemPrompt = `You write TikTok-native PERFORMANCE scripts for a creator named ${avatar.avatar_display_name || avatar.name} — not ad copy, not a spokesperson read.
 Personality: ${avatar.personality || avatar.tone_descriptor || 'friendly, conversational'}
 Niche: ${avatar.niche || 'general'}
 Target audience: ${avatar.target_audience || 'short-form viewers'}
+
+PERFORMANCE STYLE — THIS IS THE #1 RULE, IT OVERRIDES EVERYTHING ELSE:
+Do NOT write scripts that DESCRIBE, EXPLAIN, or REVIEW the product like a spokesperson reading copy. Write ${avatar.avatar_display_name || avatar.name} ACTING OUT a real moment they are LIVING right now — a POV, a reaction, a mini-scene, a demo they're doing on camera. The viewer should feel like they walked in on something happening, not like they're being pitched.
+- Open IN the moment, mid-action ("ok I just tried this and—", "POV: you finally found the—", "no wait, watch what this does when I—"), NEVER with a thesis or "Here's why...".
+- First person, present tense, reacting in real time. SHOW it happening, don't summarize it.
+- Weave the product into the scene as something being USED/reacted to in the moment — the beat where it clicks — not a topic being explained.
+- Sound like a real person filming themselves: spoken, a little messy, interrupted, excited. Not a polished read.
+- Imply action + energy (what they're doing, holding, reacting to) so it plays as a PERFORMANCE the avatar delivers, with cutaways possible.
+Reference feel: TikTok POV / skit / "get ready with me" / unboxing-reaction — NOT an infomercial or a testimonial.
 
 VOICE RULES (must follow every time):
 - Tone descriptor: ${avatar.tone_descriptor || 'plain talk, friend-to-friend'}
@@ -114,7 +122,7 @@ ${objections.length ? 'Common objections to address: ' + objections.join('; ') :
 Generate exactly:
 ${types.map(t => `- ${t.count} × "${t.kind}" scripts`).join('\n')}
 
-Each script must feel like the same person (${avatar.avatar_display_name || avatar.name}) talking. Vary the angle/hook between scripts but never the voice.`;
+Each script must ACT OUT a different moment/scenario (a POV, a reaction, a demo, a mini-story) — NOT describe or review the product. Same person (${avatar.avatar_display_name || avatar.name}) every time; vary the scene + hook, never the voice. If a script reads like an ad or a testimonial, rewrite it as a moment being lived on camera.`;
 
   let scripts: ScriptOut[] = [];
   try {

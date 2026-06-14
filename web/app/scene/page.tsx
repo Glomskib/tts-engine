@@ -16,7 +16,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Loader2, Film, Sparkles, AlertTriangle, ArrowLeft } from 'lucide-react';
+import { Loader2, Film, Sparkles, AlertTriangle, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 
 type Phase = 'idle' | 'enhancing' | 'queuing' | 'rendering' | 'done' | 'error';
 
@@ -39,7 +39,32 @@ export default function ScenePage() {
   const [error, setError] = useState<string | null>(null);
   const [autoEnhance, setAutoEnhance] = useState(true);
   const [enhanced, setEnhanced] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [showUrl, setShowUrl] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Tap-to-upload a photo → returns a public URL Runway can read. Kills the
+  // "paste an image URL" friction (the #1 thing making this NOT a no-brainer).
+  const onPickFile = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append('file', file);
+      const r = await fetch('/api/avatars/upload-temp', { method: 'POST', credentials: 'include', body: fd });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok || !j.public_url) throw new Error(j.error || `Upload failed (${r.status})`);
+      setImageUrl(String(j.public_url));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Photo upload failed — try a different image.');
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }, []);
 
   const stopPoll = useCallback(() => {
     if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
@@ -149,14 +174,38 @@ export default function ScenePage() {
           className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-white/10 text-sm focus:border-teal-500 outline-none resize-none disabled:opacity-50"
         />
 
-        <label className="block text-xs font-semibold text-zinc-300 mb-1 mt-3">Reference image URL <span className="text-zinc-500">(required — the product/person in the scene)</span></label>
-        <input
-          value={imageUrl}
-          onChange={(e) => setImageUrl(e.target.value)}
-          placeholder="https://… a product or reference photo"
-          disabled={busy}
-          className="w-full px-3 py-2 rounded-lg bg-zinc-900 border border-white/10 text-sm focus:border-teal-500 outline-none disabled:opacity-50"
-        />
+        <label className="block text-xs font-semibold text-zinc-300 mb-1 mt-3">Add a photo <span className="text-zinc-500">(the product or person in the scene)</span></label>
+        {imageUrl ? (
+          <div className="flex items-center gap-3 p-2 rounded-lg bg-zinc-900 border border-white/10">
+            <img src={imageUrl} alt="" className="w-14 h-14 rounded object-cover bg-zinc-800" />
+            <div className="flex-1 text-xs text-emerald-300 truncate">Photo added ✓</div>
+            <button onClick={() => setImageUrl('')} disabled={busy} className="text-xs text-zinc-400 hover:text-white px-2 py-1">Change</button>
+          </div>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={busy || uploading}
+              className="w-full py-4 rounded-lg border-2 border-dashed border-white/15 bg-zinc-900/50 hover:border-teal-500/50 text-sm text-zinc-300 flex items-center justify-center gap-2 disabled:opacity-50"
+            >
+              {uploading ? <><Loader2 className="w-4 h-4 animate-spin" /> Uploading…</> : <><ImageIcon className="w-4 h-4 text-teal-300" /> Tap to upload a photo</>}
+            </button>
+            <button type="button" onClick={() => setShowUrl((s) => !s)} className="mt-1 text-[11px] text-zinc-500 hover:text-zinc-300 underline">
+              or paste an image URL
+            </button>
+            {showUrl && (
+              <input
+                value={imageUrl}
+                onChange={(e) => setImageUrl(e.target.value)}
+                placeholder="https://…"
+                disabled={busy}
+                className="w-full mt-1 px-3 py-2 rounded-lg bg-zinc-900 border border-white/10 text-sm focus:border-teal-500 outline-none disabled:opacity-50"
+              />
+            )}
+          </>
+        )}
+        <input ref={fileRef} type="file" accept="image/*" onChange={onPickFile} className="hidden" />
 
         <div className="grid grid-cols-2 gap-2 mt-3">
           <div>
